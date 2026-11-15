@@ -4,7 +4,8 @@
 #
 # Mesma forma de uma VPN legada típica: IKEv1 agressivo, PSK de grupo (keyid)
 # + XAuth, modp1024/modp768, split tunnel. Credenciais FALSAS.
-# @GATEWAY@, @IFACE@ e @IF_ID@ são substituídos pelo e2e.sh.
+# @GATEWAY@, @IFACE@, @IF_ID@, @REMOTE_TS@ e @UPDOWN_EXTRA@ são substituídos
+# pelo e2e.sh.
 
 connections {
     teste {
@@ -31,7 +32,7 @@ connections {
 
         children {
             rede-teste {
-                remote_ts = 192.0.2.0/24
+                remote_ts = @REMOTE_TS@
                 esp_proposals = aes256-sha1-modp1024,aes256-sha1-modp768,aes128-sha1-modp1024
                 rekey_time = 43200s
                 start_action = none
@@ -39,7 +40,7 @@ connections {
                 close_action = start
                 if_id_in = @IF_ID@
                 if_id_out = @IF_ID@
-                updown = /usr/local/libexec/ipsec-client/updown --iface '@IFACE@' --dns '192.0.2.54' --domain '~ipsec-client.test' --use-received-dns
+                updown = /usr/local/libexec/ipsec-client/updown --iface '@IFACE@'@UPDOWN_EXTRA@
             }
         }
     }

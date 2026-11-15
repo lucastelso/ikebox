@@ -24,4 +24,5 @@ commits.
   restrito ao usuário e limpeza no SIGTERM, updown com rotas `proto 241` e DNS
   split via resolvectl.
 - Teste ponta a ponta do engine (`npm run test:engine`) contra um gateway
-  IPsec local (IKEv1 agressivo + PSK + XAuth), também na CI.
+  IPsec local (IKEv1 agressivo + PSK + XAuth), também na CI. Três cenários:
+  ciclo normal, recuperação após SIGKILL e túnel completo em rede isolada.
