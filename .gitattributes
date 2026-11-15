@@ -1,0 +1,10 @@
+# Normaliza finais de linha: scripts executados dentro do container Linux
+# quebram com CRLF.
+* text=auto eol=lf
+*.sh text eol=lf
+engine/** text eol=lf
+
+*.png binary
+*.ico binary
+*.icns binary
+*.svg text

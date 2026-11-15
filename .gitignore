@@ -1,0 +1,42 @@
+# ---------------------------------------------------------------------------
+# Dados locais e privados — NUNCA versionar
+# ---------------------------------------------------------------------------
+# Perfis com dados reais da sua organização (gateway, grupo, DNS interno...).
+/presets.local/
+*.local.json
+# Variáveis de ambiente e segredos
+.env
+.env.*
+!.env.example
+*.pem
+*.key
+*.p12
+*.pfx
+
+# ---------------------------------------------------------------------------
+# Build
+# ---------------------------------------------------------------------------
+/target/
+/src-tauri/target/
+/src-tauri/gen/schemas/
+node_modules/
+/dist/
+/coverage/
+*.tsbuildinfo
+
+# ---------------------------------------------------------------------------
+# Editores e sistema
+# ---------------------------------------------------------------------------
+.vscode/*
+!.vscode/extensions.json
+!.vscode/settings.json
+!.vscode/launch.json
+.idea/
+*.swp
+*~
+.DS_Store
+.claude/settings.local.json
+
+# Logs e artefatos de teste
+*.log
+/engine/tests/.artifacts/
