@@ -39,4 +39,4 @@ node_modules/
 
 # Logs e artefatos de teste
 *.log
-/engine/tests/.artifacts/
+__pycache__/

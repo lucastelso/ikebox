@@ -19,3 +19,9 @@ commits.
   commitlint (Conventional Commits em pt-BR), shellcheck (local ou via imagem
   Docker fixada) e `npm run check`.
 - CI no GitHub Actions (verificações + gitleaks) e dependabot.
+- Engine (`engine/`): imagem Ubuntu 20.04 fixada por digest + strongSwan
+  5.8.2-1ubuntu3.6, entrypoint com interface XFRM dedicada, socket VICI
+  restrito ao usuário e limpeza no SIGTERM, updown com rotas `proto 241` e DNS
+  split via resolvectl.
+- Teste ponta a ponta do engine (`npm run test:engine`) contra um gateway
+  IPsec local (IKEv1 agressivo + PSK + XAuth), também na CI.

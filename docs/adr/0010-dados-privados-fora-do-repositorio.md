@@ -44,7 +44,7 @@ Esses dados precisam ser informados pelo próprio usuário, no app.
 - Testes ponta a ponta com a VPN real acontecem só localmente, com o perfil em
   `presets.local/` ou no diretório de configuração do usuário.
 - O teste automatizado do engine usa um gateway IPsec local de mentira
-  (`engine/tests/`), que serve para qualquer pessoa e para a CI.
+  (`tests/engine/`), que serve para qualquer pessoa e para a CI.
 
 ## Alternativas consideradas
 

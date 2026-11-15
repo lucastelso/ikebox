@@ -19,7 +19,7 @@ nova traz primeiro o que é testável sem GUI:
 |---|---|---|---|---|
 | 0 | `main` | README, ADRs 0001–0010, roadmap, diário, guarda de dados privados | commit inicial | ✅ |
 | 1 | `chore/tooling` | `package.json` raiz, lefthook (pre-commit/commit-msg/pre-push), commitlint, shellcheck, `npm run check`, CI inicial | hooks ativos; `npm run check` verde | ✅ |
-| 2 | `feat/engine-imagem` | `engine/`: Dockerfile fixado, entrypoint, updown, config do strongSwan; teste E2E com gateway IPsec local | `npm run test:engine` verde: túnel sobe, `ipsc0` com MTU 1400, VIP, rotas, DNS, ping pelo túnel; teardown limpa tudo | 🚧 |
+| 2 | `feat/engine-imagem` | `engine/`: Dockerfile fixado, entrypoint, updown, config do strongSwan; teste E2E com gateway IPsec local | `npm run test:engine` verde: túnel sobe, `ipsc0` com MTU 1400, VIP, rotas, DNS, ping pelo túnel; teardown limpa tudo | ✅ |
 | 3 | `chore/scaffold-rust` | workspace Cargo, `rust-toolchain.toml`, `deny.toml`, crates `core` e `cli`, CI Rust | `cargo fmt/clippy/test/deny` verdes | ⏳ aguarda Rust |
 | 4 | `feat/engine-rust` | `core::engine`: contexto embutido com hash, build e ciclo do container via bollard | integração: sobe e derruba o engine pelo Rust | ⏳ |
 | 5 | `feat/vici` | cliente VICI atrás da trait `Charon` + tipos das mensagens | integração com charon real (`version`, `load-conn`/`list-conns`/`unload-conn`) | ⏳ |
@@ -41,5 +41,7 @@ nova traz primeiro o que é testável sem GUI:
 - Avaliar Podman.
 - Restringir as portas 500/4500 ao IP do gateway durante a sessão.
 - Internacionalização (en-US).
-- Limpeza automática de SAs e políticas órfãs (com o `if_id` da sessão) quando
-  o container morre de forma abrupta.
+- Remover também as *políticas* XFRM órfãs depois de um `SIGKILL` do engine. O
+  iproute2 5.5 do Ubuntu 20.04 não consegue; as opções são embutir um `ip`
+  moderno na imagem ou mandar o netlink direto. Hoje elas são inertes e somem
+  no reboot (ver arquitetura, "Contrato do engine").
