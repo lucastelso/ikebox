@@ -6,17 +6,20 @@
 
 ## Onde estamos
 
-- **Último branch integrado:** `feat/engine-rust`. O `core::engine` constrói a
-  imagem embutida e sobe e derruba o engine pela Docker API. Isso é coberto
-  por testes unitários e por `npm run test:docker`.
-- **Próximo branch:** `feat/vici`, o cliente do protocolo VICI no Rust:
-  - uma trait `Charon` mockável;
-  - os comandos `version`, `load-shared`, `load-conn`, `initiate`,
-    `terminate`, `list-sas` e `unload-conn`;
-  - os eventos `ike-updown`, `child-updown` e `log`.
+- **Último branch integrado:** `feat/vici`. O cliente VICI próprio (ADR-0011)
+  já estabelece um túnel completo contra o gateway de teste, com
+  `npm run test:docker`.
+- **Próximo branch:** `feat/perfis`:
+  - modelo de perfil em JSON com `schema_version`;
+  - validação;
+  - geração da mensagem `load-conn` e dos argumentos do `updown` (com aspas
+    simples e validados);
+  - presets genéricos em `presets/` e `presets.local/` (ignorado pelo git);
+  - import/export;
+  - snapshots com insta.
 
-  Decisão em aberto: usar o `rsvici` ou uma implementação própria (ADR-0003).
-  O protocolo é simples, e `tests/engine/vici_version.py` serve de referência.
+  O teste `crates/core/tests/vici_docker.rs` (`test_conn`) mostra a mensagem
+  `load-conn` que o perfil precisa gerar.
 - **Status por branch:** ver o [roadmap](roadmap.md).
 
 ## Preparar o ambiente (uma vez)

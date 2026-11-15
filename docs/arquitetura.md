@@ -112,6 +112,17 @@ da `ipsc0`.
 | `DockerEngine` | `connect` (só pelo socket Unix: o bollard é compilado sem HTTP/TCP), `ping`, `ensure_image` (progresso sem códigos ANSI), `start` (diretório de runtime 0700 do usuário, sem symlink; stop gracioso do anterior; prontidão), `stop` (idempotente), `is_running` |
 | `EngineError` | Mensagens em pt-BR para o usuário. `NotReady` leva as últimas linhas do log do entrypoint, que não contêm segredos |
 
+## Módulo `core::vici` (Rust, ADR-0011)
+
+| Item | O que faz |
+|---|---|
+| `Message`/`Value` | Mensagem VICI ordenada; `encode_into`/`decode`; valores sempre em buffers zerados no drop; `Debug` sem valores; profundidade máxima 32 |
+| `ViciClient` | Conexão de comandos: `request` e `streamed_request`, que assina o evento, coleta os itens e cancela a assinatura (usado por `list-sas` e `list-conns`) |
+| `ViciEvents` | Conexão só de eventos: `subscribe(["ike-updown", "child-updown", "log"])` + `next()` |
+| `Charon` (trait) | `version`, `load_shared`, `unload_shared`, `load_conn`, `unload_conn`, `list_conns`, `initiate`, `terminate`, `list_sas`; `success = no` vira `ViciError::CommandFailed` com o `errmsg` do charon |
+| `SharedSecret` | Segredo para o `load-shared` (`IKE`/`XAUTH`/`EAP`), com dados zerados e `Debug` sem dados nem donos |
+| `IkeSa`/`ChildSa`/`CharonEvent` | Respostas e eventos tipados, **sem identidades**. As linhas de log (`CharonEvent::Log`) podem conter o usuário XAuth, e quem exibe deve mascarar |
+
 ## Fluxo de conexão (`core::session`)
 
 1. **Preflight:**

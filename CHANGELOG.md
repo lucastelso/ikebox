@@ -33,3 +33,7 @@ commits.
   `EngineSpec` validada (privilégio mínimo), build e ciclo de vida do
   container via Docker API (só socket Unix), seguindo o contrato de prontidão.
   Testes unitários e de integração (`npm run test:docker`).
+- `core::vici`: cliente VICI próprio (ADR-0011), com mensagens zeradas no
+  drop, conexões de comandos e de eventos e a trait `Charon` tipada. Um teste
+  de integração estabelece um túnel IPsec completo contra o gateway de teste
+  só pelo Rust.

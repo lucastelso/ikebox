@@ -12,6 +12,7 @@
 //! - `diagnostics`: verificações do ambiente.
 
 pub mod engine;
+pub mod vici;
 
 /// Versão do núcleo (a mesma do workspace).
 pub const VERSION: &str = env!("CARGO_PKG_VERSION");
