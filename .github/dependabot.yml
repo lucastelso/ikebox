@@ -17,6 +17,16 @@ updates:
       ferramentas:
         patterns: ["*"]
 
+  - package-ecosystem: cargo
+    directory: /
+    schedule:
+      interval: weekly
+    commit-message:
+      prefix: chore
+    groups:
+      rust:
+        patterns: ["*"]
+
   # A base do engine é fixada de propósito no Ubuntu 20.04 (ADR-0001):
   # aceita só atualizações de digest da mesma tag.
   - package-ecosystem: docker

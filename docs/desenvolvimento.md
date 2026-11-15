@@ -222,3 +222,48 @@ para descartar flakiness.
 - Resultado: rotas `0.0.0.0/1` + `128.0.0.0/1` na interface XFRM, rota de host
   para o gateway pelo caminho original, ping sem loop. No `terminate`, o
   *down* remove tudo, e a rota padrão fica intacta.
+
+---
+
+## 2026-11-16: núcleo em Rust
+
+### Passo 6: pré-requisitos instalados pelo mantenedor
+
+- O mantenedor instalou o Rust (rustup, toolchain estável 1.100.0), as libs do
+  Tauri (webkit2gtk 4.1 etc.) e o shellcheck. O `npm run check` passou a usar o
+  shellcheck nativo, e o fallback via Docker continua disponível.
+- O mantenedor acrescentou ao `.git/info/private-patterns` o login XAuth e o IP
+  da máquina do trabalho acessada por RDP. O histórico inteiro foi revarrido
+  com os padrões novos, sem achados.
+- O repositório privado foi criado no GitHub, e `main` foi enviado.
+  Observação: os commits levam o e-mail pessoal do autor. Isso virou pendência
+  para decidir antes de tornar o repositório público (`docs/retomar.md`).
+
+### Passo 7: workspace Rust (`chore/scaffold-rust`)
+
+- `Cargo.toml` do workspace:
+  - edition 2024, resolver 3, `publish = false`;
+  - lints de workspace: `unsafe_code = forbid`, `unwrap_used`/`expect_used`/
+    `print_stdout` como aviso, e o clippy roda com `-D warnings`;
+  - profile de release com LTO thin e strip.
+- `rust-toolchain.toml` fixa o Rust em 1.100.0. Atualizar a versão exige um PR
+  próprio.
+- `deny.toml`:
+  - licenças permissivas na lista de permitidas;
+  - vulnerabilidades do RustSec e crates "yanked" negados;
+  - só o registry do crates.io é aceito como origem;
+  - os crates próprios ficam fora da checagem de licença enquanto ela não for
+    definida.
+- Crates:
+  - `ipsec-client-core`, por enquanto só o esqueleto e a lista de módulos
+    planejados;
+  - `ipsec-client-cli`, com clap e um teste que valida a definição da CLI.
+- `scripts/check-rust.sh` roda fmt → clippy → testes → cargo-deny e entrou no
+  `npm run check`. O pre-commit roda `cargo fmt --check` quando há `.rs`
+  staged.
+- CI: um job Rust próprio, com a toolchain lida do `rust-toolchain.toml`, o
+  cache `Swatinem/rust-cache` e a `cargo-deny-action`, todas fixadas por SHA.
+  O dependabot também passou a cobrir o cargo.
+- Novo `docs/retomar.md`: estado atual, próximo passo e como preparar o
+  ambiente. Ele é atualizado a cada merge, para que o trabalho possa ser
+  retomado de qualquer ponto.

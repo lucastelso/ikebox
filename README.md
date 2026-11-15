@@ -127,7 +127,8 @@ sudo apt install -y libwebkit2gtk-4.1-dev build-essential curl wget file \
 curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh
 ```
 
-Também é preciso Node.js ≥ 22 e Docker.
+Também é preciso Node.js ≥ 22, Docker e o cargo-deny
+(`cargo install --locked cargo-deny`).
 
 ### Comandos
 
@@ -160,8 +161,8 @@ engine/          imagem do engine: Dockerfile, entrypoint, updown, config do str
 tests/engine/    teste ponta a ponta do engine com gateway IPsec local
 scripts/         utilitários de desenvolvimento (guarda de dados privados, shellcheck)
 docs/            arquitetura, roadmap, diário de desenvolvimento, ADRs
-crates/core/     (em breve) perfis, segredos, engine, sessão, diagnóstico
-crates/cli/      (em breve) ipsec-client-cli
+crates/core/     núcleo em Rust: perfis, segredos, engine, sessão, diagnóstico (em construção)
+crates/cli/      ipsec-client-cli (em construção)
 src-tauri/ src/  (em breve) app desktop Tauri v2 + React
 presets/         (em breve) exemplos genéricos de perfis
 ```
@@ -177,6 +178,7 @@ Os detalhes estão em [CONTRIBUTING.md](CONTRIBUTING.md).
 
 ## Documentação
 
+- **[Estado atual e como retomar](docs/retomar.md)**
 - [Arquitetura](docs/arquitetura.md)
 - [Decisões de arquitetura (ADRs)](docs/adr/README.md)
 - [Roadmap](docs/roadmap.md)
