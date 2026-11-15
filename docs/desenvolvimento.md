@@ -202,3 +202,23 @@ para descartar flakiness.
   de que o app vai conseguir controlar o charon sem root.
 - O kernel carrega o módulo `xfrm_interface` sozinho ao criar a interface,
   então não é preciso `SYS_MODULE` nem montar `/lib/modules`.
+
+### Passo 5: túnel completo no teste (`test/engine-tunel-completo`)
+
+- O caminho do `updown` para o túnel completo (`0.0.0.0/0`) ainda estava sem
+  teste. É justamente o caminho que pode criar loop: se o tráfego IKE/ESP
+  para o gateway entrar no próprio túnel, a conexão cai.
+- Testar isso na rede do host desviaria todo o tráfego da máquina durante o
+  teste. Solução: o cenário 3 roda o engine no namespace de rede da rede de
+  teste.
+- Cuidado identificado no caminho: **não montar o D-Bus do host nesse modo**.
+  O `resolvectl` converte o nome da interface em índice no namespace dele e
+  mandaria esse índice ao systemd-resolved do host, configurando o DNS de
+  outra interface. Em produção isso não acontece, porque o engine sempre usa
+  `--network host`.
+- O gateway de teste ganhou um child `tudo` (`local_ts = 0.0.0.0/0`). O
+  strongSwan escolhe o child com o TS mais exato, então o cenário 1 continua
+  usando `rede-teste`.
+- Resultado: rotas `0.0.0.0/1` + `128.0.0.0/1` na interface XFRM, rota de host
+  para o gateway pelo caminho original, ping sem loop. No `terminate`, o
+  *down* remove tudo, e a rota padrão fica intacta.

@@ -163,15 +163,27 @@ real:
    `192.0.2.53`.
 3. Sobe o engine como o app sobe (`--network host`, só `NET_ADMIN`). Carrega
    uma conexão de teste com credenciais falsas e inicia o túnel.
-4. Verifica:
-   - `ipsc0` com MTU 1400 e o VIP;
-   - a rota `192.0.2.0/24` na `ipsc0`;
-   - o DNS da `ipsc0` no systemd-resolved;
+4. Verifica, na interface do teste (`ipsct0`, no lugar da `ipsc0`):
+   - interface XFRM com MTU 1400 e o VIP;
+   - a rota `192.0.2.0/24` na interface;
+   - o DNS da interface no systemd-resolved: servidor fixo, servidor recebido
+     do gateway e domínio `~ipsec-client.test`;
    - o socket VICI com dono e permissão corretos, e um `version` VICI feito
      pelo usuário comum;
+   - `docker inspect` e logs do charon sem PSK nem senha;
    - um **ping através do túnel**.
 5. Para o engine e confere que não sobrou interface, rota, DNS, política XFRM
    com o `if_id` do teste nem socket.
+6. **Morte abrupta:** mata o engine com `SIGKILL`, sobe outro e confere que os
+   restos foram limpos e que a reconexão funciona.
+7. **Túnel completo** (`0.0.0.0/0`):
+   - o engine roda no namespace de rede da rede de teste, não no do host, para
+     não desviar o tráfego da máquina;
+   - o socket D-Bus não é montado, porque o `resolvectl` resolveria o índice da
+     interface no namespace errado;
+   - verifica as rotas `/1` e a rota de host para o gateway, o ping sem loop e a
+     remoção de tudo no *down*.
 
 Para não colidir com uma sessão real, o teste usa a interface `ipsct0` e um
-`if_id` próprio. Ele aborta se as portas 500/4500 já estiverem em uso.
+`if_id` próprio. Ele aborta se as portas 500/4500 já estiverem em uso. O IPv6
+no `updown` ainda não tem teste automatizado.

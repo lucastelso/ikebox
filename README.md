@@ -147,7 +147,9 @@ O teste do engine (`tests/engine/e2e.sh`) faz o seguinte:
    logs e o `docker inspect` estão sem segredos;
 4. desconecta e confere se tudo foi limpo;
 5. mata o engine com `SIGKILL` e confere que o próximo engine limpa os restos
-   e reconecta.
+   e reconecta;
+6. testa o túnel completo (`0.0.0.0/0`) num namespace de rede isolado, sem
+   mexer na rede do host.
 
 Ele não usa nenhuma VPN real e leva cerca de 10 s.
 
