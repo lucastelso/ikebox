@@ -1,0 +1,21 @@
+{
+  "name": "ipsec-client",
+  "version": "0.0.0",
+  "private": true,
+  "description": "Cliente de VPN IPsec para Linux, focado em VPNs legadas (IKEv1, PSK de grupo + XAuth)",
+  "type": "module",
+  "engines": {
+    "node": ">=22"
+  },
+  "scripts": {
+    "prepare": "lefthook install",
+    "check": "npm run check:private && npm run lint:sh",
+    "check:private": "scripts/check-private.sh --tracked",
+    "lint:sh": "scripts/lint-sh.sh"
+  },
+  "devDependencies": {
+    "@commitlint/cli": "21.2.4",
+    "@commitlint/config-conventional": "21.2.4",
+    "lefthook": "2.2.2"
+  }
+}

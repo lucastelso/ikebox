@@ -1,0 +1,30 @@
+version: 2
+updates:
+  - package-ecosystem: github-actions
+    directory: /
+    schedule:
+      interval: weekly
+    commit-message:
+      prefix: ci
+
+  - package-ecosystem: npm
+    directory: /
+    schedule:
+      interval: weekly
+    commit-message:
+      prefix: chore
+    groups:
+      ferramentas:
+        patterns: ["*"]
+
+  # A base do engine é fixada de propósito no Ubuntu 20.04 (ADR-0001):
+  # aceita só atualizações de digest da mesma tag.
+  - package-ecosystem: docker
+    directory: /engine
+    schedule:
+      interval: weekly
+    commit-message:
+      prefix: build
+    ignore:
+      - dependency-name: ubuntu
+        update-types: ["version-update:semver-major", "version-update:semver-minor"]

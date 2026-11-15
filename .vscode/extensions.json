@@ -1,0 +1,13 @@
+{
+  "recommendations": [
+    "editorconfig.editorconfig",
+    "timonwong.shellcheck",
+    "ms-azuretools.vscode-docker",
+    "rust-lang.rust-analyzer",
+    "tamasfe.even-better-toml",
+    "vadimcn.vscode-lldb",
+    "tauri-apps.tauri-vscode",
+    "biomejs.biome",
+    "bradlc.vscode-tailwindcss"
+  ]
+}

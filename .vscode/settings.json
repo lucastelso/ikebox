@@ -1,0 +1,10 @@
+{
+  "files.eol": "\n",
+  "files.insertFinalNewline": true,
+  "files.trimTrailingWhitespace": true,
+  "shellcheck.useWorkspaceRootAsCwd": true,
+  "[shellscript]": {
+    "editor.tabSize": 4
+  },
+  "rust-analyzer.check.command": "clippy"
+}

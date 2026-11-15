@@ -1,0 +1,23 @@
+# Git hooks gerenciados pelo lefthook (https://lefthook.dev).
+# Instalados automaticamente por `npm install` (script "prepare").
+
+pre-commit:
+  parallel: true
+  commands:
+    dados-privados:
+      run: scripts/check-private.sh
+    shellcheck:
+      glob: "*.sh"
+      run: scripts/lint-sh.sh {staged_files}
+
+commit-msg:
+  commands:
+    dados-privados:
+      run: scripts/check-private.sh --message {1}
+    commitlint:
+      run: npx --no -- commitlint --edit {1}
+
+pre-push:
+  commands:
+    historico-sem-dados-privados:
+      run: scripts/check-private.sh --history

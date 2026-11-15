@@ -15,3 +15,7 @@ commits.
   e ADRs 0001–0010.
 - Guarda de dados privados (`scripts/check-private.sh`), com padrões locais
   fora do git.
+- Ferramentas do repositório: lefthook (pre-commit, commit-msg, pre-push),
+  commitlint (Conventional Commits em pt-BR), shellcheck (local ou via imagem
+  Docker fixada) e `npm run check`.
+- CI no GitHub Actions (verificações + gitleaks) e dependabot.
