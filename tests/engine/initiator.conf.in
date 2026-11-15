@@ -1,0 +1,57 @@
+# Conexão de TESTE carregada no engine pelo e2e.sh (via swanctl dentro do
+# container). No app, o equivalente é gerado a partir do perfil e enviado por
+# VICI (load-conn), e os segredos vão por load-shared, nunca por arquivo.
+#
+# Mesma forma de uma VPN legada típica: IKEv1 agressivo, PSK de grupo (keyid)
+# + XAuth, modp1024/modp768, split tunnel. Credenciais FALSAS.
+# @GATEWAY@, @IFACE@ e @IF_ID@ são substituídos pelo e2e.sh.
+
+connections {
+    teste {
+        remote_addrs = @GATEWAY@
+        version = 1
+        aggressive = yes
+        encap = yes
+        proposals = aes256-sha1-modp1024,aes128-sha1-modp1024
+        rekey_time = 86400s
+        dpd_delay = 30s
+        vips = 0.0.0.0
+
+        local-1 {
+            auth = psk
+            id = keyid:grupo-teste
+        }
+        local-2 {
+            auth = xauth
+            xauth_id = usuario.teste
+        }
+        remote {
+            auth = psk
+        }
+
+        children {
+            rede-teste {
+                remote_ts = 192.0.2.0/24
+                esp_proposals = aes256-sha1-modp1024,aes256-sha1-modp768,aes128-sha1-modp1024
+                rekey_time = 43200s
+                start_action = none
+                dpd_action = restart
+                close_action = start
+                if_id_in = @IF_ID@
+                if_id_out = @IF_ID@
+                updown = /usr/local/libexec/ipsec-client/updown --iface '@IFACE@' --dns '192.0.2.54' --domain '~ipsec-client.test' --use-received-dns
+            }
+        }
+    }
+}
+
+secrets {
+    ike-grupo-teste {
+        id = keyid:grupo-teste
+        secret = ipsec-client-test-psk
+    }
+    xauth-usuario-teste {
+        id = usuario.teste
+        secret = senha-de-teste
+    }
+}
