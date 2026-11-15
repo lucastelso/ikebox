@@ -1,0 +1,4 @@
+# unwrap/expect são aceitáveis em testes (no código de produção, geram aviso).
+allow-unwrap-in-tests = true
+allow-expect-in-tests = true
+allow-print-in-tests = true

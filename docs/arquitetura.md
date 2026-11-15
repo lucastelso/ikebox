@@ -103,6 +103,15 @@ da `ipsc0`.
   (`XAuth authentication of '<usuário>'`), então o app mascara as identidades
   conhecidas antes de exibir o log (ADR-0007).
 
+## Módulo `core::engine` (Rust)
+
+| Item | O que faz |
+|---|---|
+| `engine::context` | `FILES` com os arquivos de `engine/` (via `include_bytes!`); `content_hash()` (SHA-256 de caminho + tamanho + conteúdo); `image_tag()`; `tar_archive()` determinístico. Um teste falha se `engine/` ganhar um arquivo que não está em `FILES` |
+| `EngineSpec` | Configuração pura de uma instância: `validate()` com as mesmas regras do entrypoint, `env()`, `host_config()` (rede do host, só `NET_ADMIN`, binds, `label=disable`/`apparmor=unconfined` conforme o host, privilegiado só como reserva), `create_body()` com labels |
+| `DockerEngine` | `connect` (só pelo socket Unix: o bollard é compilado sem HTTP/TCP), `ping`, `ensure_image` (progresso sem códigos ANSI), `start` (diretório de runtime 0700 do usuário, sem symlink; stop gracioso do anterior; prontidão), `stop` (idempotente), `is_running` |
+| `EngineError` | Mensagens em pt-BR para o usuário. `NotReady` leva as últimas linhas do log do entrypoint, que não contêm segredos |
+
 ## Fluxo de conexão (`core::session`)
 
 1. **Preflight:**
@@ -110,10 +119,13 @@ da `ipsc0`.
    - UDP 500/4500 livres no host;
    - systemd-resolved ativo;
    - credenciais completas, vindas do chaveiro ou do diálogo.
-2. **Imagem e container:**
-   - `ensure_image`;
-   - `rm -f` do container anterior;
-   - `create` + `start` com as variáveis da tabela acima.
+2. **Imagem e container** (`core::engine::DockerEngine`):
+   - `ensure_image`: se a tag com o hash não existe, faz o build pela Docker API
+     a partir do tar em memória;
+   - o engine anterior, se houver, sai por `docker stop`, para que o entrypoint
+     limpe o host, e é removido. O socket velho é apagado;
+   - `create` + `start` com as variáveis da tabela acima;
+   - espera a linha `[engine] pronto` e uma conexão bem-sucedida ao socket.
 3. **Entrypoint:**
    - recria a `ipsc0`;
    - sobe o charon;
