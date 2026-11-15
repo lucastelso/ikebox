@@ -1,0 +1,5 @@
+# Configuração do shellcheck (https://www.shellcheck.net/wiki/).
+external-sources=true
+enable=avoid-nullary-conditions
+enable=deprecate-which
+enable=require-double-brackets

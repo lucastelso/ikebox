@@ -88,3 +88,31 @@ para virar um app que outras pessoas possam usar:
      contra um gateway IPsec local.
 
   O núcleo em Rust e a GUI vêm em seguida.
+
+### Passo 3: ferramentas do repositório (`chore/tooling`)
+
+- `package.json` na raiz, com versões **exatas**: lefthook 2.2.2, commitlint
+  21.2.4. O npm 11 bloqueia scripts de instalação de dependências por padrão.
+  O `postinstall` do lefthook ficou bloqueado, e os hooks são instalados pelo
+  `prepare` do próprio projeto, que é explícito e auditável.
+- Hooks (`lefthook.yml`):
+
+  | Hook | O que roda |
+  |---|---|
+  | pre-commit | guarda de dados privados + shellcheck nos `.sh` staged |
+  | commit-msg | guarda na mensagem + commitlint |
+  | pre-push | guarda sobre o histórico inteiro |
+
+- `scripts/lint-sh.sh`: usa o shellcheck do sistema ou, na falta dele, a imagem
+  `koalaman/shellcheck:v0.11.0`, fixada por digest, sem rede e com o
+  repositório só leitura. Assim o lint funciona antes de o mantenedor instalar
+  o shellcheck.
+- CI (`.github/workflows/ci.yml`):
+  - actions fixadas por **SHA de commit**, com a tag em comentário (proteção
+    contra tags reescritas na cadeia de suprimentos);
+  - permissões mínimas (`contents: read`) e `persist-credentials: false`;
+  - jobs: `npm run check`, commitlint no intervalo do PR e gitleaks sobre o
+    histórico completo (imagem fixada por digest).
+- O gitleaks foi rodado localmente sobre o histórico e não achou nada.
+- O dependabot atualiza actions, npm e o digest da imagem base. Ele **ignora**
+  saltos de versão do Ubuntu, porque o 20.04 é fixado de propósito (ADR-0001).
