@@ -17,6 +17,7 @@ aceitos. Se uma decisão mudar, um novo ADR a substitui e o antigo passa a
 | [0008](0008-perfis-genericos.md) | Perfis genéricos em JSON versionado | Aceito |
 | [0009](0009-ipc-tipado-tauri-specta.md) | IPC tipado entre UI e Rust com tauri-specta | Aceito |
 | [0010](0010-dados-privados-fora-do-repositorio.md) | Nenhum dado real de VPN no repositório | Aceito |
+| [0011](0011-cliente-vici-proprio.md) | Cliente VICI próprio em vez do `rsvici` | Aceito |
 
 Modelo para novos ADRs: copie um existente e mantenha as seções
 **Contexto · Decisão · Consequências · Alternativas consideradas**.

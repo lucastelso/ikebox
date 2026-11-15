@@ -5,6 +5,7 @@
 //! VPN, e confere o contrato: interface XFRM com MTU 1400, socket VICI 0660
 //! do gid do usuário, recriação graciosa e limpeza completa no stop.
 #![cfg(feature = "docker-tests")]
+#![allow(clippy::expect_used, clippy::unwrap_used)] // código de teste
 
 use std::os::unix::fs::{MetadataExt, PermissionsExt};
 use std::process::Command;

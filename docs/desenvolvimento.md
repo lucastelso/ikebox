@@ -304,3 +304,44 @@ para descartar flakiness.
   primeiro build leva cerca de 35 s. Com a imagem em cache, o teste de
   integração completo (subir, recriar, derrubar) leva cerca de 1 s.
 - Verificado depois do teste: nenhuma interface, container ou socket sobrou.
+
+### Passo 9: cliente VICI em Rust (`feat/vici`)
+
+- **Decisão (ADR-0011): implementação própria em vez do `rsvici`.**
+  - O `rsvici` 0.1.5 é pré-1.0, tem 4 dependências e serializa as mensagens
+    via serde em buffers que **não são zerados**. O `load-shared` leva a PSK e
+    a senha.
+  - O protocolo é pequeno e já tinha uma referência em Python no repositório.
+- Implementado em três camadas:
+  - `message`: formato de fio, com valores em `Zeroizing`, `Debug` sem valores
+    e limite de profundidade;
+  - `client`: pacotes, conexão de comandos com suporte a comandos streamed e
+    conexão de eventos;
+  - `charon`: trait `Charon` e tipos sem identidades.
+- Testes unitários (28 no core):
+  - formato de fio byte a byte;
+  - ida e volta (roundtrip);
+  - 7 entradas malformadas;
+  - aninhamento excessivo;
+  - campos grandes demais;
+  - `Debug` sem segredos;
+  - parse de `list-sa` e dos eventos;
+  - um servidor VICI de mentira (socketpair) para o fluxo de
+    `streamed_request`.
+- **Teste de integração `vici_docker.rs`.** O gateway de teste sobe pela própria
+  Docker API (`tests/support`). Depois, sem nenhum `swanctl`:
+  1. `version` (5.8.2);
+  2. `load-shared` da PSK e da senha XAuth;
+  3. `load-conn` e `list-conns`;
+  4. `initiate`, com o evento `child-updown` (up) recebido;
+  5. `list-sas`: ESTABLISHED, VIP 198.51.100.x, child INSTALLED com o TS
+     certo;
+  6. ping pelo túnel, com os contadores de bytes subindo;
+  7. logs sem PSK nem senha;
+  8. `terminate`, com o evento de down e as rotas removidas;
+  9. `unload-conn`.
+
+  O teste leva cerca de 2 s. A limpeza roda sempre, mesmo se uma asserção
+  falhar, porque o cenário roda numa task separada.
+- O clippy passou a rodar com `--all-features`, para analisar também o código
+  dos testes Docker.

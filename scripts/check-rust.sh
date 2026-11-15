@@ -27,7 +27,7 @@ fi
 cargo fmt --all --check
 [[ ${1:-} == --fmt ]] && exit 0
 
-cargo clippy --workspace --all-targets --locked -- -D warnings
+cargo clippy --workspace --all-targets --all-features --locked -- -D warnings
 cargo test --workspace --locked
 
 if command -v cargo-deny >/dev/null 2>&1; then

@@ -22,7 +22,7 @@ nova traz primeiro o que é testável sem GUI:
 | 2 | `feat/engine-imagem` | `engine/`: Dockerfile fixado, entrypoint, updown, config do strongSwan; teste E2E com gateway IPsec local | `npm run test:engine` verde: túnel sobe, `ipsc0` com MTU 1400, VIP, rotas, DNS, ping pelo túnel; teardown limpa tudo | ✅ |
 | 3 | `chore/scaffold-rust` | workspace Cargo, `rust-toolchain.toml`, `deny.toml`, crates `core` e `cli`, CI Rust | `cargo fmt/clippy/test/deny` verdes | ✅ |
 | 4 | `feat/engine-rust` | `core::engine`: contexto embutido com hash, build e ciclo do container via bollard | integração: sobe e derruba o engine pelo Rust | ✅ |
-| 5 | `feat/vici` | cliente VICI atrás da trait `Charon` + tipos das mensagens | integração com charon real (`version`, `load-conn`/`list-conns`/`unload-conn`) | ⏳ |
+| 5 | `feat/vici` | cliente VICI atrás da trait `Charon` + tipos das mensagens | integração com charon real (`version`, `load-conn`/`list-conns`/`unload-conn`); superado: túnel completo só pelo cliente Rust | ✅ |
 | 6 | `feat/perfis` | modelo, validação, presets, import/export, geração do `load-conn` e do `updown` | snapshots (insta) de um perfil genérico IKEv1 agressivo + XAuth | ⏳ |
 | 7 | `feat/segredos` | keyring + memória (`secrecy`) + redação | testes com backend mock | ⏳ |
 | 8 | `feat/sessao-cli` | máquina de estados, preflight, eventos, erros; CLI `connect/disconnect/status/logs/secrets/doctor/profiles` | mocks + E2E com gateway local + **E2E real** (local, com o perfil do usuário) | ⏳ |

@@ -1,6 +1,6 @@
 # ADR-0003: Controle do charon via VICI
 
-- **Status:** Aceito
+- **Status:** Aceito. A escolha da biblioteca está detalhada no ADR-0011.
 - **Data:** 2026-11-15
 
 ## Contexto
