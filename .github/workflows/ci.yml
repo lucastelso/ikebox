@@ -72,5 +72,10 @@ jobs:
           persist-credentials: false
       - name: Módulo xfrm_interface
         run: sudo modprobe xfrm_interface && lsmod | grep -E '^(xfrm_interface|esp4)'
-      - name: e2e
+      - name: e2e (shell)
         run: tests/engine/e2e.sh
+      - name: Toolchain Rust
+        run: rustup show active-toolchain || rustup toolchain install
+      - uses: Swatinem/rust-cache@d1527c8f67ef9af357290475d4af4b0fab8f12e0 # v2.9.3
+      - name: Integração do core::engine com Docker
+        run: scripts/check-rust.sh --docker-tests

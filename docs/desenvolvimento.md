@@ -267,3 +267,40 @@ para descartar flakiness.
 - Novo `docs/retomar.md`: estado atual, próximo passo e como preparar o
   ambiente. Ele é atualizado a cada merge, para que o trabalho possa ser
   retomado de qualquer ponto.
+
+### Passo 8: `core::engine` em Rust (`feat/engine-rust`)
+
+- Dependências:
+  - `bollard` 0.21, compilado **sem** os recursos HTTP/TCP, só o socket Unix
+    local. É menos superfície e menos dependências;
+  - `tokio`, `thiserror`, `tracing`, `sha2`/`hex`, `tar` e `rustix` (uid/gid
+    sem `unsafe`).
+- A API do bollard mudou bastante na 0.21 (builders em `query_parameters`,
+  `ContainerCreateBody`, `body_full`). As assinaturas foram conferidas no
+  código-fonte baixado, em vez de supostas.
+- Módulos:
+  - `context`: arquivos de `engine/` embutidos, hash, tag e tar determinístico
+    (mtime 0, dono root). Um teste compara `FILES` com o conteúdo real de
+    `engine/`, para que o hash nunca deixe de cobrir um arquivo novo;
+  - `spec`: tradução pura para a Docker API, com as mesmas validações do
+    entrypoint e testes de privilégio mínimo (rede do host, só `NET_ADMIN`,
+    `privileged` desligado, `security_opt` conforme SELinux/AppArmor);
+  - `docker`: `ensure_image`, `start`, `stop` e `is_running`.
+- Decisões de implementação:
+  - **Recriação graciosa.** O ADR-0002 fala em `rm -f` do container anterior,
+    mas `rm -f` manda SIGKILL e deixaria restos no host se uma sessão
+    estivesse ativa. O `start` faz `docker stop` (10 s, o entrypoint limpa) e
+    depois remove. O teste de integração cobre esse caminho, chamando `start`
+    duas vezes;
+  - **Diretório de runtime.** É criado com 0700 e rejeitado se for symlink, se
+    não for um diretório ou se pertencer a outro usuário. Isso evita que outro
+    usuário local prepare o caminho do socket;
+  - **Prontidão.** Linha `[engine] pronto` + `connect()` no socket, com timeout
+    de 20 s. Em falha, o erro leva as últimas 40 linhas do log do entrypoint;
+  - `clippy.toml` libera `unwrap`/`expect` só em testes.
+- Achado: a saída do build pela API traz códigos de cor ANSI. Agora eles são
+  removidos (`strip_ansi`, com teste) antes de chegar à UI.
+- O build pela API usa o builder clássico, que ainda funciona no Docker 29. O
+  primeiro build leva cerca de 35 s. Com a imagem em cache, o teste de
+  integração completo (subir, recriar, derrubar) leva cerca de 1 s.
+- Verificado depois do teste: nenhuma interface, container ou socket sobrou.

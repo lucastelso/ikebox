@@ -11,6 +11,8 @@
 //! - `session`: máquina de estados da conexão;
 //! - `diagnostics`: verificações do ambiente.
 
+pub mod engine;
+
 /// Versão do núcleo (a mesma do workspace).
 pub const VERSION: &str = env!("CARGO_PKG_VERSION");
 

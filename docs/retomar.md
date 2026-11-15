@@ -6,10 +6,17 @@
 
 ## Onde estamos
 
-- **Último branch integrado:** `chore/scaffold-rust`. O workspace Cargo existe,
-  com os crates `core` e `cli`, e o Rust entrou no `npm run check` e na CI.
-- **Próximo branch:** `feat/engine-rust`, com o `core::engine`: contexto da
-  imagem embutido com hash e ciclo de vida do container via bollard.
+- **Último branch integrado:** `feat/engine-rust`. O `core::engine` constrói a
+  imagem embutida e sobe e derruba o engine pela Docker API. Isso é coberto
+  por testes unitários e por `npm run test:docker`.
+- **Próximo branch:** `feat/vici`, o cliente do protocolo VICI no Rust:
+  - uma trait `Charon` mockável;
+  - os comandos `version`, `load-shared`, `load-conn`, `initiate`,
+    `terminate`, `list-sas` e `unload-conn`;
+  - os eventos `ike-updown`, `child-updown` e `log`.
+
+  Decisão em aberto: usar o `rsvici` ou uma implementação própria (ADR-0003).
+  O protocolo é simples, e `tests/engine/vici_version.py` serve de referência.
 - **Status por branch:** ver o [roadmap](roadmap.md).
 
 ## Preparar o ambiente (uma vez)
@@ -25,6 +32,7 @@
 ```bash
 npm run check          # dados privados + shellcheck + fmt/clippy/testes/cargo-deny
 npm run test:engine    # E2E do engine com gateway IPsec local (~10 s)
+npm run test:docker    # integração do core::engine (Rust) com o Docker real
 ```
 
 ## Regras que não mudam

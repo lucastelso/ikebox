@@ -29,3 +29,7 @@ commits.
 - Workspace Rust (`crates/core`, `crates/cli`) com toolchain fixada (1.100.0),
   lints, `cargo-deny` e verificações no `npm run check`, nos hooks e na CI.
 - `docs/retomar.md`: estado atual e como retomar o desenvolvimento.
+- `core::engine`: contexto da imagem embutido com hash e tar determinístico,
+  `EngineSpec` validada (privilégio mínimo), build e ciclo de vida do
+  container via Docker API (só socket Unix), seguindo o contrato de prontidão.
+  Testes unitários e de integração (`npm run test:docker`).

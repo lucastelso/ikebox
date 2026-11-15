@@ -2,7 +2,10 @@
 # check-rust.sh — verificações do workspace Rust (as mesmas da CI).
 #   fmt → clippy (-D warnings) → testes → cargo-deny (licenças/vulnerabilidades)
 #
-# Uso: scripts/check-rust.sh [--fmt]   (--fmt: só a formatação, para o pre-commit)
+# Uso: scripts/check-rust.sh [--fmt | --docker-tests]
+#   --fmt           só a formatação (pre-commit)
+#   --docker-tests  testes de integração com o Docker real (alteram a rede do
+#                   host temporariamente; ver crates/core/tests/)
 # Carrega ~/.cargo/env quando o cargo não está no PATH (hooks de git, IDEs).
 set -euo pipefail
 
@@ -16,6 +19,10 @@ command -v cargo >/dev/null 2>&1 || {
     printf 'check-rust: cargo não encontrado (veja README, "Pré-requisitos").\n' >&2
     exit 1
 }
+
+if [[ ${1:-} == --docker-tests ]]; then
+    exec cargo test -p ipsec-client-core --features docker-tests --locked --test '*' -- --test-threads=1 --nocapture
+fi
 
 cargo fmt --all --check
 [[ ${1:-} == --fmt ]] && exit 0
