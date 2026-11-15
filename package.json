@@ -9,10 +9,11 @@
   },
   "scripts": {
     "prepare": "lefthook install",
-    "check": "npm run check:private && npm run lint:sh",
+    "check": "npm run check:private && npm run lint:sh && npm run check:rust",
     "check:private": "scripts/check-private.sh --tracked",
     "lint:sh": "scripts/lint-sh.sh",
-    "test:engine": "tests/engine/e2e.sh"
+    "test:engine": "tests/engine/e2e.sh",
+    "check:rust": "scripts/check-rust.sh"
   },
   "devDependencies": {
     "@commitlint/cli": "21.2.4",

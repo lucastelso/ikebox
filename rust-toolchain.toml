@@ -1,0 +1,5 @@
+# Versão fixada do Rust para desenvolvimento e CI (atualizar num PR próprio).
+[toolchain]
+channel = "1.100.0"
+components = ["rustfmt", "clippy"]
+profile = "minimal"

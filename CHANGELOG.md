@@ -26,3 +26,6 @@ commits.
 - Teste ponta a ponta do engine (`npm run test:engine`) contra um gateway
   IPsec local (IKEv1 agressivo + PSK + XAuth), também na CI. Três cenários:
   ciclo normal, recuperação após SIGKILL e túnel completo em rede isolada.
+- Workspace Rust (`crates/core`, `crates/cli`) com toolchain fixada (1.100.0),
+  lints, `cargo-deny` e verificações no `npm run check`, nos hooks e na CI.
+- `docs/retomar.md`: estado atual e como retomar o desenvolvimento.
