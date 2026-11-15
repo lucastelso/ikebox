@@ -49,7 +49,7 @@ interfaces de rede virtuais ligadas a SAs e políticas marcadas com um `if_id`.
   verifica isso.
 - É uma mudança em relação ao fluxo validado e precisa de teste ponta a ponta.
   O repositório tem um teste com um gateway IPsec local
-  (`engine/tests/e2e.sh`).
+  (`tests/engine/e2e.sh`).
 
 ## Alternativas consideradas
 

@@ -44,7 +44,7 @@ Os arquivos ficam em [`engine/`](../engine).
 | `Dockerfile` | `ubuntu:20.04` fixado por digest; strongSwan fixado em `5.8.2-1ubuntu3.6`; `systemd` (só pelo `resolvectl`) |
 | `entrypoint.sh` | Valida o ambiente; recria `ipsc0`; escreve a config de runtime; sobe o charon; ajusta a permissão do socket; no `SIGTERM`, encerra o charon e limpa a interface e o DNS |
 | `updown.sh` | Chamado pelo charon a cada TS que sobe ou desce; instala/remove rotas na `ipsc0` e configura o DNS split |
-| `strongswan.d/zz-ipsec-client.conf` | Socket VICI no diretório compartilhado, `install_routes = no`, plugin `resolve` desligado, log no stderr (nível 1) |
+| `strongswan.d/zz-ipsec-client.conf` | Socket VICI no diretório compartilhado, `install_routes = no`, plugin `resolve` desligado, `updown.dns_handler = yes` (repassa os DNS recebidos ao updown), log no stderr (nível 1) |
 
 ### Variáveis de ambiente do container
 
@@ -73,6 +73,35 @@ validado duas vezes: no Rust e no script.
 As rotas **não** vêm de argumentos. O script lê o TS negociado
 (`PLUTO_PEER_CLIENT`) e o VIP (`PLUTO_MY_SOURCEIP`) do ambiente que o charon
 fornece.
+
+Todas as rotas da sessão recebem `proto 241`. Isso permite remover só elas,
+inclusive a rota de host para o gateway no modo túnel completo, que fica fora
+da `ipsc0`.
+
+### Contrato do engine para o app
+
+- **Prontidão.** O engine está pronto quando escreve `[engine] pronto` no log
+  **e** o socket VICI aceita conexão. Um arquivo de socket sozinho **não**
+  indica prontidão: um engine morto com `SIGKILL` deixa o socket velho no
+  diretório. O app apaga o socket antes de criar o container. Essa condição
+  de corrida foi encontrada pelo teste E2E.
+- **Encerramento.** `docker stop` (SIGTERM). O entrypoint encerra o charon, que
+  envia DELETE ao gateway, e remove interface, rotas `proto 241`, DNS, SAs
+  XFRM com o `if_id` e o socket. Termina com código 0.
+- **Morte abrupta (SIGKILL).** O próximo engine remove a interface velha, as
+  rotas, o DNS e as SAs com o `if_id`. **Limitação conhecida:** as
+  *políticas* XFRM com `if_id` não podem ser removidas pelo iproute2 5.5 do
+  Ubuntu 20.04 (`delete`/`deleteall` não aceitam `if_id`, e o kernel o exige).
+  - Elas são inertes: só casam com tráfego de uma interface XFRM com aquele
+    `if_id`.
+  - Uma sessão nova com o mesmo VIP as substitui, e elas são removidas no
+    encerramento.
+  - Com outro VIP, ficam até o reboot.
+  - O entrypoint registra um aviso com a contagem.
+- **Logs.** O charon roda no nível 1 e não registra PSK nem senha (há uma
+  asserção no E2E). Ele **registra o usuário XAuth**
+  (`XAuth authentication of '<usuário>'`), então o app mascara as identidades
+  conhecidas antes de exibir o log (ADR-0007).
 
 ## Fluxo de conexão (`core::session`)
 
@@ -124,7 +153,7 @@ Desconectado ─connect─► Preparando (preflight, imagem, container)
 
 ## Teste ponta a ponta do engine
 
-O script [`engine/tests/e2e.sh`](../engine/tests/e2e.sh) roda sem nenhuma VPN
+O script [`tests/engine/e2e.sh`](../tests/engine/e2e.sh) roda sem nenhuma VPN
 real:
 
 1. Cria uma rede Docker isolada.

@@ -138,22 +138,25 @@ npm run test:engine         # teste ponta a ponta do engine com um gateway IPsec
 scripts/check-private.sh    # procura dados privados no conteúdo staged
 ```
 
-O teste do engine (`engine/tests/e2e.sh`) faz o seguinte:
+O teste do engine (`tests/engine/e2e.sh`) faz o seguinte:
 
 1. sobe um **gateway IPsec de mentira** num container;
 2. conecta o engine nele usando IKEv1 agressivo, PSK + XAuth e
    modp1024/modp768, a mesma família das VPNs legadas;
-3. verifica a interface, as rotas, o DNS e um ping pelo túnel;
-4. desconecta e confere se tudo foi limpo.
+3. verifica a interface, as rotas, o DNS split, um ping pelo túnel e se os
+   logs e o `docker inspect` estão sem segredos;
+4. desconecta e confere se tudo foi limpo;
+5. mata o engine com `SIGKILL` e confere que o próximo engine limpa os restos
+   e reconecta.
 
-Ele não usa nenhuma VPN real.
+Ele não usa nenhuma VPN real e leva cerca de 10 s.
 
 ### Estrutura do repositório
 
 ```
 engine/          imagem do engine: Dockerfile, entrypoint, updown, config do strongSwan
-  tests/         teste ponta a ponta com gateway IPsec local
-scripts/         utilitários de desenvolvimento (guarda de dados privados etc.)
+tests/engine/    teste ponta a ponta do engine com gateway IPsec local
+scripts/         utilitários de desenvolvimento (guarda de dados privados, shellcheck)
 docs/            arquitetura, roadmap, diário de desenvolvimento, ADRs
 crates/core/     (em breve) perfis, segredos, engine, sessão, diagnóstico
 crates/cli/      (em breve) ipsec-client-cli

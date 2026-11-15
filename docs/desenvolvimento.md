@@ -116,3 +116,89 @@ para virar um app que outras pessoas possam usar:
 - O gitleaks foi rodado localmente sobre o histórico e não achou nada.
 - O dependabot atualiza actions, npm e o digest da imagem base. Ele **ignora**
   saltos de versão do Ubuntu, porque o 20.04 é fixado de propósito (ADR-0001).
+
+### Passo 4: engine (`feat/engine-imagem`)
+
+Objetivo: validar, antes de qualquer código Rust, a maior mudança em relação ao
+fluxo manual. O VIP, as rotas e o DNS saem da interface física e vão para uma
+**interface XFRM dedicada**. O container sai do `--privileged` e fica só com
+`NET_ADMIN`.
+
+**O que foi feito**
+
+- `engine/Dockerfile`:
+  - `ubuntu:20.04` fixado por digest;
+  - mesma lista de pacotes do fluxo validado, com o strongSwan fixado em
+    `5.8.2-1ubuntu3.6`;
+  - `systemd` sem recommends, só pelo `resolvectl`.
+- `engine/entrypoint.sh`:
+  - valida as variáveis;
+  - limpa os restos de uma sessão anterior;
+  - cria a `ipsc0` (`type xfrm if_id N`, MTU 1400);
+  - sobe o charon;
+  - libera o socket VICI para o gid do usuário (0660);
+  - no SIGTERM, encerra o charon e desfaz tudo.
+- `engine/updown.sh`:
+  - rotas na interface XFRM marcadas com `proto 241`;
+  - túnel completo com rotas `/1` e uma rota de host para o gateway;
+  - DNS split via `resolvectl`, pelo D-Bus do host;
+  - argumentos validados.
+- `tests/engine/e2e.sh`: um **gateway IPsec de teste** (a mesma imagem em
+  modo responder) imita uma VPN legada: IKEv1 agressivo, PSK de grupo `keyid:`
+  + XAuth, modp1024/768, pool de VIPs e DNS. O engine conecta nele exatamente
+  como o app vai fazer. São dois cenários: o ciclo normal e a recuperação
+  após `SIGKILL`.
+
+**Resultado:** túnel estabelecido, VIP na interface dedicada, rota, DNS split e
+**ping através do túnel**. Depois do `docker stop`, nada sobra no host. Também
+não sobra nada depois de um `SIGKILL` seguido de reconexão. A rota padrão e a
+interface física ficam intactas. O teste leva cerca de 10 s e foi repetido
+para descartar flakiness.
+
+**Problemas encontrados e como foram resolvidos**
+
+1. **DNS recebido do gateway não chegava ao updown.** O log mostrava
+   `handling INTERNAL_IP4_DNS attribute failed`. Com o plugin `resolve`
+   desligado, ninguém tratava o atributo. O plugin `updown` só repassa os DNS
+   (`PLUTO_DNS4_<n>`) com `charon.plugins.updown.dns_handler = yes`, que vem
+   desligado por padrão. Solução: ligar a opção.
+2. **SAs órfãs não eram removidas.** O `ip -o xfrm state` separa os blocos com
+   `\`, que ficava grudado nos campos (`dst 203.0.113.2\`). Solução: trocar
+   `\` por espaço no awk antes de ler os campos. A saída do `ip xfrm state`
+   contém chaves, por isso ela só é lida pelo awk e nunca impressa.
+3. **Políticas órfãs com `if_id` não podem ser removidas pelo iproute2 5.5.**
+   O problema foi investigado com uma política inofensiva (endereços de
+   documentação e um `if_id` sem interface):
+   - `delete` por seletor sem `if_id`: `ENOENT`;
+   - `delete ... if_id`: o 5.5 não aceita o argumento;
+   - `deleteall` com filtro: `ENOENT`;
+   - `delete index N`: o kernel também exige o `if_id`.
+
+   O iproute2 moderno (6.11/7.0) aceita `if_id` e remove a política.
+   Análise: essas políticas só existem depois de um `SIGKILL` e são inertes,
+   porque só casam com tráfego da interface XFRM com aquele `if_id`. O teste
+   **provou** que elas não atrapalham a reconexão. Com o mesmo VIP, o charon as
+   substitui (o seletor é o mesmo) e as remove no encerramento.
+
+   Decisão: não embutir um segundo iproute2 na imagem agora. A limitação está
+   documentada, o entrypoint avisa no log, e o item foi para o roadmap. A
+   política de teste e as sobras das primeiras execuções foram removidas do
+   kernel com um container descartável com iproute2 moderno.
+4. **Condição de corrida no teste: socket velho tomado como "pronto".** Depois
+   de um `SIGKILL`, o arquivo do socket continuava no diretório, com modo 0660,
+   e o teste seguia antes de o engine novo terminar a limpeza. Solução: apagar
+   o socket antes de subir o engine e esperar a linha `[engine] pronto`. Isso
+   virou regra do **contrato do engine para o app** (ver arquitetura).
+5. **O charon registra o usuário XAuth no nível 1.** Senha e PSK não aparecem,
+   e há uma asserção automática para isso no E2E. Mas a linha
+   `XAuth authentication of '<usuário>'` aparece, então o app vai mascarar as
+   identidades conhecidas antes de exibir o log.
+
+**Outros detalhes verificados**
+
+- O `docker inspect` do engine não contém segredos (asserção no E2E).
+- `version` via VICI funciona como **usuário comum** pelo bind mount do
+  socket. O teste usa um cliente Python mínimo com o protocolo VICI. É a prova
+  de que o app vai conseguir controlar o charon sem root.
+- O kernel carrega o módulo `xfrm_interface` sozinho ao criar a interface,
+  então não é preciso `SYS_MODULE` nem montar `/lib/modules`.
