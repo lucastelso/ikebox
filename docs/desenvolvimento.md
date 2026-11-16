@@ -575,3 +575,37 @@ para descartar flakiness.
 - Novo `docs/guia-rapido.md`: passo a passo simples para um colega que
   recebeu o perfil exportado (instalar, importar, `secrets set`, `connect`,
   tabela de erros).
+
+---
+
+## 2026-11-16: nova direção, app desktop sem Docker
+
+O mantenedor definiu o objetivo final: um app **bonito, simples e seguro** que
+substitua o FortiClient, distribuído como **AppImage**, em que o usuário não
+instala nada além do próprio app.
+
+**Pontos levantados no planejamento**
+
+- **npm não chega ao usuário.** Node e npm são ferramentas de build. O Tauri
+  compila o frontend para dentro do binário. Colocar o frontend num container
+  foi descartado: não resolve nada e traz o Docker de volta.
+- **O Docker era o verdadeiro "instalar coisas"**, além de pôr o usuário no
+  grupo `docker`, o que equivale a root.
+- **Flatpak foi descartado.** O sandbox impede netlink/XFRM e serviços com
+  privilégio, e contorná-lo anula o sandbox. Os formatos ficam AppImage + rpm
+  + deb.
+
+**Decisões do mantenedor**
+
+- engine **embutido**: strongSwan compilado por nós e um helper com privilégio
+  instalado **uma vez**, com a senha de administrador;
+- o **strongSwan mais novo que funcionar**, com a 5.8.2 como reserva;
+- a ordem **prova → GUI → engine → release**.
+
+**O que muda e o que fica**
+
+- O núcleo (`vici`, `profiles`, `secrets`, `session`, `diagnostics`) é
+  reaproveitado.
+- O `core::engine` ganha a trait `EngineBackend`.
+- A lógica do `entrypoint.sh` vai para o helper.
+- O roadmap foi reescrito com as fases A a E.
