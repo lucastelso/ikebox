@@ -42,7 +42,8 @@ component_ok() {
 }
 
 mkdir "$work/appimage" "$work/deb" "$work/rpm"
-(cd "$work/appimage" && "${appimages[0]}" --appimage-extract >/dev/null)
+(cd "$work/appimage" && "${appimages[0]}" --appimage-extract >/dev/null) ||
+    fail "AppImage: não consegui extrair o pacote"
 component_ok "$work/appimage/squashfs-root" "AppImage"
 glibc=$(objdump -T "$work/appimage/squashfs-root/usr/bin/ipsec-client" |
     grep -oE 'GLIBC_[0-9.]+' | sed 's/GLIBC_//' | sort -Vu | tail -n 1)
@@ -50,8 +51,13 @@ printf '%s\n%s\n' "$glibc" "$MAX_GLIBC" | sort -VC ||
     fail "AppImage: exige glibc $glibc (o limite é $MAX_GLIBC, do Ubuntu 22.04)"
 ok "AppImage: exige glibc $glibc (limite $MAX_GLIBC)"
 
-(cd "$work/deb" && ar x "${debs[0]}" && tar -xf data.tar.*)
+(cd "$work/deb" && ar x "${debs[0]}" && tar -xf data.tar.*) ||
+    fail "deb: não consegui extrair o pacote"
 component_ok "$work/deb" "deb"
 
-(cd "$work/rpm" && rpm2cpio "${rpms[0]}" | cpio -idm --quiet)
+# O rpm2cpio do Ubuntu 22.04 extrai os pacotes do Tauri por inteiro, mas sai
+# com 1. Quem decide é a conferência do componente logo abaixo: uma extração
+# incompleta falha nela.
+(cd "$work/rpm" && { rpm2cpio "${rpms[0]}" || true; } | cpio -idm --quiet) ||
+    fail "rpm: não consegui extrair o pacote"
 component_ok "$work/rpm" "rpm"
