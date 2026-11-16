@@ -34,7 +34,9 @@
     e clicar em "Atualizar" no componente de rede;
   - log anonimizado para copiar e para relatório de bug
     (`feat/log-anonimizado`, passo 33);
-  - faltam `chore/higiene-privacidade` e a release v0.1.1.
+  - varredura de dados privados dentro dos pacotes, no fim de todo build de
+    release (`chore/higiene-privacidade`, passo 34);
+  - falta a release v0.1.1.
   - Enquanto o componente instalado neste computador for o da v0.1.0, rode
     `test:docker` e `test:cli` com `IPSEC_CLIENT_BACKEND=docker`. O helper
     antigo recusa o pedido novo, e é para recusar mesmo.

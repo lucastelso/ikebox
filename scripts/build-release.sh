@@ -9,7 +9,8 @@
 # - O strongSwan embutido vem de native-engine/dist/ (compilado aqui, com o
 #   código-fonte conferido por SHA-256 + GPG, se ainda não existir).
 # - Saída: target/release-artifacts/<versão>/ com os três pacotes e o
-#   SHA256SUMS, depois de conferidos por scripts/verify-release.sh.
+#   SHA256SUMS, depois de conferidos por scripts/verify-release.sh e varridos
+#   por scripts/check-private.sh --artifacts (dados privados, no host).
 #
 # Ver docs/release.md para publicar no GitHub.
 
@@ -87,5 +88,10 @@ git archive --format=tar "$commit" |
         '
 
 (cd "$out" && sha256sum -- *.AppImage *.deb *.rpm >SHA256SUMS)
+
+# Aqui no host, onde estão os padrões privados (o container não os vê):
+# nada do mantenedor pode ter entrado nos pacotes.
+step "procurando dados privados dentro dos pacotes"
+scripts/check-private.sh --artifacts "$out"
 step "pacotes prontos em ${out#"$repo"/}"
 ls -lh "$out"

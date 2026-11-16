@@ -1446,3 +1446,35 @@ alguém colar esse log numa issue.
 - vitest do painel: copia o texto do Rust e, sem ele, não copia nada;
 - `tests/cli/e2e.sh`: o `logs --anonimizar` não contém o gateway, o VIP, o
   domínio nem o grupo.
+
+### Passo 34: higiene de privacidade (`chore/higiene-privacidade`)
+
+**Motivo (auditoria, passo 32):** a varredura dos pacotes atrás de dados
+privados tinha sido feita à mão.
+
+**O que mudou:**
+
+- **`scripts/check-private.sh --artifacts <dir>`.**
+  - **O que faz:** extrai AppImage, deb e rpm, inclusive o `engine.tar.gz` e o
+    helper compactados dentro deles, e procura os padrões privados, o caminho
+    da home e o hostname (os genéricos ficam de fora). Mostra só os arquivos.
+  - **Quando roda:** no fim do `scripts/build-release.sh`, no host, que é onde
+    estão os padrões.
+  - **Falsos positivos no AppImage.** Nas bibliotecas do Ubuntu que ele traz
+    (ICU, WebKit, glib, pango, librsvg), dois padrões curtos casavam com
+    trechos de 3 caracteres. O copyright do util-linux casava com o e-mail de
+    um desenvolvedor dele. A comparação com as bibliotecas originais da
+    imagem de build deu **contagens idênticas**: as ocorrências vêm do
+    upstream. Por isso, nas bibliotecas de terceiros a varredura procura só a
+    home e o hostname, e os padrões ficam para os arquivos nossos;
+  - **Prova dos dois lados:** os pacotes da v0.1.0 passam limpos, e o `.rpm`
+    gerado no host (com o caminho da home) é recusado.
+- **Servidor de dev (`vite.config.ts`).** A raiz dele é a pasta do projeto:
+  um perfil exportado ou um swanctl.conf com PSK deixado ali seria servido
+  em `127.0.0.1:1420`. O `server.fs.deny` passou a recusar `*.conf`,
+  `*.key`, `trabalho*.json`, `presets.local/`, `vpn-*/` e `target/`, além dos
+  padrões do Vite. Testado com arquivos falsos: 403 para eles (também com
+  `?raw` e `?import`) e 200 para o app.
+- **Arquivos privados fora do projeto.** `trabalho.json`, a cópia
+  `vpn-docker/` (com a PSK) e o plano original saíram da pasta do projeto,
+  com permissão só do mantenedor. O `~/vpn-docker` original não foi tocado.

@@ -103,7 +103,7 @@ usuário: App (Tauri 2 + React) ou CLI
 |---|---|---|
 | `fix/engine-updown-forcado` | **Escalada local para root corrigida** (ADR-0019): o cliente VICI não escolhe mais o `updown` nem o `if_id` (patch no strongSwan); DNS pelo helper; socket VICI `0600` do uid; `stop`/`logs` só para o dono; helper em paralelo; sandbox do engine mais fechado; testes do ataque (`test:native`, `test:systemd`) | ✅ (passo 32) |
 | `feat/log-anonimizado` | "Copiar anonimizado" no app e `logs --anonimizar` no CLI: gateway, IPs, domínios e DNS trocados por marcadores estáveis (`Anonymizer`, no Rust) | ✅ (passo 33) |
-| `chore/higiene-privacidade` | Varredura de dados privados dentro dos pacotes (`check-private.sh --artifacts`), servidor de dev sem servir arquivos privados | ⏳ |
+| `chore/higiene-privacidade` | Varredura de dados privados dentro dos pacotes (`check-private.sh --artifacts`, no fim de todo build de release), servidor de dev sem servir arquivos privados, arquivos privados fora da pasta do projeto | ✅ (passo 34) |
 | — | Charon sem root (usuário próprio + capabilities ambientes), depois de validar o `resolvectl` sem root | ⏳ (ideia) |
 
 **Antes de tornar público:** reescrita do e-mail dos commits e varredura completa

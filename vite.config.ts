@@ -13,6 +13,22 @@ export default defineConfig({
     strictPort: true,
     host: '127.0.0.1',
     watch: { ignored: ['**/src-tauri/**', '**/target/**'] },
+    // A raiz do servidor de dev é a pasta do projeto: arquivos privados que
+    // alguém deixe nela (perfis exportados, swanctl.conf com PSK) não podem
+    // ser servidos. Os quatro primeiros são o padrão do Vite.
+    fs: {
+      deny: [
+        '.env',
+        '.env.*',
+        '*.{crt,pem}',
+        '**/.git/**',
+        '*.{conf,key,p12}',
+        '**/trabalho*.json',
+        '**/presets.local/**',
+        '**/vpn-*/**',
+        '**/target/**',
+      ],
+    },
   },
   build: {
     target: 'es2022',
