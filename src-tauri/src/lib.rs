@@ -47,6 +47,10 @@ pub fn specta_builder() -> Builder<tauri::Wry> {
 /// # Panics
 /// Se o Tauri não conseguir iniciar (ex.: sem display gráfico).
 pub fn run() {
+    // Before anything else, so the webview processes inherit it.
+    if let Err(e) = ipsec_client_core::secrets::disable_core_dumps() {
+        tracing::warn!("could not disable core dumps: {e}");
+    }
     // Rust messages (tray, notifications, errors) follow the session locale
     // until the UI applies the user's choice (`set_language`).
     ipsec_client_core::i18n::set_lang(ipsec_client_core::i18n::Lang::from_env());

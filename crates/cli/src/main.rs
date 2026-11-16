@@ -207,6 +207,9 @@ enum SecretsCmd {
 }
 
 fn main() -> ExitCode {
+    if let Err(e) = ipsec_client_core::secrets::disable_core_dumps() {
+        eprintln!("warning: could not disable core dumps: {e}");
+    }
     let cli = Cli::parse();
     init_tracing(cli.verbose);
     let runtime = match tokio::runtime::Runtime::new() {

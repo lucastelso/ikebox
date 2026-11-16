@@ -85,6 +85,9 @@ pub fn engine_run_args(launch: &Launch<'_>) -> Vec<String> {
         "UMask=0077".to_owned(),
         "SystemCallFilter=@system-service".to_owned(),
         "SystemCallErrorNumber=EPERM".to_owned(),
+        // charon holds the PSK, the password and the session keys: a crash
+        // must not write its memory to disk.
+        "LimitCORE=0".to_owned(),
         "RuntimeDirectory=ipsec-client-engine".to_owned(),
         "RuntimeDirectoryMode=0700".to_owned(),
         format!("ReadWritePaths={sock_dir}"),
@@ -259,6 +262,7 @@ mod tests {
         assert!(has("--unit=ipsec-client-engine"));
         assert!(has("--property=ProtectSystem=strict"));
         assert!(has("--property=NoNewPrivileges=yes"));
+        assert!(has("--property=LimitCORE=0"));
         assert!(has(
             "--property=CapabilityBoundingSet=CAP_NET_ADMIN CAP_NET_BIND_SERVICE CAP_NET_RAW CAP_CHOWN"
         ));
