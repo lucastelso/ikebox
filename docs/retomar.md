@@ -35,6 +35,9 @@
     `target/debug/ipsec-client-cli component install --bundle
     target/network-component`. Isso testa o pedido de senha real e atualiza
     a instalação feita pelo `test-native.sh`.
+- **Instalável como app** (`chore/instalacao-desktop`): `npm run bundle --
+  --bundles rpm` gera o `ipsec-client-*.rpm`, que entra no menu. Manual em
+  [instalacao.md](instalacao.md).
   - **Próximo:** `chore/release` (AppImage + rpm/deb na CI).
 - **Ainda na fase C:** `feat/ui-editor-perfis`, para editar perfis na
   interface.

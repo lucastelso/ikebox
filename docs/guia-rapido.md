@@ -1,96 +1,57 @@
 # Guia rápido: conectar na VPN com um perfil recebido
 
 Este guia é para quem **recebeu um arquivo de perfil** (`algo.json`) de um
-colega e quer conectar na VPN pelo Linux. Leva uns 15 minutos na primeira vez.
+colega e quer conectar na VPN pelo Linux. Leva uns 5 minutos na primeira vez.
 
-Você vai precisar de três coisas, que **não** vêm no arquivo:
+Você vai precisar de:
 
+- o **instalador do IPsec Client** (`.rpm`, `.deb` ou `.AppImage`): da página
+  Releases do repositório ou de quem te passou o perfil;
+- o **arquivo de perfil** (`algo.json`);
 - a **PSK do grupo** (a "chave do grupo"): peça a quem te passou o perfil, por
   um canal seguro;
-- o seu **usuário** da VPN (ex.: matrícula);
-- a sua **senha** da VPN.
+- o seu **usuário** e a sua **senha** da VPN;
+- a **senha de administrador** do computador, uma vez só.
 
 ---
 
-## 1. Instalar o que é preciso (uma vez)
+## 1. Instalar o IPsec Client (uma vez)
 
-**Fedora:**
-```bash
-sudo dnf install -y docker rustup git dbus-devel gcc
-sudo systemctl enable --now docker
-sudo usermod -aG docker $USER
-rustup-init -y
-```
+Na pasta onde está o instalador:
 
-**Ubuntu/Debian:**
-```bash
-sudo apt install -y docker.io git libdbus-1-dev build-essential curl
-sudo systemctl enable --now docker
-sudo usermod -aG docker $USER
-curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y
-```
+- **Fedora:** `sudo dnf install ./ipsec-client-*.x86_64.rpm`
+- **Ubuntu/Debian:** `sudo apt install ./ipsec-client_*_amd64.deb`
+- **Outras distribuições:** use o AppImage, conforme a seção 2 do
+  [manual de instalação](instalacao.md#outras-distribuições-appimage).
 
-Depois disso, **saia da sessão e entre de novo** (ou reinicie), para valer o
-grupo `docker`.
+Depois disso, o **IPsec Client** aparece no menu de aplicativos.
 
-## 2. Baixar e instalar o programa (uma vez)
+## 2. Instalar o componente de rede (uma vez)
 
-```bash
-git clone https://github.com/lucastelso/ipsec-client.git
-cd ipsec-client
-. "$HOME/.cargo/env"
-cargo build --release -p ipsec-client-cli
-install -Dm755 target/release/ipsec-client-cli ~/.local/bin/ipsec-client-cli
-```
-
-> Enquanto o repositório for privado, peça acesso a quem te passou o perfil.
-
-Confira se está tudo pronto:
-```bash
-ipsec-client-cli doctor
-```
-Tem que terminar com **"✔ Pronto para conectar"**. Se alguma linha mostrar
-✘, ela traz a dica de como resolver.
+Abra o **IPsec Client** pelo menu. Na tela principal aparece *"Falta um passo:
+instalar o componente de rede"*. Clique em **Instalar agora** e digite a
+**senha de administrador**. Depois disso, conectar não pede mais essa senha.
 
 ## 3. Importar o perfil (uma vez)
 
-Troque o caminho pelo arquivo que você recebeu:
-```bash
-ipsec-client-cli profiles import ~/Downloads/trabalho.json
-```
-Aparece algo como `✔ Perfil 'trabalho' importado`. O nome entre aspas é o
-**id do perfil**, que você usa nos próximos comandos.
+Vá em **Perfis → Importar** e escolha o arquivo que você recebeu, ou
+**arraste o arquivo** para a janela. Confira a prévia e clique em
+**Importar**.
 
-## 4. Guardar suas credenciais (uma vez)
+## 4. Conectar (todo dia)
 
-```bash
-ipsec-client-cli secrets set trabalho
-```
-O programa pergunta:
-```
-PSK do grupo:                     ← a chave do grupo (não aparece ao digitar)
-Usuário XAuth (ex.: matrícula):   ← seu usuário
-Senha XAuth:                      ← sua senha (não aparece ao digitar)
-```
-Fica guardado no chaveiro do sistema. Você não precisa digitar de novo.
+Em **Conexão**, clique em **Conectar**. Na primeira vez, o app pede:
 
-## 5. Conectar (todo dia)
+- **PSK do grupo:** a chave do grupo;
+- **Usuário:** o seu usuário da VPN (ex.: matrícula);
+- **Senha:** a sua senha da VPN.
 
-```bash
-ipsec-client-cli connect trabalho
-```
-Na primeira vez demora cerca de 1 minuto (ele prepara o container). Quando
-aparecer **"✔ Conectado"**, a VPN está ativa: abra o Remmina (ou o que você
-usa) normalmente.
+Marque **Lembrar no chaveiro do sistema** para não digitar de novo. Quando
+aparecer **Conectado**, a VPN está ativa: abra o Remmina (ou o que você usa)
+normalmente.
 
-**Para desconectar:** `Ctrl+C` nesse terminal.
-
-Se quiser liberar o terminal:
-```bash
-ipsec-client-cli connect trabalho --detach   # conecta e devolve o terminal
-ipsec-client-cli status                      # mostra se está conectado
-ipsec-client-cli disconnect                  # desconecta
-```
+**Para desconectar:** botão **Desconectar** (ou pelo ícone na bandeja).
+Fechar a janela não desconecta.
 
 ---
 
@@ -98,25 +59,26 @@ ipsec-client-cli disconnect                  # desconecta
 
 | Mensagem | O que fazer |
 |---|---|
-| "usuário ou senha XAuth incorretos" | `ipsec-client-cli secrets set trabalho` e digite de novo |
-| "o gateway recusou a autenticação da fase 1" | a PSK do grupo está errada: `secrets set` de novo |
-| "o gateway não respondeu" | confira a sua internet; algumas redes (hotel, celular) bloqueiam VPN |
-| "Portas UDP 500/4500 em uso" | outra VPN IPsec está ligada; desligue-a antes |
-| "o Docker não está acessível" | você saiu e entrou na sessão depois do `usermod`? |
-| `cargo: command not found` | rode `. "$HOME/.cargo/env"` (ou abra um terminal novo) |
+| "Usuário ou senha XAuth incorretos" | Clique em **Informar credenciais** no aviso e digite de novo |
+| "O gateway recusou a autenticação da fase 1" | A PSK do grupo está errada: **Informar credenciais** e digite de novo |
+| "O gateway não respondeu" | Confira a sua internet. Algumas redes (hotel, celular) bloqueiam VPN |
+| "Portas UDP 500/4500 em uso" | Outra VPN IPsec está ligada; desligue-a antes |
+| "O computador ainda não está pronto para conectar" | Clique em **Instalar componente de rede** no próprio aviso |
 
-**Não use `sudo`** com o `ipsec-client-cli`.
-
-Se ainda assim não funcionar, mande a saída de
-`ipsec-client-cli doctor` e do `connect`. Elas não mostram senha nem PSK.
+Outros casos estão no [manual de instalação](instalacao.md#problemas-comuns).
+A aba **Sistema → Diagnóstico** mostra o que falta, com a dica de como
+resolver. Se precisar pedir ajuda, mande o que aparece ali e o log da tela de
+conexão: eles não mostram senha nem PSK.
 
 ---
 
 ## Para quem vai passar o perfil adiante
 
-```bash
-ipsec-client-cli profiles export trabalho trabalho.json
-```
-O arquivo **não tem** senha, usuário nem PSK. Mande o arquivo e o link deste
-guia. A PSK do grupo vai **por outro canal**, nunca junto com o arquivo nem
-em grupo de chat aberto.
+Em **Perfis**, clique no botão de exportar (a seta para baixo) ao lado do
+perfil e salve o arquivo. Ele **não tem** senha, usuário nem PSK.
+
+Mande o arquivo, o instalador e o link deste guia. A PSK do grupo vai **por
+outro canal**, nunca junto com o arquivo nem em grupo de chat aberto.
+
+> Prefere o terminal? Existe o `ipsec-client-cli`, com os mesmos comandos:
+> veja [docs/cli.md](cli.md).

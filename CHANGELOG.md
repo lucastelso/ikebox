@@ -134,7 +134,21 @@ commits.
   - `tests/packaging/install-test.sh` testa o instalador como root num
     container, inclusive com pacotes adulterados, e roda na CI.
 
+- **Manual de instalação** (`docs/instalacao.md`): rpm, deb e AppImage
+  (inclusive como pô-lo no menu), primeiro uso, atualização, desinstalação,
+  como gerar o pacote a partir do código e problemas comuns.
+- Atalho próprio para o menu de aplicativos (`src-tauri/linux/ipsec-client.desktop`):
+  categoria Rede, descrição em inglês e pt-BR e palavras-chave (a busca por
+  "vpn" acha o app).
+
 ### Alterado
+
+- Pacotes com o nome `ipsec-client` (antes, `i-psec-client`), recursos em
+  `/usr/lib/ipsec-client` (sem espaço) e mantenedor "IPsec Client
+  contributors".
+- README reescrito com o estado atual (app desktop, engine embutido sem Docker,
+  instalação), guia rápido do colega pelo app, e SECURITY.md com o modelo de
+  ameaças do engine embutido.
 
 - O MTU do perfil passou a ser aplicado à interface do engine (antes era sempre
   1400).

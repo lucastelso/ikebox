@@ -4,9 +4,11 @@ Cliente de VPN IPsec para **Linux**, feito para VPNs **legadas**: IKEv1, modo
 agressivo, PSK de grupo + XAuth, grupos DH antigos. É o tipo de VPN corporativa
 que os clientes atuais do Linux já não conseguem conectar.
 
-> **Status: pré-alfa, em desenvolvimento ativo.** A **linha de comando**
-> (`ipsec-client-cli`) já conecta de ponta a ponta. A interface gráfica vem a
-> seguir. O que já existe e o que vem a seguir estão no
+> **Status: pré-alfa, em desenvolvimento ativo.** O **app desktop** já conecta
+> de ponta a ponta numa VPN FortiGate real e gera pacotes `.rpm` e `.deb` que
+> entram no menu de aplicativos. O strongSwan embutido, que dispensa o Docker,
+> passou nos testes com root. Faltam confirmá-lo na VPN real e publicar a
+> primeira versão (v0.1.0). O que já existe e o que vem a seguir estão no
 > [roadmap](docs/roadmap.md). Os passos já dados estão no
 > [diário de desenvolvimento](docs/desenvolvimento.md).
 
@@ -24,15 +26,10 @@ suporte foi abandonado. E as ferramentas nativas não ajudam:
 - o NetworkManager não cobre bem a combinação **PSK de grupo + XAuth em modo
   agressivo**.
 
-A solução que funcionou na prática foi isolar um **strongSwan 5.8.2**
-(Ubuntu 20.04) num container Docker que compartilha a rede do host:
-
-- só o daemon IKE, que negocia o túnel, roda no container;
-- a criptografia dos pacotes (ESP) continua no kernel do host;
-- nada no sistema precisa ser rebaixado.
-
-O IPsec Client transforma esse fluxo manual de scripts e `docker run` num
-aplicativo com perfis, credenciais guardadas com segurança e diagnóstico.
+O IPsec Client resolve isso trazendo o **próprio strongSwan** (6.1.0,
+compilado a partir do código-fonte oficial). Ele mantém os algoritmos legados
+sem rebaixar nada no sistema. Para o usuário, é um app com perfis, credenciais
+guardadas com segurança, diagnóstico e ícone na bandeja.
 
 ## Para quem é
 
@@ -42,7 +39,7 @@ aplicativo com perfis, credenciais guardadas com segurança e diagnóstico.
   gateway, propostas, rotas e DNS. Cada pessoa só informa as próprias
   credenciais.
 - **Quem automatiza:** existe uma linha de comando (`ipsec-client-cli`) com a
-  mesma lógica da interface gráfica.
+  mesma lógica do app.
 
 ### Para quem não é
 
@@ -52,32 +49,52 @@ aplicativo com perfis, credenciais guardadas com segurança e diagnóstico.
 | L2TP/IPsec, OpenVPN, WireGuard | Fora do escopo: há bons clientes nativos |
 | Windows / macOS | O cliente oficial do fabricante |
 
+## Instalação
+
+| Sua distribuição | Arquivo | Como instalar |
+|---|---|---|
+| Fedora, RHEL, openSUSE | `.rpm` | `sudo dnf install ./ipsec-client-*.x86_64.rpm` |
+| Ubuntu, Debian, Mint | `.deb` | `sudo apt install ./ipsec-client_*_amd64.deb` |
+| Outras | `.AppImage` | `chmod +x` e abrir |
+
+Depois, abra o **IPsec Client** pelo menu de aplicativos. Na primeira vez, ele
+pede a senha de administrador **uma vez** para instalar o componente de rede.
+
+O passo a passo completo, com primeiro uso, atualização, desinstalação e
+como gerar os pacotes a partir do código enquanto a v0.1.0 não sai, está no
+**[manual de instalação](docs/instalacao.md)**.
+
+> Recebeu um perfil de um colega? Siga o **[guia rápido](docs/guia-rapido.md)**.
+
 ## Como funciona
 
 ```
 ┌──────────────────────────────── host Linux ─────────────────────────────────┐
-│  IPsec Client (GUI)  ou  ipsec-client-cli                                   │
-│     │ perfis: ~/.config/ipsec-client        credenciais: chaveiro do sistema │
-│     │ Docker API                      │ VICI (socket Unix 0660, só seu)     │
-│     ▼                                 ▼                                     │
-│  ┌──── container "engine": Ubuntu 20.04 + strongSwan 5.8.2 ──────────────┐  │
-│  │  charon (IKE)  ──  updown.sh → rotas + DNS (resolvectl via D-Bus)     │  │
-│  └──────────── --network host · só NET_ADMIN · recriado a cada conexão ──┘  │
-│     │ SAs e políticas XFRM (com if_id)                                      │
-│     ▼                                                                       │
-│  kernel: interface ipsc0 (XFRM, MTU 1400) ═══ ESP/UDP 4500 ═══► gateway VPN │
+│  IPsec Client (app)  ou  ipsec-client-cli                (seu usuário)      │
+│     │ perfis: ~/.config/ipsec-client   credenciais: chaveiro do sistema     │
+│     │ "suba o engine" (socket + polkit)      │ VICI (socket 0660, só seu)   │
+│     ▼                                        │                              │
+│  ipsec-client-helper (root, API mínima)      │                              │
+│     │ systemd-run, com sandbox               ▼                              │
+│     └──► charon (strongSwan 6.1.0 embutido) ── updown → rotas + DNS         │
+│              │ SAs e políticas XFRM (com if_id)                             │
+│              ▼                                                              │
+│  kernel: interface ipsc0 (XFRM) ═══════ ESP/UDP 4500 ═══════► gateway VPN   │
 └─────────────────────────────────────────────────────────────────────────────┘
 ```
 
-- **Conectar:** o app cria o container e entrega o perfil e as credenciais ao
-  strongSwan, em memória, pelo socket de controle (VICI). Depois inicia a
-  negociação.
+- **Conectar:**
+  - o app pede ao **componente de rede** (o helper) que suba o strongSwan;
+  - o helper confere quem pediu (polkit) e sobe o strongSwan como um serviço
+    temporário do systemd, isolado, só com as permissões de rede;
+  - o app entrega o perfil e as credenciais ao strongSwan em memória, pelo
+    socket de controle (VICI), e inicia a negociação.
 - **Conectado:**
   - o IP virtual, as rotas e o DNS da VPN ficam na interface dedicada `ipsc0`;
   - a sua interface Wi-Fi/Ethernet não é tocada;
   - outras VPNs (WireGuard, Tailscale) não são afetadas.
-- **Desconectar:** o container é removido, e a interface `ipsc0` some levando
-  junto rotas, IP e DNS.
+- **Desconectar:** o serviço do strongSwan é encerrado, e a interface `ipsc0`
+  some levando junto rotas, IP e DNS.
 
 Os detalhes estão em [docs/arquitetura.md](docs/arquitetura.md). O porquê de
 cada escolha está nos [ADRs](docs/adr/README.md).
@@ -85,29 +102,47 @@ cada escolha está nos [ADRs](docs/adr/README.md).
 ## Segurança e privacidade
 
 - **Credenciais** (PSK, usuário e senha XAuth):
-  - não vão para disco, variáveis de ambiente, `docker inspect` nem logs;
+  - não vão para disco, variáveis de ambiente nem logs;
+  - o componente de rede, que roda como root, **nunca** as recebe: elas vão
+    do app direto para o strongSwan;
   - "lembrar credenciais" usa o chaveiro do sistema (GNOME Keyring/KWallet).
-- **Container:** recebe só `NET_ADMIN`, sem `--privileged`. O strongSwan só
-  escuta nas portas UDP 500/4500 **enquanto a VPN está conectada**.
+- **Componente de rede:**
+  - é instalado uma vez, com a senha de administrador, e o instalador confere
+    os hashes de todos os arquivos;
+  - recebe do app só números validados e o nome do perfil, nunca caminhos nem
+    comandos;
+  - conectar sem senha vale só para quem está na sessão local ativa (polkit).
+- **strongSwan:** roda isolado pelo systemd (sistema somente leitura, só
+  permissões de rede) e só escuta nas portas UDP 500/4500 **enquanto a VPN está
+  conectada**.
 - **Repositório:** não contém dados de nenhuma VPN real. Perfis com dados da
   sua organização ficam em `presets.local/`, que é ignorado pelo git, ou são
   criados e importados pelo próprio app.
-- **Riscos conhecidos:**
-  - pertencer ao grupo `docker` equivale a ter root;
-  - o strongSwan 5.8.2 é antigo;
-  - VPNs legadas usam criptografia fraca por natureza.
+- **Riscos conhecidos:** VPNs legadas usam criptografia fraca por natureza.
+  Esse e os demais riscos estão em [SECURITY.md](SECURITY.md) e nos ADRs
+  [0014](docs/adr/0014-helper-privilegiado-polkit.md) e
+  [0018](docs/adr/0018-instalacao-do-componente-pelo-app.md).
 
-  Tudo isso está explicado em [SECURITY.md](SECURITY.md).
+## Requisitos
 
-## Uso rápido (linha de comando)
+- Linux x86_64 com kernel ≥ 4.19 e o módulo `xfrm_interface` (padrão nas
+  distribuições atuais).
+- systemd e polkit, padrão nas distribuições de desktop.
+- `systemd-resolved` ativo, para o DNS da VPN. Sem ele, o túnel funciona por
+  IP.
+- Uma conta de administrador, só para instalar o componente de rede uma vez.
+- Opcional: Secret Service (GNOME Keyring/KWallet), para lembrar credenciais;
+  no GNOME, a extensão AppIndicator, para o ícone na bandeja.
 
-> Recebeu um perfil de um colega? Siga o **[guia rápido](docs/guia-rapido.md)**.
+## Linha de comando
 
+O `ipsec-client-cli` faz o mesmo que o app, pelo terminal. Por enquanto, ele é
+compilado a partir do código:
 
 ```bash
-cargo build --release -p ipsec-client-cli          # até haver pacotes prontos
+cargo build --release -p ipsec-client-cli
 target/release/ipsec-client-cli doctor             # o ambiente está pronto?
-target/release/ipsec-client-cli profiles import presets.local/minha-vpn.json
+target/release/ipsec-client-cli profiles import minha-vpn.json
 target/release/ipsec-client-cli secrets set minha-vpn
 target/release/ipsec-client-cli connect minha-vpn  # Ctrl+C desconecta
 ```
@@ -115,14 +150,6 @@ target/release/ipsec-client-cli connect minha-vpn  # Ctrl+C desconecta
 O perfil é um JSON sem credenciais: ver [docs/perfis.md](docs/perfis.md),
 que inclui a correspondência com um `swanctl.conf`. O guia completo do CLI
 está em [docs/cli.md](docs/cli.md).
-
-## Requisitos (uso)
-
-- Linux x86_64 com kernel ≥ 4.19 e o módulo `xfrm_interface` (padrão nas
-  distribuições atuais).
-- `systemd-resolved` ativo, para o DNS split.
-- Docker, com o seu usuário no grupo `docker`.
-- Secret Service, que é opcional e serve para lembrar credenciais.
 
 ## Desenvolvimento
 
@@ -145,8 +172,10 @@ sudo apt install -y libwebkit2gtk-4.1-dev build-essential curl wget file \
 curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh
 ```
 
-Também é preciso Node.js ≥ 22, Docker e o cargo-deny
-(`cargo install --locked cargo-deny`).
+Também é preciso Node.js ≥ 22, o cargo-deny (`cargo install --locked
+cargo-deny`) e o Docker. O Docker serve só para compilar o strongSwan
+embutido e para os testes com um gateway IPsec local; o usuário final não
+precisa dele.
 
 ### Comandos
 
@@ -154,40 +183,43 @@ Também é preciso Node.js ≥ 22, Docker e o cargo-deny
 npm install                 # ferramentas, dependências do frontend e git hooks (só para desenvolver)
 npm run tauri dev           # abre o app desktop em modo de desenvolvimento
 npm run check               # tudo o que precisa estar verde antes de um merge
+npm run bundle -- --bundles rpm   # gera o pacote instalável (rpm, deb ou appimage)
 npm run test:engine         # teste ponta a ponta do engine com um gateway IPsec local
 npm run test:docker         # integração do núcleo Rust com o Docker real (engine, VICI, sessão)
 npm run test:cli            # fluxo completo do CLI contra o gateway de teste
+npm run test:native         # strongSwan compilado (engine embutido) + teste ponta a ponta
+npm run test:packaging      # instalador do componente de rede, como root num container
+scripts/test-native.sh      # instala o componente de verdade (sudo) e testa o CLI por ele
 scripts/check-private.sh    # procura dados privados no conteúdo staged
 ```
 
-O teste do engine (`tests/engine/e2e.sh`) faz o seguinte:
+Os testes ponta a ponta sobem um **gateway IPsec de mentira** num container e
+conectam nele com IKEv1 agressivo, PSK + XAuth e modp1024/modp768, a mesma
+família das VPNs legadas. Eles verificam:
 
-1. sobe um **gateway IPsec de mentira** num container;
-2. conecta o engine nele usando IKEv1 agressivo, PSK + XAuth e
-   modp1024/modp768, a mesma família das VPNs legadas;
-3. verifica a interface, as rotas, o DNS split, um ping pelo túnel e se os
-   logs e o `docker inspect` estão sem segredos;
-4. desconecta e confere se tudo foi limpo;
-5. mata o engine com `SIGKILL` e confere que o próximo engine limpa os restos
-   e reconecta;
-6. testa o túnel completo (`0.0.0.0/0`) num namespace de rede isolado, sem
-   mexer na rede do host.
+- a interface, as rotas, o DNS split e um ping pelo túnel;
+- se os logs estão sem segredos;
+- se tudo é limpo ao desconectar, inclusive depois de o engine ser morto à
+  força;
+- o túnel completo (`0.0.0.0/0`), num namespace de rede isolado.
 
-Ele não usa nenhuma VPN real e leva cerca de 10 s.
+Nenhum teste usa uma VPN real.
 
 ### Estrutura do repositório
 
 ```
-engine/          imagem do engine: Dockerfile, entrypoint, updown, config do strongSwan
-tests/engine/    teste ponta a ponta do engine com gateway IPsec local
-scripts/         utilitários de desenvolvimento (guarda de dados privados, shellcheck)
-docs/            arquitetura, roadmap, diário de desenvolvimento, ADRs
-crates/core/     núcleo em Rust: perfis, segredos, engine, sessão, diagnóstico (em construção)
+crates/core/     núcleo em Rust: perfis, segredos, engine, sessão, diagnóstico, componente de rede
 crates/cli/      ipsec-client-cli
-tests/cli/       teste ponta a ponta do CLI com gateway IPsec local
-src-tauri/       app desktop (Tauri v2): comandos finos sobre o core, DTOs, capabilities
+crates/proto/    protocolo entre o app e o helper (validação compartilhada)
+crates/helper/   ipsec-client-helper: o componente de rede que roda como root
+src-tauri/       app desktop (Tauri v2): comandos finos sobre o core, DTOs, bandeja, pacotes
 src/             interface (React 19 + TypeScript + Tailwind 4 + componentes shadcn/ui)
-native-engine/   build do strongSwan embutido (sem Docker para o usuário)
+native-engine/   build do strongSwan embutido (código-fonte verificado por SHA-256 + GPG)
+engine/          scripts do engine (entrypoint, updown, config) e a imagem Docker dos testes
+packaging/       units do systemd, policy do polkit e instalador do componente de rede
+scripts/         utilitários (dados privados, shellcheck, pacote do componente, testes)
+tests/           testes ponta a ponta (engine, CLI) e do instalador
+docs/            manual, guias, arquitetura, roadmap, diário de desenvolvimento, ADRs
 assets/          logo (fonte dos ícones)
 presets/         exemplos genéricos de perfis (os seus vão em presets.local/, ignorado)
 ```
@@ -203,12 +235,14 @@ Os detalhes estão em [CONTRIBUTING.md](CONTRIBUTING.md).
 
 ## Documentação
 
-- **[Estado atual e como retomar](docs/retomar.md)**
-- [Arquitetura](docs/arquitetura.md)
+- **[Manual de instalação](docs/instalacao.md)**
+- **[Guia rápido: conectar com um perfil recebido](docs/guia-rapido.md)**
 - [Perfis de conexão (formato, swanctl → perfil, compartilhar com colegas)](docs/perfis.md)
 - [Linha de comando (ipsec-client-cli)](docs/cli.md)
+- [Arquitetura](docs/arquitetura.md)
 - [Decisões de arquitetura (ADRs)](docs/adr/README.md)
 - [Roadmap](docs/roadmap.md)
+- [Estado atual e como retomar o desenvolvimento](docs/retomar.md)
 - [Diário de desenvolvimento](docs/desenvolvimento.md)
 - [Segurança](SECURITY.md) · [Contribuindo](CONTRIBUTING.md) · [Changelog](CHANGELOG.md)
 
