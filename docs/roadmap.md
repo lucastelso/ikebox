@@ -1,118 +1,130 @@
 # Roadmap
 
-Cada linha é um branch, criado a partir de `main` e integrado com
-`merge --no-ff`, com o `npm run check` verde. Os branches ficam guardados como
-histórico.
+Each line is a branch, created from `main` and merged with `merge --no-ff`,
+with `npm run check` green. Branches are kept as history.
 
-## Objetivo final
+## Final goal
 
-Um **app desktop para Linux que substitui o FortiClient**: bonito, simples e
-seguro, distribuído como **AppImage** (baixe e rode) e como rpm/deb. Requisitos:
+A **Linux desktop app that replaces FortiClient**: good-looking, simple and
+secure, distributed as an **AppImage** (download and run) and as rpm/deb.
+Requirements:
 
-- o usuário **não instala nada além do app**: nem Docker, nem Node/npm, nem
+- the user **installs nothing besides the app**: no Docker, no Node/npm, no
   Rust;
-- npm e Rust existem só na máquina de quem desenvolve e na CI. O Tauri compila
-  o frontend para dentro do binário.
+- npm and Rust only exist on the developer's machine and in CI. Tauri compiles
+  the frontend into the binary.
 
-### Decisões de 2026-11-16 (mantenedor)
+### Decisions of 2026-11-16 (maintainer)
 
-| Tema | Decisão |
+| Topic | Decision |
 |---|---|
-| Engine | **Embutido no app**: strongSwan compilado por nós, sem Docker para o usuário. O Docker fica só nos testes |
-| Privilégio | Autorizado **uma vez na instalação**, com a senha de administrador. Depois conecta sem senha, como o NetworkManager |
-| strongSwan | A versão **mais nova que funcionar** (6.x → 5.9.14), com a 5.8.2 como reserva |
-| Ordem | **Prova do engine → GUI → engine embutido → release** |
-| Formatos | AppImage + rpm + deb. **Flatpak não**: o sandbox impede netlink/XFRM e serviços com privilégio |
+| Engine | **Embedded in the app**: strongSwan compiled by us, no Docker for the user. Docker stays only in the tests |
+| Privilege | Authorized **once at installation**, with the administrator password. After that it connects without a password, like NetworkManager |
+| strongSwan | The **newest version that works** (6.x → 5.9.14), with 5.8.2 as a fallback |
+| Order | **Engine proof → GUI → embedded engine → release** |
+| Formats | AppImage + rpm + deb. **No Flatpak**: the sandbox prevents netlink/XFRM and privileged services |
 
-## Arquitetura-alvo
+## Target architecture
 
 ```
-usuário: App (Tauri 2 + React) ou CLI
-  └── crates/core (profiles · secrets · session · vici · diagnostics)
-       └── EngineBackend (trait)
-            ├── NativeBackend ──(socket Unix + polkit)──► ipsec-client-helper (root, systemd)
-            │                                               └── charon embutido (systemd-run com sandbox)
-            └── DockerBackend (atual; só testes/dev)
+user: App (Tauri 2 + React) or CLI
+  └── crates/core (profiles · secrets · session · vici · diagnostics · i18n)
+       └── Backend
+            ├── native ──(Unix socket + polkit)──► ipsec-client-helper (root, systemd)
+            │                                        └── embedded charon (sandboxed systemd-run)
+            └── Docker (tests/dev only)
 ```
 
-## Feito (base: núcleo + CLI)
+## Done (base: core + CLI)
 
-| # | Branch | Entrega | Status |
+| # | Branch | Delivery | Status |
 |---|---|---|---|
-| 0 | `main` | README, ADRs 0001–0010, roadmap, diário, guarda de dados privados | ✅ |
-| 1 | `chore/tooling` | lefthook, commitlint, shellcheck, `npm run check`, CI inicial | ✅ |
-| 2 | `feat/engine-imagem` | Engine em container + E2E com gateway IPsec local | ✅ |
-| 3 | `chore/scaffold-rust` | Workspace Cargo, toolchain, `cargo-deny`, CI Rust | ✅ |
-| 4 | `feat/engine-rust` | `core::engine`: imagem embutida e ciclo do container | ✅ |
-| 5 | `feat/vici` | Cliente VICI próprio (ADR-0011) | ✅ |
-| 6 | `feat/perfis` | Perfis JSON, validação, geração do `load-conn` (ADR-0012) | ✅ |
-| 7 | `feat/segredos` | Credenciais, chaveiro (libdbus), mascaramento | ✅ |
-| 8 | `feat/sessao-cli` | Sessão, diagnóstico de falhas, `ipsec-client-cli` | ✅ |
-| 14 | `feat/import-swanctl` | Importar `swanctl.conf` sem ler os segredos | ✅ |
-| — | `docs/guia-rapido` | Guia para quem recebe um perfil exportado | ✅ |
+| 0 | `main` | README, ADRs 0001–0010, roadmap, development log, private data guard | ✅ |
+| 1 | `chore/tooling` | lefthook, commitlint, shellcheck, `npm run check`, first CI | ✅ |
+| 2 | `feat/engine-imagem` | Container engine + E2E with a local IPsec gateway | ✅ |
+| 3 | `chore/scaffold-rust` | Cargo workspace, toolchain, `cargo-deny`, Rust CI | ✅ |
+| 4 | `feat/engine-rust` | `core::engine`: embedded image and container lifecycle | ✅ |
+| 5 | `feat/vici` | Our own VICI client (ADR-0011) | ✅ |
+| 6 | `feat/perfis` | JSON profiles, validation, `load-conn` generation (ADR-0012) | ✅ |
+| 7 | `feat/segredos` | Credentials, keyring (libdbus), masking | ✅ |
+| 8 | `feat/sessao-cli` | Session, failure diagnosis, `ipsec-client-cli` | ✅ |
+| 14 | `feat/import-swanctl` | Import `swanctl.conf` without reading the secrets | ✅ |
+| — | `docs/guia-rapido` | Guide for people who receive an exported profile | ✅ |
 
-## Próximas fases
+## Phases
 
-### Fase A: fechar a base
+### Phase A: close the base
 
-| Entrega | Aceite | Status |
+| Delivery | Acceptance | Status |
 |---|---|---|
-| Push de `main` e dos branches; primeira execução da CI no GitHub | CI verde (ou correções em `fix/ci`) | ⏳ com o mantenedor (o ambiente automatizado não tem credenciais do GitHub) |
-| Validação real do mantenedor (`connect trabalho` + Remmina) | registrada no diário | ✅ pelo app (passo 20); falta o teste de longa duração |
+| Push `main` and the branches; first CI run on GitHub | CI green (or fixes in `fix/ci`) | ✅ (pushed by the maintainer) |
+| Real validation by the maintainer (`connect` + Remmina) | recorded in the log | ✅ through the app (step 20); a long-duration test is still missing |
 
-### Fase B: prova do engine embutido (decide o caminho)
+### Phase B: embedded engine proof (decides the path)
 
-| Branch | Entrega | Aceite | Status |
+| Branch | Delivery | Acceptance | Status |
 |---|---|---|---|
-| `spike/engine-nativo` | `native-engine/`: compila o strongSwan num container com glibc antiga, monolítico, com plugins próprios (gmp estático, sem OpenSSL) e tarball verificado. Testa 6.x → 5.9.14 → 5.8.2 | Contra o gateway de teste, com o charon no host: IKEv1 agressivo + PSK + XAuth + modp1024/768, `ipsc0` com `if_id`, VICI pelo usuário, updown, ping. Medir tamanho e dependências | ✅ as 4 versões passaram nos 26 testes; engine de cerca de 4 MB, dependendo só da glibc |
-| (mesmo) | ADRs 0013 (engine embutido), 0014 (helper + polkit), 0015 (distribuição sem Flatpak), 0016 (versão do strongSwan) | aceitos | ✅ escolhido o strongSwan 6.1.0 (reserva: 5.8.2) |
+| `spike/engine-nativo` | `native-engine/`: compiles strongSwan in a container with an old glibc, monolithic, with its own plugins (static gmp, no OpenSSL) and a verified tarball. Tests 6.x → 5.9.14 → 5.8.2 | Against the test gateway, with charon on the host: IKEv1 aggressive + PSK + XAuth + modp1024/768, `ipsc0` with `if_id`, VICI by the user, updown, ping. Measure size and dependencies | ✅ all 4 versions passed the 26 checks; engine of about 4 MB, depending only on glibc |
+| (same) | ADRs 0013 (embedded engine), 0014 (helper + polkit), 0015 (distribution without Flatpak), 0016 (strongSwan version) | accepted | ✅ strongSwan 6.1.0 chosen (fallback: 5.8.2) |
 
-### Fase C: interface gráfica
+### Phase C: graphical interface
 
-| Branch | Entrega | Status |
+| Branch | Delivery | Status |
 |---|---|---|
-| `chore/scaffold-gui` | Tauri 2.12 (estável) + React 19 + Vite + Tailwind 4 + shadcn/ui, biome, vitest, tauri-specta com versão exata, capabilities mínimas, CSP estrita | ✅ |
-| `feat/ui-conexao` | Tela principal (perfil, botão Conectar/Desconectar, estado com VIP, tempo e tráfego), credenciais com "lembrar", erros claros, log mascarado | ✅ |
-| `feat/ui-perfis` | Gerenciador de presets: importar JSON/swanctl.conf (diálogo nativo e arrastar e soltar), **exportar**, ver detalhes, excluir | ✅ |
-| `feat/ui-editor-perfis` | Criar/editar/duplicar perfis na interface, com abas e validação campo a campo vinda do Rust | ⏳ |
-| `feat/ui-diagnostico` | Aba Sistema: diagnóstico (o `doctor` com dicas), tema claro/escuro/sistema, versão. "Iniciar com o sistema" e bandeja ficam no `feat/tray` | ✅ |
-| `feat/tray` | Bandeja, notificações, instância única | ✅ |
+| `chore/scaffold-gui` | Tauri 2.12 (stable) + React 19 + Vite + Tailwind 4 + shadcn/ui, biome, vitest, tauri-specta pinned, minimal capabilities, strict CSP | ✅ |
+| `feat/ui-conexao` | Main screen (profile, Connect/Disconnect button, state with VIP, time and traffic), credentials with "remember", clear errors, masked log | ✅ |
+| `feat/ui-perfis` | Preset manager: import JSON/swanctl.conf (native dialog and drag and drop), **export**, details, delete | ✅ |
+| `feat/ui-editor-perfis` | Create/edit/duplicate profiles in the interface, with tabs and field-by-field validation from Rust | ⏳ |
+| `feat/ui-diagnostico` | System tab: diagnostics (`doctor` with hints), light/dark/system theme, version | ✅ |
+| `feat/tray` | Tray, notifications, single instance | ✅ |
 
-### Fase D: engine embutido de verdade
+### Phase D: the real embedded engine
 
-| Branch | Entrega | Status |
+| Branch | Delivery | Status |
 |---|---|---|
-| `feat/engine-nativo-build` | Build reproduzível do strongSwan na CI. Em parte adiantado: o build e o E2E já rodam na CI (`npm run test:native`), e o tarball já vai no pacote do componente (passo 28). Falta conferir a reprodutibilidade (mesmo hash em duas builds) e usar o artefato da CI no bundle de release | ⏳ |
-| `feat/helper` | `crates/helper` (root): socket systemd, `SO_PEERCRED` + polkit, charon via `systemd-run` com hardening; `crates/proto`; units, policy e instalador (`packaging/`) | ✅ validado com root (passo 27) |
-| `feat/backend-nativo` | `Backend` (nativo quando o componente de rede está instalado; Docker como reserva), entregue junto com o `feat/helper` | ✅ |
-| `feat/setup-appimage` | Primeiro uso do AppImage: instala o componente de rede com a senha de administrador, uma vez (ADR-0018) | ✅ validado pelo mantenedor (pedido de senha real, passo 30) |
+| `feat/engine-nativo-build` | Reproducible strongSwan build in CI. Partly done: the build and the E2E already run in CI (`npm run test:native`), and the tarball goes into the component bundle (step 28). Still missing: checking reproducibility (same hash in two builds) and using the CI artifact in the release bundle | ⏳ |
+| `feat/helper` | `crates/helper` (root): systemd socket, `SO_PEERCRED` + polkit, charon via `systemd-run` with hardening; `crates/proto`; units, policy and installer (`packaging/`) | ✅ validated as root (step 27) |
+| `feat/backend-nativo` | `Backend` (native when the network component is installed; Docker as a fallback), delivered with `feat/helper` | ✅ |
+| `feat/setup-appimage` | First use of the AppImage: installs the network component with the administrator password, once (ADR-0018) | ✅ validated by the maintainer (real password prompt, step 30) |
 
-### Fase E: distribuição
+### Phase E: distribution
 
-| Branch | Entrega | Status |
+| Branch | Delivery | Status |
 |---|---|---|
-| `chore/instalacao-desktop` | Pacotes que entram no menu (nome `ipsec-client`, atalho próprio na categoria Rede), [manual de instalação](instalacao.md), guia rápido pelo app, README e SECURITY.md atualizados | ✅ |
-| — | **Versão 0.1.0**: primeira versão funcional, validada pelo mantenedor na VPN real com o app instalado pelo `.rpm` e o engine embutido, sem Docker (passo 30) | ✅ |
-| `chore/release-pacotes` | Pacotes de release gerados num container Ubuntu 22.04 (`scripts/build-release.sh`), conferidos (`scripts/verify-release.sh`) e publicados à mão no GitHub Releases ([guia](release.md)); tag `v0.1.0` | ✅ (passo 31) |
-| `chore/release` | Automatizar na CI: gerar os pacotes e anexar à release ao criar a tag, com checksums assinados. Inclui o pós-instalação do rpm/deb (`install-native.sh --bundle /usr/lib/ipsec-client/network --origin package`), a dependência da bandeja certa no `.deb` (`libayatana-appindicator3-1`, ao gerar no Ubuntu) e, como ideia, o próprio AppImage oferecer "Adicionar ao menu de aplicativos". Aceite: numa VM limpa, só com o AppImage, conecta com um perfil exportado | ⏳ (a parte manual já existe: `chore/release-pacotes`) |
-| `feat/updater` (opcional) | Atualização automática assinada | ⏳ |
+| `chore/instalacao-desktop` | Packages that show up in the menu (name `ipsec-client`, own shortcut in the Network category), [installation guide](installation.md), quick start through the app | ✅ |
+| — | **Version 0.1.0**: first working version, validated by the maintainer on the real VPN with the app installed from the `.rpm` and the embedded engine, without Docker (step 30) | ✅ |
+| `chore/release-pacotes` | Release packages built in an Ubuntu 22.04 container (`scripts/build-release.sh`), checked (`scripts/verify-release.sh`) and published by hand on GitHub Releases ([guide](release.md)); tag `v0.1.0` | ✅ (step 31) |
+| `chore/release` | Automate in CI: build the packages and attach them to the release when the tag is created, with signed checksums. Includes the rpm/deb post-install (`install-native.sh --bundle /usr/lib/ipsec-client/network --origin package`) and, as an idea, the AppImage itself offering "Add to the applications menu". Acceptance: on a clean VM, with only the AppImage, connect with an exported profile | ⏳ (the manual part already exists: `chore/release-pacotes`) |
+| `feat/updater` (optional) | Signed automatic update | ⏳ |
 
-### Auditoria de segurança e privacidade (v0.1.1)
+### Security and privacy audit (0.2.0)
 
-| Branch | Entrega | Status |
+| Branch | Delivery | Status |
 |---|---|---|
-| `fix/engine-updown-forcado` | **Escalada local para root corrigida** (ADR-0019): o cliente VICI não escolhe mais o `updown` nem o `if_id` (patch no strongSwan); DNS pelo helper; socket VICI `0600` do uid; `stop`/`logs` só para o dono; helper em paralelo; sandbox do engine mais fechado; testes do ataque (`test:native`, `test:systemd`) | ✅ (passo 32) |
-| `feat/log-anonimizado` | "Copiar anonimizado" no app e `logs --anonimizar` no CLI: gateway, IPs, domínios e DNS trocados por marcadores estáveis (`Anonymizer`, no Rust) | ✅ (passo 33) |
-| `chore/higiene-privacidade` | Varredura de dados privados dentro dos pacotes (`check-private.sh --artifacts`, no fim de todo build de release), servidor de dev sem servir arquivos privados, arquivos privados fora da pasta do projeto | ✅ (passo 34) |
-| — | Charon sem root (usuário próprio + capabilities ambientes), depois de validar o `resolvectl` sem root | ⏳ (ideia) |
+| `fix/engine-updown-forcado` | **Local escalation to root fixed** (ADR-0019): the VICI client no longer chooses the `updown` or the `if_id` (strongSwan patch); DNS through the helper; VICI socket `0600` of the uid; `stop`/`logs` only for the owner; parallel helper; tighter engine sandbox; attack tests (`test:native`, `test:systemd`) | ✅ (step 32) |
+| `feat/log-anonimizado` | "Copy anonymized" in the app and `logs --anonymize` in the CLI: gateway, IPs, domains and DNS replaced with stable placeholders (`Anonymizer`, in Rust) | ✅ (step 33) |
+| `chore/higiene-privacidade` | Private data scan inside the packages (`check-private.sh --artifacts`, at the end of every release build), dev server does not serve private files, private files outside the project folder | ✅ (step 34) |
+| — | charon without root (own user + ambient capabilities), after validating `resolvectl` without root | ⏳ (idea) |
 
-**Antes de tornar público:** reescrita do e-mail dos commits e varredura completa
-do histórico (`check-private.sh --history` + gitleaks). A licença já está
-definida (GPL-3.0-or-later, ADR-0017).
+### Internationalization (0.2.0)
 
-## Depois da v0.1.0 (ideias)
+| Branch | Delivery | Status |
+|---|---|---|
+| `feat/i18n-core` | Bilingual Rust messages (`tr!`/`trf!`), English CLI and helper, `set_language` | ✅ (step 36) |
+| `feat/i18n-ui` | Bilingual interface with a language setting (follows the system); scripts, installer, tests and package metadata in English | ✅ (step 36) |
+| `docs/english` | Technical documentation in English (ADRs renamed); user documentation in English with Portuguese copies in `docs/pt-BR/` | ✅ (step 36) |
 
-- Várias conexões simultâneas. O `if_id` por perfil já prevê isso.
-- Restringir as portas 500/4500 ao IP do gateway durante a sessão.
-- Internacionalização (en-US).
-- Autenticação por certificado e EAP (schema 2 do perfil).
+**Before going public:** history scan (`check-private.sh --history` +
+gitleaks). The commit email was already rewritten to the GitHub noreply
+address (0.2.0). The license is defined (GPL-3.0-or-later, ADR-0017).
+
+## Ideas
+
+- Several simultaneous connections. The per-profile `if_id` already allows it.
+- Restrict ports 500/4500 to the gateway IP during the session.
+- More languages, now that the i18n infrastructure exists.
+- Certificate and EAP authentication (profile schema 2).
+- Long-duration test (rekey after about 11 h).
+- Option to close the window to the tray (today, closing quits the app while
+  the VPN stays connected).
+- Unify the UI and tray status polling.

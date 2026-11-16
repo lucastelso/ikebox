@@ -1,0 +1,82 @@
+# Current state and how to resume
+
+> This file is updated **on every merge into `main`**. If work stops in the
+> middle of a branch, that branch's last commit and the last entry of the
+> [development log](development-log.md) say where it stopped.
+
+## Where we are
+
+- **Version 0.1.0 (2026-11-16): first working version, validated by the
+  maintainer on the real VPN** (FortiGate, IKEv1 aggressive + group PSK +
+  XAuth), reaching the work machine through Remmina. Validated path, the same
+  as an end user's:
+  1. app installed from the `.rpm`, opened from the applications menu;
+  2. network component installed by the app itself, with the administrator
+     password (`pkexec`, origin `app`);
+  3. connection through the embedded strongSwan 6.1.0, **without Docker**.
+- **Version 0.2.0 (in preparation):**
+  - **security audit** (steps 32–35): no work data in the code, the history
+    or the packages; a **local escalation to root** through VICI fixed
+    (ADR-0019); "Copy anonymized"; private data scan inside release packages;
+  - **commit email** rewritten to the GitHub noreply address in the whole
+    history (the maintainer pushes with `--force`);
+  - **internationalization** (step 36): bilingual app (follows the system
+    language, setting in System → Appearance → Language), English CLI,
+    helper and scripts, technical docs in English, user docs in English with
+    Portuguese copies in `docs/pt-BR/`;
+  - users of 0.1.0 must update the app **and** click "Update" on the network
+    component.
+- **Done:**
+  - Rust core and `ipsec-client-cli`;
+  - desktop app: connection, profiles (import/export), System tab, tray,
+    notifications and single instance, in English and Portuguese;
+  - embedded engine (helper with polkit and systemd sandbox, strongSwan with
+    the ADR-0019 patch);
+  - component installation by the app (ADR-0018);
+  - `.rpm`/`.deb`/AppImage packages, with the
+    [installation guide](installation.md).
+- **Next:** `chore/release`, to automate in CI:
+  - build the packages and attach them to the release when the tag is created
+    (the same `scripts/build-release.sh`);
+  - rpm/deb post-install installing the component (`--origin package`);
+  - signed `SHA256SUMS`;
+  - acceptance on a clean VM.
+- **After that:** `feat/ui-editor-perfis` (edit profiles in the interface) and
+  running charon without root (ADR-0019).
+- **Pending with the maintainer:**
+  1. push the rewritten history and the tags (`git push --force`), check CI;
+  2. publish the release and update their machine and the colleague's;
+  3. before making the repository public: scan the history
+     (`scripts/check-private.sh --history` + gitleaks).
+
+## Set up the environment (once)
+
+1. Install the prerequisites from the README, "Prerequisites" section.
+2. Install cargo-deny: `cargo install --locked cargo-deny`.
+3. Run `npm install`, which installs the git hooks.
+4. Create `.git/info/private-patterns` with your private patterns (see
+   CONTRIBUTING.md).
+
+## Check that everything is green
+
+```bash
+npm run check          # private data + shellcheck + fmt/clippy/tests/cargo-deny + biome/tsc/vitest
+npm run test:engine    # engine E2E with a local IPsec gateway (~10 s)
+npm run test:docker    # Rust core integration with real Docker
+npm run test:cli       # full CLI flow
+npm run test:native    # compiled strongSwan (embedded engine) + E2E (includes the ADR-0019 attack)
+npm run test:systemd   # embedded engine with real systemd (privileged container)
+npm run test:packaging # network component installer, as root in a container
+```
+
+While the network component installed on this computer is older than the
+code, run `test:docker` and `test:cli` with `IPSEC_CLIENT_BACKEND=docker`: the
+old helper refuses the new request, as it should.
+
+## Rules that do not change
+
+- No real VPN data in the repository (ADR-0010). The guard runs in the hooks.
+- One branch per roadmap item and Conventional Commits in English.
+- `--no-ff` merge with `npm run check` green.
+- On every relevant step, an entry in the development log. On every merge,
+  update this file, the roadmap and the CHANGELOG.
