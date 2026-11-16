@@ -30,7 +30,7 @@ die() {
 
 [[ $(id -u) -eq 0 ]] || die "rode como root (sudo/pkexec)"
 
-uninstall() {
+do_uninstall() {
     log "parando e removendo"
     systemctl stop ipsec-client-engine.service 2>/dev/null || true
     systemctl disable --now ipsec-client-helper.socket 2>/dev/null || true
@@ -42,7 +42,7 @@ uninstall() {
     log "removido"
 }
 
-install() {
+do_install() {
     local engine="" helper="" repo
     repo=$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)
     while (($# > 0)); do
@@ -97,8 +97,8 @@ install() {
 case ${1:-} in
 install)
     shift
-    install "$@"
+    do_install "$@"
     ;;
-uninstall) uninstall ;;
+uninstall) do_uninstall ;;
 *) die "uso: $0 install --engine <tarball> --helper <binário> | uninstall" ;;
 esac

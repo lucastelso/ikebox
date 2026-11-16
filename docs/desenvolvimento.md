@@ -1002,3 +1002,14 @@ Pendências e ideias que saíram daqui:
 - **Pendente (precisa de root):** `scripts/test-native.sh`. Ele compila,
   instala com `sudo` e roda o E2E do CLI com `IPSEC_CLIENT_BACKEND=native`,
   validando de verdade o polkit, o sandbox do systemd e o SELinux.
+
+### Passo 25: correção do instalador
+
+- A primeira execução de `scripts/test-native.sh` pelo mantenedor falhou com
+  `argumento desconhecido: -d`. A função do script se chamava `install` e
+  **escondia o comando `install`** do sistema: `install -d` chamava a própria
+  função. As funções passaram a se chamar `do_install`/`do_uninstall`.
+- O instalador passou a ser testado como root num container Fedora, com
+  `systemctl` substituído por um stub. O teste cobre a extração do engine, a
+  cópia dos scripts e do helper, as permissões, as units, a policy, as
+  chamadas ao systemctl e a desinstalação.
