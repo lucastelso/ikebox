@@ -268,8 +268,10 @@ mod tests {
 pub async fn anonymize_log(profile_id: String, lines: Vec<String>) -> Result<String, UiError> {
     blocking(move || {
         let profile = load_profile(&profile_id)?;
-        // As linhas da tela já vêm com o usuário XAuth mascarado: não precisa
-        // abrir o chaveiro (o que poderia pedir senha só para copiar).
+        // No need to open the keyring (it could ask for a password just to
+        // copy): the anonymizer masks identities by the shape of the charon
+        // line, so the XAuth username is masked even when this process never
+        // saw the credentials.
         let anonymizer = session::anonymizer_for(&profile, None);
         Ok(anonymizer.anonymize(&lines.join("\n")))
     })
