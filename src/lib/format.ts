@@ -1,5 +1,5 @@
-/** Bytes em unidades binárias legíveis (pt-BR). */
-export function formatBytes(n: number): string {
+/** Bytes in readable binary units, with the decimal separator of the language. */
+export function formatBytes(n: number, lang: 'en' | 'pt' = 'en'): string {
   const units = ['B', 'KiB', 'MiB', 'GiB', 'TiB'];
   let value = n;
   let unit = 0;
@@ -8,10 +8,10 @@ export function formatBytes(n: number): string {
     unit += 1;
   }
   if (unit === 0) return `${Math.round(n)} B`;
-  return `${value.toLocaleString('pt-BR', { maximumFractionDigits: 1, minimumFractionDigits: 1 })} ${units[unit]}`;
+  return `${value.toLocaleString(lang === 'pt' ? 'pt-BR' : 'en-US', { maximumFractionDigits: 1, minimumFractionDigits: 1 })} ${units[unit]}`;
 }
 
-/** Duração legível: "5 s", "2 min 5 s", "1 h 2 min". */
+/** Readable duration: "5 s", "2 min 5 s", "1 h 2 min". */
 export function formatDuration(totalSecs: number): string {
   const s = Math.max(0, Math.floor(totalSecs));
   const h = Math.floor(s / 3600);

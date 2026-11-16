@@ -1,6 +1,7 @@
 import { CircleAlert, LoaderCircle, X } from 'lucide-react';
 import type { UiError } from '@/bindings';
 import { Button } from '@/components/ui/button';
+import { useT } from '@/i18n';
 
 /** Erros que se resolvem informando as credenciais de novo. */
 export function isCredentialError(error: UiError): boolean {
@@ -24,6 +25,7 @@ export function ErrorBanner({
   onInstallComponent?: () => void;
   installing?: boolean;
 }) {
+  const t = useT().error;
   return (
     <div
       role="alert"
@@ -35,7 +37,7 @@ export function ErrorBanner({
           <p className="font-medium">{error.message}</p>
           {error.details.length > 0 && (
             <details className="text-muted-foreground">
-              <summary className="cursor-pointer select-none text-xs">Detalhes</summary>
+              <summary className="cursor-pointer select-none text-xs">{t.details}</summary>
               <ul className="mt-2 flex flex-col gap-1 text-xs" data-selectable>
                 {error.details.map((d) => (
                   <li key={d} className="break-words font-mono">
@@ -51,17 +53,17 @@ export function ErrorBanner({
                 <Button size="sm" onClick={onInstallComponent} disabled={installing}>
                   {installing && <LoaderCircle className="animate-spin" />}
                   {installing
-                    ? 'Instalando…'
+                    ? t.installing
                     : error.kind === 'componentOutdated'
-                      ? 'Atualizar componente de rede'
-                      : 'Instalar componente de rede'}
+                      ? t.updateComponent
+                      : t.installComponent}
                 </Button>
               </div>
             )}
           {onFixCredentials && isCredentialError(error) && (
             <div>
               <Button size="sm" variant="outline" onClick={onFixCredentials}>
-                Informar credenciais
+                {t.enterCredentials}
               </Button>
             </div>
           )}
@@ -69,7 +71,7 @@ export function ErrorBanner({
         <button
           type="button"
           onClick={onDismiss}
-          aria-label="Fechar aviso"
+          aria-label={t.dismiss}
           className="rounded-sm opacity-60 hover:opacity-100"
         >
           <X className="size-4" />

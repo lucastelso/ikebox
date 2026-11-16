@@ -1,17 +1,9 @@
 import { ArrowDown, ArrowUp } from 'lucide-react';
 import type { Connection } from '@/bindings';
 import { Card, CardContent } from '@/components/ui/card';
+import { useLanguage, useT } from '@/i18n';
 import { formatBytes, formatDuration } from '@/lib/format';
 import type { Phase } from './connectionReducer';
-
-const HEADLINE: Record<Phase, string> = {
-  idle: 'Desconectado',
-  preparing: 'Preparando…',
-  negotiating: 'Negociando com o gateway…',
-  connected: 'Conectado',
-  reconnecting: 'Reconectando…',
-  disconnecting: 'Desconectando…',
-};
 
 const TONE: Record<Phase, string> = {
   idle: 'text-muted-foreground',
@@ -34,14 +26,16 @@ export function StatusDetails({
   connection: Connection | null;
   building: boolean;
 }) {
+  const t = useT();
+  const { lang } = useLanguage();
   return (
     <div className="flex w-full flex-col items-center gap-4">
       <div className="text-center" aria-live="polite">
-        <p className={`text-lg font-semibold ${TONE[phase]}`}>{HEADLINE[phase]}</p>
+        <p className={`text-lg font-semibold ${TONE[phase]}`}>{t.phase.headline[phase]}</p>
         {phase === 'preparing' && step && (
           <p className="text-sm text-muted-foreground">
             {step}
-            {building && ' (primeiro uso: pode levar cerca de 1 minuto)'}
+            {building && t.status.firstRun}
           </p>
         )}
       </div>
@@ -52,27 +46,27 @@ export function StatusDetails({
             className="grid grid-cols-[auto_1fr] gap-x-4 gap-y-2 pt-5 text-sm"
             data-selectable
           >
-            <dt className="text-muted-foreground">IP virtual</dt>
+            <dt className="text-muted-foreground">{t.status.virtualIp}</dt>
             <dd className="font-mono">{connection.vip ?? '—'}</dd>
-            <dt className="text-muted-foreground">Gateway</dt>
+            <dt className="text-muted-foreground">{t.status.gateway}</dt>
             <dd className="truncate font-mono">{connection.gateway || '—'}</dd>
-            <dt className="text-muted-foreground">Redes</dt>
+            <dt className="text-muted-foreground">{t.status.networks}</dt>
             <dd className="font-mono">{connection.remoteTs.join(', ') || '—'}</dd>
             {connection.establishedSecs != null && (
               <>
-                <dt className="text-muted-foreground">Conectado há</dt>
+                <dt className="text-muted-foreground">{t.status.connectedFor}</dt>
                 <dd>{formatDuration(connection.establishedSecs)}</dd>
               </>
             )}
-            <dt className="text-muted-foreground">Tráfego</dt>
+            <dt className="text-muted-foreground">{t.status.traffic}</dt>
             <dd className="flex items-center gap-3">
               <span className="inline-flex items-center gap-1">
-                <ArrowDown className="size-3.5 text-success" aria-label="recebido" />
-                {formatBytes(connection.bytesIn ?? 0)}
+                <ArrowDown className="size-3.5 text-success" aria-label={t.status.received} />
+                {formatBytes(connection.bytesIn ?? 0, lang)}
               </span>
               <span className="inline-flex items-center gap-1">
-                <ArrowUp className="size-3.5 text-primary" aria-label="enviado" />
-                {formatBytes(connection.bytesOut ?? 0)}
+                <ArrowUp className="size-3.5 text-primary" aria-label={t.status.sent} />
+                {formatBytes(connection.bytesOut ?? 0, lang)}
               </span>
             </dd>
           </CardContent>

@@ -9,6 +9,7 @@ import type {
   ProfileList,
   UiError,
 } from '@/bindings';
+import { I18nProvider } from '@/i18n';
 import { HomeScreen } from './HomeScreen';
 
 const profiles: ProfileList = {
@@ -54,7 +55,7 @@ const missingComponent: ComponentInfo = {
   problem: null,
 };
 
-/** Simula o Rust e registra as chamadas de `connect`. */
+/** Fakes Rust and records the `connect` calls. */
 function mockBackend({ credentials, connectError, list = profiles, component }: Backend = {}) {
   const connectCalls: Array<Record<string, unknown>> = [];
   let connected = false;
@@ -94,27 +95,27 @@ function mockBackend({ credentials, connectError, list = profiles, component }: 
 }
 
 describe('HomeScreen', () => {
-  it('conecta direto quando as credenciais estão guardadas', async () => {
+  it('connects right away when the credentials are stored', async () => {
     const { connectCalls } = mockBackend();
     render(<HomeScreen />);
-    await userEvent.click(await screen.findByRole('button', { name: 'Conectar' }));
+    await userEvent.click(await screen.findByRole('button', { name: 'Connect' }));
 
-    expect(await screen.findByText('Conectado')).toBeInTheDocument();
+    expect(await screen.findByText('Connected')).toBeInTheDocument();
     expect(screen.getByText('198.51.100.10')).toBeInTheDocument();
     expect(connectCalls).toEqual([{ profileId: 'trabalho', credentials: {}, remember: false }]);
-    expect(screen.getByRole('button', { name: 'Desconectar' })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Disconnect' })).toBeInTheDocument();
   });
 
-  it('pede só as credenciais que faltam e envia com "lembrar"', async () => {
+  it('asks only for the missing credentials and sends them with "remember"', async () => {
     const { connectCalls } = mockBackend({ credentials: { stored: ['psk'] } });
     render(<HomeScreen />);
-    await userEvent.click(await screen.findByRole('button', { name: 'Conectar' }));
+    await userEvent.click(await screen.findByRole('button', { name: 'Connect' }));
 
     const dialog = await screen.findByRole('dialog');
-    expect(screen.queryByLabelText('PSK do grupo')).not.toBeInTheDocument();
-    await userEvent.type(screen.getByLabelText('Usuário'), 'usuario.exemplo');
-    await userEvent.type(screen.getByLabelText('Senha'), 'senha-falsa');
-    await userEvent.click(screen.getByRole('button', { name: 'Conectar', hidden: false }));
+    expect(screen.queryByLabelText('Group PSK')).not.toBeInTheDocument();
+    await userEvent.type(screen.getByLabelText('Username'), 'usuario.exemplo');
+    await userEvent.type(screen.getByLabelText('Password'), 'senha-falsa');
+    await userEvent.click(screen.getByRole('button', { name: 'Connect', hidden: false }));
 
     await waitFor(() => expect(dialog).not.toBeInTheDocument());
     expect(connectCalls).toEqual([
@@ -126,72 +127,85 @@ describe('HomeScreen', () => {
     ]);
   });
 
-  it('mostra a causa provável e oferece corrigir as credenciais', async () => {
+  it('shows the likely cause and offers to fix the credentials', async () => {
     mockBackend({
       connectError: {
         kind: 'negotiation',
-        message: 'Usuário ou senha XAuth incorretos',
+        message: 'Wrong XAuth username or password',
         details: ['charon: establishing CHILD_SA failed'],
       },
     });
     render(<HomeScreen />);
-    await userEvent.click(await screen.findByRole('button', { name: 'Conectar' }));
+    await userEvent.click(await screen.findByRole('button', { name: 'Connect' }));
 
-    expect(await screen.findByRole('alert')).toHaveTextContent('Usuário ou senha XAuth incorretos');
-    expect(screen.getByText('Desconectado')).toBeInTheDocument();
-    await userEvent.click(screen.getByRole('button', { name: 'Informar credenciais' }));
-    expect(await screen.findByLabelText('PSK do grupo')).toBeInTheDocument();
+    expect(await screen.findByRole('alert')).toHaveTextContent('Wrong XAuth username or password');
+    expect(screen.getByText('Disconnected')).toBeInTheDocument();
+    await userEvent.click(screen.getByRole('button', { name: 'Enter credentials' }));
+    expect(await screen.findByLabelText('Group PSK')).toBeInTheDocument();
   });
 
-  it('explica o que fazer quando não há perfis', async () => {
+  it('explains what to do when there are no profiles', async () => {
     mockBackend({ list: { profiles: [], broken: [] } });
     render(<HomeScreen />);
-    expect(await screen.findByText('Nenhum perfil ainda')).toBeInTheDocument();
-    expect(screen.getByRole('button', { name: 'Importar perfil' })).toBeInTheDocument();
+    expect(await screen.findByText('No profiles yet')).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Import profile' })).toBeInTheDocument();
   });
 
-  it('oferece instalar o componente de rede e some depois de instalado', async () => {
+  it('offers to install the network component and goes away once installed', async () => {
     mockBackend({ component: missingComponent });
     render(<HomeScreen />);
-    const banner = await screen.findByRole('region', { name: 'Componente de rede' });
-    expect(banner).toHaveTextContent('Falta um passo');
-    await userEvent.click(screen.getByRole('button', { name: 'Instalar agora' }));
+    const banner = await screen.findByRole('region', { name: 'Network component' });
+    expect(banner).toHaveTextContent('One step left');
+    await userEvent.click(screen.getByRole('button', { name: 'Install now' }));
     await waitFor(() =>
-      expect(screen.queryByRole('region', { name: 'Componente de rede' })).not.toBeInTheDocument(),
+      expect(screen.queryByRole('region', { name: 'Network component' })).not.toBeInTheDocument(),
     );
   });
 
-  it('erro de componente ausente oferece a instalação', async () => {
+  it('a missing component error offers the installation', async () => {
     mockBackend({
       component: missingComponent,
       connectError: {
         kind: 'componentMissing',
-        message: 'O computador ainda não está pronto para conectar.',
-        details: ['Componente de rede: não instalado'],
+        message: 'This computer is not ready to connect yet.',
+        details: ['Network component: not installed'],
       },
     });
     render(<HomeScreen />);
-    await userEvent.click(await screen.findByRole('button', { name: 'Conectar' }));
+    await userEvent.click(await screen.findByRole('button', { name: 'Connect' }));
     const alert = await screen.findByRole('alert');
-    expect(alert).toHaveTextContent('não está pronto');
-    await userEvent.click(screen.getByRole('button', { name: 'Instalar componente de rede' }));
+    expect(alert).toHaveTextContent('not ready');
+    await userEvent.click(screen.getByRole('button', { name: 'Install network component' }));
     await waitFor(() => expect(screen.queryByRole('alert')).not.toBeInTheDocument());
   });
 
-  it('componente antigo (helper recusou o pedido) oferece atualizar', async () => {
+  it('an old component (the helper refused the request) offers to update', async () => {
     mockBackend({
       component: { ...missingComponent, state: 'ready', installedVersion: '0.1.0' },
       connectError: {
         kind: 'componentOutdated',
-        message: 'O componente de rede instalado é de uma versão anterior.',
+        message: 'The installed network component is from an older version.',
         details: [],
       },
     });
     render(<HomeScreen />);
-    await userEvent.click(await screen.findByRole('button', { name: 'Conectar' }));
+    await userEvent.click(await screen.findByRole('button', { name: 'Connect' }));
     const alert = await screen.findByRole('alert');
-    expect(alert).toHaveTextContent('versão anterior');
-    await userEvent.click(screen.getByRole('button', { name: 'Atualizar componente de rede' }));
+    expect(alert).toHaveTextContent('older version');
+    await userEvent.click(screen.getByRole('button', { name: 'Update network component' }));
     await waitFor(() => expect(screen.queryByRole('alert')).not.toBeInTheDocument());
+  });
+
+  it('speaks Portuguese when that is the chosen language', async () => {
+    mockBackend();
+    render(
+      <I18nProvider initial="pt">
+        <HomeScreen />
+      </I18nProvider>,
+    );
+    await userEvent.click(await screen.findByRole('button', { name: 'Conectar' }));
+    expect(await screen.findByText('Conectado')).toBeInTheDocument();
+    expect(screen.getByText('IP virtual')).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Desconectar' })).toBeInTheDocument();
   });
 });

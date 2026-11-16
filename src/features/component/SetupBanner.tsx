@@ -1,22 +1,8 @@
 import { LoaderCircle, ShieldCheck } from 'lucide-react';
 import type { ComponentInfo } from '@/bindings';
 import { Button } from '@/components/ui/button';
+import { useT } from '@/i18n';
 import { installLabel } from './useComponent';
-
-const TEXT = {
-  notInstalled: {
-    title: 'Falta um passo: instalar o componente de rede',
-    body: 'É feito uma vez, com a senha de administrador. Depois, conectar não pede senha.',
-  },
-  outdated: {
-    title: 'Atualização do componente de rede',
-    body: 'Este app traz uma versão diferente do componente de rede.',
-  },
-  broken: {
-    title: 'O componente de rede não está respondendo',
-    body: 'Reinstale para voltar a conectar.',
-  },
-} as const;
 
 /** Aviso na tela principal quando o componente de rede precisa de atenção. */
 export function SetupBanner({
@@ -28,11 +14,12 @@ export function SetupBanner({
   busy: boolean;
   onInstall: () => void;
 }) {
+  const t = useT().component;
   if (!info.canInstall || info.state === 'ready') return null;
-  const text = TEXT[info.state];
+  const text = t.banner[info.state];
   return (
     <section
-      aria-label="Componente de rede"
+      aria-label={t.title}
       className="w-full rounded-xl border border-primary/40 bg-primary/10 p-4 text-sm"
     >
       <div className="flex items-start gap-3">
@@ -43,7 +30,7 @@ export function SetupBanner({
           <div>
             <Button size="sm" onClick={onInstall} disabled={busy}>
               {busy && <LoaderCircle className="animate-spin" />}
-              {busy ? 'Instalando…' : `${installLabel(info)} agora`}
+              {busy ? t.installing : t.now(installLabel(info, t))}
             </Button>
           </div>
         </div>

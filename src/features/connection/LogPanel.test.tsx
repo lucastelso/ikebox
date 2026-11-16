@@ -16,22 +16,22 @@ describe('LogPanel', () => {
     Reflect.deleteProperty(navigator, 'clipboard');
   });
 
-  it('copia o texto anonimizado pelo Rust, nunca as linhas cruas', async () => {
+  it('copies the text anonymized by Rust, never the raw lines', async () => {
     const anonymize = vi.fn().mockResolvedValue('established between <ip-1>...<gateway>');
     render(<LogPanel lines={lines} anonymize={anonymize} />);
-    await userEvent.click(screen.getByText('Log da conexão'));
-    await userEvent.click(screen.getByRole('button', { name: 'Copiar anonimizado' }));
+    await userEvent.click(screen.getByText('Connection log'));
+    await userEvent.click(screen.getByRole('button', { name: 'Copy anonymized' }));
     expect(anonymize).toHaveBeenCalledWith(lines);
     expect(writeText).toHaveBeenCalledWith('established between <ip-1>...<gateway>');
-    expect(await screen.findByRole('button', { name: 'Copiado' })).toBeInTheDocument();
+    expect(await screen.findByRole('button', { name: 'Copied' })).toBeInTheDocument();
   });
 
-  it('sem anonimização, não copia nada e avisa', async () => {
+  it('without anonymization, copies nothing and warns', async () => {
     const anonymize = vi.fn().mockResolvedValue(null);
     render(<LogPanel lines={lines} anonymize={anonymize} />);
-    await userEvent.click(screen.getByText('Log da conexão'));
-    await userEvent.click(screen.getByRole('button', { name: 'Copiar anonimizado' }));
+    await userEvent.click(screen.getByText('Connection log'));
+    await userEvent.click(screen.getByRole('button', { name: 'Copy anonymized' }));
     expect(writeText).not.toHaveBeenCalled();
-    expect(await screen.findByText(/nada foi copiado/)).toBeInTheDocument();
+    expect(await screen.findByText(/nothing was copied/)).toBeInTheDocument();
   });
 });

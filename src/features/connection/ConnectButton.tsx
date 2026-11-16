@@ -1,15 +1,7 @@
 import { LoaderCircle, Power } from 'lucide-react';
+import { useT } from '@/i18n';
 import { cn } from '@/lib/utils';
 import type { Phase } from './connectionReducer';
-
-const LABEL: Record<Phase, string> = {
-  idle: 'Conectar',
-  preparing: 'Cancelar',
-  negotiating: 'Cancelar',
-  connected: 'Desconectar',
-  reconnecting: 'Desconectar',
-  disconnecting: 'Desconectando…',
-};
 
 const RING: Record<Phase, string> = {
   idle: 'ring-border bg-card text-muted-foreground hover:text-primary hover:ring-primary/50',
@@ -29,6 +21,7 @@ interface Props {
 
 /** Botão central: conecta, cancela ou desconecta conforme a fase. */
 export function ConnectButton({ phase, disabled, onConnect, onDisconnect }: Props) {
+  const label = useT().phase.action[phase];
   const busy = phase === 'preparing' || phase === 'negotiating' || phase === 'disconnecting';
   const action = phase === 'idle' ? onConnect : onDisconnect;
   return (
@@ -36,7 +29,7 @@ export function ConnectButton({ phase, disabled, onConnect, onDisconnect }: Prop
       type="button"
       onClick={action}
       disabled={disabled || phase === 'disconnecting'}
-      aria-label={LABEL[phase]}
+      aria-label={label}
       className={cn(
         'group flex size-40 flex-col items-center justify-center gap-2 rounded-full ring-8 transition-all duration-300',
         'focus-visible:outline-none focus-visible:ring-ring disabled:cursor-not-allowed disabled:opacity-60',
@@ -48,7 +41,7 @@ export function ConnectButton({ phase, disabled, onConnect, onDisconnect }: Prop
       ) : (
         <Power className="size-12" strokeWidth={2.25} aria-hidden />
       )}
-      <span className="text-sm font-semibold">{LABEL[phase]}</span>
+      <span className="text-sm font-semibold">{label}</span>
     </button>
   );
 }

@@ -6,18 +6,20 @@ import { HomeScreen } from './features/connection/HomeScreen';
 import { ImportDialog } from './features/profiles/ImportDialog';
 import { ProfilesScreen } from './features/profiles/ProfilesScreen';
 import { SystemScreen } from './features/system/SystemScreen';
+import { useT } from './i18n';
 import { cn } from './lib/utils';
 
 type View = 'connection' | 'profiles' | 'system';
 
-const NAV: Array<{ view: View; label: string; icon: typeof Power }> = [
-  { view: 'connection', label: 'Conexão', icon: Power },
-  { view: 'profiles', label: 'Perfis', icon: List },
-  { view: 'system', label: 'Sistema', icon: Settings },
+const NAV: Array<{ view: View; icon: typeof Power }> = [
+  { view: 'connection', icon: Power },
+  { view: 'profiles', icon: List },
+  { view: 'system', icon: Settings },
 ];
 
 /** Janela principal: navegação, telas e importação (botão ou arrastar arquivo). */
 export function App() {
+  const t = useT();
   const [view, setView] = useState<View>('connection');
   const [preview, setPreview] = useState<ImportPreview | null>(null);
   // Muda a cada importação para as telas recarregarem a lista.
@@ -53,8 +55,8 @@ export function App() {
       <header className="flex items-center gap-3 border-b px-5 py-3">
         <img src="/logo.svg" alt="" className="size-7" />
         <h1 className="flex-1 text-base font-semibold tracking-tight">IPsec Client</h1>
-        <nav className="flex rounded-lg bg-muted p-1" aria-label="Seções">
-          {NAV.map(({ view: v, label, icon: Icon }) => (
+        <nav className="flex rounded-lg bg-muted p-1" aria-label={t.nav.label}>
+          {NAV.map(({ view: v, icon: Icon }) => (
             <button
               key={v}
               type="button"
@@ -66,7 +68,7 @@ export function App() {
               )}
             >
               <Icon className="size-3.5" aria-hidden />
-              {label}
+              {t.nav[v]}
             </button>
           ))}
         </nav>
@@ -87,8 +89,8 @@ export function App() {
           onImported={(profile) => {
             setPreview(null);
             setRevision((r) => r + 1);
-            toast.success(`Perfil "${profile.name}" importado`, {
-              description: 'Na próxima conexão, informe suas credenciais.',
+            toast.success(t.app.imported(profile.name), {
+              description: t.app.importedHint,
             });
           }}
         />
