@@ -99,6 +99,10 @@ commits.
 
   Navegação Conexão | Perfis e avisos (toasts). Os caminhos de arquivo ficam
   só no Rust: a UI recebe uma prévia com token.
+- Bandeja do app: estado da VPN, "Abrir", "Desconectar" e "Sair do app" (a
+  VPN continua). Notificações do sistema quando a VPN conecta, cai, reconecta
+  ou desconecta, inclusive em sessões abertas pelo CLI. Instância única: abrir
+  o app de novo traz a janela existente.
 - Aba Sistema no app: diagnóstico do ambiente (o mesmo do `doctor`, com dicas
   de correção), tema claro/escuro/sistema (lembrado) e versão.
 

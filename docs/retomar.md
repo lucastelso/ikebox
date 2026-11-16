@@ -18,13 +18,13 @@
   app.
 - **Tela de conexão pronta** (`feat/ui-conexao`). Ela já conecta de verdade
   pelo backend Docker atual; teste com `npm run tauri dev`.
+- **Bandeja, notificações e instância única prontas** (`feat/tray`).
 - **Aba Sistema pronta** (`feat/ui-diagnostico`): diagnóstico visual, tema e
   versão.
 - **Gerenciador de presets pronto** (`feat/ui-perfis`): importar JSON ou
   swanctl.conf (botão ou arrastar o arquivo para a janela), exportar, ver
   detalhes e excluir.
 - **Próximos branches:**
-  - `feat/tray`;
   - `feat/ui-editor-perfis`: editar perfis na interface;
   - depois a fase D (engine embutido de verdade).
 - **Pendente com o mantenedor:**

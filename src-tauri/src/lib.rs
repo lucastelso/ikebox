@@ -5,6 +5,7 @@
 //! enxerga os comandos registrados aqui; não há plugins de shell/fs.
 
 pub mod commands;
+pub mod desktop;
 pub mod dto;
 pub mod profiles_cmd;
 
@@ -48,7 +49,13 @@ pub fn run() {
         .manage(profiles_cmd::PendingImports::default())
         .invoke_handler(builder.invoke_handler())
         .setup(move |app| {
+            if !desktop::acquire_single_instance(app.handle()) {
+                // Já havia uma janela aberta: ela foi trazida para a frente.
+                app.handle().exit(0);
+                return Ok(());
+            }
             builder.mount_events(app);
+            desktop::start(app.handle());
             Ok(())
         })
         .on_window_event(handle_drop)
