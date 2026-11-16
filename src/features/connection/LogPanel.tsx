@@ -2,9 +2,21 @@ import { Check, Copy, ScrollText } from 'lucide-react';
 import { useEffect, useRef, useState } from 'react';
 import { Button } from '@/components/ui/button';
 
-/** Log do charon (identidades já mascaradas pelo Rust), recolhível e copiável. */
-export function LogPanel({ lines }: { lines: string[] }) {
+/**
+ * Log do charon (identidades já mascaradas pelo Rust), recolhível e copiável.
+ * O texto copiado passa por `anonymize` (Rust): gateway, IPs e domínios viram
+ * marcadores, para o log poder ir num relatório de bug.
+ */
+export function LogPanel({
+  lines,
+  anonymize,
+}: {
+  lines: string[];
+  /** Devolve o texto anonimizado, ou `null` se não deu (nada é copiado). */
+  anonymize: (lines: string[]) => Promise<string | null>;
+}) {
   const [copied, setCopied] = useState(false);
+  const [copyFailed, setCopyFailed] = useState(false);
   const endRef = useRef<HTMLSpanElement>(null);
 
   useEffect(() => {
@@ -12,8 +24,15 @@ export function LogPanel({ lines }: { lines: string[] }) {
   }, [lines]);
 
   async function copy() {
+    setCopyFailed(false);
+    const text = await anonymize(lines);
+    if (text === null) {
+      // Sem anonimizar, nada vai para a área de transferência.
+      setCopyFailed(true);
+      return;
+    }
     try {
-      await navigator.clipboard.writeText(lines.join('\n'));
+      await navigator.clipboard.writeText(text);
       setCopied(true);
       setTimeout(() => setCopied(false), 1500);
     } catch {
@@ -29,10 +48,21 @@ export function LogPanel({ lines }: { lines: string[] }) {
         <span className="text-xs font-normal text-muted-foreground">({lines.length} linhas)</span>
       </summary>
       <div className="border-t">
-        <div className="flex justify-end px-2 pt-2">
-          <Button size="sm" variant="ghost" onClick={copy} disabled={lines.length === 0}>
+        <div className="flex items-center justify-between gap-2 px-4 pt-2">
+          <p className="text-xs text-muted-foreground">
+            {copyFailed
+              ? 'Não foi possível anonimizar o log; nada foi copiado.'
+              : 'Ao copiar, gateway, IPs e domínios viram marcadores. Confira antes de compartilhar.'}
+          </p>
+          <Button
+            size="sm"
+            variant="ghost"
+            className="shrink-0"
+            onClick={() => void copy()}
+            disabled={lines.length === 0}
+          >
             {copied ? <Check /> : <Copy />}
-            {copied ? 'Copiado' : 'Copiar'}
+            {copied ? 'Copiado' : 'Copiar anonimizado'}
           </Button>
         </div>
         <pre

@@ -244,3 +244,20 @@ mod tests {
         assert!(creds.get(CredentialKind::XauthPassword).is_none());
     }
 }
+
+/// Log pronto para copiar ou mandar num relatório de bug: além das
+/// identidades, o gateway, os DNS e os domínios do perfil e todo IP viram
+/// marcadores (`<gateway>`, `<ip-1>`, `<dominio-1>`). O texto copiado no app
+/// sempre passa por aqui.
+#[tauri::command]
+#[specta::specta]
+pub async fn anonymize_log(profile_id: String, lines: Vec<String>) -> Result<String, UiError> {
+    blocking(move || {
+        let profile = load_profile(&profile_id)?;
+        // As linhas da tela já vêm com o usuário XAuth mascarado: não precisa
+        // abrir o chaveiro (o que poderia pedir senha só para copiar).
+        let anonymizer = session::anonymizer_for(&profile, None);
+        Ok(anonymizer.anonymize(&lines.join("\n")))
+    })
+    .await
+}

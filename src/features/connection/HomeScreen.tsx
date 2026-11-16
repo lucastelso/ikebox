@@ -69,6 +69,14 @@ export function HomeScreen({ onImport }: { onImport?: () => void }) {
     if (await component.install()) dismiss();
   }
 
+  /** O log é da conexão ativa (ou do perfil escolhido, se ela já caiu). */
+  async function anonymizeLog(lines: string[]): Promise<string | null> {
+    const profileId = activeProfile ?? selected?.id;
+    if (!profileId) return null;
+    const result = await commands.anonymizeLog(profileId, lines);
+    return result.status === 'ok' ? result.data : null;
+  }
+
   const setup =
     idle && component.info ? (
       <SetupBanner
@@ -160,7 +168,7 @@ export function HomeScreen({ onImport }: { onImport?: () => void }) {
         />
       )}
 
-      <LogPanel lines={state.logs} />
+      <LogPanel lines={state.logs} anonymize={anonymizeLog} />
 
       {selected && dialog && (
         <CredentialsDialog

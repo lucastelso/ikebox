@@ -102,7 +102,7 @@ usuário: App (Tauri 2 + React) ou CLI
 | Branch | Entrega | Status |
 |---|---|---|
 | `fix/engine-updown-forcado` | **Escalada local para root corrigida** (ADR-0019): o cliente VICI não escolhe mais o `updown` nem o `if_id` (patch no strongSwan); DNS pelo helper; socket VICI `0600` do uid; `stop`/`logs` só para o dono; helper em paralelo; sandbox do engine mais fechado; testes do ataque (`test:native`, `test:systemd`) | ✅ (passo 32) |
-| `feat/log-anonimizado` | "Copiar log" anonimizado: gateway, IPs, domínios e DNS trocados por marcadores | ⏳ |
+| `feat/log-anonimizado` | "Copiar anonimizado" no app e `logs --anonimizar` no CLI: gateway, IPs, domínios e DNS trocados por marcadores estáveis (`Anonymizer`, no Rust) | ✅ (passo 33) |
 | `chore/higiene-privacidade` | Varredura de dados privados dentro dos pacotes (`check-private.sh --artifacts`), servidor de dev sem servir arquivos privados | ⏳ |
 | — | Charon sem root (usuário próprio + capabilities ambientes), depois de validar o `resolvectl` sem root | ⏳ (ideia) |
 
@@ -116,4 +116,3 @@ definida (GPL-3.0-or-later, ADR-0017).
 - Restringir as portas 500/4500 ao IP do gateway durante a sessão.
 - Internacionalização (en-US).
 - Autenticação por certificado e EAP (schema 2 do perfil).
-- "Copiar log anonimizado": mascarar também gateway, DNS, domínios e redes internas para relatórios de bug.

@@ -28,6 +28,7 @@ pub fn specta_builder() -> Builder<tauri::Wry> {
             commands::disconnect,
             commands::status,
             commands::forget_credentials,
+            commands::anonymize_log,
             profiles_cmd::choose_import_file,
             profiles_cmd::confirm_import,
             profiles_cmd::profile_details,
