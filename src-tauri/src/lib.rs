@@ -5,6 +5,7 @@
 //! enxerga os comandos registrados aqui; não há plugins de shell/fs.
 
 pub mod commands;
+pub mod component_cmd;
 pub mod desktop;
 pub mod dto;
 pub mod profiles_cmd;
@@ -32,6 +33,9 @@ pub fn specta_builder() -> Builder<tauri::Wry> {
             profiles_cmd::profile_details,
             profiles_cmd::export_profile,
             profiles_cmd::delete_profile,
+            component_cmd::component_status,
+            component_cmd::install_component,
+            component_cmd::uninstall_component,
         ])
         .events(collect_events![dto::SessionUpdate, dto::ImportPreview])
 }

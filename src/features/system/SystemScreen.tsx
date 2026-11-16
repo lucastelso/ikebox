@@ -14,6 +14,8 @@ import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { applyTheme, readTheme, type Theme } from '@/lib/theme';
 import { cn } from '@/lib/utils';
+import { ComponentCard } from '../component/ComponentCard';
+import { useComponent } from '../component/useComponent';
 
 const ICON: Record<CheckLevel, typeof CircleCheck> = {
   ok: CircleCheck,
@@ -33,8 +35,9 @@ const THEMES: Array<{ value: Theme; label: string; icon: typeof Sun }> = [
   { value: 'dark', label: 'Escuro', icon: Moon },
 ];
 
-/** Diagnóstico do ambiente, aparência e informações do app. */
+/** Componente de rede, diagnóstico do ambiente, aparência e informações do app. */
 export function SystemScreen() {
+  const component = useComponent();
   const [checks, setChecks] = useState<DiagnosticCheck[] | null>(null);
   const [running, setRunning] = useState(false);
   const [theme, setTheme] = useState<Theme>(readTheme);
@@ -64,8 +67,20 @@ export function SystemScreen() {
 
   const failures = checks?.filter((c) => c.level === 'fail').length ?? 0;
 
+  /** Instala/remove e, se mudou algo, refaz o diagnóstico. */
+  async function changeComponent(action: () => Promise<boolean>) {
+    if (await action()) void run();
+  }
+
   return (
     <div className="flex w-full flex-col gap-4">
+      <ComponentCard
+        info={component.info}
+        busy={component.busy}
+        onInstall={() => void changeComponent(component.install)}
+        onUninstall={() => void changeComponent(component.uninstall)}
+      />
+
       <Card>
         <CardHeader className="flex-row items-start justify-between gap-2">
           <div className="grid gap-1.5">

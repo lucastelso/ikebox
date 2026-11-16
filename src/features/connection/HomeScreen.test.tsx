@@ -2,7 +2,13 @@ import { mockIPC } from '@tauri-apps/api/mocks';
 import { render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { describe, expect, it } from 'vitest';
-import type { Connection, CredentialsStatus, ProfileList, UiError } from '@/bindings';
+import type {
+  ComponentInfo,
+  Connection,
+  CredentialsStatus,
+  ProfileList,
+  UiError,
+} from '@/bindings';
 import { HomeScreen } from './HomeScreen';
 
 const profiles: ProfileList = {
@@ -33,14 +39,33 @@ interface Backend {
   credentials?: Partial<CredentialsStatus>;
   connectError?: UiError;
   list?: ProfileList;
+  component?: ComponentInfo;
 }
 
+const missingComponent: ComponentInfo = {
+  state: 'notInstalled',
+  installedVersion: null,
+  installedStrongswan: null,
+  bundledVersion: '0.1.0',
+  bundledStrongswan: '6.1.0',
+  managedByPackage: false,
+  canInstall: true,
+  canUninstall: false,
+  problem: null,
+};
+
 /** Simula o Rust e registra as chamadas de `connect`. */
-function mockBackend({ credentials, connectError, list = profiles }: Backend = {}) {
+function mockBackend({ credentials, connectError, list = profiles, component }: Backend = {}) {
   const connectCalls: Array<Record<string, unknown>> = [];
   let connected = false;
+  let componentInfo = component;
   mockIPC((cmd, args) => {
     switch (cmd) {
+      case 'component_status':
+        return componentInfo ?? null;
+      case 'install_component':
+        componentInfo = { ...missingComponent, state: 'ready', installedVersion: '0.1.0' };
+        return componentInfo;
       case 'list_profiles':
         return list;
       case 'status':
@@ -123,5 +148,33 @@ describe('HomeScreen', () => {
     render(<HomeScreen />);
     expect(await screen.findByText('Nenhum perfil ainda')).toBeInTheDocument();
     expect(screen.getByRole('button', { name: 'Importar perfil' })).toBeInTheDocument();
+  });
+
+  it('oferece instalar o componente de rede e some depois de instalado', async () => {
+    mockBackend({ component: missingComponent });
+    render(<HomeScreen />);
+    const banner = await screen.findByRole('region', { name: 'Componente de rede' });
+    expect(banner).toHaveTextContent('Falta um passo');
+    await userEvent.click(screen.getByRole('button', { name: 'Instalar agora' }));
+    await waitFor(() =>
+      expect(screen.queryByRole('region', { name: 'Componente de rede' })).not.toBeInTheDocument(),
+    );
+  });
+
+  it('erro de componente ausente oferece a instalação', async () => {
+    mockBackend({
+      component: missingComponent,
+      connectError: {
+        kind: 'componentMissing',
+        message: 'O computador ainda não está pronto para conectar.',
+        details: ['Componente de rede: não instalado'],
+      },
+    });
+    render(<HomeScreen />);
+    await userEvent.click(await screen.findByRole('button', { name: 'Conectar' }));
+    const alert = await screen.findByRole('alert');
+    expect(alert).toHaveTextContent('não está pronto');
+    await userEvent.click(screen.getByRole('button', { name: 'Instalar componente de rede' }));
+    await waitFor(() => expect(screen.queryByRole('alert')).not.toBeInTheDocument());
   });
 });

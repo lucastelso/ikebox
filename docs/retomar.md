@@ -27,8 +27,15 @@
 - **Engine embutido validado com root** (passo 27). O app usa o engine
   embutido quando o componente de rede está instalado, e o Docker como
   reserva. Falta testar a VPN real pelo app, já sem Docker.
-  - **Próximo:** `feat/setup-appimage` (o primeiro uso do AppImage instala o
-    componente via `pkexec`) e `chore/release` (AppImage + rpm/deb).
+- **O app instala o componente de rede** (`feat/setup-appimage`, ADR-0018):
+  pacote dentro do app, `pkexec` com a senha de administrador uma vez, aviso
+  de atualização e remoção. Também no terminal:
+  `ipsec-client-cli component status|install|uninstall`.
+  - **Validar (mantenedor):** `npm run stage:component` e depois
+    `target/debug/ipsec-client-cli component install --bundle
+    target/network-component`. Isso testa o pedido de senha real e atualiza
+    a instalação feita pelo `test-native.sh`.
+  - **Próximo:** `chore/release` (AppImage + rpm/deb na CI).
 - **Ainda na fase C:** `feat/ui-editor-perfis`, para editar perfis na
   interface.
 - **Pendente com o mantenedor:**
@@ -56,6 +63,7 @@ npm run test:engine    # E2E do engine com gateway IPsec local (~10 s)
 npm run test:docker    # integração do núcleo Rust com o Docker real
 npm run test:cli       # fluxo completo do CLI
 npm run test:native    # strongSwan compilado (engine embutido) + E2E
+npm run test:packaging # instalador do componente de rede, como root num container
 ```
 
 ## Regras que não mudam

@@ -170,7 +170,7 @@ fn check_not_root() -> Check {
             "Usuário",
             CheckStatus::Fail,
             "rodando como root",
-            "não use sudo: rode como o seu usuário (que precisa estar no grupo docker)",
+            "não use sudo: rode como o seu usuário",
         )
     } else {
         Check::ok("Usuário", "comum (não root)")
@@ -194,41 +194,59 @@ async fn check_docker() -> Check {
     }
 }
 
-/// Componente de rede (engine embutido). Sem ele, o app usa o Docker.
+/// Nome da verificação do componente de rede (a UI oferece instalar quando
+/// ela falha).
+pub const COMPONENT_CHECK: &str = "Componente de rede";
+
+/// Como instalar o componente de rede.
+pub const COMPONENT_HINT: &str = "no app: Sistema → Componente de rede → Instalar (pede a senha \
+     de administrador uma vez); no terminal: ipsec-client-cli component install --bundle <pacote>";
+
+/// Componente de rede (engine embutido). Sem ele, o app usa o Docker, se
+/// houver; sem nenhum dos dois, não dá para conectar.
 async fn check_engine() -> Vec<Check> {
-    const NAME: &str = "Componente de rede";
     let native = NativeEngine::default();
     if native.installed() {
         let ping = tokio::task::spawn_blocking(move || native.ping()).await;
         return vec![match ping {
             Ok(Ok(version)) => Check::ok(
-                NAME,
+                COMPONENT_CHECK,
                 format!("instalado (engine embutido, helper {version})"),
             ),
             Ok(Err(e)) => Check::bad(
-                NAME,
+                COMPONENT_CHECK,
                 CheckStatus::Fail,
                 e.to_string(),
-                "reinstale o IPsec Client",
+                COMPONENT_HINT,
             ),
             Err(e) => Check::bad(
-                NAME,
+                COMPONENT_CHECK,
                 CheckStatus::Fail,
                 e.to_string(),
-                "reinstale o IPsec Client",
+                COMPONENT_HINT,
             ),
         }];
     }
-    vec![
-        Check::bad(
-            NAME,
-            CheckStatus::Warn,
-            "não instalado; usando o engine em Docker",
-            "instale o componente de rede para dispensar o Docker",
-        ),
-        check_runtime_dir(),
-        check_docker().await,
-    ]
+    let docker = check_docker().await;
+    if docker.status == CheckStatus::Ok {
+        vec![
+            Check::bad(
+                COMPONENT_CHECK,
+                CheckStatus::Warn,
+                "não instalado; usando o engine em Docker",
+                COMPONENT_HINT,
+            ),
+            check_runtime_dir(),
+            docker,
+        ]
+    } else {
+        vec![Check::bad(
+            COMPONENT_CHECK,
+            CheckStatus::Fail,
+            "não instalado",
+            COMPONENT_HINT,
+        )]
+    }
 }
 
 /// Verificações que impedem ou limitam uma conexão (rodadas antes do

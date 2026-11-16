@@ -6,7 +6,8 @@
 
 use std::fmt;
 
-use ipsec_client_core::diagnostics::CheckStatus;
+use ipsec_client_core::component::{self, Bundle, ComponentError, Origin};
+use ipsec_client_core::diagnostics::{COMPONENT_CHECK, CheckStatus};
 use ipsec_client_core::engine::EngineError;
 use ipsec_client_core::profiles::{AuthMethod, CredentialKind, Profile, ProfileError};
 use ipsec_client_core::secrets::SecretsError;
@@ -247,6 +248,12 @@ pub enum UiErrorKind {
     Keyring,
     /// Engine/Docker.
     Engine,
+    /// Falta instalar o componente de rede (a UI oferece instalar).
+    ComponentMissing,
+    /// Instalação/remoção do componente de rede.
+    Component,
+    /// O usuário cancelou (ex.: fechou o pedido de senha).
+    Cancelled,
     /// Outra operação em andamento.
     Busy,
     /// Outro erro.
@@ -285,7 +292,14 @@ impl From<SessionError> for UiError {
                 format!("Já existe uma conexão ativa (perfil {profile}). Desconecte antes."),
             ),
             SessionError::Preflight(checks) => Self {
-                kind: UiErrorKind::Preflight,
+                kind: if checks
+                    .iter()
+                    .any(|c| c.status == CheckStatus::Fail && c.name == COMPONENT_CHECK)
+                {
+                    UiErrorKind::ComponentMissing
+                } else {
+                    UiErrorKind::Preflight
+                },
                 message: "O computador ainda não está pronto para conectar.".to_owned(),
                 details: checks
                     .iter()
@@ -337,6 +351,85 @@ impl From<EngineError> for UiError {
                 details: recent_logs,
             },
             other => Self::new(UiErrorKind::Engine, capitalize(&other.to_string())),
+        }
+    }
+}
+
+impl From<ComponentError> for UiError {
+    fn from(e: ComponentError) -> Self {
+        match e {
+            ComponentError::Cancelled => {
+                Self::new(UiErrorKind::Cancelled, "Autorização cancelada.")
+            }
+            ComponentError::Failed { log } => Self {
+                kind: UiErrorKind::Component,
+                message: "O instalador do componente de rede falhou.".to_owned(),
+                details: log,
+            },
+            other => Self::new(UiErrorKind::Component, capitalize(&other.to_string())),
+        }
+    }
+}
+
+/// Situação do componente de rede.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Type)]
+#[serde(rename_all = "camelCase")]
+pub enum ComponentState {
+    /// Nada instalado.
+    NotInstalled,
+    /// Instalado e funcionando.
+    Ready,
+    /// Instalado, mas o app traz uma versão diferente.
+    Outdated,
+    /// Instalação com problema (helper não responde).
+    Broken,
+}
+
+/// Componente de rede: o que está instalado e o que dá para fazer.
+#[derive(Debug, Clone, Serialize, Type)]
+#[serde(rename_all = "camelCase")]
+pub struct ComponentInfo {
+    /// Situação.
+    pub state: ComponentState,
+    /// Versão do IPsec Client que instalou o componente.
+    pub installed_version: Option<String>,
+    /// strongSwan instalado.
+    pub installed_strongswan: Option<String>,
+    /// Versão do componente que vem com este app.
+    pub bundled_version: Option<String>,
+    /// strongSwan que vem com este app.
+    pub bundled_strongswan: Option<String>,
+    /// Instalado por pacote do sistema (.rpm/.deb): o app não mexe.
+    pub managed_by_package: bool,
+    /// O app pode instalar/atualizar daqui.
+    pub can_install: bool,
+    /// O app pode remover daqui.
+    pub can_uninstall: bool,
+    /// Motivo, quando há problema.
+    pub problem: Option<String>,
+}
+
+impl ComponentInfo {
+    /// Junta o estado, o pacote do app e a disponibilidade do `pkexec`.
+    #[must_use]
+    pub fn new(status: &component::Status, bundle: Option<&Bundle>, pkexec: bool) -> Self {
+        let installed = status.installed.as_ref();
+        let managed_by_package = installed.is_some_and(|i| i.origin == Origin::Package);
+        Self {
+            state: match status.state {
+                component::State::NotInstalled => ComponentState::NotInstalled,
+                component::State::Ready => ComponentState::Ready,
+                component::State::Outdated => ComponentState::Outdated,
+                component::State::Broken => ComponentState::Broken,
+            },
+            installed_version: installed.and_then(|i| i.version.app.clone()),
+            installed_strongswan: installed.and_then(|i| i.version.strongswan.clone()),
+            bundled_version: bundle.and_then(|b| b.version().app.clone()),
+            bundled_strongswan: bundle.and_then(|b| b.version().strongswan.clone()),
+            managed_by_package,
+            can_install: pkexec && bundle.is_some() && !managed_by_package,
+            can_uninstall: pkexec && installed.is_some() && !managed_by_package,
+            problem: status.problem.clone(),
         }
     }
 }
@@ -400,6 +493,52 @@ mod tests {
         ]));
         assert_eq!(ui.kind, UiErrorKind::Preflight);
         assert_eq!(ui.details, ["Docker: inacessível → usermod"]);
+    }
+
+    #[test]
+    fn missing_component_is_its_own_kind() {
+        let ui = UiError::from(SessionError::Preflight(vec![Check {
+            name: COMPONENT_CHECK,
+            status: CheckStatus::Fail,
+            detail: "não instalado".into(),
+            hint: Some("instale".into()),
+        }]));
+        assert_eq!(ui.kind, UiErrorKind::ComponentMissing);
+        let cancelled = UiError::from(ComponentError::Cancelled);
+        assert_eq!(cancelled.kind, UiErrorKind::Cancelled);
+        let failed = UiError::from(ComponentError::Failed {
+            log: vec!["[componente de rede] erro: x".into()],
+        });
+        assert_eq!(failed.kind, UiErrorKind::Component);
+        assert_eq!(failed.details.len(), 1);
+    }
+
+    #[test]
+    fn component_info_respects_package_origin() {
+        use ipsec_client_core::component::{Installed, State, Status, Version};
+        let status = |origin| Status {
+            state: State::Ready,
+            installed: Some(Installed {
+                version: Version {
+                    app: Some("0.1.0".into()),
+                    strongswan: Some("6.1.0".into()),
+                },
+                digest: None,
+                origin,
+            }),
+            helper_version: Some("0.1.0".into()),
+            problem: None,
+        };
+        let by_app = ComponentInfo::new(&status(Origin::App), None, true);
+        assert!(
+            by_app.can_uninstall && !by_app.can_install,
+            "sem pacote no app"
+        );
+        assert_eq!(by_app.installed_strongswan.as_deref(), Some("6.1.0"));
+        let by_pkg = ComponentInfo::new(&status(Origin::Package), None, true);
+        assert!(by_pkg.managed_by_package && !by_pkg.can_uninstall);
+        let no_pkexec = ComponentInfo::new(&status(Origin::App), None, false);
+        assert!(!no_pkexec.can_uninstall);
     }
 
     #[test]

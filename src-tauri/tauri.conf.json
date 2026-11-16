@@ -35,7 +35,7 @@
       "deb",
       "rpm"
     ],
-    "category": "Network",
+    "category": "Utility",
     "shortDescription": "Cliente de VPN IPsec para Linux",
     "longDescription": "Conecta a VPNs IPsec, inclusive as legadas (IKEv1, PSK de grupo + XAuth), sem configurar nada no sistema.",
     "icon": [

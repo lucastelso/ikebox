@@ -85,13 +85,13 @@ usuário: App (Tauri 2 + React) ou CLI
 | `feat/engine-nativo-build` | Build reproduzível do strongSwan na CI. Em parte adiantado: o build e o E2E já rodam na CI (`npm run test:native`). Falta empacotar no bundle | ⏳ |
 | `feat/helper` | `crates/helper` (root): socket systemd, `SO_PEERCRED` + polkit, charon via `systemd-run` com hardening; `crates/proto`; units, policy e instalador (`packaging/`) | ✅ validado com root (passo 27) |
 | `feat/backend-nativo` | `Backend` (nativo quando o componente de rede está instalado; Docker como reserva), entregue junto com o `feat/helper` | ✅ |
-| `feat/setup-appimage` | Primeiro uso do AppImage: instala o componente de rede com a senha de administrador, uma vez | ⏳ |
+| `feat/setup-appimage` | Primeiro uso do AppImage: instala o componente de rede com a senha de administrador, uma vez (ADR-0018) | 🧪 pronto; falta o mantenedor testar o pedido de senha real (`pkexec`) |
 
 ### Fase E: distribuição
 
 | Branch | Entrega | Status |
 |---|---|---|
-| `chore/release` | AppImage + rpm + deb na CI, checksums assinados, GitHub Releases, tag `v0.1.0`. Aceite: numa VM limpa, só com o AppImage, conecta com um perfil exportado | ⏳ |
+| `chore/release` | AppImage + rpm + deb na CI, checksums assinados, GitHub Releases, tag `v0.1.0`. Inclui o pós-instalação do rpm/deb (`install-native.sh --bundle "/usr/lib/IPsec Client/network" --origin package`) e um `.desktop` próprio com `Categories=Network;Security;`. Aceite: numa VM limpa, só com o AppImage, conecta com um perfil exportado | ⏳ |
 | `feat/updater` (opcional) | Atualização automática assinada | ⏳ |
 
 **Antes de tornar público:** reescrita do e-mail dos commits e varredura completa

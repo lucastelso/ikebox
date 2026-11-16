@@ -1,4 +1,4 @@
-import { CircleAlert, X } from 'lucide-react';
+import { CircleAlert, LoaderCircle, X } from 'lucide-react';
 import type { UiError } from '@/bindings';
 import { Button } from '@/components/ui/button';
 
@@ -14,10 +14,15 @@ export function ErrorBanner({
   error,
   onDismiss,
   onFixCredentials,
+  onInstallComponent,
+  installing = false,
 }: {
   error: UiError;
   onDismiss: () => void;
   onFixCredentials?: () => void;
+  /** Oferecido quando falta o componente de rede. */
+  onInstallComponent?: () => void;
+  installing?: boolean;
 }) {
   return (
     <div
@@ -39,6 +44,14 @@ export function ErrorBanner({
                 ))}
               </ul>
             </details>
+          )}
+          {onInstallComponent && error.kind === 'componentMissing' && (
+            <div>
+              <Button size="sm" onClick={onInstallComponent} disabled={installing}>
+                {installing && <LoaderCircle className="animate-spin" />}
+                {installing ? 'Instalando…' : 'Instalar componente de rede'}
+              </Button>
+            </div>
           )}
           {onFixCredentials && isCredentialError(error) && (
             <div>

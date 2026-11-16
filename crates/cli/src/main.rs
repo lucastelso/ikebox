@@ -9,6 +9,7 @@
 //! ipsec-client-cli connect trabalho --detach # fica conectado em segundo plano
 //! ipsec-client-cli status
 //! ipsec-client-cli disconnect
+//! ipsec-client-cli component install --bundle target/network-component
 //! ```
 
 // O CLI fala com o usuário pelo terminal.
@@ -48,8 +49,11 @@ struct Cli {
 
 #[derive(Debug, Subcommand)]
 enum Command {
-    /// Verifica se o ambiente está pronto (Docker, kernel, DNS, portas, chaveiro).
+    /// Verifica se o ambiente está pronto (componente de rede, kernel, DNS, portas, chaveiro).
     Doctor,
+    /// Componente de rede (engine embutido): estado, instalação e remoção.
+    #[command(subcommand)]
+    Component(ComponentCmd),
     /// Gerencia perfis de conexão.
     #[command(subcommand)]
     Profiles(ProfilesCmd),
@@ -159,6 +163,24 @@ enum ProfilesCmd {
 }
 
 #[derive(Debug, Subcommand)]
+enum ComponentCmd {
+    /// Mostra o que está instalado (e se o pacote indicado é diferente).
+    Status {
+        /// Pacote para comparar (diretório com SHA256SUMS).
+        #[arg(long)]
+        bundle: Option<PathBuf>,
+    },
+    /// Instala ou atualiza a partir de um pacote (pede a senha de administrador).
+    Install {
+        /// Pacote (gerado por scripts/stage-network-component.sh).
+        #[arg(long)]
+        bundle: PathBuf,
+    },
+    /// Remove o componente (pede a senha de administrador).
+    Uninstall,
+}
+
+#[derive(Debug, Subcommand)]
 enum SecretsCmd {
     /// Pede e guarda no chaveiro as credenciais do perfil.
     Set {
@@ -221,6 +243,7 @@ fn init_tracing(verbose: u8) {
 async fn run(cli: Cli) -> anyhow::Result<ExitCode> {
     match cli.command {
         Command::Doctor => doctor().await,
+        Command::Component(cmd) => tokio::task::spawn_blocking(move || component(cmd)).await?,
         Command::Profiles(cmd) => profiles(cmd),
         Command::Secrets(cmd) => secrets(cmd),
         Command::Connect {
@@ -287,6 +310,74 @@ fn keyring() -> Option<KeyringStore> {
         Err(e) => {
             eprintln!("⚠ {e}");
             None
+        }
+    }
+}
+
+fn component(cmd: ComponentCmd) -> anyhow::Result<ExitCode> {
+    use ipsec_client_core::component::{self as comp, Bundle, Origin, State};
+    let open = |dir: &std::path::Path| {
+        Bundle::open(dir).with_context(|| format!("pacote em {}", dir.display()))
+    };
+    let print_log = |log: &[String]| log.iter().for_each(|l| println!("  {l}"));
+    match cmd {
+        ComponentCmd::Status { bundle } => {
+            let bundle = bundle.as_deref().map(open).transpose()?;
+            let status = comp::status(bundle.as_ref());
+            let state = match status.state {
+                State::NotInstalled => "não instalado",
+                State::Ready => "instalado",
+                State::Outdated => "instalado, diferente do pacote (atualize)",
+                State::Broken => "com problema",
+            };
+            println!("Componente de rede: {state}");
+            if let Some(inst) = &status.installed {
+                println!(
+                    "  versão {} · strongSwan {} · origem {}",
+                    inst.version.app.as_deref().unwrap_or("?"),
+                    inst.version.strongswan.as_deref().unwrap_or("?"),
+                    inst.origin.as_str()
+                );
+            }
+            if let Some(problem) = &status.problem {
+                println!("  problema: {problem}");
+            }
+            Ok(if status.state == State::NotInstalled {
+                ExitCode::from(3)
+            } else {
+                ExitCode::SUCCESS
+            })
+        }
+        ComponentCmd::Install { bundle } => {
+            let bundle = open(&bundle)?;
+            println!("… o sistema vai pedir a senha de administrador");
+            match comp::install(&bundle, Origin::App) {
+                Ok(log) => {
+                    print_log(&log);
+                    println!("✔ Componente de rede instalado.");
+                    Ok(ExitCode::SUCCESS)
+                }
+                Err(comp::ComponentError::Failed { log }) => {
+                    print_log(&log);
+                    bail!("o instalador do componente de rede falhou")
+                }
+                Err(e) => Err(e.into()),
+            }
+        }
+        ComponentCmd::Uninstall => {
+            println!("… o sistema vai pedir a senha de administrador");
+            match comp::uninstall() {
+                Ok(log) => {
+                    print_log(&log);
+                    println!("✔ Componente de rede removido.");
+                    Ok(ExitCode::SUCCESS)
+                }
+                Err(comp::ComponentError::Failed { log }) => {
+                    print_log(&log);
+                    bail!("a remoção do componente de rede falhou")
+                }
+                Err(e) => Err(e.into()),
+            }
         }
     }
 }

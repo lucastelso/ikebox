@@ -6,12 +6,13 @@
 #   --fmt           só a formatação (pre-commit)
 #   --docker-tests  testes de integração com o Docker real (alteram a rede do
 #                   host temporariamente; ver crates/core/tests/)
-# Carrega ~/.cargo/env quando o cargo não está no PATH (hooks de git, IDEs).
+# Carrega ~/.cargo/env (hooks de git, IDEs): o cargo do rustup respeita o
+# rust-toolchain.toml, mesmo com outro cargo (do sistema) no PATH.
 set -euo pipefail
 
 cd "$(git rev-parse --show-toplevel)"
 
-if ! command -v cargo >/dev/null 2>&1 && [[ -f "$HOME/.cargo/env" ]]; then
+if [[ -f "$HOME/.cargo/env" ]]; then
     # shellcheck source=/dev/null
     . "$HOME/.cargo/env"
 fi
