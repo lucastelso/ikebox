@@ -24,12 +24,9 @@
 - **Gerenciador de presets pronto** (`feat/ui-perfis`): importar JSON ou
   swanctl.conf (botão ou arrastar o arquivo para a janela), exportar, ver
   detalhes e excluir.
-- **Fase D em andamento: helper e backend nativo prontos** (`feat/helper`). O
-  app usa o engine embutido quando o componente de rede está instalado, e o
-  Docker como reserva.
-  - **Validar com root (mantenedor):** `scripts/test-native.sh`. Ele compila,
-    instala com `sudo` e roda o E2E do CLI pelo engine embutido, testando o
-    polkit de verdade. Depois, a VPN real pelo app, já sem Docker.
+- **Engine embutido validado com root** (passo 27). O app usa o engine
+  embutido quando o componente de rede está instalado, e o Docker como
+  reserva. Falta testar a VPN real pelo app, já sem Docker.
   - **Próximo:** `feat/setup-appimage` (o primeiro uso do AppImage instala o
     componente via `pkexec`) e `chore/release` (AppImage + rpm/deb).
 - **Ainda na fase C:** `feat/ui-editor-perfis`, para editar perfis na

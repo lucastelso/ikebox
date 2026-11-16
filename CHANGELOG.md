@@ -111,7 +111,9 @@ commits.
   - `crates/proto`, o protocolo compartilhado: o cliente só manda números
     validados e o id do perfil, nunca caminhos, comandos ou segredos;
   - `packaging/` com as units do systemd, a policy do polkit e o instalador;
-  - `scripts/test-native.sh` para a validação com root.
+  - `scripts/test-native.sh` para a validação com root, que passou no
+    computador do mantenedor (polkit, sandbox do systemd e SELinux
+    enforcing).
 
   O `core` escolhe o engine embutido quando ele está instalado (`Backend`), e
   o `entrypoint.sh` ganhou o modo nativo (raiz somente leitura, socket por
