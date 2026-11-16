@@ -4,13 +4,13 @@ Cliente de VPN IPsec para **Linux**, feito para VPNs **legadas**: IKEv1, modo
 agressivo, PSK de grupo + XAuth, grupos DH antigos. É o tipo de VPN corporativa
 que os clientes atuais do Linux já não conseguem conectar.
 
-> **Status: pré-alfa, em desenvolvimento ativo.** O **app desktop** já conecta
-> de ponta a ponta numa VPN FortiGate real e gera pacotes `.rpm` e `.deb` que
-> entram no menu de aplicativos. O strongSwan embutido, que dispensa o Docker,
-> passou nos testes com root. Faltam confirmá-lo na VPN real e publicar a
-> primeira versão (v0.1.0). O que já existe e o que vem a seguir estão no
-> [roadmap](docs/roadmap.md). Os passos já dados estão no
-> [diário de desenvolvimento](docs/desenvolvimento.md).
+> **Status: v0.1.0, primeira versão funcional (pré-alfa).** O app desktop,
+> instalado pelo `.rpm` e com o strongSwan embutido (**sem Docker**), conecta
+> de ponta a ponta numa VPN FortiGate real. Os pacotes para baixar (AppImage,
+> rpm e deb) vão ser publicados no GitHub Releases. Até lá, eles podem ser
+> gerados a partir do código ([manual](docs/instalacao.md#6-gerar-o-pacote-a-partir-do-código)).
+> O que já existe e o que vem a seguir estão no [roadmap](docs/roadmap.md). Os
+> passos já dados estão no [diário de desenvolvimento](docs/desenvolvimento.md).
 
 ---
 
@@ -61,8 +61,8 @@ Depois, abra o **IPsec Client** pelo menu de aplicativos. Na primeira vez, ele
 pede a senha de administrador **uma vez** para instalar o componente de rede.
 
 O passo a passo completo, com primeiro uso, atualização, desinstalação e
-como gerar os pacotes a partir do código enquanto a v0.1.0 não sai, está no
-**[manual de instalação](docs/instalacao.md)**.
+como gerar os pacotes a partir do código enquanto eles não estão no GitHub
+Releases, está no **[manual de instalação](docs/instalacao.md)**.
 
 > Recebeu um perfil de um colega? Siga o **[guia rápido](docs/guia-rapido.md)**.
 

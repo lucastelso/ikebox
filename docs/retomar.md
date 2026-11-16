@@ -6,49 +6,39 @@
 
 ## Onde estamos
 
-- **Direção atual (2026-11-16):** um app desktop "baixe e rode" (AppImage),
-  sem Docker para o usuário. O plano completo, com as fases A a E, está no
-  [roadmap](roadmap.md).
-- **Base pronta:** o núcleo Rust e o `ipsec-client-cli` funcionam de ponta a
-  ponta. O mantenedor já importou o perfil do trabalho.
-- **Fase B concluída** (`spike/engine-nativo`): o strongSwan **6.1.0** compilado
-  por nós funciona (ADRs 0013–0016). O build e o E2E rodam com
-  `npm run test:native`.
-- **Scaffold da GUI pronto** (`chore/scaffold-gui`): `npm run tauri dev` abre o
-  app.
-- **Tela de conexão pronta** (`feat/ui-conexao`). Ela já conecta de verdade
-  pelo backend Docker atual; teste com `npm run tauri dev`.
-- **Bandeja, notificações e instância única prontas** (`feat/tray`).
-- **Aba Sistema pronta** (`feat/ui-diagnostico`): diagnóstico visual, tema e
-  versão.
-- **Gerenciador de presets pronto** (`feat/ui-perfis`): importar JSON ou
-  swanctl.conf (botão ou arrastar o arquivo para a janela), exportar, ver
-  detalhes e excluir.
-- **Engine embutido validado com root** (passo 27). O app usa o engine
-  embutido quando o componente de rede está instalado, e o Docker como
-  reserva. Falta testar a VPN real pelo app, já sem Docker.
-- **O app instala o componente de rede** (`feat/setup-appimage`, ADR-0018):
-  pacote dentro do app, `pkexec` com a senha de administrador uma vez, aviso
-  de atualização e remoção. Também no terminal:
-  `ipsec-client-cli component status|install|uninstall`.
-  - **Validar (mantenedor):** `npm run stage:component` e depois
-    `target/debug/ipsec-client-cli component install --bundle
-    target/network-component`. Isso testa o pedido de senha real e atualiza
-    a instalação feita pelo `test-native.sh`.
-- **Instalável como app** (`chore/instalacao-desktop`): `npm run bundle --
-  --bundles rpm` gera o `ipsec-client-*.rpm`, que entra no menu. Manual em
-  [instalacao.md](instalacao.md).
-  - **Próximo:** `chore/release` (AppImage + rpm/deb na CI).
-- **Ainda na fase C:** `feat/ui-editor-perfis`, para editar perfis na
-  interface.
+- **Versão 0.1.0 (2026-11-16): primeira versão funcional, validada pelo
+  mantenedor na VPN real** (FortiGate, IKEv1 agressivo + PSK de grupo +
+  XAuth), com acesso à máquina do trabalho pelo Remmina. Caminho validado, o
+  mesmo de um usuário final:
+  1. app instalado pelo `.rpm`, aberto pelo menu de aplicativos;
+  2. componente de rede instalado pelo próprio app, com a senha de
+     administrador (`pkexec`, origem `app`);
+  3. conexão pelo strongSwan 6.1.0 embutido, **sem Docker**.
+- **Pronto:**
+  - núcleo Rust e `ipsec-client-cli`;
+  - app desktop: conexão, perfis (importar/exportar), aba Sistema,
+    bandeja, notificações e instância única;
+  - engine embutido (helper com polkit e sandbox do systemd);
+  - instalação do componente pelo app (ADR-0018);
+  - pacotes `.rpm`/`.deb` que entram no menu, com o
+    [manual de instalação](instalacao.md).
+- **Próximo:** `chore/release`:
+  - AppImage + rpm + deb gerados na CI (Ubuntu 22.04);
+  - pós-instalação do rpm/deb instalando o componente (`--origin package`);
+  - `.deb` com a `libayatana-appindicator3-1`;
+  - `SHA256SUMS` assinado, GitHub Releases e tag `v0.1.0`.
+- **Depois:** `feat/ui-editor-perfis` (editar perfis na interface).
+- **Ideias anotadas:**
+  - teste de longa duração (rekey em ~11 h);
+  - "copiar log anonimizado";
+  - unificar a consulta de estado da UI e da bandeja;
+  - opção de fechar a janela para a bandeja (hoje, fechar encerra o app, mas
+    a VPN continua conectada).
 - **Pendente com o mantenedor:**
-  1. `git push origin --all` (o ambiente automatizado não tem as credenciais do
-     GitHub) e conferir a primeira execução da CI;
-  2. **testar o app com a VPN real:** `npm run tauri dev`, depois Perfis →
-     Importar (ou arrastar o `trabalho.json`), Conexão → Conectar → Remmina,
-     e dar retorno sobre o visual e o uso;
-  3. a fase D (helper com root) vai precisar de testes com `sudo` no
-     computador do mantenedor.
+  1. conferir a CI no GitHub depois do push;
+  2. antes de tornar o repositório público: reescrever o e-mail dos commits
+     (`git filter-repo --mailbox`) e varrer o histórico
+     (`scripts/check-private.sh --history` + gitleaks).
 
 ## Preparar o ambiente (uma vez)
 

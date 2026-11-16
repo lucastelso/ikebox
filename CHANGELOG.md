@@ -7,7 +7,20 @@ e o projeto adota o [Versionamento Semântico](https://semver.org/lang/pt-BR/).
 A partir da v0.1.0, este arquivo será gerado com git-cliff a partir dos
 commits.
 
-## [Não lançado]
+## [0.1.0] - a publicar
+
+Primeira versão funcional. Em 2026-11-16, o mantenedor a validou numa VPN
+FortiGate real (IKEv1 agressivo + PSK de grupo + XAuth), pelo mesmo caminho
+de um usuário final:
+
+- app instalado pelo `.rpm` e aberto pelo menu de aplicativos;
+- componente de rede instalado pelo próprio app, com a senha de
+  administrador;
+- conexão pelo strongSwan 6.1.0 embutido, sem Docker, e acesso remoto (RDP)
+  pela VPN.
+
+Os pacotes (AppImage, rpm e deb) e a tag `v0.1.0` serão publicados no GitHub
+Releases pelo `chore/release`.
 
 ### Licença
 
