@@ -29,10 +29,10 @@ export const commands = {
 	/**  Apaga as credenciais guardadas do perfil. */
 	forgetCredentials: (profileId: string, options?: InvokeOptions) => typedError<null, UiError>(__TAURI_INVOKE("forget_credentials", { profileId }, options)),
 	/**
-	 *  Log pronto para copiar ou mandar num relatório de bug: além das
-	 *  identidades, o gateway, os DNS e os domínios do perfil e todo IP viram
-	 *  marcadores (`<gateway>`, `<ip-1>`, `<dominio-1>`). O texto copiado no app
-	 *  sempre passa por aqui.
+	 *  Log ready to copy or attach to a bug report: besides the identities, the
+	 *  gateway, the profile's DNS servers and domains and every IP address become
+	 *  placeholders (`<gateway>`, `<ip-1>`, `<domain-1>`). Text copied in the app
+	 *  always goes through here.
 	 */
 	anonymizeLog: (profileId: string, lines: string[], options?: InvokeOptions) => typedError<string, UiError>(__TAURI_INVOKE("anonymize_log", { profileId, lines }, options)),
 	/**

@@ -77,9 +77,9 @@ cleanup() {
     local rc=$?
     set +e
     if ((rc != 0)); then
-        printf '\n--- últimas linhas do engine ---\n'
+        printf '\n--- last engine lines ---\n'
         docker logs "$ENGINE" 2>&1 | tail -n 60
-        printf '\n--- últimas linhas do gateway ---\n'
+        printf '\n--- last gateway lines ---\n'
         docker logs "$GW" 2>&1 | tail -n 30
     fi
     # stop (gracioso) antes do rm, para o entrypoint limpar o host.

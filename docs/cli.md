@@ -56,7 +56,7 @@ ipsec-client-cli connect vpn                              # Ctrl+C disconnects
 | `connect <id> --timeout N` | Maximum negotiation time (default 30 s) |
 | `connect <id> --privileged` | Fallback privileged container mode, Docker engine only (avoid it; see SECURITY.md) |
 | `status` | Shows the active connection: gateway, virtual IP, networks, time and traffic. Exits with **3** when disconnected |
-| `logs [-f] [-n N] [--anonymize]` | Engine log, with the XAuth username and the group id masked. With `--anonymize`, the gateway, IPs, DNS and domains also become placeholders (`<gateway>`, `<ip-1>`, `<dominio-1>`): that is the format to send in a bug report |
+| `logs [-f] [-n N] [--anonymize]` | Engine log, with the XAuth username and the group id masked. With `--anonymize`, the gateway, IPs, DNS and domains also become placeholders (`<gateway>`, `<ip-1>`, `<domain-1>`): that is the format to send in a bug report |
 | `disconnect` | Tells the gateway (`terminate`) and stops the engine. Works from any terminal |
 | `-v` / `-vv` | Also shows the charon log after connecting / shows debugging |
 

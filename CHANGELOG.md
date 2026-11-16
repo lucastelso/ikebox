@@ -36,7 +36,7 @@ lives in the component, so replacing the package alone is not enough.
   history or the 0.1.0 packages.
 - **"Copy anonymized"** in the app and `logs --anonymize` in the CLI: the
   gateway, IPs, DNS and domains become placeholders (`<gateway>`, `<ip-1>`,
-  `<dominio-1>`) in the text that leaves the app.
+  `<domain-1>`) in the text that leaves the app.
 - `scripts/check-private.sh --artifacts` scans the inside of the release
   packages and runs at the end of every release build.
 - The development server does not serve private files left in the project
