@@ -1293,3 +1293,12 @@ e estavam íntegros.
 As notas da versão ficam em `docs/releases/v0.1.0.md`. O push e a publicação
 são feitos pelo mantenedor, porque este ambiente não tem credenciais do
 GitHub.
+
+**Ajuste no verificador.** No build da tag, a conferência do `.rpm` abortou
+sem mensagem. O `rpm2cpio` do Ubuntu 22.04 extrai os pacotes do Tauri por
+inteiro (o cpio sai válido), mas termina com código 1, e o `pipefail`
+derrubava o script. Agora o verificador ignora o código do `rpm2cpio` e
+deixa a decisão para a conferência do componente, que falha se a extração
+vier incompleta. Cada extração que falhar mostra uma mensagem clara. A tag
+`v0.1.0`, que ainda não tinha sido enviada, foi movida para o commit com o
+ajuste, e os pacotes foram gerados de novo a partir dela.
