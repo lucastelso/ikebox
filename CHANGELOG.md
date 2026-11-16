@@ -120,11 +120,32 @@ commits.
   usuário).
 - Aba Sistema no app: diagnóstico do ambiente (o mesmo do `doctor`, com dicas
   de correção), tema claro/escuro/sistema (lembrado) e versão.
+- **O app instala o componente de rede** (ADR-0018), com a senha de
+  administrador uma vez (`pkexec`):
+  - o pacote do componente vai dentro do app (`npm run stage:component`;
+    `npm run bundle` o inclui nos recursos);
+  - na aba Sistema, o cartão "Componente de rede" mostra o estado e as
+    versões, com Instalar/Atualizar/Reinstalar e Remover;
+  - na tela principal, um aviso de primeiro uso; no erro de pré-requisito, o
+    botão "Instalar componente de rede";
+  - o app percebe quando traz um componente diferente do instalado e oferece
+    atualizar;
+  - no terminal: `ipsec-client-cli component status|install|uninstall`;
+  - `tests/packaging/install-test.sh` testa o instalador como root num
+    container, inclusive com pacotes adulterados, e roda na CI.
 
 ### Alterado
 
 - O MTU do perfil passou a ser aplicado à interface do engine (antes era sempre
   1400).
+- `install-native.sh` recebe só um pacote (`--bundle <dir> --origin
+  app|package|manual`), confere os hashes numa cópia só do root e recusa
+  links simbólicos. O `scripts/test-native.sh` usa o mesmo caminho do app.
+- `doctor`/preflight: sem componente de rede e sem Docker, a verificação
+  "Componente de rede" falha com a dica de instalar o componente, em vez de
+  mandar instalar o Docker.
+- Os scripts carregam sempre o `~/.cargo/env`, para que o cargo do rustup
+  (que respeita o `rust-toolchain.toml`) ganhe de um cargo do sistema.
 
 - `entrypoint.sh`: caminhos do charon configuráveis
   (`IPSEC_CLIENT_CHARON`/`IPSEC_CLIENT_STRONGSWAN_D`) e remoção das políticas

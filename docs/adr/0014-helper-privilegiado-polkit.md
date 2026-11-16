@@ -1,7 +1,8 @@
 # ADR-0014: Helper com privilégio, autorizado uma vez (polkit + systemd)
 
 - **Status:** Aceito. Implementado em `crates/helper`, `crates/proto` e
-  `packaging/` (branch `feat/helper`); a validação com root está pendente.
+  `packaging/` (branch `feat/helper`) e validado com root (passo 27). A
+  instalação pelo app está detalhada no ADR-0018.
 - **Data:** 2026-11-16
 
 ## Contexto
@@ -40,8 +41,9 @@ NetworkManager.
   - nos pacotes **rpm/deb**, o helper, a unit e a policy vêm no pacote;
   - no **AppImage**, o primeiro uso oferece "Instalar componente de rede". O
     sistema pede a senha de administrador uma vez (`pkexec`), e o instalador
-    copia o helper e o engine para `/usr/lib/ipsec-client`, verifica o hash,
-    instala a unit e a policy e ativa o socket. Há também desinstalação.
+    copia o helper e o engine para `/opt/ipsec-client`, verifica os hashes,
+    instala a unit e a policy e ativa o socket. Há também desinstalação
+    (ADR-0018).
 
 ## Consequências
 

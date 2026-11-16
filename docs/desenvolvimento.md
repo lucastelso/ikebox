@@ -1047,3 +1047,96 @@ roda o gateway de teste. O que ficou provado:
 
 Para isso foram necessárias duas correções (passos 25 e 26): o nome da função
 do instalador e a prontidão do socket.
+
+### Passo 28: o app instala o componente de rede (`feat/setup-appimage`)
+
+**Objetivo:** quem baixa o AppImage não instala nada à mão. Na primeira vez,
+o app oferece "Instalar componente de rede", o sistema pede a senha de
+administrador **uma vez**, e depois conectar não pede mais senha. Decisão
+registrada no **ADR-0018**.
+
+**Como funciona:**
+
+1. `scripts/stage-network-component.sh` monta o **pacote do componente** em
+   `target/network-component/`: helper, tarball do strongSwan, scripts do
+   engine, units, policy, o próprio instalador, `VERSION` e `SHA256SUMS`. São
+   2,4 MB.
+2. `npm run bundle`, com `src-tauri/tauri.release.conf.json`, roda esse script
+   antes do build e coloca o diretório entre os recursos do app, em
+   `<recursos>/network`. Os builds de desenvolvimento não trazem o pacote;
+   para testar, use `IPSEC_CLIENT_COMPONENT_BUNDLE`, só em debug.
+3. Ao instalar, `core::component`:
+   - copia o pacote para um diretório 0700 em `$XDG_RUNTIME_DIR`, porque o
+     root não lê a montagem FUSE do AppImage;
+   - confere os hashes na cópia;
+   - roda `pkexec <cópia>/install-native.sh install --bundle <cópia> --origin
+     app`, com o ambiente limpo.
+4. O instalador, como root:
+   - copia o pacote para um diretório **só dele**;
+   - recusa links e arquivos especiais;
+   - confere o `SHA256SUMS` e exige a lista completa;
+   - recusa tarball fora de `opt/ipsec-client/engine`;
+   - instala e registra `VERSION`, `SHA256SUMS` e `ORIGIN`.
+5. O app compara o `SHA256SUMS` instalado com o do pacote que traz. Se forem
+   diferentes, o estado é **desatualizado** e aparece o botão "Atualizar". A
+   remoção usa o instalador que ficou em `/opt/ipsec-client/libexec`, só
+   depois de conferir que ele e os diretórios acima são do root e que ninguém
+   mais pode alterá-los.
+
+**Na interface:**
+
+- **Sistema → Componente de rede** mostra o estado, a versão instalada e a do
+  app, com Instalar/Atualizar/Reinstalar e Remover (com confirmação);
+- na **tela principal**, um aviso de primeiro uso aparece quando falta algo;
+- no **erro de pré-requisito**, o botão "Instalar componente de rede". Para
+  isso, a UI recebe o tipo `componentMissing`.
+
+Com uma conexão ativa, instalar e remover são recusados, porque derrubariam o
+túnel. Cancelar o pedido de senha mostra só um aviso neutro.
+
+**No terminal:** `ipsec-client-cli component status [--bundle]`, `component
+install --bundle <dir>` e `component uninstall`.
+
+**Diagnóstico:** sem componente e sem Docker, a verificação "Componente de
+rede" agora **falha**, com a dica de instalar o componente. Antes, o usuário
+do AppImage via a dica de instalar o Docker, que é justamente o que o app quer
+evitar.
+
+**Testes:**
+
+- `tests/packaging/install-test.sh` (`npm run test:packaging`, também na CI):
+  - monta um pacote pelo script de produção, com engine e helper falsos;
+  - roda o instalador como root num Ubuntu descartável, com `systemctl` de
+    mentira;
+  - cenários: instalar, reinstalar com outra origem, remover, e recusar
+    arquivo adulterado, link simbólico, pacote incompleto, tarball fora do
+    engine, origem inválida e execução sem root.
+- **Rust (core):**
+  - parse do `SHA256SUMS`, recusando caminhos absolutos, `..`, repetidos e
+    lista incompleta;
+  - integridade do pacote, links simbólicos e cópia privada com os modos
+    certos;
+  - registro da instalação e estado comparado com o pacote (com um helper de
+    mentira);
+  - resultado do `pkexec`: 126 = cancelado, 127 = não autorizado, falha do
+    instalador com as últimas linhas;
+  - ambiente limpo e exigência de dono root para remover;
+  - consistência da lista de arquivos com o `install-native.sh`.
+- **Frontend:** cartão (instalar, remover com confirmação, cancelamento,
+  desatualizado, instalado por pacote) e tela principal (aviso de primeiro uso
+  e botão no erro).
+
+**Achados no caminho:**
+
+- O `tempfile` cria diretórios com 0755. O modo 0700 passou a ser definido na
+  criação, e um teste cobre isso.
+- O cargo do sistema (instalado pelo dnf) ganhava do rustup no PATH e ignorava
+  o `rust-toolchain.toml`. Os scripts passaram a carregar sempre o
+  `~/.cargo/env`.
+- O primeiro build de pacote (`npm run bundle -- --bundles deb`) revelou um
+  erro antigo do scaffold: `"category": "Network"` não é uma categoria válida
+  do Tauri, que só aceita a lista do macOS. Trocado por `Utility`.
+- O `.deb` gerado traz o pacote em `/usr/lib/IPsec Client/network/`, com as
+  permissões preservadas, e o `SHA256SUMS` confere lá dentro. É o caminho que
+  o app procura, pelo `resource_dir()` do Tauri. No AppImage, o caminho é
+  `$APPDIR/usr/lib/IPsec Client/network`.

@@ -54,7 +54,8 @@ em container continua sendo o backend em uso e o dos testes.
 | Sandbox do engine | Capabilities `NET_ADMIN`, `NET_BIND_SERVICE`, `NET_RAW` e `CHOWN`; `NoNewPrivileges`, `ProtectSystem=strict`, `ProtectHome`, `PrivateTmp`, `ProtectKernelModules`, `RestrictAddressFamilies` (unix, inet, inet6, netlink), `MemoryDenyWriteExecute`; gravável só `RuntimeDirectory` e o diretório do socket do usuário |
 | `entrypoint.sh` (modo nativo) | `IPSEC_CLIENT_STATE_DIR`: a config de runtime vai para o diretório gravável e entra pelo `STRONGSWAN_CONF`, incluindo a base. `IPSEC_CLIENT_SOCKET_DIR`: socket por usuário |
 | `core::engine::Backend` | `Native` (helper) quando instalado, ou `Docker` como reserva. `IPSEC_CLIENT_BACKEND=native\|docker` força um deles. A sessão, o diagnóstico e o `logs` do CLI usam o `Backend` |
-| `packaging/` | Units `ipsec-client-helper.{socket,service}` (o helper também tem hardening), policy do polkit e `install-native.sh` (instala em `/opt/ipsec-client` e aplica o `restorecon` por causa do SELinux) |
+| `packaging/` | Units `ipsec-client-helper.{socket,service}` (o helper também tem hardening), policy do polkit e `install-native.sh`. O instalador recebe um pacote (`--bundle`), confere o `SHA256SUMS` numa cópia só do root, instala em `/opt/ipsec-client`, registra `VERSION`/`SHA256SUMS`/`ORIGIN` e aplica o `restorecon` por causa do SELinux |
+| `core::component` (ADR-0018) | Pacote do componente (`scripts/stage-network-component.sh`, que vai em `<recursos>/network` no build de release), estado (não instalado, pronto, desatualizado ou com problema), instalação via `pkexec` a partir de uma cópia privada em `$XDG_RUNTIME_DIR` e remoção pelo instalador do root. Usado pelo app (Sistema, aviso de primeiro uso) e pelo `ipsec-client-cli component` |
 
 ## O engine (container)
 

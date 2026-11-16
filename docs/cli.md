@@ -35,7 +35,10 @@ e precisa de internet. Os seguintes conectam em poucos segundos.
 
 | Comando | O que faz |
 |---|---|
-| `doctor` | Verifica usuário, runtime dir, Docker, `xfrm_interface`, resolved, D-Bus, portas 500/4500, chaveiro e imagem. Sai com 1 se algo impede a conexão |
+| `doctor` | Verifica usuário, componente de rede (ou Docker, como reserva), `xfrm_interface`, resolved, D-Bus, portas 500/4500, chaveiro e imagem. Sai com 1 se algo impede a conexão |
+| `component status [--bundle DIR]` | Estado do componente de rede: versão, strongSwan e origem. Com `--bundle`, diz se o pacote é diferente do instalado. Sai com **3** se não instalado |
+| `component install --bundle DIR` | Instala ou atualiza o componente a partir de um pacote (`npm run stage:component` gera um em `target/network-component`). O sistema pede a senha de administrador uma vez |
+| `component uninstall` | Remove o componente (pede a senha de administrador). Não remove o que veio de um pacote .rpm/.deb |
 | `profiles list` | Lista os perfis e avisa sobre arquivos inválidos |
 | `profiles show <id>` | Mostra o perfil (JSON) |
 | `profiles import <arquivo> [--force]` | Importa um perfil (valida antes; `--force` substitui um existente) |

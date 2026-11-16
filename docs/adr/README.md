@@ -24,6 +24,7 @@ aceitos. Se uma decisão mudar, um novo ADR a substitui e o antigo passa a
 | [0015](0015-distribuicao-appimage-rpm-deb.md) | Distribuição em AppImage, rpm e deb (sem Flatpak) | Aceito |
 | [0016](0016-strongswan-6.1-compilado.md) | strongSwan 6.1.0 no engine embutido, com a 5.8.2 de reserva | Aceito |
 | [0017](0017-licenca-gpl-3.md) | Licença GPL-3.0-or-later | Aceito |
+| [0018](0018-instalacao-do-componente-pelo-app.md) | O app instala o componente de rede (pacote embutido + pkexec) | Aceito |
 
 Modelo para novos ADRs: copie um existente e mantenha as seções
 **Contexto · Decisão · Consequências · Alternativas consideradas**.
