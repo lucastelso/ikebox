@@ -118,6 +118,160 @@ user: App (Tauri 2 + React) or CLI
 gitleaks). The commit email was already rewritten to the GitHub noreply
 address (0.2.0). The license is defined (GPL-3.0-or-later, ADR-0017).
 
+## Post-0.2.0 program (decided on 2026-11-16)
+
+The maintainer asked for a new audit of 0.2.0 (security, credentials,
+compatibility), deeper optimization (including the base images), a
+better-looking interface and more IPsec modes for legacy VPNs. It runs **one
+phase at a time**: each phase fits one working session, starts from
+[resume.md](resume.md) and this section, and ends closed (local `--no-ff`
+merges, green tests, resume/log/CHANGELOG updated). Product decisions of a
+phase are asked at its start.
+
+Rules for every phase:
+
+- audit findings: clear security, leak or compatibility flaws are fixed right
+  away, each with a regression test; everything else is a proposal in the
+  report. No tag or release until the maintainer decides;
+- privacy: never read credentials, the keyring, private profiles or the real
+  VPN log; dynamic tests only against the test gateway with fake credentials;
+  scans print files and counts only.
+
+| Phase | Goal | Delivery | Status |
+|---|---|---|---|
+| 0 | Preparation | old `v0.1.1` tag removed from the remote (it pointed to the pre-rewrite history); this program recorded here | ⏳ (the remote tag is deleted by the maintainer) |
+| 1 | Audit I: credentials, private data, supply chain | [audit report](audits/v0.2.0.md) (part 1), fixes, canary sweep in `test:systemd` | ⏳ |
+| 2 | Audit II: privilege boundaries | full report, fixes | ⏳ |
+| 3 | Compatibility across distributions | tested matrix, fixes | ⏳ |
+| 4 | Optimization and base images | measurements, ADR, lighter images and binaries | ⏳ |
+| 5 | Interface: 5a review and visual directions; 5b implementation | local gallery to choose from; then the new look | ⏳ |
+| 6 | IPsec modes I: certify what the profile already accepts, design schema 2 | E2E scenarios, security warnings, ADRs | ⏳ |
+| 7+ | Planned: profile editor, IKEv2 + EAP, client certificates, importers | one phase each, detailed at the end of phase 6 | ⏳ |
+
+### Phase 1: audit I (credentials, private data, supply chain)
+
+- Baseline: `npm run check`, `cargo deny`, `npm audit`, pinning (Actions by
+  SHA, images by digest, strongSwan by SHA-256 + GPG), upstream advisories
+  after strongSwan 6.1.0 and for Tauri/WebKitGTK, gitleaks,
+  `check-private.sh`, hardening flags of the shipped binaries.
+- Credentials, static: every `expose_secret`, `Debug`/`Serialize` of secret
+  types, command DTOs, errors and `tracing`, CLI prompt, credentials dialog
+  state, keyring items, core dump protection, charon log level.
+- Organization data visible to other local users: transient unit environment
+  and description, journal access; what is inherent (routes, VIP,
+  `resolvectl status`) and what can be closed.
+- Dynamic: **canary sweep** in the `test:systemd` container (connect with
+  canary PSK, username and password; look for them in the journal,
+  `systemctl show`, `/proc`, runtime directories, profiles, exports and
+  logs). It becomes a permanent scenario.
+
+### Phase 2: audit II (privilege boundaries)
+
+| Boundary | Where | What to check |
+|---|---|---|
+| Local user/malware → helper (root) | `crates/proto`, `crates/helper/src/` | read limits, `SO_PEERCRED`, pid race in polkit, authorization of every request, argument injection into `systemd-run`/`journalctl`, TOCTOU in `/run/ipsec-client/<uid>` |
+| Sandbox | `systemd.rs`, `packaging/*.service` | `systemd-analyze security` (helper on the host, engine in `test:systemd`), missing properties, capabilities really needed |
+| User → charon (VICI) | `native-engine/patches/`, strongSwan source | repeat the ADR-0019 attack; other VICI options that make root charon read a file, load a module or run something |
+| Gateway/network → client | `engine/strongswan.d/`, `entrypoint.sh`, `updown.sh` | minimal plugins, DoS limits, validation of what the gateway pushes, fake gateway holding the group PSK |
+| Webview → Rust commands | `src-tauri/src/`, `capabilities/`, CSP | the 18 commands: input validation, import/export paths, devtools, external navigation, single instance |
+| Installer / pkexec | `crates/core/src/component.rs`, `packaging/install-native.sh` | hashes and TOCTOU; in rpm/deb the bundle is already root-owned, so the copy to `$XDG_RUNTIME_DIR` opens a needless window |
+| Files and scripts | `crates/core/src/profiles/`, `engine/*.sh` | modes, atomic writes, symlinks, parser limits, every expansion of external input |
+| CI and release | `.github/workflows`, `scripts/build-release.sh` | permissions, triggers, secrets |
+
+### Phase 3: compatibility
+
+Matrix in clean containers: Ubuntu 22.04 and 24.04, Debian 12 and 13, current
+Fedora, openSUSE Tumbleweed.
+
+- Installation and dependencies: declared (`dpkg-deb -I`, `rpm -qpR`) versus
+  used (polkit/`pkexec`, `iproute2`, `systemd-resolved` are not declared).
+- Binaries: `ldd` and the highest glibc required by the app, helper and
+  engine.
+- systemd: minimum version of every sandbox property; Debian/Ubuntu variants
+  of `test:systemd`.
+- Script tools: `ip` with `if_id`, `resolvectl` (without `systemd-resolved`
+  the VPN DNS does not work: does the diagnostics say so?), bash features.
+- Immutable distributions: the polkit policy goes to
+  `/usr/share/polkit-1/actions`, read-only there.
+- Desktop: Wayland/X11, tray, AppImage on Ubuntu 24.04 (AppArmor), WebKitGTK
+  with NVIDIA; `pt_PT`, `C.UTF-8`, `LANGUAGE`; 0.1.0 → 0.2.0 update.
+
+### Phase 4: optimization and base images
+
+Measure first, decide by ADR, then change. Starting recommendation:
+
+| Image | Today | Proposal to evaluate | Why |
+|---|---|---|---|
+| Release build | Ubuntu 22.04, 2.63 GB | **keep the base**, slim it (no recommended packages, multi-stage, cargo/npm cache) | Ubuntu 22.04's glibc 2.35 is the compatibility floor; Debian 12 (2.36) would drop Ubuntu 22.04 |
+| Engine build | Ubuntu 22.04, 568 MB, static with glibc | **Alpine + musl, fully static** | the engine stops depending on glibc and runs on any distribution; much smaller build image |
+| Docker engine (dev/tests) | Ubuntu 20.04 + strongSwan 5.8.2 | **Debian slim (or Alpine) with our engine 6.1.0** | tests exercise the production engine; the unsupported Ubuntu 20.04 goes away |
+| Test gateway | the same 5.8.2 image | **Debian slim with the packaged strongSwan** (full plugins, EAP included) | prepares the scenarios of phases 6+; keep a 5.8.2 scenario as a "legacy gateway" if worth it |
+
+Also: Docker backend (`bollard`) out of the release build behind a feature;
+release profile (`opt-level`, `panic`, LTO) measured before/after; duplicate
+dependencies; status polling, timers with the window hidden, log streaming,
+startup, time to "Connected", idle helper; loaded plugins and charon threads;
+frontend bundle and log panel re-renders.
+
+ADR criteria: compatibility must not get worse; the E2E, the ADR-0019 attack
+and the canary sweep pass the same; size, build time, reproducibility. musl
+only goes in if the full E2E passes, including name resolution inside the
+sandbox.
+
+### Phase 5: interface
+
+- **5a, review and visual directions (no app changes):** screenshots of the
+  real app (Vite with a scratch config that aliases `@tauri-apps/api` to a
+  mock with RFC 5737 data, headless Firefox), states × {English, Portuguese}
+  × {light, dark}; usability review (primary action, visible state, every
+  error with a next step, text overflow at 380 px, keyboard/focus, ARIA,
+  contrast, reduced motion); **2 or 3 visual directions** in a local gallery
+  (`target/ui-review/`, nothing published). The maintainer chooses.
+- **5b, implementation:** tokens in `src/index.css`, components and screens,
+  both languages and themes, accessibility preserved, vitest updated.
+
+### Phase 6: IPsec modes I
+
+**Certify (implementation):** the profile already accepts IKEv1 main mode,
+PSK without XAuth and IKEv2 + PSK, but only IKEv1 aggressive + PSK + XAuth is
+tested.
+
+- New E2E scenarios on the test gateway: IKEv1 main mode + PSK + XAuth, IKEv1
+  PSK without XAuth, IKEv2 + PSK; with and without NAT-T, PFS, VIP, split and
+  full tunnel.
+- Validation and warnings: a per-profile security level (aggressive + PSK,
+  DH < 2048, 3DES, MD5/SHA1 flagged as legacy, with an explanation);
+  `remote_id` required where it protects against a fake gateway.
+- Failure diagnosis for IKEv2; profile details show the mode and the security
+  badge; the credentials dialog adapts; combinations table in
+  [profiles.md](profiles.md).
+
+**Design (ADRs, no implementation):** profile schema 2 with migration
+(authentication rounds, trust anchors, new credential kinds); IKEv2 +
+EAP-MSCHAPv2 (new plugins, server certificate always validated); client
+certificates (PKCS#12 import, private key only in the keyring and sent to
+charon through VICI as data, never as a path; OpenSSL/ECDSA versus RSA only);
+deferred with a record: XAuth 2FA/OTP, L2TP/IPsec.
+
+**Security principles for every new mode:**
+
+- no path or command chosen by the client runs as root (ADR-0019 stands);
+- new secrets follow the current path: memory → keyring → VICI, never disk,
+  arguments, environment or logs;
+- no "accept any certificate"; weak modes only with an explicit warning;
+- new identities (certificate DN, EAP identity) enter the masking and "Copy
+  anonymized";
+- every new strongSwan plugin gets a surface review, an E2E test and a
+  `BUILDINFO` record.
+
+### Phases 7+ (planned)
+
+1. Profile editor (`feat/ui-editor-perfis`), with generic vendor templates.
+2. IKEv2 + EAP (username and password).
+3. Client certificates.
+4. Importers for legacy clients (Cisco `.pcf`, vpnc, NetworkManager,
+   `ipsec.conf`, FortiClient XML), never copying a secret into the profile.
+
 ## Ideas
 
 - Several simultaneous connections. The per-profile `if_id` already allows it.
