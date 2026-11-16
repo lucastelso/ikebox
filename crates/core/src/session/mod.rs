@@ -1,9 +1,9 @@
-//! Sessão de VPN: preflight, engine, negociação, estado e encerramento.
+//! VPN session: preflight, engine, negotiation, state and teardown.
 //!
-//! Fluxo do [`connect`] (docs/arquitetura.md, "Fluxo de conexão"):
-//! preflight → imagem → engine → eventos VICI → segredos + conexão →
-//! `initiate` → estado *Conectado*. Em qualquer falha depois de subir o
-//! engine, ele é derrubado (o host fica limpo).
+//! [`connect`] flow (docs/architecture.md, "Connection flow"):
+//! preflight → image → engine → VICI events → secrets + connection →
+//! `initiate` → *Connected* state. On any failure after the engine is up, it
+//! is torn down (the host is left clean).
 //!
 //! O engine é um container independente do processo do app: depois de
 //! conectado, [`status`] e [`disconnect`] funcionam a partir de qualquer

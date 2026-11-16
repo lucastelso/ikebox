@@ -1,5 +1,7 @@
 # Manual de instalação
 
+Português · **[English](../installation.md)**
+
 Como instalar o IPsec Client como um aplicativo normal: ele aparece no menu
 de aplicativos, com ícone, e abre como qualquer outro programa. Você **não**
 precisa de Docker, Rust, Node nem terminal para usar.
@@ -18,9 +20,9 @@ precisa de Docker, Rust, Node nem terminal para usar.
 
 | Sua distribuição | Arquivo | Exemplo |
 |---|---|---|
-| Fedora, RHEL, Rocky, AlmaLinux, openSUSE | **.rpm** | `ipsec-client-0.1.1-1.x86_64.rpm` |
-| Ubuntu, Debian, Linux Mint, Pop!_OS | **.deb** | `ipsec-client_0.1.1_amd64.deb` |
-| Outras (Arch, etc.) | **.AppImage** | `ipsec-client_0.1.1_amd64.AppImage` |
+| Fedora, RHEL, Rocky, AlmaLinux, openSUSE | **.rpm** | `ipsec-client-0.2.0-1.x86_64.rpm` |
+| Ubuntu, Debian, Linux Mint, Pop!_OS | **.deb** | `ipsec-client_0.2.0_amd64.deb` |
+| Outras (Arch, etc.) | **.AppImage** | `ipsec-client_0.2.0_amd64.AppImage` |
 
 Os arquivos ficam na página [Releases](https://github.com/lucastelso/ipsec-client/releases) do repositório no GitHub,
 junto com o `SHA256SUMS`, que serve para conferir o download
@@ -29,8 +31,9 @@ privado, só quem tem acesso a ele consegue baixar: peça acesso, ou receba os
 arquivos de quem te passou o perfil.
 
 > Prefira o **.rpm** ou o **.deb** quando houver para a sua distribuição: o
-> app entra no menu sozinho, e as atualizações passam pelo gerenciador de
-> pacotes.
+> app entra no menu sozinho, as atualizações passam pelo gerenciador de
+> pacotes e as bibliotecas dele (como o WebKitGTK) recebem as atualizações de
+> segurança da sua distribuição. O AppImage leva cópias próprias.
 
 ## 2. Instalar
 
@@ -100,7 +103,8 @@ O AppImage é um arquivo único: não instala nada no sistema.
 ## 3. Primeiro uso
 
 1. Abra o **IPsec Client** pelo menu de aplicativos (procure por "VPN" ou
-   "IPsec").
+   "IPsec"). Ele fala o idioma do seu sistema (português ou inglês); para
+   trocar, vá em **Sistema → Aparência → Idioma**.
 2. **Instale o componente de rede (só uma vez).** A tela principal mostra
    *"Falta um passo: instalar o componente de rede"*. Clique em **Instalar
    agora** e digite a **senha de administrador** quando o sistema pedir.
@@ -134,7 +138,8 @@ sessão e ative a extensão no app **Extensões**.
    - AppImage: substitua o arquivo em `~/Aplicativos` (mantenha o nome
      `ipsec-client.AppImage`).
 2. Abra o app. Se aparecer **"Atualização do componente de rede"**, clique em
-   **Atualizar agora** e digite a senha de administrador.
+   **Atualizar agora** e digite a senha de administrador. Algumas atualizações
+   (como a 0.2.0) só valem depois deste passo.
 
 Seus perfis e credenciais continuam onde estavam.
 
@@ -162,10 +167,10 @@ sudo /opt/ipsec-client/libexec/install-native.sh uninstall
 
 Para quem tem o código e quer gerar o `.rpm`/`.deb` para testar uma
 mudança. Os pacotes de uma versão, para publicar, são gerados de outro jeito:
-veja [como gerar e publicar uma versão](release.md).
+veja [como gerar e publicar uma versão](../release.md) (em inglês).
 
 1. Instale os pré-requisitos de desenvolvimento do
-   [README](../README.md#pré-requisitos), uma vez. O Docker é usado só para
+   [README](../../README.pt-BR.md#pré-requisitos), uma vez. O Docker é usado só para
    compilar o strongSwan embutido, na primeira vez.
 2. Na pasta do repositório:
 
@@ -187,7 +192,8 @@ veja [como gerar e publicar uma versão](release.md).
 
 > Gere o `.deb` num Ubuntu ou Debian: o pacote declara as bibliotecas da
 > distribuição onde foi gerado (a da bandeja muda de nome entre as
-> distribuições).
+> distribuições). Um pacote gerado no seu computador contém caminhos da sua
+> home: não o distribua.
 
 ## Problemas comuns
 
@@ -199,11 +205,13 @@ veja [como gerar e publicar uma versão](release.md).
 | "Autorização cancelada" | A janela de senha foi fechada. Clique em instalar de novo |
 | "Não foi possível obter a autorização de administrador" | A sua conta não é de administrador, ou a senha estava errada. Peça para alguém com `sudo` instalar o componente uma vez: depois, qualquer usuário conecta |
 | "O computador ainda não está pronto para conectar" | Clique em **Instalar componente de rede** no próprio aviso, ou veja **Sistema → Diagnóstico** |
+| "O componente de rede instalado é de uma versão anterior" | Clique em **Atualizar componente de rede** no aviso, ou em **Sistema → Componente de rede → Atualizar** |
 | "Portas UDP 500/4500 em uso" | Outra VPN IPsec está ligada; desligue-a antes |
 | "Usuário ou senha XAuth incorretos" | Clique em **Informar credenciais** no aviso e digite de novo |
 | "O gateway recusou a autenticação da fase 1" | A PSK do grupo está errada: **Informar credenciais** e digite de novo |
 | "O gateway não respondeu" | Confira a internet. Algumas redes (hotel, celular) bloqueiam VPN |
 
 **Sistema → Diagnóstico** mostra o que está faltando, com a dica de como
-resolver. Se precisar pedir ajuda, mande o que aparece ali e o log da tela de
-conexão: eles não mostram senha nem PSK.
+resolver. Se precisar pedir ajuda, mande o que aparece ali e o log da conexão
+copiado com **Copiar anonimizado**: ele não tem senha nem PSK, e o gateway,
+os IPs e os domínios viram marcadores.

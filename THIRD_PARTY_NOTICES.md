@@ -1,52 +1,52 @@
-# Avisos de terceiros
+# Third-party notices
 
-O IPsec Client é licenciado sob a GPL-3.0-or-later (ver `LICENSE` e
-ADR-0017). Ele distribui ou depende dos componentes abaixo, sob as licenças de
-cada um.
+IPsec Client is licensed under GPL-3.0-or-later (see `LICENSE` and
+ADR-0017). It distributes or depends on the components below, under their own
+licenses.
 
-## Engine embutido (distribuído compilado dentro do app)
+## Embedded engine (distributed compiled inside the app)
 
 ### strongSwan
 
-- **Licença:** GPL-2.0-or-later, com exceção para combinar com bibliotecas
-  LGPL e OpenSSL. Os plugins des, md4 e md5 têm termos próprios, permissivos.
-  Os textos completos vão no pacote do engine, em
+- **License:** GPL-2.0-or-later, with an exception for combining with LGPL
+  libraries and OpenSSL. The des, md4 and md5 plugins have their own
+  permissive terms. The full texts go in the engine package, in
   `opt/ipsec-client/engine/share/licenses/strongswan/`.
-- **Código-fonte correspondente:**
-  - tarball oficial em <https://download.strongswan.org/>, com a versão e o
-    SHA-256 fixados em `native-engine/versions.txt` e a assinatura GPG
-    conferida no build (chave em `native-engine/keys/`);
-  - **uma modificação**, feita em 2026-11-16 pelo IPsec Client:
-    `native-engine/patches/0001-vici-forced-updown-if-id.patch`. Ela altera
-    `src/libcharon/plugins/vici/vici_config.c` para o charon ignorar o
-    `updown` e o `if_id` enviados pelo cliente VICI quando
-    `charon.plugins.vici.force_updown`/`force_if_id` estão definidos
-    (ADR-0019). O build aplica os patches de `native-engine/patches/` sobre o
-    tarball oficial e registra o SHA-256 de cada um no `BUILDINFO` do pacote;
-  - as opções de compilação estão em
-    `native-engine/build/build-strongswan.sh` e no `BUILDINFO` do pacote.
+- **Corresponding source code:**
+  - the official tarball at <https://download.strongswan.org/>, with the
+    version and SHA-256 pinned in `native-engine/versions.txt` and the GPG
+    signature checked in the build (key in `native-engine/keys/`);
+  - **one modification**, made on 2026-11-16 by IPsec Client:
+    `native-engine/patches/0001-vici-forced-updown-if-id.patch`. It changes
+    `src/libcharon/plugins/vici/vici_config.c` so that charon ignores the
+    `updown` and the `if_id` sent by the VICI client when
+    `charon.plugins.vici.force_updown`/`force_if_id` are set (ADR-0019). The
+    build applies the patches in `native-engine/patches/` over the official
+    tarball and records the SHA-256 of each one in the package `BUILDINFO`;
+  - the build options are in `native-engine/build/build-strongswan.sh` and in
+    the package `BUILDINFO`.
 
 ### GMP (GNU Multiple Precision Arithmetic Library)
 
-- **Licença:** LGPL-3.0-or-later ou GPL-2.0-or-later. O texto vai no pacote do
-  engine, em `opt/ipsec-client/engine/share/licenses/gmp/`.
-- **Uso:** linkado estaticamente no charon (plugin `gmp`, grupos DH MODP).
-- **Código-fonte correspondente:** pacote-fonte `gmp` do Ubuntu 22.04, na
-  versão registrada no `BUILDINFO` (atualmente `2:6.2.1+dfsg-3ubuntu1`), em
-  <https://launchpad.net/ubuntu/+source/gmp>. Para recompilar, use
+- **License:** LGPL-3.0-or-later or GPL-2.0-or-later. The text goes in the
+  engine package, in `opt/ipsec-client/engine/share/licenses/gmp/`.
+- **Use:** statically linked into charon (`gmp` plugin, MODP DH groups).
+- **Corresponding source code:** the Ubuntu 22.04 `gmp` source package, in
+  the version recorded in `BUILDINFO` (currently `2:6.2.1+dfsg-3ubuntu1`), at
+  <https://launchpad.net/ubuntu/+source/gmp>. To rebuild, use
   `native-engine/build.sh`.
 
-## App desktop
+## Desktop app
 
-- **Tauri** e crates Rust: MIT, Apache-2.0, BSD, ISC, MPL-2.0, Zlib,
-  Unicode-3.0 e CDLA-Permissive-2.0, verificadas pelo `cargo deny` (ver
+- **Tauri** and Rust crates: MIT, Apache-2.0, BSD, ISC, MPL-2.0, Zlib,
+  Unicode-3.0 and CDLA-Permissive-2.0, checked by `cargo deny` (see
   `deny.toml`).
-- **Frontend** (React, Radix UI, lucide, sonner etc.): MIT, Apache-2.0, ISC e
+- **Frontend** (React, Radix UI, lucide, sonner etc.): MIT, Apache-2.0, ISC and
   0BSD.
-- **WebKitGTK, GTK e dependências** (no AppImage): LGPL-2.1-or-later e outras
-  licenças livres, como bibliotecas dinâmicas sem modificação.
+- **WebKitGTK, GTK and dependencies** (in the AppImage): LGPL-2.1-or-later and
+  other free licenses, as unmodified dynamic libraries.
 
-## Backend Docker (testes e desenvolvimento)
+## Docker backend (tests and development)
 
-A imagem `engine/` é **construída localmente** a partir dos pacotes do Ubuntu
-20.04 (strongSwan 5.8.2). O projeto não distribui essa imagem.
+The `engine/` image is **built locally** from the Ubuntu 20.04 packages
+(strongSwan 5.8.2). The project does not distribute that image.

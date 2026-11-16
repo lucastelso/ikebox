@@ -1,102 +1,103 @@
-# Linha de comando: `ipsec-client-cli`
+# Command line: `ipsec-client-cli`
 
-O CLI tem a mesma lógica do app desktop, sem GUI. Ele serve para usar a VPN
-no terminal, em scripts, e para validar o núcleo antes da interface gráfica.
+The CLI has the same logic as the desktop app, without a GUI. It is for using
+the VPN from a terminal, in scripts, and for validating the core. It speaks
+English.
 
-## Instalação (a partir do código)
+## Installation (from source)
 
 ```bash
 cargo build --release -p ipsec-client-cli
 install -Dm755 target/release/ipsec-client-cli ~/.local/bin/ipsec-client-cli
 ```
 
-Pré-requisitos de uso: Docker (com o seu usuário no grupo `docker`), kernel com
-`xfrm_interface`, systemd-resolved e, opcionalmente, o chaveiro do sistema.
-Para conferir tudo: `ipsec-client-cli doctor`.
+Usage prerequisites: the network component installed (by the app or with
+`component install`), a kernel with `xfrm_interface`, systemd-resolved and,
+optionally, the system keyring. Without the network component, the CLI falls
+back to the Docker engine if Docker is available (development). To check
+everything: `ipsec-client-cli doctor`.
 
-> **Não use `sudo`.** O CLI roda como o seu usuário. Os privilégios de rede
-> ficam no container do engine (ADR-0005).
+> **Do not use `sudo`.** The CLI runs as your user. The network privileges
+> live in the network component (ADR-0014).
 
-## Primeiro uso
+## First use
 
 ```bash
-ipsec-client-cli doctor                                   # o ambiente está pronto?
-ipsec-client-cli profiles import presets.local/vpn.json   # o perfil (ver docs/perfis.md)
-# ou, a partir de um swanctl.conf que já funciona:
+ipsec-client-cli doctor                                   # is this computer ready?
+ipsec-client-cli profiles import presets.local/vpn.json   # the profile (see docs/profiles.md)
+# or, from a swanctl.conf that already works:
 ipsec-client-cli profiles import-swanctl swanctl.conf --id vpn --dns 192.0.2.53 --domain '~corp.example.com'
-ipsec-client-cli secrets set vpn                          # PSK, usuário e senha → chaveiro
-ipsec-client-cli connect vpn                              # Ctrl+C desconecta
+ipsec-client-cli secrets set vpn                          # PSK, username and password → keyring
+ipsec-client-cli connect vpn                              # Ctrl+C disconnects
 ```
 
-O primeiro `connect` constrói a imagem do engine, o que leva cerca de 1 minuto
-e precisa de internet. Os seguintes conectam em poucos segundos.
+## Commands
 
-## Comandos
-
-| Comando | O que faz |
+| Command | What it does |
 |---|---|
-| `doctor` | Verifica usuário, componente de rede (ou Docker, como reserva), `xfrm_interface`, resolved, D-Bus, portas 500/4500, chaveiro e imagem. Sai com 1 se algo impede a conexão |
-| `component status [--bundle DIR]` | Estado do componente de rede: versão, strongSwan e origem. Com `--bundle`, diz se o pacote é diferente do instalado. Sai com **3** se não instalado |
-| `component install --bundle DIR` | Instala ou atualiza o componente a partir de um pacote (`npm run stage:component` gera um em `target/network-component`). O sistema pede a senha de administrador uma vez |
-| `component uninstall` | Remove o componente (pede a senha de administrador). Não remove o que veio de um pacote .rpm/.deb |
-| `profiles list` | Lista os perfis e avisa sobre arquivos inválidos |
-| `profiles show <id>` | Mostra o perfil (JSON) |
-| `profiles import <arquivo> [--force]` | Importa um perfil (valida antes; `--force` substitui um existente) |
-| `profiles export <id> <arquivo>` | Exporta o perfil, sem credenciais, para passar a um colega |
-| `profiles import-swanctl <swanctl.conf> [--id] [--name] [--dns IP]... [--domain D]... [--use-received-dns] [--output arq] [--force]` | Gera o perfil a partir de um `swanctl.conf` existente. Pula a seção `secrets` sem ler e não copia o usuário XAuth |
-| `profiles validate <arquivo>` | Valida sem importar e lista os problemas campo a campo |
-| `profiles delete <id>` | Remove o perfil (as credenciais ficam no chaveiro) |
-| `profiles path` | Mostra o diretório dos perfis |
-| `secrets set <id> [--credentials-stdin]` | Pede (senhas sem eco) e guarda as credenciais no chaveiro. Enter mantém o valor atual |
-| `secrets status <id>` | Mostra o que está guardado, sem revelar valores; o usuário aparece mascarado |
-| `secrets forget <id>` | Apaga as credenciais do chaveiro |
-| `connect <id>` | Conecta em primeiro plano. **Ctrl+C desconecta.** Quedas e retornos do túnel aparecem na tela |
-| `connect <id> --detach` | Conecta e volta ao terminal; o túnel continua ativo |
-| `connect <id> --remember` | Guarda no chaveiro as credenciais pedidas agora |
-| `connect <id> --timeout N` | Tempo máximo da negociação (padrão 30 s) |
-| `connect <id> --privileged` | Modo privilegiado de reserva do container (evite; ver SECURITY.md) |
-| `status` | Mostra a conexão ativa: gateway, IP virtual, redes, tempo e tráfego. Sai com **3** se desconectado |
-| `logs [-f] [-n N] [--anonimizar]` | Log do engine, com o usuário XAuth e o id do grupo mascarados. Com `--anonimizar`, também gateway, IPs, DNS e domínios viram marcadores (`<gateway>`, `<ip-1>`, `<dominio-1>`): é o formato para mandar num relatório de bug |
-| `disconnect` | Avisa o gateway (`terminate`) e derruba o engine. Funciona de qualquer terminal |
-| `-v` / `-vv` | Mostra também o log do charon depois de conectar / mostra a depuração |
+| `doctor` | Checks the user, the network component (or Docker, as a fallback), `xfrm_interface`, resolved, D-Bus, ports 500/4500, keyring and image. Exits with 1 if something prevents connecting |
+| `component status [--bundle DIR]` | Network component state: version, strongSwan and origin. With `--bundle`, says whether the bundle differs from the installed one. Exits with **3** if not installed |
+| `component install --bundle DIR` | Installs or updates the component from a bundle (`npm run stage:component` builds one in `target/network-component`). The system asks for the administrator password once |
+| `component uninstall` | Removes the component (asks for the administrator password). It does not remove what came from a .rpm/.deb package |
+| `profiles list` | Lists the profiles and warns about invalid files |
+| `profiles show <id>` | Shows the profile (JSON) |
+| `profiles import <file> [--force]` | Imports a profile (validates it first; `--force` replaces an existing one) |
+| `profiles export <id> <file>` | Exports the profile, without credentials, to hand it to a colleague |
+| `profiles import-swanctl <swanctl.conf> [--id] [--name] [--dns IP]... [--domain D]... [--use-received-dns] [--output file] [--force]` | Creates the profile from an existing `swanctl.conf`. Skips the `secrets` section without reading it and does not copy the XAuth username |
+| `profiles validate <file>` | Validates without importing and lists the problems field by field |
+| `profiles delete <id>` | Removes the profile (the credentials stay in the keyring) |
+| `profiles path` | Shows the profiles directory |
+| `secrets set <id> [--credentials-stdin]` | Asks for (passwords without echo) and stores the credentials in the keyring. Enter keeps the current value |
+| `secrets status <id>` | Shows what is stored, without revealing values; the username is masked |
+| `secrets forget <id>` | Deletes the credentials from the keyring |
+| `connect <id>` | Connects in the foreground. **Ctrl+C disconnects.** Tunnel drops and recoveries show up on screen |
+| `connect <id> --detach` | Connects and returns to the terminal; the tunnel stays up |
+| `connect <id> --remember` | Stores the credentials asked now in the keyring |
+| `connect <id> --timeout N` | Maximum negotiation time (default 30 s) |
+| `connect <id> --privileged` | Fallback privileged container mode, Docker engine only (avoid it; see SECURITY.md) |
+| `status` | Shows the active connection: gateway, virtual IP, networks, time and traffic. Exits with **3** when disconnected |
+| `logs [-f] [-n N] [--anonymize]` | Engine log, with the XAuth username and the group id masked. With `--anonymize`, the gateway, IPs, DNS and domains also become placeholders (`<gateway>`, `<ip-1>`, `<dominio-1>`): that is the format to send in a bug report |
+| `disconnect` | Tells the gateway (`terminate`) and stops the engine. Works from any terminal |
+| `-v` / `-vv` | Also shows the charon log after connecting / shows debugging |
 
-## Credenciais
+## Credentials
 
-Ordem de busca no `connect`:
+Lookup order in `connect`:
 
-1. o chaveiro do sistema (`secrets set`, ou `--remember`);
-2. o que faltar, ele pergunta no terminal;
-3. com `--credentials-stdin`, lê linhas `chave=valor` da entrada padrão. As
-   chaves são `psk`, `xauth-user` e `xauth-password`. É para automação; o
-   chaveiro não é usado nesse modo.
+1. the system keyring (`secrets set`, or `--remember`);
+2. whatever is missing, it asks in the terminal;
+3. with `--credentials-stdin`, it reads `key=value` lines from standard input.
+   The keys are `psk`, `xauth-user` and `xauth-password`. It is for
+   automation; the keyring is not used in this mode.
 
-Nunca passe segredos por argumento ou variável de ambiente: eles aparecem em
-`ps` e no histórico do shell. Para automação, use um arquivo 0600 com
-redirecionamento:
+Never pass secrets as arguments or environment variables: they show up in
+`ps` and in the shell history. For automation, use a 0600 file with a
+redirection:
 
 ```bash
-ipsec-client-cli connect vpn --detach --credentials-stdin < ~/.config/minha-vpn.cred
+ipsec-client-cli connect vpn --detach --credentials-stdin < ~/.config/my-vpn.cred
 ```
 
-## Erros comuns
+## Common errors
 
-O `connect` lê o log do charon e explica a causa provável:
+`connect` reads the charon log and explains the likely cause:
 
-| Mensagem | O que conferir |
+| Message | What to check |
 |---|---|
-| "o gateway recusou a autenticação da fase 1" | PSK do grupo e `auth.local_id` (FortiGate/Cisco: `keyid:<grupo>`) |
-| "usuário ou senha XAuth incorretos" | `secrets set <id>` |
-| "não aceitou nenhuma proposta da fase 1" | `ike.proposals` |
-| "não aceitou nenhuma proposta da fase 2" | `child.esp_proposals` (algoritmos e grupo DH/PFS) |
-| "o gateway recusou as redes pedidas" | `child.remote_ts`/`local_ts` |
-| "o gateway não respondeu" | endereço, rede, firewall ou NAT (UDP 500/4500) |
-| "Portas UDP 500/4500 em uso" | outra VPN IPsec conectada (ex.: um container antigo) |
+| "the gateway rejected phase 1 authentication" | The group PSK and `auth.local_id` (FortiGate/Cisco: `keyid:<group>`) |
+| "wrong XAuth username or password" | `secrets set <id>` |
+| "the gateway accepted none of the phase 1 proposals" | `ike.proposals` |
+| "the gateway accepted none of the phase 2 proposals" | `child.esp_proposals` (algorithms and DH/PFS group) |
+| "the gateway rejected the requested networks" | `child.remote_ts`/`local_ts` |
+| "the gateway did not answer" | address, network, firewall or NAT (UDP 500/4500) |
+| "UDP ports 500/4500 in use" | another IPsec VPN connected (e.g. an old container) |
+| "the installed network component is from an older version" | update the component (`component install --bundle ...` or the app) |
 
-## Comportamento
+## Behavior
 
-- O túnel é um container independente do terminal. Fechar o terminal de um
-  `connect` em primeiro plano não derruba a VPN; use `disconnect`.
-- Só uma conexão por vez. Um segundo `connect` é recusado e informa o perfil
-  ativo.
-- O código de saída do `status` (0 = conectado, 3 = desconectado) serve para
+- The tunnel is independent of the terminal. Closing the terminal of a
+  foreground `connect` does not bring the VPN down; use `disconnect`.
+- Only one connection at a time. A second `connect` is refused and reports the
+  active profile.
+- The `status` exit code (0 = connected, 3 = disconnected) is meant for
   scripts.

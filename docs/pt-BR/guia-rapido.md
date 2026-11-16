@@ -1,5 +1,7 @@
 # Guia rápido: conectar na VPN com um perfil recebido
 
+Português · **[English](../quick-start.md)**
+
 Este guia é para quem **recebeu um arquivo de perfil** (`algo.json`) de um
 colega e quer conectar na VPN pelo Linux. Leva uns 5 minutos na primeira vez.
 
@@ -24,7 +26,9 @@ Na pasta onde está o instalador:
 - **Outras distribuições:** use o AppImage, conforme a seção 2 do
   [manual de instalação](instalacao.md#outras-distribuições-appimage).
 
-Depois disso, o **IPsec Client** aparece no menu de aplicativos.
+Depois disso, o **IPsec Client** aparece no menu de aplicativos. Ele fala o
+idioma do seu sistema (português ou inglês); para trocar, vá em **Sistema →
+Aparência → Idioma**.
 
 ## 2. Instalar o componente de rede (uma vez)
 
@@ -67,8 +71,9 @@ Fechar a janela não desconecta.
 
 Outros casos estão no [manual de instalação](instalacao.md#problemas-comuns).
 A aba **Sistema → Diagnóstico** mostra o que falta, com a dica de como
-resolver. Se precisar pedir ajuda, mande o que aparece ali e o log da tela de
-conexão: eles não mostram senha nem PSK.
+resolver. Se precisar pedir ajuda, mande o que aparece ali e o log da conexão
+copiado com **Copiar anonimizado**: ele não tem senha nem PSK, e o gateway,
+os IPs e os domínios viram marcadores.
 
 ---
 
@@ -81,4 +86,4 @@ Mande o arquivo, o instalador e o link deste guia. A PSK do grupo vai **por
 outro canal**, nunca junto com o arquivo nem em grupo de chat aberto.
 
 > Prefere o terminal? Existe o `ipsec-client-cli`, com os mesmos comandos:
-> veja [docs/cli.md](cli.md).
+> veja [docs/cli.md](../cli.md) (em inglês).

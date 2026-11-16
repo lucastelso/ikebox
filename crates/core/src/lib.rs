@@ -1,16 +1,17 @@
-//! Núcleo do ipsec-client.
+//! ipsec-client core.
 //!
-//! Toda a lógica de negócio fica aqui; a GUI (`src-tauri`) e o CLI
-//! (`ipsec-client-cli`) são camadas finas sobre este crate (ADR-0009).
+//! All the business logic lives here; the GUI (`src-tauri`) and the CLI
+//! (`ipsec-client-cli`) are thin layers over this crate (ADR-0009).
 //!
-//! Módulos (ver `docs/arquitetura.md`):
-//! - `component`: componente de rede (estado, instalação via pkexec);
-//! - `engine`: engine embutido (helper) ou em container;
-//! - `vici`: cliente do protocolo de controle do charon;
-//! - `profiles`: modelo, validação e geração da configuração;
-//! - `secrets`: segredos em memória e no chaveiro do sistema;
-//! - `session`: máquina de estados da conexão;
-//! - `diagnostics`: verificações do ambiente.
+//! Modules (see `docs/architecture.md`):
+//! - `component`: network component (state, installation through pkexec);
+//! - `engine`: embedded engine (helper) or container engine;
+//! - `vici`: client for charon's control protocol;
+//! - `profiles`: model, validation and configuration rendering;
+//! - `secrets`: secrets in memory and in the system keyring;
+//! - `session`: connection state machine;
+//! - `diagnostics`: environment checks;
+//! - `i18n`: user-facing language (English or Portuguese).
 
 pub mod component;
 pub mod diagnostics;

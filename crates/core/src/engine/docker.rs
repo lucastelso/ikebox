@@ -1,10 +1,12 @@
-//! Ciclo de vida do engine via Docker API (bollard), só pelo socket Unix local.
+//! Engine lifecycle through the Docker API (bollard), local Unix socket only.
 //!
-//! Segue o contrato do engine (docs/arquitetura.md):
-//! - o container é sempre recriado (ADR-0002); um engine anterior é parado com
-//!   `docker stop` (gracioso, para o entrypoint limpar o host) e removido;
-//! - o socket velho é apagado antes de criar o container, e a prontidão é a
-//!   linha `[engine] ready` no log **e** o socket aceitando conexão.
+//! Follows the engine contract (docs/architecture.md):
+//! - the container is always recreated (ADR-0002); a previous engine is stopped
+//!   with `docker stop` (graceful, so the entrypoint cleans up the host) and
+//!   removed;
+//! - the old socket is deleted before creating the container, and readiness is
+//!   the `[engine] ready` line in the log **and** the socket accepting
+//!   connections.
 
 use std::collections::{HashMap, VecDeque};
 use std::os::unix::fs::{DirBuilderExt, MetadataExt, PermissionsExt};

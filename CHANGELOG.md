@@ -1,239 +1,177 @@
 # Changelog
 
-Todas as mudanças relevantes deste projeto são registradas aqui.
+All notable changes to this project are recorded here.
 
-O formato segue o [Keep a Changelog](https://keepachangelog.com/pt-BR/1.1.0/),
-e o projeto adota o [Versionamento Semântico](https://semver.org/lang/pt-BR/).
-A partir da v0.1.0, este arquivo será gerado com git-cliff a partir dos
-commits.
+The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
+and the project uses [Semantic Versioning](https://semver.org/).
 
-## [0.1.1] - 2026-11-16
+## [0.2.0] - 2026-11-16
 
-Versão de segurança, resultado de uma auditoria de segurança e privacidade.
-**Quem usa a 0.1.0 deve atualizar o app e depois clicar em "Atualizar" no
-componente de rede** (Sistema → Componente de rede). A correção está no
-componente, e só trocar o pacote não basta.
+Security, privacy and internationalization release, the result of a security
+and privacy audit. **If you use 0.1.0, update the app and then click "Update"
+on the network component** (System → Network component). The security fix
+lives in the component, so replacing the package alone is not enough.
 
-### Segurança
+### Security
 
-- **Escalada local de privilégio corrigida (ADR-0019).** No engine embutido,
-  o cliente VICI (o lado do usuário) escolhia o comando `updown`, que o
-  charon executa como root. Um programa rodando como o usuário da sessão
-  ativa conseguia executar comandos como root, sem senha. Não era explorável
-  pela rede nem pelo gateway.
-  - Um patch mínimo no strongSwan faz o charon ignorar o `updown` e o
-    `if_id` vindos do VICI e usar os definidos pelo root.
-  - Os argumentos do `updown` vão num arquivo, sem passar por shell, e o DNS
-    do perfil passa a ir pelo helper, validado.
-- Socket VICI `0600` do usuário (antes `0660` do grupo).
-- O helper só deixa o dono da sessão parar a VPN e ler o log dela, e atende
-  conexões em paralelo: um cliente parado não o trava mais.
-- Sandbox do engine mais fechado: sem dispositivos reais, `/proc/sys` e
-  `/sys` somente leitura, sem ver outros processos nem o log do kernel, e
-  filtro de syscalls.
-- Os builds recusam um strongSwan sem os patches de segurança do commit.
+- **Local privilege escalation fixed (ADR-0019).** In the embedded engine,
+  the VICI client (the user's side) chose the `updown` command, which charon
+  runs as root. A program running as the user of the active session could run
+  commands as root, without a password. It was not exploitable from the
+  network or by the gateway.
+  - A minimal strongSwan patch makes charon ignore the `updown` and `if_id`
+    coming from VICI and use the ones set by root.
+  - The `updown` arguments go in a file, never through a shell, and the
+    profile DNS now goes through the helper, validated.
+- VICI socket `0600` owned by the user (before, `0660` for the group).
+- The helper only lets the session owner stop the VPN and read its log, and
+  serves connections in parallel: an idle client no longer blocks it.
+- Tighter engine sandbox: no real devices, read-only `/proc/sys` and `/sys`,
+  no view of other processes or of the kernel log, and a syscall filter.
+- The builds refuse a strongSwan without the security patches of the commit.
 
-### Privacidade
+### Privacy
 
-- Auditoria de vazamento: nenhum dado da organização do mantenedor no
-  código, no histórico nem nos pacotes da 0.1.0.
-- **"Copiar anonimizado"** no app e `logs --anonimizar` no CLI: gateway,
-  IPs, DNS e domínios viram marcadores (`<gateway>`, `<ip-1>`,
-  `<dominio-1>`) no texto que sai do app.
-- `scripts/check-private.sh --artifacts` varre os pacotes de release por
-  dentro e roda no fim de todo build de release.
-- O servidor de desenvolvimento não serve arquivos privados deixados na
-  pasta do projeto.
+- Leak audit: no data from the maintainer's organization in the code, the
+  history or the 0.1.0 packages.
+- **"Copy anonymized"** in the app and `logs --anonymize` in the CLI: the
+  gateway, IPs, DNS and domains become placeholders (`<gateway>`, `<ip-1>`,
+  `<dominio-1>`) in the text that leaves the app.
+- `scripts/check-private.sh --artifacts` scans the inside of the release
+  packages and runs at the end of every release build.
+- The development server does not serve private files left in the project
+  folder.
+- The commit email in the whole history was replaced with the GitHub noreply
+  address.
 
-### Testes
+### Added
 
-- `npm run test:native` ganhou o cenário do ataque. Ele passa com o patch e
-  falha com o engine da 0.1.0.
-- Novo `npm run test:systemd`: systemd de verdade em container, com o
-  instalador real, o sandbox aplicado, dois usuários e o ataque. Ele achou
-  dois bugs que o container comum escondia, já corrigidos.
+- **The app speaks English and Portuguese.** It follows the system language
+  (Portuguese on a `pt*` locale, English otherwise) and can be changed in
+  System → Appearance → Language. Rust messages (errors, diagnostics, tray,
+  notifications) follow the same choice.
+- `npm run test:systemd`: real systemd in a container, with the real
+  installer, the applied sandbox, two users and the attack.
+- The `test:native` E2E got the attack scenario. It passes with the patch and
+  fails with the 0.1.0 engine.
+
+### Changed
+
+- The CLI, the helper, the installer and the scripts speak English.
+- The technical documentation is in English (ADRs renamed); the user
+  documentation is in English with Portuguese copies in `docs/pt-BR/`.
+- Commits are written in English from now on.
+- Engine readiness line: `[engine] ready`; installer lines tagged
+  `[network component]`.
+
+### Fixed
+
+- Two bugs only real systemd revealed: the socket `chmod` after `chown`
+  (root without `CAP_FOWNER`) and the helper readiness check connecting to a
+  socket owned by another uid.
+- `cmd | grep -q` under `pipefail` could turn a match into SIGPIPE: in
+  `check-private.sh --artifacts`, matches inside ELF files could be missed;
+  in the E2E, the secret checks were unreliable.
 
 ## [0.1.0] - 2026-11-16
 
-Primeira versão funcional. Em 2026-11-16, o mantenedor a validou numa VPN
-FortiGate real (IKEv1 agressivo + PSK de grupo + XAuth), pelo mesmo caminho
-de um usuário final:
+First working version. On 2026-11-16, the maintainer validated it on a real
+FortiGate VPN (IKEv1 aggressive + group PSK + XAuth), through the same path as
+an end user:
 
-- app instalado pelo `.rpm` e aberto pelo menu de aplicativos;
-- componente de rede instalado pelo próprio app, com a senha de
-  administrador;
-- conexão pelo strongSwan 6.1.0 embutido, sem Docker, e acesso remoto (RDP)
-  pela VPN.
+- app installed from the `.rpm` and opened from the applications menu;
+- network component installed by the app itself, with the administrator
+  password;
+- connection through the embedded strongSwan 6.1.0, without Docker, and
+  remote access (RDP) through the VPN.
 
-Os pacotes (AppImage, rpm e deb) são gerados por `scripts/build-release.sh`
-num container Ubuntu 22.04 e publicados no GitHub Releases.
+The packages (AppImage, rpm and deb) are built by `scripts/build-release.sh`
+in an Ubuntu 22.04 container and published on GitHub Releases.
 
-### Licença
+### License
 
-- O projeto passa a ser **GPL-3.0-or-later** (ADR-0017). `THIRD_PARTY_NOTICES.md`
-  identifica o strongSwan e o GMP distribuídos no engine, junto com o
-  código-fonte correspondente. Os textos de licença deles vão no pacote do
-  engine.
+- The project is **GPL-3.0-or-later** (ADR-0017). `THIRD_PARTY_NOTICES.md`
+  identifies the strongSwan and GMP distributed in the engine, together with
+  the corresponding source code. Their license texts go in the engine package.
 
-### Adicionado
+### Added
 
-- Documentação inicial: README, arquitetura, roadmap, diário de desenvolvimento
-  e ADRs 0001–0010.
-- Guarda de dados privados (`scripts/check-private.sh`), com padrões locais
-  fora do git.
-- Ferramentas do repositório: lefthook (pre-commit, commit-msg, pre-push),
-  commitlint (Conventional Commits em pt-BR), shellcheck (local ou via imagem
-  Docker fixada) e `npm run check`.
-- CI no GitHub Actions (verificações + gitleaks) e dependabot.
-- Engine (`engine/`): imagem Ubuntu 20.04 fixada por digest + strongSwan
-  5.8.2-1ubuntu3.6, entrypoint com interface XFRM dedicada, socket VICI
-  restrito ao usuário e limpeza no SIGTERM, updown com rotas `proto 241` e DNS
-  split via resolvectl.
-- Teste ponta a ponta do engine (`npm run test:engine`) contra um gateway
-  IPsec local (IKEv1 agressivo + PSK + XAuth), também na CI. Três cenários:
-  ciclo normal, recuperação após SIGKILL e túnel completo em rede isolada.
-- Workspace Rust (`crates/core`, `crates/cli`) com toolchain fixada (1.100.0),
-  lints, `cargo-deny` e verificações no `npm run check`, nos hooks e na CI.
-- `docs/retomar.md`: estado atual e como retomar o desenvolvimento.
-- `core::engine`: contexto da imagem embutido com hash e tar determinístico,
-  `EngineSpec` validada (privilégio mínimo), build e ciclo de vida do
-  container via Docker API (só socket Unix), seguindo o contrato de prontidão.
-  Testes unitários e de integração (`npm run test:docker`).
-- `core::vici`: cliente VICI próprio (ADR-0011), com mensagens zeradas no
-  drop, conexões de comandos e de eventos e a trait `Charon` tipada. Um teste
-  de integração estabelece um túnel IPsec completo contra o gateway de teste
-  só pelo Rust.
-- `core::profiles`: perfil JSON (schema 1, sem credenciais), validação campo a
-  campo, geração do `load-conn` e do `updown` (aspas simples + validação),
-  `if_id` por perfil e store com gravação atômica e permissões privadas. Inclui
-  os presets genéricos `presets/`, o guia `docs/perfis.md` (com a
-  correspondência swanctl → perfil) e o ADR-0012.
-- `core::secrets`: credenciais em `SecretString`, chaveiro do sistema (Secret
-  Service via libdbus), armazenamento em memória, geração dos segredos do
-  `load-shared` e mascaramento de identidades em logs.
-- `core::diagnostics` e `core::session`: preflight sem root, conexão com
-  eventos, `status`/`disconnect` de qualquer processo e diagnóstico das causas
-  de falha (PSK/grupo, XAuth, propostas IKE/ESP, redes, gateway inacessível).
+- Initial documentation: README, architecture, roadmap, development log and
+  ADRs 0001–0010.
+- Private data guard (`scripts/check-private.sh`), with local patterns outside
+  git.
+- Repository tooling: lefthook (pre-commit, commit-msg, pre-push), commitlint
+  (Conventional Commits), shellcheck (local or through a pinned Docker image)
+  and `npm run check`.
+- CI on GitHub Actions (checks + gitleaks) and dependabot.
+- Engine (`engine/`): Ubuntu 20.04 image pinned by digest + strongSwan
+  5.8.2-1ubuntu3.6, entrypoint with a dedicated XFRM interface, a VICI socket
+  restricted to the user and cleanup on SIGTERM, updown with `proto 241` routes
+  and split DNS via resolvectl.
+- End-to-end engine test (`npm run test:engine`) against a local IPsec
+  gateway (IKEv1 aggressive + PSK + XAuth), also in CI. Scenarios: normal
+  cycle, recovery after SIGKILL, full tunnel on an isolated network and modp768
+  PFS.
+- Rust workspace (`crates/core`, `crates/cli`) with a pinned toolchain
+  (1.100.0), lints, `cargo-deny` and checks in `npm run check`, the hooks and
+  CI.
+- `core::engine`: embedded image context with a hash and a deterministic tar,
+  a validated `EngineSpec` (least privilege), image build and container
+  lifecycle via the Docker API (Unix socket only), following the readiness
+  contract.
+- `core::vici`: our own VICI client (ADR-0011), with messages wiped on drop,
+  command and event connections and the typed `Charon` trait. An integration
+  test establishes a full IPsec tunnel against the test gateway from Rust
+  alone.
+- `core::profiles`: JSON profile (schema 1, no credentials), field-by-field
+  validation, `load-conn` and `updown` generation (single quotes +
+  validation), per-profile `if_id` and a store with atomic saves and private
+  permissions. Includes the generic `presets/`, the profiles guide (with the
+  swanctl → profile mapping) and ADR-0012.
+- `core::secrets`: credentials in `SecretString`, the system keyring (Secret
+  Service via libdbus), in-memory storage, `load-shared` secrets and identity
+  masking in logs.
+- `core::diagnostics` and `core::session`: preflight without root, connection
+  with events, `status`/`disconnect` from any process and diagnosis of failure
+  causes (PSK/group, XAuth, IKE/ESP proposals, networks, unreachable gateway).
 - `ipsec-client-cli`: `doctor`, `profiles`
   (list/show/import/export/validate/delete/path), `secrets` (set/status/forget,
-  chaveiro), `connect` (primeiro plano com Ctrl+C, `--detach`, `--remember`,
-  `--credentials-stdin`), `status` (sai com 3 se desconectado), `logs`
-  (mascarados) e `disconnect`. Guia em `docs/cli.md`. Teste ponta a ponta:
-  `npm run test:cli`.
-- `profiles import-swanctl`: gera o perfil a partir de um `swanctl.conf`
-  existente, pulando a seção `secrets` sem lê-la e sem copiar o usuário XAuth.
-  O DNS vem por `--dns`/`--domain`.
-- `docs/guia-rapido.md`: passo a passo para quem recebe um perfil exportado.
-- Engine embutido (`native-engine/`): strongSwan compilado a partir do
-  código-fonte oficial (SHA-256 + GPG), estático, sem OpenSSL. O charon
-  depende só da glibc, e o engine inteiro tem cerca de 4 MB. Versões testáveis:
-  6.1.0 (padrão), 6.0.7, 5.9.14 e 5.8.2 (`npm run test:native`). ADRs
-  0013–0016.
-- E2E do engine: cenário 4, com PFS só modp768 (DH1) na fase 2.
-- Scaffold do app desktop:
-  - `src-tauri/`: Tauri 2.12, IPC tipado com tauri-specta (versão exata),
-    DTOs próprios, CSP estrita, capabilities mínimas, sem plugins de shell/fs;
-  - `src/`: React 19, TypeScript, Vite 8, Tailwind 4 com tokens claro/escuro e
-    componentes shadcn/ui;
-  - biome, vitest com mockIPC, logo e ícones.
-- Tela de conexão do app:
-  - seletor de perfil e botão central com anel de estado;
-  - estado com IP virtual, gateway, redes, tempo e tráfego;
-  - diálogo de credenciais que pede só o que falta, com "lembrar no chaveiro"
-    e mostrar/ocultar senha;
-  - erros com a causa provável, detalhes e "Informar credenciais";
-  - log mascarado copiável;
-  - consulta de status que adota conexões abertas pelo CLI.
+  keyring), `connect` (foreground with Ctrl+C, `--detach`, `--remember`,
+  `--credentials-stdin`), `status` (exits with 3 when disconnected), `logs`
+  (masked) and `disconnect`. `npm run test:cli` end-to-end test.
+- `profiles import-swanctl`: creates the profile from an existing
+  `swanctl.conf`, skipping the `secrets` section without reading it and
+  without copying the XAuth username.
+- A quick start guide for people who receive an exported profile.
+- Embedded engine (`native-engine/`): strongSwan compiled from the official
+  source (SHA-256 + GPG), static, without OpenSSL. charon depends only on glibc,
+  and the whole engine is about 4 MB. Testable versions: 6.1.0 (default),
+  6.0.7, 5.9.14 and 5.8.2 (`npm run test:native`). ADRs 0013–0016.
+- Desktop app (Tauri 2.12, React 19, TypeScript, Vite 8, Tailwind 4,
+  shadcn/ui; typed IPC with tauri-specta, strict CSP, minimal capabilities, no
+  shell/fs plugins): connection screen, profile manager (import, export,
+  details, delete), tray, notifications, single instance and a System tab
+  (diagnostics, theme, version).
+- Network component (embedded engine, no Docker): `crates/helper`, the only
+  root component (systemd socket activation, `SO_PEERCRED`, polkit, charon via
+  `systemd-run` with a sandbox); `crates/proto`; `packaging/` with the systemd
+  units, the polkit policy and the installer.
+- **The app installs the network component** (ADR-0018), with the
+  administrator password once (`pkexec`), notices when it carries a different
+  component and offers to update it; `ipsec-client-cli component
+  status|install|uninstall`; installer test as root in a container.
+- Installation guide (rpm, deb and AppImage, first use, update, uninstall,
+  building from source, common problems) and an own desktop entry.
+- Release packages: `scripts/build-release.sh` (`npm run release:build`) and
+  `scripts/verify-release.sh`, with the release guide and the 0.1.0 notes.
 
-  IPC: `list_profiles`, `credentials_status`, `connect`, `disconnect`,
-  `status` e `forget_credentials`, com o evento `SessionUpdate` e erros
-  tipados (`UiError`).
-- Gerenciador de presets no app:
-  - importar um perfil (.json) ou um swanctl.conf, pelo diálogo nativo ou
-    arrastando o arquivo para a janela, com prévia, DNS para swanctl.conf,
-    renomear/substituir e avisos da conversão;
-  - exportar sem credenciais (diálogo nativo, arquivo 0600);
-  - ver detalhes;
-  - excluir, opcionalmente apagando as credenciais.
+### Changed
 
-  Navegação Conexão | Perfis e avisos (toasts). Os caminhos de arquivo ficam
-  só no Rust: a UI recebe uma prévia com token.
-- Bandeja do app: estado da VPN, "Abrir", "Desconectar" e "Sair do app" (a
-  VPN continua). Notificações do sistema quando a VPN conecta, cai, reconecta
-  ou desconecta, inclusive em sessões abertas pelo CLI. Instância única: abrir
-  o app de novo traz a janela existente.
-- Componente de rede (engine embutido, sem Docker):
-  - `crates/helper`, o único componente root: ativação por socket do systemd,
-    identidade por `SO_PEERCRED`, autorização no polkit (sessão local ativa
-    sem senha) e charon via `systemd-run` com sandbox (só `NET_ADMIN`,
-    `NET_BIND_SERVICE`, `NET_RAW` e `CHOWN`; `ProtectSystem=strict`...);
-  - `crates/proto`, o protocolo compartilhado: o cliente só manda números
-    validados e o id do perfil, nunca caminhos, comandos ou segredos;
-  - `packaging/` com as units do systemd, a policy do polkit e o instalador;
-  - `scripts/test-native.sh` para a validação com root, que passou no
-    computador do mantenedor (polkit, sandbox do systemd e SELinux
-    enforcing).
-
-  O `core` escolhe o engine embutido quando ele está instalado (`Backend`), e
-  o `entrypoint.sh` ganhou o modo nativo (raiz somente leitura, socket por
-  usuário).
-- Aba Sistema no app: diagnóstico do ambiente (o mesmo do `doctor`, com dicas
-  de correção), tema claro/escuro/sistema (lembrado) e versão.
-- **O app instala o componente de rede** (ADR-0018), com a senha de
-  administrador uma vez (`pkexec`):
-  - o pacote do componente vai dentro do app (`npm run stage:component`;
-    `npm run bundle` o inclui nos recursos);
-  - na aba Sistema, o cartão "Componente de rede" mostra o estado e as
-    versões, com Instalar/Atualizar/Reinstalar e Remover;
-  - na tela principal, um aviso de primeiro uso; no erro de pré-requisito, o
-    botão "Instalar componente de rede";
-  - o app percebe quando traz um componente diferente do instalado e oferece
-    atualizar;
-  - no terminal: `ipsec-client-cli component status|install|uninstall`;
-  - `tests/packaging/install-test.sh` testa o instalador como root num
-    container, inclusive com pacotes adulterados, e roda na CI.
-
-- **Manual de instalação** (`docs/instalacao.md`): rpm, deb e AppImage
-  (inclusive como pô-lo no menu), primeiro uso, atualização, desinstalação,
-  como gerar o pacote a partir do código e problemas comuns.
-- Atalho próprio para o menu de aplicativos (`src-tauri/linux/ipsec-client.desktop`):
-  categoria Rede, descrição em inglês e pt-BR e palavras-chave (a busca por
-  "vpn" acha o app).
-
-- Pacotes de release: `scripts/build-release.sh` (`npm run release:build`)
-  gera AppImage, deb e rpm a partir de uma tag, num container Ubuntu 22.04
-  (`packaging/release/Dockerfile`, com Rust e Node conferidos por checksum),
-  e o `SHA256SUMS`. No fim, `scripts/verify-release.sh` confere o componente
-  de rede dentro dos três pacotes e a glibc exigida pelo AppImage. O guia
-  `docs/release.md` explica como publicar no GitHub, e
-  `docs/releases/v0.1.0.md` traz as notas da versão.
-
-### Alterado
-
-- O helper vai compactado no pacote do componente (`ipsec-client-helper.gz`).
-  No AppImage, o linuxdeploy reescrevia o binário, o hash deixava de bater e
-  o app recusaria instalar o componente. O problema foi achado antes de
-  publicar.
-- Pacotes com o nome `ipsec-client` (antes, `i-psec-client`), recursos em
-  `/usr/lib/ipsec-client` (sem espaço) e mantenedor "IPsec Client
-  contributors".
-- README reescrito com o estado atual (app desktop, engine embutido sem Docker,
-  instalação), guia rápido do colega pelo app, e SECURITY.md com o modelo de
-  ameaças do engine embutido.
-
-- O MTU do perfil passou a ser aplicado à interface do engine (antes era sempre
-  1400).
-- `install-native.sh` recebe só um pacote (`--bundle <dir> --origin
-  app|package|manual`), confere os hashes numa cópia só do root e recusa
-  links simbólicos. O `scripts/test-native.sh` usa o mesmo caminho do app.
-- `doctor`/preflight: sem componente de rede e sem Docker, a verificação
-  "Componente de rede" falha com a dica de instalar o componente, em vez de
-  mandar instalar o Docker.
-- Os scripts carregam sempre o `~/.cargo/env`, para que o cargo do rustup
-  (que respeita o `rust-toolchain.toml`) ganhe de um cargo do sistema.
-
-- `entrypoint.sh`: caminhos do charon configuráveis
-  (`IPSEC_CLIENT_CHARON`/`IPSEC_CLIENT_STRONGSWAN_D`) e remoção das políticas
-  XFRM órfãs quando o iproute2 aceita `if_id` (o caso do engine embutido).
-- Preset IKEv2 de exemplo: `curve25519` no lugar de `ecp256`, porque o engine
-  embutido não tem ECP.
+- The helper goes compressed in the component bundle
+  (`ipsec-client-helper.gz`): in the AppImage, linuxdeploy rewrote the binary
+  and the hash stopped matching. Found before publishing.
+- Packages named `ipsec-client`, resources in `/usr/lib/ipsec-client` and
+  maintainer "IPsec Client contributors".
+- The profile MTU is applied to the engine interface (before, always 1400).
+- Example IKEv2 preset: `curve25519` instead of `ecp256`, because the
+  embedded engine has no ECP.

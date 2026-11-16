@@ -1,5 +1,5 @@
 # ipsec-client engine: strongSwan 5.8.2 (Ubuntu 20.04) isolated in a container.
-# See docs/adr/0001-engine-docker-strongswan-5.8.2.md and docs/architecture.md.
+# See docs/adr/0001-docker-engine-strongswan-5.8.2.md and docs/architecture.md.
 #
 # The container runs with --network host and NET_ADMIN only. charon installs
 # XFRM SAs and policies in the host kernel, bound to the dedicated interface
