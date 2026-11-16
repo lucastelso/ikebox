@@ -102,6 +102,23 @@ extract_package() {
     done < <(find "$dest" -type f -name '*.gz' ! -name '*.tar.gz' -print0)
 }
 
+# scan_patterns <caminho>...: arquivos em que os padrões privados aparecem.
+# Em executáveis ELF, só o texto legível (strings de 4+ caracteres) conta: um
+# padrão curto casa por acaso com bytes de código de máquina (aconteceu na
+# 0.1.1: 3 bytes isolados na seção .text do app). Um dado de verdade embutido
+# no binário fica em texto legível.
+scan_patterns() {
+    local file
+    while IFS= read -r -d '' file; do
+        if [[ $(head -c 4 "$file" | od -An -tx1 | tr -d ' \n') == 7f454c46 ]]; then
+            strings -a -n 4 "$file" | grep -q -i -E -f "$clean_patterns" && printf '%s\n' "$file"
+        else
+            grep -q -a -i -E -f "$clean_patterns" "$file" && printf '%s\n' "$file"
+        fi
+    done < <(find "$@" -type f -print0)
+    return 0
+}
+
 case "$mode" in
 --staged)
     scan "conteúdo staged" 1,2 --cached -- .
@@ -167,7 +184,7 @@ case "$mode" in
         fi
         hits=()
         if [[ -s $clean_patterns ]]; then
-            mapfile -t -O "${#hits[@]}" hits < <(grep -r -a -l -i -E -f "$clean_patterns" "${own[@]}" || true)
+            mapfile -t -O "${#hits[@]}" hits < <(scan_patterns "${own[@]}")
         fi
         mapfile -t -O "${#hits[@]}" hits < <(grep -r -a -l -F -i "${fixed[@]/#/-e}" "$dest" || true)
         if ((${#hits[@]} > 0)); then

@@ -1478,3 +1478,29 @@ privados tinha sido feita à mão.
 - **Arquivos privados fora do projeto.** `trabalho.json`, a cópia
   `vpn-docker/` (com a PSK) e o plano original saíram da pasta do projeto,
   com permissão só do mantenedor. O `~/vpn-docker` original não foi tocado.
+
+### Passo 35: release v0.1.1
+
+- Versão 0.1.1 (`chore/versao-0.1.1`):
+  - CHANGELOG e notas em `docs/releases/v0.1.1.md`, que explicam como
+    atualizar: app **e** componente de rede;
+  - `THIRD_PARTY_NOTICES.md` passa a registrar a modificação no strongSwan
+    (o patch do ADR-0019, com data).
+- Antes da tag: `check-private.sh --history` e `--tracked` limpos, gitleaks
+  sem achados, `npm audit` sem vulnerabilidades e cargo-deny sem alertas.
+- **Primeiro build da tag:** `verify-release.sh` aprovou os três pacotes
+  (componente íntegro, strongSwan com os patches, glibc 2.34). A varredura
+  nova de dados privados, porém, acusou o `usr/bin/ipsec-client`.
+  - **Investigação**, sem imprimir padrão nem trecho: uma linha curta dos
+    padrões casou com **3 bytes isolados na seção `.text`** (código de
+    máquina), sem nenhum caractere legível ao lado. As instruções x86
+    formavam 3 letras por coincidência. Falso positivo.
+  - **Ajuste** (`fix/check-private-elf`): em executáveis ELF, os padrões
+    valem só sobre o texto legível (`strings -n 4`). Um dado embutido de
+    verdade fica em texto legível. O caminho da home e o hostname continuam
+    sendo procurados nos bytes crus.
+  - **Conferência:** 0.1.1 e 0.1.0 limpas, o `.rpm` do host continua
+    recusado. A segunda rede (valores reais do perfil privado, só contados)
+    também não achou nada nos pacotes da 0.1.1.
+- A tag `v0.1.1`, ainda não enviada, foi movida para o merge com o ajuste,
+  e os pacotes foram gerados de novo a partir dela.
