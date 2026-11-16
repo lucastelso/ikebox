@@ -107,6 +107,10 @@ extract_package() {
 # padrão curto casa por acaso com bytes de código de máquina (aconteceu na
 # 0.1.1: 3 bytes isolados na seção .text do app). Um dado de verdade embutido
 # no binário fica em texto legível.
+# Compressed files (.gz, .tar.gz) are skipped: their bytes are pseudo-random,
+# so a short pattern matches by chance (it happened in 0.2.0, in the
+# engine.tar.gz bytes), and extract_package already unpacks them next to the
+# original (.d/ and .decompressed), where the real content is scanned.
 scan_patterns() {
     local file
     while IFS= read -r -d '' file; do
@@ -117,7 +121,7 @@ scan_patterns() {
         else
             grep -q -a -i -E -f "$clean_patterns" "$file" && printf '%s\n' "$file"
         fi
-    done < <(find "$@" -type f -print0)
+    done < <(find "$@" -type f ! -name '*.gz' -print0)
     return 0
 }
 
