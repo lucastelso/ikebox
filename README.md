@@ -114,7 +114,7 @@ Fedora:
 
 ```bash
 sudo dnf install -y rustup webkit2gtk4.1-devel openssl-devel curl wget file \
-  libappindicator-gtk3-devel librsvg2-devel libxdo-devel shellcheck
+  libappindicator-gtk3-devel librsvg2-devel libxdo-devel dbus-devel shellcheck
 sudo dnf group install -y c-development
 rustup-init -y --component rustfmt,clippy
 ```
@@ -123,7 +123,7 @@ Debian/Ubuntu:
 
 ```bash
 sudo apt install -y libwebkit2gtk-4.1-dev build-essential curl wget file \
-  libxdo-dev libssl-dev libayatana-appindicator3-dev librsvg2-dev shellcheck
+  libxdo-dev libssl-dev libayatana-appindicator3-dev librsvg2-dev libdbus-1-dev shellcheck
 curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh
 ```
 

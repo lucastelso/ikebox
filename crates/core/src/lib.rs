@@ -13,6 +13,7 @@
 
 pub mod engine;
 pub mod profiles;
+pub mod secrets;
 pub mod vici;
 
 /// Versão do núcleo (a mesma do workspace).

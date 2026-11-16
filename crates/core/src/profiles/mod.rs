@@ -19,6 +19,13 @@ pub use render::{ConnParams, UPDOWN_PATH};
 pub use store::{MAX_PROFILE_BYTES, ProfileList, ProfileStore, parse_profile, to_json};
 pub use validate::{ValidationIssue, validate};
 
+/// O id é válido (`[a-z0-9][a-z0-9-]{0,62}`)? Usado também nas chaves do
+/// chaveiro.
+#[must_use]
+pub fn is_valid_id(id: &str) -> bool {
+    validate::is_slug(id)
+}
+
 /// Erros de perfil. As mensagens são para o usuário final (pt-BR).
 #[derive(Debug, thiserror::Error)]
 pub enum ProfileError {

@@ -14,10 +14,10 @@ mod support;
 use std::time::Duration;
 
 use ipsec_client_core::engine::{DockerEngine, EngineSpec, current_gid, default_runtime_dir};
-use ipsec_client_core::profiles::{ConnParams, Profile, parse_profile};
-use ipsec_client_core::vici::{
-    Charon, CharonEvent, SecretKind, SharedSecret, ViciClient, ViciEvents,
-};
+use ipsec_client_core::profiles::{ConnParams, CredentialKind, Profile, parse_profile};
+use ipsec_client_core::secrets::{Credentials, Redactor};
+use ipsec_client_core::vici::{Charon, CharonEvent, ViciClient, ViciEvents};
+use secrecy::SecretString;
 use support::{
     TEST_GROUP_ID, TEST_PSK, TEST_XAUTH_PASSWORD, TEST_XAUTH_USER, TestGateway, host_cmd,
     ike_ports_busy, link_details,
@@ -105,6 +105,7 @@ async fn scenario(spec: EngineSpec, gateway_ip: String) {
             xauth_user: Some(TEST_XAUTH_USER),
         })
         .expect("load-conn gerado pelo perfil");
+    let redactor = Redactor::new([TEST_XAUTH_USER, TEST_GROUP_ID]);
 
     // Conexão de eventos (separada da de comandos).
     let mut events = ViciEvents::subscribe(&socket, &["ike-updown", "child-updown", "log"])
@@ -127,24 +128,19 @@ async fn scenario(spec: EngineSpec, gateway_ip: String) {
     assert_eq!(version.daemon, "charon");
     assert_eq!(version.version, "5.8.2");
 
-    charon
-        .load_shared(&SharedSecret::new(
-            "ike-teste",
-            SecretKind::Ike,
-            vec![TEST_GROUP_ID.to_owned()],
-            TEST_PSK.as_bytes(),
-        ))
-        .await
-        .expect("load-shared IKE");
-    charon
-        .load_shared(&SharedSecret::new(
-            "xauth-teste",
-            SecretKind::Xauth,
-            vec![TEST_XAUTH_USER.to_owned()],
-            TEST_XAUTH_PASSWORD.as_bytes(),
-        ))
-        .await
-        .expect("load-shared XAuth");
+    let mut credentials = Credentials::new();
+    credentials.set(CredentialKind::Psk, SecretString::from(TEST_PSK));
+    credentials.set(
+        CredentialKind::XauthUser,
+        SecretString::from(TEST_XAUTH_USER),
+    );
+    credentials.set(
+        CredentialKind::XauthPassword,
+        SecretString::from(TEST_XAUTH_PASSWORD),
+    );
+    for secret in credentials.shared_secrets(&profile).expect("segredos") {
+        charon.load_shared(&secret).await.expect("load-shared");
+    }
     charon
         .load_conn(&conn_name, &load_conn)
         .await
@@ -197,6 +193,15 @@ async fn scenario(spec: EngineSpec, gateway_ip: String) {
         logs.iter()
             .all(|l| !l.contains(TEST_PSK) && !l.contains(TEST_XAUTH_PASSWORD)),
         "segredo apareceu no log"
+    );
+    // O charon registra as identidades; o Redactor as mascara para exibição.
+    assert!(logs.iter().any(|l| l.contains(TEST_XAUTH_USER)));
+    let shown: Vec<String> = logs.iter().map(|l| redactor.redact(l)).collect();
+    assert!(
+        shown
+            .iter()
+            .all(|l| !l.contains(TEST_XAUTH_USER) && !l.contains("grupo-teste")),
+        "identidade sem máscara: {shown:?}"
     );
 
     charon

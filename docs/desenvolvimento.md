@@ -400,3 +400,44 @@ para descartar flakiness.
   ping) passa em cerca de 2,4 s.
 - Docs: `docs/perfis.md` (formato, tabela de correspondência swanctl → perfil,
   como passar a um colega) e `presets/README.md`.
+
+### Passo 11: segredos (`feat/segredos`)
+
+- **Chaveiro:** o crate `keyring` 4 foi dividido em `keyring-core` + backends.
+  A primeira escolha foi o backend em Rust puro (zbus), mas o `cargo-deny`
+  **barrou**: o RustSec marcou `zvariant`, `zbus_names` e `zvariant_derive`
+  como *unmaintained* (RUSTSEC-2026-0370/0371/0372), porque foram incorporados
+  ao `zbus` 6 e o backend ainda usa o `zbus` 5. Em vez de abrir exceção no
+  `deny.toml`, a troca foi para o backend **libdbus**
+  (`dbus-secret-service-keyring-store`, cripto em Rust), que passa limpo. A
+  libdbus existe em qualquer desktop Linux. Para compilar, é preciso o
+  `dbus-devel`/`libdbus-1-dev`, que foi acrescentado ao README e à CI.
+- **API do backend** conferida no código-fonte: `Store::new()`,
+  `build(serviço, usuário, modificadores)` com rótulo amigável (aparece assim
+  no Seahorse: "IPsec Client: <perfil> (<campo>)").
+- **`Credentials`:**
+  - `SecretString` em tudo, inclusive no usuário XAuth, que não é segredo mas
+    é pessoal;
+  - `Debug` só com presença/ausência e o usuário mascarado;
+  - valores vazios contam como ausentes;
+  - `shared_secrets` gera os segredos do `load-shared`: a PSK com dono = id do
+    grupo e o XAuth com dono = usuário.
+- **`Redactor`:** mascara o usuário XAuth e o id do grupo nas linhas de log,
+  inclusive o id sem o prefixo `keyid:`, que é como o charon registra
+  (`[grupo-teste]`). Identidades com menos de 3 caracteres não são mascaradas,
+  para não estragar o texto.
+- **Testes** (53 unitários no core):
+  - `Debug` sem segredos;
+  - ausências e valores vazios;
+  - donos dos segredos;
+  - store em memória;
+  - chaves `<perfil>:<campo>`;
+  - máscaras;
+  - linhas reais do charon mascaradas.
+- **Chaveiro real:** o teste `keyring_real_roundtrip` (opcional, `--ignored`)
+  criou, leu e apagou um item no GNOME Keyring da sessão do mantenedor e
+  passou.
+- **Integração:** o `vici_docker.rs` passou a carregar os segredos via
+  `Credentials::shared_secrets`, e confere que os logs, depois do `Redactor`,
+  não trazem nem o usuário XAuth nem o id do grupo. O charon, por si só,
+  registra os dois, e o teste confirma isso também.

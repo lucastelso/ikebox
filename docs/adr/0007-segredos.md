@@ -1,6 +1,7 @@
 # ADR-0007: Segredos só em memória ou no chaveiro do sistema
 
-- **Status:** Aceito
+- **Status:** Aceito. A implementação está descrita em docs/arquitetura.md
+  (`core::secrets`).
 - **Data:** 2026-11-15
 
 ## Contexto
