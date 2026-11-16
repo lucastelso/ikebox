@@ -18,6 +18,7 @@ use ipsec_client_core::profiles::{
     import_swanctl, parse_profile, to_json,
 };
 use ipsec_client_core::secrets::{Credentials, KeyringStore};
+use ipsec_client_core::{tr, trf};
 use tauri::{AppHandle, Manager};
 use tauri_plugin_dialog::DialogExt;
 
@@ -57,7 +58,7 @@ where
 {
     tauri::async_runtime::spawn_blocking(f)
         .await
-        .map_err(|e| other(format!("Falha interna: {e}")))?
+        .map_err(|e| other(trf!("Internal failure: {e}", "Falha interna: {e}")))?
 }
 
 fn store() -> Result<ProfileStore, UiError> {
@@ -65,15 +66,27 @@ fn store() -> Result<ProfileStore, UiError> {
 }
 
 fn read_limited(path: &Path) -> Result<String, UiError> {
-    let meta = std::fs::metadata(path)
-        .map_err(|e| other(format!("Não foi possível ler o arquivo: {e}")))?;
+    let meta = std::fs::metadata(path).map_err(|e| {
+        other(trf!(
+            "Could not read the file: {e}",
+            "Não foi possível ler o arquivo: {e}"
+        ))
+    })?;
     if meta.len() > MAX_PROFILE_BYTES {
         return Err(UiError::new(
             UiErrorKind::Profile,
-            "Arquivo grande demais para ser um perfil.",
+            tr!(
+                "File too large to be a profile.",
+                "Arquivo grande demais para ser um perfil."
+            ),
         ));
     }
-    std::fs::read_to_string(path).map_err(|e| other(format!("Não foi possível ler o arquivo: {e}")))
+    std::fs::read_to_string(path).map_err(|e| {
+        other(trf!(
+            "Could not read the file: {e}",
+            "Não foi possível ler o arquivo: {e}"
+        ))
+    })
 }
 
 fn detect_kind(path: &Path, text: &str) -> ImportKind {
@@ -139,17 +152,26 @@ pub async fn choose_import_file(app: AppHandle) -> Result<Option<ImportPreview>,
         Ok(dialog_app
             .dialog()
             .file()
-            .set_title("Importar perfil")
-            .add_filter("Perfil do IPsec Client (.json)", &["json"])
+            .set_title(tr!("Import profile", "Importar perfil"))
+            .add_filter(
+                tr!(
+                    "IPsec Client profile (.json)",
+                    "Perfil do IPsec Client (.json)"
+                ),
+                &["json"],
+            )
             .add_filter("swanctl.conf", &["conf"])
-            .add_filter("Todos os arquivos", &["*"])
+            .add_filter(tr!("All files", "Todos os arquivos"), &["*"])
             .blocking_pick_file())
     })
     .await?;
     let Some(file) = picked else { return Ok(None) };
-    let path = file
-        .into_path()
-        .map_err(|_| other("O arquivo escolhido não é local."))?;
+    let path = file.into_path().map_err(|_| {
+        other(tr!(
+            "The chosen file is not local.",
+            "O arquivo escolhido não é local."
+        ))
+    })?;
     blocking(move || {
         let pending = app.state::<PendingImports>();
         preview_path(&pending, path).map(Some)
@@ -164,7 +186,10 @@ fn parse_dns(options: &ImportOptions) -> Result<DnsSettings, UiError> {
         .filter(|s| !s.trim().is_empty())
         .map(|s| {
             s.trim().parse::<IpAddr>().map_err(|_| {
-                UiError::new(UiErrorKind::Profile, format!("Servidor DNS inválido: {s}"))
+                UiError::new(
+                    UiErrorKind::Profile,
+                    trf!("Invalid DNS server: {s}", "Servidor DNS inválido: {s}"),
+                )
             })
         })
         .collect::<Result<Vec<_>, _>>()?;
@@ -198,7 +223,10 @@ pub async fn confirm_import(
         let path = pending.take(&token).ok_or_else(|| {
             UiError::new(
                 UiErrorKind::Profile,
-                "A importação expirou; escolha o arquivo de novo.",
+                tr!(
+                    "The import expired; choose the file again.",
+                    "A importação expirou; escolha o arquivo de novo."
+                ),
             )
         })?;
         let text = read_limited(&path)?;
@@ -225,7 +253,8 @@ pub async fn confirm_import(
         if !options.overwrite && store.load(&profile.id).is_ok() {
             return Err(UiError::new(
                 UiErrorKind::Profile,
-                format!(
+                trf!(
+                    "A profile with id \"{}\" already exists. Choose another id or replace it.",
                     "Já existe um perfil com o id \"{}\". Escolha outro id ou substitua.",
                     profile.id
                 ),
@@ -259,16 +288,22 @@ pub async fn export_profile(app: AppHandle, profile_id: String) -> Result<Option
         Ok(app
             .dialog()
             .file()
-            .set_title("Exportar perfil (sem credenciais)")
+            .set_title(tr!(
+                "Export profile (without credentials)",
+                "Exportar perfil (sem credenciais)"
+            ))
             .set_file_name(format!("{profile_id}.json"))
             .add_filter("Perfil do IPsec Client (.json)", &["json"])
             .blocking_save_file())
     })
     .await?;
     let Some(file) = target else { return Ok(None) };
-    let path = file
-        .into_path()
-        .map_err(|_| other("O destino escolhido não é local."))?;
+    let path = file.into_path().map_err(|_| {
+        other(tr!(
+            "The chosen destination is not local.",
+            "O destino escolhido não é local."
+        ))
+    })?;
     blocking(move || {
         let mut out = std::fs::OpenOptions::new()
             .write(true)
@@ -276,9 +311,18 @@ pub async fn export_profile(app: AppHandle, profile_id: String) -> Result<Option
             .truncate(true)
             .mode(0o600)
             .open(&path)
-            .map_err(|e| other(format!("Não foi possível gravar o arquivo: {e}")))?;
-        out.write_all(json.as_bytes())
-            .map_err(|e| other(format!("Não foi possível gravar o arquivo: {e}")))?;
+            .map_err(|e| {
+                other(trf!(
+                    "Could not write the file: {e}",
+                    "Não foi possível gravar o arquivo: {e}"
+                ))
+            })?;
+        out.write_all(json.as_bytes()).map_err(|e| {
+            other(trf!(
+                "Could not write the file: {e}",
+                "Não foi possível gravar o arquivo: {e}"
+            ))
+        })?;
         Ok(path.file_name().map(|f| f.to_string_lossy().into_owned()))
     })
     .await

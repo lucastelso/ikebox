@@ -103,13 +103,13 @@ impl DnsParams {
     /// Descrição do primeiro problema.
     pub fn validate(&self) -> Result<(), String> {
         if self.servers.len() > MAX_DNS_SERVERS {
-            return Err(format!("no máximo {MAX_DNS_SERVERS} servidores DNS"));
+            return Err(format!("at most {MAX_DNS_SERVERS} DNS servers"));
         }
         if self.domains.len() > MAX_DNS_DOMAINS {
-            return Err(format!("no máximo {MAX_DNS_DOMAINS} domínios DNS"));
+            return Err(format!("at most {MAX_DNS_DOMAINS} DNS domains"));
         }
         if !self.domains.iter().all(|d| valid_dns_domain(d)) {
-            return Err("domínio DNS inválido".to_owned());
+            return Err("invalid DNS domain".to_owned());
         }
         Ok(())
     }
@@ -122,19 +122,19 @@ impl StartParams {
     /// Descrição do primeiro campo inválido.
     pub fn validate(&self) -> Result<(), String> {
         if !valid_iface(&self.iface) {
-            return Err("nome de interface inválido".to_owned());
+            return Err("invalid interface name".to_owned());
         }
         if self.if_id == 0 {
-            return Err("if_id não pode ser 0".to_owned());
+            return Err("if_id cannot be 0".to_owned());
         }
         if !(576..=9000).contains(&self.mtu) {
-            return Err("MTU fora de 576..=9000".to_owned());
+            return Err("MTU outside 576..=9000".to_owned());
         }
         if self.log_level > 2 {
-            return Err("nível de log acima de 2".to_owned());
+            return Err("log level above 2".to_owned());
         }
         if !valid_profile_id(&self.profile_id) {
-            return Err("id de perfil inválido".to_owned());
+            return Err("invalid profile id".to_owned());
         }
         self.dns.validate()
     }
@@ -212,10 +212,9 @@ pub fn encode<T: Serialize>(message: &T) -> Result<String, DecodeError> {
 /// Linha grande demais ou JSON inválido/desconhecido.
 pub fn decode<T: for<'de> Deserialize<'de>>(line: &str) -> Result<T, DecodeError> {
     if line.len() > MAX_LINE {
-        return Err(DecodeError("mensagem grande demais".to_owned()));
+        return Err(DecodeError("message too large".to_owned()));
     }
-    serde_json::from_str(line.trim_end())
-        .map_err(|e| DecodeError(format!("mensagem inválida: {e}")))
+    serde_json::from_str(line.trim_end()).map_err(|e| DecodeError(format!("invalid message: {e}")))
 }
 
 /// `^[a-z][a-z0-9_-]{0,14}$` (IFNAMSIZ - 1).

@@ -7,6 +7,7 @@
 use ipsec_client_core::profiles::{Profile, ProfileStore};
 use ipsec_client_core::secrets::{Credentials, KeyringStore, SecretStore, mask};
 use ipsec_client_core::session::{self, ConnectOptions};
+use ipsec_client_core::{tr, trf};
 use secrecy::{ExposeSecret, SecretString};
 use tauri::AppHandle;
 use tauri_specta::Event as _;
@@ -27,9 +28,12 @@ where
     T: Send + 'static,
     F: FnOnce() -> Result<T, UiError> + Send + 'static,
 {
-    tauri::async_runtime::spawn_blocking(f)
-        .await
-        .map_err(|e| UiError::new(UiErrorKind::Other, format!("Falha interna: {e}")))?
+    tauri::async_runtime::spawn_blocking(f).await.map_err(|e| {
+        UiError::new(
+            UiErrorKind::Other,
+            trf!("Internal failure: {e}", "Falha interna: {e}"),
+        )
+    })?
 }
 
 fn store() -> Result<ProfileStore, UiError> {
@@ -131,7 +135,10 @@ pub async fn connect(
     let Ok(_guard) = lock.0.try_lock() else {
         return Err(UiError::new(
             UiErrorKind::Busy,
-            "Já há uma conexão em andamento.",
+            tr!(
+                "A connection is already in progress.",
+                "Já há uma conexão em andamento."
+            ),
         ));
     };
 
@@ -147,7 +154,11 @@ pub async fn connect(
         if !missing.is_empty() {
             return Err(UiError {
                 kind: UiErrorKind::MissingCredentials,
-                message: "Informe as credenciais que faltam.".to_owned(),
+                message: tr!(
+                    "Enter the missing credentials.",
+                    "Informe as credenciais que faltam."
+                )
+                .to_owned(),
                 details: missing
                     .iter()
                     .map(|k| ipsec_client_core::secrets::describe(*k).to_owned())
@@ -160,7 +171,10 @@ pub async fn connect(
                 None => {
                     return Err(UiError::new(
                         UiErrorKind::Keyring,
-                        "O chaveiro do sistema não está disponível; desmarque \"lembrar\".",
+                        tr!(
+                            "The system keyring is not available; uncheck \"remember\".",
+                            "O chaveiro do sistema não está disponível; desmarque \"lembrar\"."
+                        ),
                     ));
                 }
             }
@@ -260,4 +274,14 @@ pub async fn anonymize_log(profile_id: String, lines: Vec<String>) -> Result<Str
         Ok(anonymizer.anonymize(&lines.join("\n")))
     })
     .await
+}
+
+/// Language of the messages built in Rust (errors, tray, notifications):
+/// `"en"` or `"pt"`. The UI calls it at startup and when the user changes the
+/// language.
+#[tauri::command]
+#[specta::specta]
+pub fn set_language(lang: String) {
+    use ipsec_client_core::i18n::{Lang, set_lang};
+    set_lang(if lang == "pt" { Lang::Pt } else { Lang::En });
 }

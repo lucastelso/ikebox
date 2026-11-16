@@ -50,22 +50,31 @@ pub fn validate(p: &Profile) -> Vec<ValidationIssue> {
     v.check(
         p.schema_version == SCHEMA_VERSION,
         "schema_version",
-        "versão de formato não suportada",
+        crate::tr!(
+            "unsupported format version",
+            "versão de formato não suportada"
+        ),
     );
     v.check(
         is_slug(&p.id),
         "id",
-        "use de 1 a 63 caracteres: letras minúsculas, dígitos e hífen (sem começar com hífen)",
+        crate::tr!("use 1 to 63 characters: lowercase letters, digits and hyphens (not starting with a hyphen)", "use de 1 a 63 caracteres: letras minúsculas, dígitos e hífen (sem começar com hífen)"),
     );
     v.check(
         !p.name.trim().is_empty() && p.name.chars().count() <= 100 && !has_control(&p.name),
         "name",
-        "informe um nome de até 100 caracteres",
+        crate::tr!(
+            "enter a name of up to 100 characters",
+            "informe um nome de até 100 caracteres"
+        ),
     );
     v.check(
         is_host(&p.gateway),
         "gateway",
-        "informe um nome DNS ou um endereço IP válido",
+        crate::tr!(
+            "enter a valid DNS name or IP address",
+            "informe um nome DNS ou um endereço IP válido"
+        ),
     );
 
     // Fase 1.
@@ -73,10 +82,19 @@ pub fn validate(p: &Profile) -> Vec<ValidationIssue> {
     v.check(
         matches!(ike.version, 1 | 2),
         "ike.version",
-        "a versão do IKE deve ser 1 ou 2",
+        crate::tr!(
+            "the IKE version must be 1 or 2",
+            "a versão do IKE deve ser 1 ou 2"
+        ),
     );
     if ike.aggressive && ike.version != 1 {
-        v.add("ike.aggressive", "o modo agressivo só existe no IKEv1");
+        v.add(
+            "ike.aggressive",
+            crate::tr!(
+                "aggressive mode only exists in IKEv1",
+                "o modo agressivo só existe no IKEv1"
+            ),
+        );
     }
     check_proposals(&mut v, "ike.proposals", &ike.proposals);
     check_duration(&mut v, "ike.rekey_time_secs", ike.rekey_time_secs, 60);
@@ -84,13 +102,16 @@ pub fn validate(p: &Profile) -> Vec<ValidationIssue> {
         v.check(
             (1..=3600).contains(&dpd),
             "ike.dpd_delay_secs",
-            "use de 1 a 3600 segundos",
+            crate::tr!("use 1 to 3600 seconds", "use de 1 a 3600 segundos"),
         );
     }
 
     // Autenticação.
     if p.auth.method == AuthMethod::PskXauth && ike.version != 1 {
-        v.add("auth.method", "XAuth só existe no IKEv1");
+        v.add(
+            "auth.method",
+            crate::tr!("XAuth only exists in IKEv1", "XAuth só existe no IKEv1"),
+        );
     }
     for (field, id) in [
         ("auth.local_id", &p.auth.local_id),
@@ -100,7 +121,7 @@ pub fn validate(p: &Profile) -> Vec<ValidationIssue> {
             v.check(
                 is_identity(id),
                 field,
-                "identidade inválida (1 a 255 caracteres, sem espaços nas pontas nem controle)",
+                crate::tr!("invalid identity (1 to 255 characters, no leading/trailing spaces or control characters)", "identidade inválida (1 a 255 caracteres, sem espaços nas pontas nem controle)"),
             );
         }
     }
@@ -110,26 +131,39 @@ pub fn validate(p: &Profile) -> Vec<ValidationIssue> {
     v.check(
         is_slug(&child.name),
         "child.name",
-        "use letras minúsculas, dígitos e hífen",
+        crate::tr!(
+            "use lowercase letters, digits and hyphens",
+            "use letras minúsculas, dígitos e hífen"
+        ),
     );
     check_proposals(&mut v, "child.esp_proposals", &child.esp_proposals);
     check_duration(&mut v, "child.rekey_time_secs", child.rekey_time_secs, 60);
     if child.remote_ts.is_empty() {
         v.add(
             "child.remote_ts",
-            "informe ao menos uma rede remota (ex.: 192.0.2.0/24)",
+            crate::tr!(
+                "enter at least one remote network (e.g. 192.0.2.0/24)",
+                "informe ao menos uma rede remota (ex.: 192.0.2.0/24)"
+            ),
         );
     }
     for (name, list) in [
         ("child.remote_ts", &child.remote_ts),
         ("child.local_ts", &child.local_ts),
     ] {
-        v.check(list.len() <= 32, name, "no máximo 32 redes");
+        v.check(
+            list.len() <= 32,
+            name,
+            crate::tr!("at most 32 networks", "no máximo 32 redes"),
+        );
         for (i, ts) in list.iter().enumerate() {
             v.check(
                 is_subnet(ts),
                 format!("{name}[{i}]"),
-                "rede inválida (use CIDR, ex.: 192.0.2.0/24, ou um IP)",
+                crate::tr!(
+                    "invalid network (use CIDR, e.g. 192.0.2.0/24, or an IP)",
+                    "rede inválida (use CIDR, ex.: 192.0.2.0/24, ou um IP)"
+                ),
             );
         }
     }
@@ -139,23 +173,29 @@ pub fn validate(p: &Profile) -> Vec<ValidationIssue> {
     v.check(
         (576..=9000).contains(&net.mtu),
         "network.mtu",
-        "use um MTU entre 576 e 9000",
+        crate::tr!(
+            "use an MTU between 576 and 9000",
+            "use um MTU entre 576 e 9000"
+        ),
     );
     v.check(
         net.dns.servers.len() <= ipsec_client_proto::MAX_DNS_SERVERS,
         "network.dns.servers",
-        "no máximo 8 servidores",
+        crate::tr!("at most 8 servers", "no máximo 8 servidores"),
     );
     v.check(
         net.dns.domains.len() <= ipsec_client_proto::MAX_DNS_DOMAINS,
         "network.dns.domains",
-        "no máximo 16 domínios",
+        crate::tr!("at most 16 domains", "no máximo 16 domínios"),
     );
     for (i, domain) in net.dns.domains.iter().enumerate() {
         v.check(
             is_dns_domain(domain),
             format!("network.dns.domains[{i}]"),
-            "domínio inválido (ex.: corp.example.com, ~corp.example.com ou ~.)",
+            crate::tr!(
+                "invalid domain (e.g. corp.example.com, ~corp.example.com or ~.)",
+                "domínio inválido (ex.: corp.example.com, ~corp.example.com ou ~.)"
+            ),
         );
     }
 
@@ -164,13 +204,19 @@ pub fn validate(p: &Profile) -> Vec<ValidationIssue> {
 
 fn check_proposals(v: &mut Issues, field: &str, proposals: &[String]) {
     if proposals.is_empty() || proposals.len() > 16 {
-        v.add(field, "informe de 1 a 16 propostas");
+        v.add(
+            field,
+            crate::tr!("enter 1 to 16 proposals", "informe de 1 a 16 propostas"),
+        );
     }
     for (i, proposal) in proposals.iter().enumerate() {
         v.check(
             is_proposal(proposal),
             format!("{field}[{i}]"),
-            "proposta inválida (ex.: aes256-sha1-modp1024)",
+            crate::tr!(
+                "invalid proposal (e.g. aes256-sha1-modp1024)",
+                "proposta inválida (ex.: aes256-sha1-modp1024)"
+            ),
         );
     }
 }
@@ -180,7 +226,10 @@ fn check_duration(v: &mut Issues, field: &str, value: Option<u32>, min: u32) {
         v.check(
             (min..=31_536_000).contains(&secs),
             field,
-            "duração fora do intervalo (60 s a 1 ano)",
+            crate::tr!(
+                "duration out of range (60 s to 1 year)",
+                "duração fora do intervalo (60 s a 1 ano)"
+            ),
         );
     }
 }

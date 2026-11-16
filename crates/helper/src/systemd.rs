@@ -48,7 +48,7 @@ pub fn engine_run_args(launch: &Launch<'_>) -> Vec<String> {
     let mut args: Vec<String> = vec![
         format!("--unit={ENGINE_UNIT}"),
         format!(
-            "--description=IPsec Client engine (perfil {}, uid {})",
+            "--description=IPsec Client engine (profile {}, uid {})",
             p.profile_id, launch.uid
         ),
         "--collect".into(),
@@ -202,7 +202,7 @@ pub fn stop_engine() -> Result<(), String> {
     if ok || err.contains("not loaded") {
         Ok(())
     } else {
-        Err(format!("falha ao parar o engine: {}", err.trim()))
+        Err(format!("failed to stop the engine: {}", err.trim()))
     }
 }
 

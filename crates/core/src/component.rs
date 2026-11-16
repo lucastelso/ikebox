@@ -58,57 +58,73 @@ const EXECUTABLES: [&str; 3] = [INSTALLER, "engine/entrypoint.sh", "engine/updow
 const PKEXEC_PATHS: [&str; 2] = ["/usr/bin/pkexec", "/bin/pkexec"];
 
 /// Prefixo das linhas do instalador: distingue a falha dele da do `pkexec`.
-const INSTALLER_TAG: &str = "[componente de rede]";
+const INSTALLER_TAG: &str = "[network component]";
 
 /// Linhas de log guardadas de uma instalação que falhou.
 const MAX_LOG_LINES: usize = 40;
 
-/// Erros do componente de rede (mensagens para o usuário final).
+/// Network component errors (messages for the end user, see [`crate::i18n`]).
 #[derive(Debug, thiserror::Error)]
 pub enum ComponentError {
-    /// Pacote malformado.
-    #[error("pacote do componente de rede inválido: {0}")]
+    /// Malformed bundle.
+    #[error("{}", crate::trf!("invalid network component bundle: {}", "pacote do componente de rede inválido: {}", .0))]
     InvalidBundle(String),
 
-    /// Um arquivo do pacote não confere com o `SHA256SUMS`.
-    #[error("arquivo do componente de rede corrompido: {0} (baixe o app de novo)")]
+    /// A bundle file does not match `SHA256SUMS`.
+    #[error("{}", crate::trf!(
+        "corrupted network component file: {} (download the app again)",
+        "arquivo do componente de rede corrompido: {} (baixe o app de novo)",
+        .0
+    ))]
     Corrupted(String),
 
-    /// Sem `pkexec`.
-    #[error(
+    /// No `pkexec`.
+    #[error("{}", crate::tr!(
+        "pkexec (polkit) was not found; install polkit or use the IPsec Client \
+         .rpm/.deb package",
         "o pkexec (polkit) não foi encontrado; instale o polkit ou use o pacote \
          .rpm/.deb do IPsec Client"
-    )]
+    ))]
     NoPkexec,
 
-    /// O usuário fechou o pedido de senha.
-    #[error("autorização cancelada")]
+    /// The user closed the password prompt.
+    #[error("{}", crate::tr!("authorization cancelled", "autorização cancelada"))]
     Cancelled,
 
-    /// O polkit não autorizou (senha errada, sem agente de autenticação...).
-    #[error("não foi possível obter a autorização de administrador: {0}")]
+    /// polkit did not authorize (wrong password, no authentication agent...).
+    #[error("{}", crate::trf!(
+        "could not get administrator authorization: {}",
+        "não foi possível obter a autorização de administrador: {}",
+        .0
+    ))]
     NotAuthorized(String),
 
-    /// O instalador rodou e falhou.
-    #[error("o instalador do componente de rede falhou")]
+    /// The installer ran and failed.
+    #[error("{}", crate::tr!("the network component installer failed", "o instalador do componente de rede falhou"))]
     Failed {
         /// Últimas linhas da saída do instalador.
         log: Vec<String>,
     },
 
-    /// Instalado por um pacote do sistema: o app não mexe.
-    #[error(
+    /// Installed by a system package: the app does not touch it.
+    #[error("{}", crate::tr!(
+        "the network component came from a system package (.rpm/.deb); update or \
+         remove it with the package manager",
         "o componente de rede veio de um pacote do sistema (.rpm/.deb); atualize ou \
          remova pelo gerenciador de pacotes"
-    )]
+    ))]
     ManagedByPackage,
 
-    /// Nada instalado.
-    #[error("o componente de rede não está instalado")]
+    /// Nothing installed.
+    #[error("{}", crate::tr!("the network component is not installed", "o componente de rede não está instalado"))]
     NotInstalled,
 
-    /// Arquivo que deveria ser do root não é.
-    #[error("instalação do componente de rede não confiável: {0}")]
+    /// A file that should belong to root does not.
+    #[error("{}", crate::trf!(
+        "untrusted network component installation: {}",
+        "instalação do componente de rede não confiável: {}",
+        .0
+    ))]
     Untrusted(String),
 
     /// Erro de E/S local.
@@ -198,12 +214,22 @@ impl Bundle {
     /// # Errors
     /// Pacote ausente ou malformado.
     pub fn open(dir: &Path) -> Result<Self, ComponentError> {
-        let sums = fs::read_to_string(dir.join(SUMS))
-            .map_err(|e| invalid(format!("{SUMS} ilegível em {}: {e}", dir.display())))?;
+        let sums = fs::read_to_string(dir.join(SUMS)).map_err(|e| {
+            let dir = dir.display();
+            invalid(crate::trf!(
+                "{SUMS} unreadable in {dir}: {e}",
+                "{SUMS} ilegível em {dir}: {e}"
+            ))
+        })?;
         let entries = parse_sums(&sums)?;
         let version = fs::read_to_string(dir.join(VERSION_FILE))
             .map(|c| Version::parse(&c))
-            .map_err(|e| invalid(format!("{VERSION_FILE} ilegível: {e}")))?;
+            .map_err(|e| {
+                invalid(crate::trf!(
+                    "{VERSION_FILE} unreadable: {e}",
+                    "{VERSION_FILE} ilegível: {e}"
+                ))
+            })?;
         Ok(Self {
             dir: dir.to_owned(),
             digest: sha256_hex(sums.as_bytes()),
@@ -241,7 +267,10 @@ impl Bundle {
             let path = self.dir.join(rel);
             let meta = fs::symlink_metadata(&path).map_err(|e| invalid(format!("{rel}: {e}")))?;
             if !meta.file_type().is_file() {
-                return Err(invalid(format!("{rel} não é um arquivo comum")));
+                return Err(invalid(crate::trf!(
+                    "{rel} is not a regular file",
+                    "{rel} não é um arquivo comum"
+                )));
             }
             if sha256_file(&path)? != *hash {
                 return Err(ComponentError::Corrupted(rel.clone()));
@@ -307,7 +336,12 @@ impl StagedBundle {
 fn parse_sums(content: &str) -> Result<Vec<(String, String)>, ComponentError> {
     let mut entries: Vec<(String, String)> = Vec::new();
     for line in content.lines().filter(|l| !l.trim().is_empty()) {
-        let bad = || invalid(format!("linha inválida no {SUMS}: {line}"));
+        let bad = || {
+            invalid(crate::trf!(
+                "invalid line in {SUMS}: {line}",
+                "linha inválida no {SUMS}: {line}"
+            ))
+        };
         let (hash, rest) = line.split_once(' ').ok_or_else(bad)?;
         // `sha256sum`: "<hash>  <caminho>" (texto) ou "<hash> *<caminho>" (binário).
         let path = rest
@@ -318,10 +352,16 @@ fn parse_sums(content: &str) -> Result<Vec<(String, String)>, ComponentError> {
             return Err(bad());
         }
         if !is_plain_relative(path) || path == SUMS {
-            return Err(invalid(format!("caminho não permitido no {SUMS}: {path}")));
+            return Err(invalid(crate::trf!(
+                "path not allowed in {SUMS}: {path}",
+                "caminho não permitido no {SUMS}: {path}"
+            )));
         }
         if entries.iter().any(|(_, p)| p == path) {
-            return Err(invalid(format!("caminho repetido no {SUMS}: {path}")));
+            return Err(invalid(crate::trf!(
+                "repeated path in {SUMS}: {path}",
+                "caminho repetido no {SUMS}: {path}"
+            )));
         }
         entries.push((hash.to_ascii_lowercase(), path.to_owned()));
     }
@@ -329,7 +369,10 @@ fn parse_sums(content: &str) -> Result<Vec<(String, String)>, ComponentError> {
         .iter()
         .find(|f| !entries.iter().any(|(_, p)| p == *f))
     {
-        return Err(invalid(format!("pacote incompleto: falta {missing}")));
+        return Err(invalid(crate::trf!(
+            "incomplete bundle: missing {missing}",
+            "pacote incompleto: falta {missing}"
+        )));
     }
     Ok(entries)
 }
@@ -439,7 +482,8 @@ pub fn status_with(prefix: &Path, helper: &NativeEngine, bundle: Option<&Bundle>
         (Ok(version), None) => (
             State::Broken,
             Some(version),
-            Some(format!(
+            Some(crate::trf!(
+                "component files missing in {}",
                 "arquivos do componente ausentes em {}",
                 prefix.display()
             )),
@@ -524,7 +568,7 @@ fn classify(code: Option<i32>, stdout: &str, stderr: &str) -> Result<Vec<String>
                 .lines()
                 .rev()
                 .find(|l| !l.trim().is_empty())
-                .unwrap_or("sem detalhes")
+                .unwrap_or(crate::tr!("no details", "sem detalhes"))
                 .trim()
                 .to_owned(),
         )),
@@ -592,7 +636,8 @@ fn uninstaller(prefix: &Path) -> Result<PathBuf, ComponentError> {
     let libexec = prefix.join("libexec");
     let installer = libexec.join(INSTALLER);
     if fs::symlink_metadata(&installer).is_err() {
-        return Err(ComponentError::Untrusted(format!(
+        return Err(ComponentError::Untrusted(crate::trf!(
+            "{} is missing; update the component before removing it",
             "{} ausente; atualize o componente antes de removê-lo",
             installer.display()
         )));
@@ -609,7 +654,8 @@ fn uninstaller(prefix: &Path) -> Result<PathBuf, ComponentError> {
             meta.file_type().is_dir()
         };
         if !kind_ok || meta.uid() != 0 || meta.mode() & 0o022 != 0 {
-            return Err(ComponentError::Untrusted(format!(
+            return Err(ComponentError::Untrusted(crate::trf!(
+                "{} is not owned by root or is writable by others",
                 "{} não pertence ao root ou pode ser alterado por outros",
                 path.display()
             )));
@@ -699,7 +745,7 @@ mod tests {
         }
         let incomplete: String = full.lines().skip(1).map(|l| format!("{l}\n")).collect();
         let err = parse_sums(&incomplete).expect_err("incompleto");
-        assert!(err.to_string().contains("falta"), "{err}");
+        assert!(err.to_string().contains("missing VERSION"), "{err}");
     }
 
     #[test]
@@ -725,7 +771,7 @@ mod tests {
             .expect("abre")
             .verify()
             .expect_err("link");
-        assert!(err.to_string().contains("arquivo comum"), "{err}");
+        assert!(err.to_string().contains("regular file"), "{err}");
     }
 
     #[test]
@@ -778,7 +824,7 @@ mod tests {
         fs::create_dir_all(prefix.path().join("bin")).expect("mkdir");
         fs::write(prefix.path().join("bin").join(HELPER), "").expect("helper");
         let err = uninstaller(prefix.path()).expect_err("ausente");
-        assert!(err.to_string().contains("ausente"), "{err}");
+        assert!(err.to_string().contains("is missing"), "{err}");
         fs::create_dir_all(prefix.path().join("libexec")).expect("mkdir");
         fs::write(prefix.path().join("libexec").join(INSTALLER), "").expect("inst");
         // Os testes não rodam como root: os arquivos são do usuário.
@@ -844,8 +890,8 @@ mod tests {
     #[test]
     fn classify_pkexec_outcomes() {
         assert_eq!(
-            classify(Some(0), "[componente de rede] instalado\n", "").expect("ok"),
-            ["[componente de rede] instalado"]
+            classify(Some(0), "[network component] installed\n", "").expect("ok"),
+            ["[network component] installed"]
         );
         assert!(matches!(
             classify(
@@ -866,7 +912,7 @@ mod tests {
         // 127 vindo do instalador (comando ausente) é falha dele, não do pkexec.
         match classify(
             Some(127),
-            "[componente de rede] instalando\nfoo: not found\n",
+            "[network component] installing\nfoo: not found\n",
             "",
         ) {
             Err(ComponentError::Failed { log }) => assert_eq!(log.len(), 2),

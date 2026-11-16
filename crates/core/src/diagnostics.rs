@@ -19,22 +19,25 @@ pub enum CheckStatus {
     Fail,
 }
 
-/// Uma verificação, com dica de correção.
+/// One check, with a hint on how to fix it.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct Check {
-    /// O que foi verificado.
+    /// Stable identifier (does not change with the language).
+    pub id: &'static str,
+    /// What was checked (in the current language).
     pub name: &'static str,
-    /// Resultado.
+    /// Result.
     pub status: CheckStatus,
-    /// Detalhe do resultado.
+    /// Result detail.
     pub detail: String,
-    /// Como corrigir (quando não está Ok).
+    /// How to fix it (when not Ok).
     pub hint: Option<String>,
 }
 
 impl Check {
-    fn ok(name: &'static str, detail: impl Into<String>) -> Self {
+    fn ok(id: &'static str, name: &'static str, detail: impl Into<String>) -> Self {
         Self {
+            id,
             name,
             status: CheckStatus::Ok,
             detail: detail.into(),
@@ -43,12 +46,14 @@ impl Check {
     }
 
     fn bad(
+        id: &'static str,
         name: &'static str,
         status: CheckStatus,
         detail: impl Into<String>,
         hint: impl Into<String>,
     ) -> Self {
         Self {
+            id,
             name,
             status,
             detail: detail.into(),
@@ -88,142 +93,213 @@ pub fn busy_ike_ports() -> Vec<u16> {
 }
 
 fn check_ike_ports() -> Check {
+    const ID: &str = "ike-ports";
+    let name = crate::tr!("UDP ports 500/4500", "Portas UDP 500/4500");
     let busy = busy_ike_ports();
     if busy.is_empty() {
-        Check::ok("Portas UDP 500/4500", "livres")
+        Check::ok(ID, name, crate::tr!("free", "livres"))
     } else {
         Check::bad(
-            "Portas UDP 500/4500",
+            ID,
+            name,
             CheckStatus::Fail,
-            format!("em uso: {busy:?}"),
-            "outra VPN IPsec (strongSwan, libreswan, outro container) está usando as \
-             portas; desconecte-a antes",
+            crate::trf!("in use: {busy:?}", "em uso: {busy:?}"),
+            crate::tr!(
+                "another IPsec VPN (strongSwan, libreswan, another container) is using \
+                 the ports; disconnect it first",
+                "outra VPN IPsec (strongSwan, libreswan, outro container) está usando as \
+                 portas; desconecte-a antes"
+            ),
         )
     }
 }
 
 fn check_xfrm_interface() -> Check {
-    const NAME: &str = "Módulo xfrm_interface";
+    const ID: &str = "xfrm-interface";
+    let name = crate::tr!("xfrm_interface module", "Módulo xfrm_interface");
     if Path::new("/sys/module/xfrm_interface").exists() {
-        return Check::ok(NAME, "carregado");
+        return Check::ok(ID, name, crate::tr!("loaded", "carregado"));
     }
     let release = fs::read_to_string("/proc/sys/kernel/osrelease").unwrap_or_default();
     let modules = Path::new("/lib/modules").join(release.trim());
     let builtin = fs::read_to_string(modules.join("modules.builtin")).unwrap_or_default();
     let listed = fs::read_to_string(modules.join("modules.dep")).unwrap_or_default();
     if builtin.contains("xfrm_interface") || listed.contains("xfrm_interface.ko") {
-        Check::ok(NAME, "disponível (carregado automaticamente ao conectar)")
+        Check::ok(
+            ID,
+            name,
+            crate::tr!(
+                "available (loaded automatically when connecting)",
+                "disponível (carregado automaticamente ao conectar)"
+            ),
+        )
     } else {
         Check::bad(
-            NAME,
+            ID,
+            name,
             CheckStatus::Fail,
-            "não encontrado no kernel",
-            "é preciso um kernel ≥ 4.19 com CONFIG_XFRM_INTERFACE (padrão nas distribuições atuais)",
+            crate::tr!("not found in the kernel", "não encontrado no kernel"),
+            crate::tr!(
+                "a kernel ≥ 4.19 with CONFIG_XFRM_INTERFACE is required (the default in current distributions)",
+                "é preciso um kernel ≥ 4.19 com CONFIG_XFRM_INTERFACE (padrão nas distribuições atuais)"
+            ),
         )
     }
 }
 
 fn check_resolved() -> Check {
+    const ID: &str = "resolved";
     if Path::new("/run/systemd/resolve/io.systemd.Resolve").exists()
         || Path::new("/run/systemd/resolve/stub-resolv.conf").exists()
     {
-        Check::ok("systemd-resolved", "ativo")
+        Check::ok(ID, "systemd-resolved", crate::tr!("active", "ativo"))
     } else {
         Check::bad(
+            ID,
             "systemd-resolved",
             CheckStatus::Warn,
-            "não encontrado",
-            "sem o systemd-resolved, o DNS da VPN (domínios internos) não é configurado; \
-             o túnel funciona por IP",
+            crate::tr!("not found", "não encontrado"),
+            crate::tr!(
+                "without systemd-resolved, the VPN DNS (internal domains) is not configured; \
+                 the tunnel works by IP",
+                "sem o systemd-resolved, o DNS da VPN (domínios internos) não é configurado; \
+                 o túnel funciona por IP"
+            ),
         )
     }
 }
 
 fn check_dbus_socket() -> Check {
+    const ID: &str = "system-dbus";
+    let name = crate::tr!("System D-Bus", "D-Bus do sistema");
     if Path::new(crate::engine::DBUS_SYSTEM_SOCKET).exists() {
-        Check::ok("D-Bus do sistema", "disponível")
+        Check::ok(ID, name, crate::tr!("available", "disponível"))
     } else {
         Check::bad(
-            "D-Bus do sistema",
+            ID,
+            name,
             CheckStatus::Warn,
-            "socket ausente",
-            "sem o D-Bus do sistema, o DNS da VPN não é configurado",
+            crate::tr!("socket missing", "socket ausente"),
+            crate::tr!(
+                "without the system D-Bus, the VPN DNS is not configured",
+                "sem o D-Bus do sistema, o DNS da VPN não é configurado"
+            ),
         )
     }
 }
 
 fn check_runtime_dir() -> Check {
+    const ID: &str = "runtime-dir";
+    let name = crate::tr!("Runtime directory", "Diretório de runtime");
     match default_runtime_dir() {
-        Ok(dir) => Check::ok("Diretório de runtime", dir.display().to_string()),
+        Ok(dir) => Check::ok(ID, name, dir.display().to_string()),
         Err(e) => Check::bad(
-            "Diretório de runtime",
+            ID,
+            name,
             CheckStatus::Fail,
             e.to_string(),
-            "rode numa sessão gráfica ou de login normal (com systemd-logind)",
+            crate::tr!(
+                "run it in a regular graphical or login session (with systemd-logind)",
+                "rode numa sessão gráfica ou de login normal (com systemd-logind)"
+            ),
         ),
     }
 }
 
 fn check_not_root() -> Check {
+    const ID: &str = "user";
+    let name = crate::tr!("User", "Usuário");
     if rustix::process::geteuid().is_root() {
         Check::bad(
-            "Usuário",
+            ID,
+            name,
             CheckStatus::Fail,
-            "rodando como root",
-            "não use sudo: rode como o seu usuário",
+            crate::tr!("running as root", "rodando como root"),
+            crate::tr!(
+                "do not use sudo: run it as your own user",
+                "não use sudo: rode como o seu usuário"
+            ),
         )
     } else {
-        Check::ok("Usuário", "comum (não root)")
+        Check::ok(
+            ID,
+            name,
+            crate::tr!("regular (not root)", "comum (não root)"),
+        )
     }
 }
 
 async fn check_docker() -> Check {
-    const NAME: &str = "Docker";
+    const ID: &str = "docker";
     let result = match DockerEngine::connect() {
         Ok(engine) => engine.ping().await,
         Err(e) => Err(e),
     };
     match result {
-        Ok(()) => Check::ok(NAME, "acessível"),
+        Ok(()) => Check::ok(ID, "Docker", crate::tr!("reachable", "acessível")),
         Err(e) => Check::bad(
-            NAME,
+            ID,
+            "Docker",
             CheckStatus::Fail,
             e.to_string(),
-            "sudo systemctl enable --now docker; sudo usermod -aG docker $USER (e saia/entre na sessão)",
+            crate::tr!(
+                "sudo systemctl enable --now docker; sudo usermod -aG docker $USER (then log out and back in)",
+                "sudo systemctl enable --now docker; sudo usermod -aG docker $USER (e saia/entre na sessão)"
+            ),
         ),
     }
 }
 
-/// Nome da verificação do componente de rede (a UI oferece instalar quando
-/// ela falha).
-pub const COMPONENT_CHECK: &str = "Componente de rede";
+/// Id of the network component check (the UI offers to install it when it
+/// fails).
+pub const COMPONENT_CHECK: &str = "network-component";
 
-/// Como instalar o componente de rede.
-pub const COMPONENT_HINT: &str = "no app: Sistema → Componente de rede → Instalar (pede a senha \
-     de administrador uma vez); no terminal: ipsec-client-cli component install --bundle <pacote>";
+/// Name of the network component check, in the current language.
+#[must_use]
+pub fn component_check_name() -> &'static str {
+    crate::tr!("Network component", "Componente de rede")
+}
 
-/// Componente de rede (engine embutido). Sem ele, o app usa o Docker, se
-/// houver; sem nenhum dos dois, não dá para conectar.
+/// How to install the network component.
+#[must_use]
+pub fn component_hint() -> &'static str {
+    crate::tr!(
+        "in the app: System → Network component → Install (asks for the administrator \
+         password once); in a terminal: ipsec-client-cli component install --bundle <bundle>",
+        "no app: Sistema → Componente de rede → Instalar (pede a senha de administrador \
+         uma vez); no terminal: ipsec-client-cli component install --bundle <pacote>"
+    )
+}
+
+/// Network component (embedded engine). Without it, the app uses Docker, if
+/// available; without either, it cannot connect.
 async fn check_engine() -> Vec<Check> {
+    let name = component_check_name();
     let native = NativeEngine::default();
     if native.installed() {
         let ping = tokio::task::spawn_blocking(move || native.ping()).await;
         return vec![match ping {
             Ok(Ok(version)) => Check::ok(
                 COMPONENT_CHECK,
-                format!("instalado (engine embutido, helper {version})"),
+                name,
+                crate::trf!(
+                    "installed (embedded engine, helper {version})",
+                    "instalado (engine embutido, helper {version})"
+                ),
             ),
             Ok(Err(e)) => Check::bad(
                 COMPONENT_CHECK,
+                name,
                 CheckStatus::Fail,
                 e.to_string(),
-                COMPONENT_HINT,
+                component_hint(),
             ),
             Err(e) => Check::bad(
                 COMPONENT_CHECK,
+                name,
                 CheckStatus::Fail,
                 e.to_string(),
-                COMPONENT_HINT,
+                component_hint(),
             ),
         }];
     }
@@ -232,9 +308,13 @@ async fn check_engine() -> Vec<Check> {
         vec![
             Check::bad(
                 COMPONENT_CHECK,
+                name,
                 CheckStatus::Warn,
-                "não instalado; usando o engine em Docker",
-                COMPONENT_HINT,
+                crate::tr!(
+                    "not installed; using the Docker engine",
+                    "não instalado; usando o engine em Docker"
+                ),
+                component_hint(),
             ),
             check_runtime_dir(),
             docker,
@@ -242,16 +322,17 @@ async fn check_engine() -> Vec<Check> {
     } else {
         vec![Check::bad(
             COMPONENT_CHECK,
+            name,
             CheckStatus::Fail,
-            "não instalado",
-            COMPONENT_HINT,
+            crate::tr!("not installed", "não instalado"),
+            component_hint(),
         )]
     }
 }
 
-/// Verificações que impedem ou limitam uma conexão (rodadas antes do
-/// `connect`). As portas não são verificadas aqui quando já há um engine
-/// nosso rodando (ele é que estaria usando as portas).
+/// Checks that prevent or limit a connection (run before `connect`). The
+/// ports are not checked when one of our engines is already running (it
+/// would be the one using them).
 pub async fn preflight(check_ports: bool) -> Vec<Check> {
     let mut checks = vec![check_not_root()];
     checks.extend(check_engine().await);
@@ -266,32 +347,49 @@ pub async fn preflight(check_ports: bool) -> Vec<Check> {
     checks
 }
 
-/// Todas as verificações (`doctor`): preflight + chaveiro + imagem.
+/// All checks (`doctor`): preflight + keyring + image.
 pub async fn doctor() -> Vec<Check> {
     let mut checks = preflight(true).await;
+    let keyring = crate::tr!("System keyring", "Chaveiro do sistema");
     checks.push(match crate::secrets::KeyringStore::new() {
-        Ok(_) => Check::ok("Chaveiro do sistema", "disponível (credenciais podem ser lembradas)"),
+        Ok(_) => Check::ok(
+            "keyring",
+            keyring,
+            crate::tr!(
+                "available (credentials can be remembered)",
+                "disponível (credenciais podem ser lembradas)"
+            ),
+        ),
         Err(e) => Check::bad(
-            "Chaveiro do sistema",
+            "keyring",
+            keyring,
             CheckStatus::Warn,
             e.to_string(),
-            "instale/ative o GNOME Keyring ou o KWallet; sem ele, as credenciais são pedidas a cada conexão",
+            crate::tr!(
+                "install/enable GNOME Keyring or KWallet; without it, credentials are asked on every connection",
+                "instale/ative o GNOME Keyring ou o KWallet; sem ele, as credenciais são pedidas a cada conexão"
+            ),
         ),
     });
     if !NativeEngine::default().installed() {
         let image = crate::engine::context::image_tag();
+        let name = crate::tr!("Engine image", "Imagem do engine");
         let present = match DockerEngine::connect() {
             Ok(engine) => engine.image_present(&image).await.unwrap_or(false),
             Err(_) => false,
         };
         checks.push(if present {
-            Check::ok("Imagem do engine", image)
+            Check::ok("engine-image", name, image)
         } else {
             Check::bad(
-                "Imagem do engine",
+                "engine-image",
+                name,
                 CheckStatus::Warn,
-                format!("{image} ainda não construída"),
-                "será construída na primeira conexão (~1 min, precisa de internet)",
+                crate::trf!("{image} not built yet", "{image} ainda não construída"),
+                crate::tr!(
+                    "it will be built on the first connection (~1 min, needs internet)",
+                    "será construída na primeira conexão (~1 min, precisa de internet)"
+                ),
             )
         });
     }

@@ -55,7 +55,7 @@ fn owns(status: &EngineStatus, peer: &Peer) -> bool {
     peer.uid == 0 || status.owner_uid == Some(peer.uid)
 }
 
-const NOT_OWNER: &str = "a VPN em uso é de outro usuário deste computador";
+const NOT_OWNER: &str = "the VPN in use belongs to another user of this computer";
 
 /// Para outro usuário, só "há uma VPN rodando", sem o perfil.
 fn status_for(status: EngineStatus, peer: &Peer) -> EngineStatus {
@@ -107,7 +107,7 @@ fn start(params: &StartParams, peer: &Peer, paths: &Paths) -> Result<Response, S
     let charon = paths.engine_dir.join("libexec/ipsec/charon");
     let entrypoint = paths.libexec_dir.join("entrypoint.sh");
     if !charon.is_file() || !entrypoint.is_file() {
-        return Err("componente de rede incompleto; reinstale o IPsec Client".to_owned());
+        return Err("incomplete network component; reinstall IPsec Client".to_owned());
     }
     prepare_socket_dir(peer.uid)?;
 
@@ -119,7 +119,7 @@ fn start(params: &StartParams, peer: &Peer, paths: &Paths) -> Result<Response, S
     });
     let (ok, _, err) = run("systemd-run", &args);
     if !ok {
-        return Err(format!("falha ao iniciar o engine: {}", err.trim()));
+        return Err(format!("failed to start the engine: {}", err.trim()));
     }
     wait_ready(peer.uid)
 }
@@ -129,7 +129,7 @@ fn start(params: &StartParams, peer: &Peer, paths: &Paths) -> Result<Response, S
 /// Quem decide o acesso é o socket (0600, dono = uid): o usuário não grava no
 /// diretório, então não consegue trocar o socket por um link.
 fn prepare_socket_dir(uid: u32) -> Result<(), String> {
-    let io = |e: std::io::Error| format!("diretório do socket: {e}");
+    let io = |e: std::io::Error| format!("socket directory: {e}");
     ensure_dir(Path::new(SOCKET_ROOT), 0o755).map_err(io)?;
     let dir = PathBuf::from(socket_dir(uid));
     ensure_dir(&dir, 0o711).map_err(io)?;
@@ -138,7 +138,7 @@ fn prepare_socket_dir(uid: u32) -> Result<(), String> {
         Some(rustix::fs::Uid::ROOT),
         Some(rustix::fs::Gid::ROOT),
     )
-    .map_err(|e| format!("diretório do socket: {e}"))?;
+    .map_err(|e| format!("socket directory: {e}"))?;
     match std::fs::remove_file(vici_socket(uid)) {
         Ok(()) => Ok(()),
         Err(e) if e.kind() == std::io::ErrorKind::NotFound => Ok(()),
@@ -155,7 +155,7 @@ fn ensure_dir(dir: &Path, mode: u32) -> std::io::Result<()> {
     let meta = std::fs::symlink_metadata(dir)?;
     if !meta.file_type().is_dir() {
         return Err(std::io::Error::other(format!(
-            "{} não é um diretório",
+            "{} is not a directory",
             dir.display()
         )));
     }
@@ -182,14 +182,12 @@ fn wait_ready(uid: u32) -> Result<Response, String> {
         }
         if started.elapsed() > Duration::from_secs(1) && !engine_status().running {
             let logs = engine_logs(15).join("\n");
-            return Err(format!(
-                "o engine terminou durante a inicialização:\n{logs}"
-            ));
+            return Err(format!("the engine exited during startup:\n{logs}"));
         }
         std::thread::sleep(Duration::from_millis(150));
     }
     let _ = stop_engine();
-    Err("o engine não ficou pronto a tempo".to_owned())
+    Err("the engine did not become ready in time".to_owned())
 }
 
 #[cfg(test)]

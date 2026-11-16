@@ -21,25 +21,25 @@ pub use message::{Message, Value};
 #[derive(Debug, thiserror::Error)]
 pub enum ViciError {
     /// Erro de E/S no socket.
-    #[error("erro de E/S no socket VICI: {0}")]
+    #[error("{}", crate::trf!("I/O error on the VICI socket: {}", "erro de E/S no socket VICI: {}", .0))]
     Io(#[from] std::io::Error),
     /// Bytes que não seguem o protocolo.
-    #[error("protocolo VICI: {0}")]
+    #[error("{}", crate::trf!("VICI protocol: {}", "protocolo VICI: {}", .0))]
     Protocol(String),
     /// Pacote acima do limite.
-    #[error("pacote VICI grande demais ({0} bytes)")]
+    #[error("{}", crate::trf!("VICI packet too large ({} bytes)", "pacote VICI grande demais ({} bytes)", .0))]
     TooLarge(usize),
     /// O charon fechou a conexão.
-    #[error("o charon fechou a conexão VICI")]
+    #[error("{}", crate::tr!("charon closed the VICI connection", "o charon fechou a conexão VICI"))]
     Closed,
     /// Comando que o charon não conhece.
-    #[error("comando VICI desconhecido: {0}")]
+    #[error("{}", crate::trf!("unknown VICI command: {}", "comando VICI desconhecido: {}", .0))]
     UnknownCommand(String),
     /// Evento que o charon não conhece.
-    #[error("evento VICI desconhecido: {0}")]
+    #[error("{}", crate::trf!("unknown VICI event: {}", "evento VICI desconhecido: {}", .0))]
     UnknownEvent(String),
     /// O charon executou o comando e respondeu `success = no`.
-    #[error("o charon recusou '{command}': {message}")]
+    #[error("{}", crate::trf!("charon rejected '{}': {}", "o charon recusou '{}': {}", .command, .message))]
     CommandFailed {
         /// Comando.
         command: String,

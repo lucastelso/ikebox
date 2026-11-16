@@ -195,7 +195,10 @@ impl Message {
         let mut reader = Reader { bytes, pos: 0 };
         let message = reader.message(0)?;
         if reader.pos != bytes.len() {
-            return Err(protocol("SECTION_END sem SECTION_START"));
+            return Err(protocol(crate::tr!(
+                "SECTION_END without SECTION_START",
+                "SECTION_END sem SECTION_START"
+            )));
         }
         Ok(message)
     }
@@ -206,15 +209,24 @@ fn protocol(msg: &str) -> ViciError {
 }
 
 fn push_name(out: &mut Vec<u8>, name: &str) -> Result<(), ViciError> {
-    let len = u8::try_from(name.len()).map_err(|_| protocol("nome VICI com mais de 255 bytes"))?;
+    let len = u8::try_from(name.len()).map_err(|_| {
+        protocol(crate::tr!(
+            "VICI name longer than 255 bytes",
+            "nome VICI com mais de 255 bytes"
+        ))
+    })?;
     out.push(len);
     out.extend_from_slice(name.as_bytes());
     Ok(())
 }
 
 fn push_value(out: &mut Vec<u8>, value: &[u8]) -> Result<(), ViciError> {
-    let len =
-        u16::try_from(value.len()).map_err(|_| protocol("valor VICI com mais de 65535 bytes"))?;
+    let len = u16::try_from(value.len()).map_err(|_| {
+        protocol(crate::tr!(
+            "VICI value longer than 65535 bytes",
+            "valor VICI com mais de 65535 bytes"
+        ))
+    })?;
     out.extend_from_slice(&len.to_be_bytes());
     out.extend_from_slice(value);
     Ok(())
@@ -244,7 +256,12 @@ impl Reader<'_> {
     fn name(&mut self) -> Result<String, ViciError> {
         let len = usize::from(self.byte()?);
         let raw = self.take(len)?;
-        String::from_utf8(raw.to_vec()).map_err(|_| protocol("nome VICI não é UTF-8"))
+        String::from_utf8(raw.to_vec()).map_err(|_| {
+            protocol(crate::tr!(
+                "VICI name is not UTF-8",
+                "nome VICI não é UTF-8"
+            ))
+        })
     }
 
     fn value(&mut self) -> Result<Zeroizing<Vec<u8>>, ViciError> {
@@ -256,7 +273,10 @@ impl Reader<'_> {
     /// Lê elementos até o fim dos bytes (depth 0) ou até `SECTION_END`.
     fn message(&mut self, depth: usize) -> Result<Message, ViciError> {
         if depth > MAX_DEPTH {
-            return Err(protocol("seções VICI aninhadas demais"));
+            return Err(protocol(crate::tr!(
+                "VICI sections nested too deep",
+                "seções VICI aninhadas demais"
+            )));
         }
         let mut message = Message::new();
         while self.pos < self.bytes.len() {
@@ -285,7 +305,12 @@ impl Reader<'_> {
                         match self.byte()? {
                             LIST_ITEM => items.push(self.value()?),
                             LIST_END => break,
-                            _ => return Err(protocol("elemento inesperado dentro de lista VICI")),
+                            _ => {
+                                return Err(protocol(crate::tr!(
+                                    "unexpected element inside a VICI list",
+                                    "elemento inesperado dentro de lista VICI"
+                                )));
+                            }
                         }
                     }
                     message.entries.push((key, Value::List(items)));
@@ -298,7 +323,10 @@ impl Reader<'_> {
             }
         }
         if depth > 0 {
-            return Err(protocol("seção VICI sem SECTION_END"));
+            return Err(protocol(crate::tr!(
+                "VICI section without SECTION_END",
+                "seção VICI sem SECTION_END"
+            )));
         }
         Ok(message)
     }

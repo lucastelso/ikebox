@@ -35,6 +35,12 @@ export const commands = {
 	 *  sempre passa por aqui.
 	 */
 	anonymizeLog: (profileId: string, lines: string[], options?: InvokeOptions) => typedError<string, UiError>(__TAURI_INVOKE("anonymize_log", { profileId, lines }, options)),
+	/**
+	 *  Language of the messages built in Rust (errors, tray, notifications):
+	 *  `"en"` or `"pt"`. The UI calls it at startup and when the user changes the
+	 *  language.
+	 */
+	setLanguage: (lang: string, options?: InvokeOptions) => __TAURI_INVOKE<void>("set_language", { lang }, options),
 	/**  Abre o diálogo nativo para escolher um perfil (.json) ou swanctl.conf. */
 	chooseImportFile: (options?: InvokeOptions) => typedError<ImportPreview | null, UiError>(__TAURI_INVOKE("choose_import_file", undefined, options)),
 	/**  Confirma a importação de uma prévia. */

@@ -210,9 +210,9 @@ impl Backend {
 async fn blocking<T: Send + 'static>(
     f: impl FnOnce() -> Result<T, EngineError> + Send + 'static,
 ) -> Result<T, EngineError> {
-    tokio::task::spawn_blocking(f)
-        .await
-        .map_err(|e| EngineError::Helper(format!("falha interna: {e}")))?
+    tokio::task::spawn_blocking(f).await.map_err(|e| {
+        EngineError::Helper(crate::trf!("internal failure: {e}", "falha interna: {e}"))
+    })?
 }
 
 /// DNS do perfil para o helper (o `updown` do engine embutido o aplica).

@@ -35,27 +35,42 @@ pub enum FailureKind {
 impl fmt::Display for FailureKind {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         f.write_str(match self {
-            Self::PskOrGroupId => {
+            Self::PskOrGroupId => crate::tr!(
+                "the gateway rejected phase 1 authentication: check the group PSK and the \
+                 group id (auth.local_id; on FortiGate/Cisco it is usually keyid:<group-name>)",
                 "o gateway recusou a autenticação da fase 1: confira a PSK do grupo e o id do \
                  grupo (auth.local_id; em FortiGate/Cisco costuma ser keyid:<nome-do-grupo>)"
-            }
-            Self::XauthCredentials => "usuário ou senha XAuth incorretos",
-            Self::IkeProposals => {
+            ),
+            Self::XauthCredentials => crate::tr!(
+                "wrong XAuth username or password",
+                "usuário ou senha XAuth incorretos"
+            ),
+            Self::IkeProposals => crate::tr!(
+                "the gateway accepted none of the phase 1 proposals (ike.proposals: \
+                 encryption, integrity and DH group)",
                 "o gateway não aceitou nenhuma proposta da fase 1 (ike.proposals: \
                  criptografia, integridade e grupo DH)"
-            }
-            Self::EspProposals => {
+            ),
+            Self::EspProposals => crate::tr!(
+                "phase 1 worked, but the gateway accepted none of the phase 2 proposals \
+                 (child.esp_proposals: algorithms and DH/PFS group)",
                 "a fase 1 funcionou, mas o gateway não aceitou nenhuma proposta da fase 2 \
                  (child.esp_proposals: algoritmos e grupo DH/PFS)"
-            }
-            Self::TrafficSelectors => {
+            ),
+            Self::TrafficSelectors => crate::tr!(
+                "the gateway rejected the requested networks (child.remote_ts/local_ts)",
                 "o gateway recusou as redes pedidas (child.remote_ts/local_ts)"
-            }
-            Self::Unreachable => {
+            ),
+            Self::Unreachable => crate::tr!(
+                "the gateway did not answer: check the address, your network and whether \
+                 UDP 500/4500 is blocked (firewall/NAT)",
                 "o gateway não respondeu: confira o endereço, a sua rede e se UDP 500/4500 \
                  não está bloqueado (firewall/NAT)"
-            }
-            Self::Unknown => "a negociação falhou; veja o log para detalhes",
+            ),
+            Self::Unknown => crate::tr!(
+                "the negotiation failed; see the log for details",
+                "a negociação falhou; veja o log para detalhes"
+            ),
         })
     }
 }

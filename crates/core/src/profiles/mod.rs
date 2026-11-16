@@ -28,41 +28,55 @@ pub fn is_valid_id(id: &str) -> bool {
     validate::is_slug(id)
 }
 
-/// Erros de perfil. As mensagens são para o usuário final (pt-BR).
+/// Profile errors. Messages are for the end user (see [`crate::i18n`]).
 #[derive(Debug, thiserror::Error)]
 pub enum ProfileError {
-    /// JSON malformado ou com campos desconhecidos.
-    #[error("perfil com JSON inválido: {0}")]
+    /// Malformed JSON or unknown fields.
+    #[error("{}", crate::trf!("profile with invalid JSON: {}", "perfil com JSON inválido: {}", .0))]
     Json(#[from] serde_json::Error),
-    /// Sem `schema_version`.
-    #[error("o arquivo não parece um perfil do ipsec-client (falta schema_version)")]
+    /// No `schema_version`.
+    #[error("{}", crate::tr!(
+        "the file does not look like an IPsec Client profile (schema_version is missing)",
+        "o arquivo não parece um perfil do ipsec-client (falta schema_version)"
+    ))]
     MissingSchemaVersion,
-    /// Versão de formato desconhecida.
-    #[error("versão de perfil não suportada ({0}); atualize o ipsec-client")]
+    /// Unknown format version.
+    #[error("{}", crate::trf!(
+        "unsupported profile version ({}); update IPsec Client",
+        "versão de perfil não suportada ({}); atualize o ipsec-client",
+        .0
+    ))]
     UnsupportedVersion(u64),
-    /// Campos inválidos.
-    #[error("perfil inválido: {}", .0.iter().map(ToString::to_string).collect::<Vec<_>>().join("; "))]
+    /// Invalid fields.
+    #[error("{}", crate::trf!(
+        "invalid profile: {}",
+        "perfil inválido: {}",
+        .0.iter().map(ToString::to_string).collect::<Vec<_>>().join("; ")
+    ))]
     Invalid(Vec<ValidationIssue>),
-    /// Credencial necessária ausente.
-    #[error("credencial ausente ou inválida: {0}")]
+    /// A required credential is missing.
+    #[error("{}", crate::trf!("missing or invalid credential: {}", "credencial ausente ou inválida: {}", .0))]
     MissingCredential(&'static str),
-    /// Valor que não pode ir para o comando do updown.
+    /// A value that cannot go into the updown command.
     #[error("{0}")]
     Unsafe(String),
-    /// Perfil inexistente.
-    #[error("perfil '{0}' não encontrado")]
+    /// No such profile.
+    #[error("{}", crate::trf!("profile '{}' not found", "perfil '{}' não encontrado", .0))]
     NotFound(String),
-    /// Id já usado.
-    #[error("já existe um perfil com id '{0}'")]
+    /// Id already in use.
+    #[error("{}", crate::trf!("a profile with id '{}' already exists", "já existe um perfil com id '{}'", .0))]
     AlreadyExists(String),
-    /// Arquivo acima do limite.
-    #[error("arquivo de perfil grande demais")]
+    /// File above the size limit.
+    #[error("{}", crate::tr!("profile file too large", "arquivo de perfil grande demais"))]
     TooLarge,
-    /// swanctl.conf que não pôde ser importado.
+    /// swanctl.conf that could not be imported.
     #[error("swanctl.conf: {0}")]
     Swanctl(String),
-    /// Sem diretório de configuração.
-    #[error("não foi possível achar o diretório de configuração (XDG_CONFIG_HOME/HOME)")]
+    /// No configuration directory.
+    #[error("{}", crate::tr!(
+        "could not find the configuration directory (XDG_CONFIG_HOME/HOME)",
+        "não foi possível achar o diretório de configuração (XDG_CONFIG_HOME/HOME)"
+    ))]
     NoConfigDir,
     /// Erro de E/S.
     #[error(transparent)]

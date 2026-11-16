@@ -126,14 +126,22 @@ impl Default for ConnectOptions {
     }
 }
 
-/// Erros da sessão. As mensagens são para o usuário final (pt-BR).
+/// Session errors. Messages are for the end user (see [`crate::i18n`]).
 #[derive(Debug, thiserror::Error)]
 pub enum SessionError {
-    /// Já existe um engine rodando.
-    #[error("já existe uma conexão ativa (perfil: {0}); desconecte antes")]
+    /// An engine is already running.
+    #[error("{}", crate::trf!(
+        "a connection is already active (profile: {}); disconnect first",
+        "já existe uma conexão ativa (perfil: {}); desconecte antes",
+        .0
+    ))]
     AlreadyConnected(String),
-    /// O ambiente não permite conectar.
-    #[error("o ambiente não permite conectar: {}", describe_failures(.0))]
+    /// The environment does not allow connecting.
+    #[error("{}", crate::trf!(
+        "this computer cannot connect yet: {}",
+        "o ambiente não permite conectar: {}",
+        describe_failures(.0)
+    ))]
     Preflight(Vec<Check>),
     /// A negociação falhou.
     #[error("{kind} (charon: {detail})")]
@@ -143,8 +151,11 @@ pub enum SessionError {
         /// Mensagem do charon (identidades mascaradas).
         detail: String,
     },
-    /// O túnel não apareceu depois de uma negociação bem-sucedida.
-    #[error("a negociação terminou, mas o túnel não está ativo")]
+    /// The tunnel did not show up after a successful negotiation.
+    #[error("{}", crate::tr!(
+        "the negotiation finished, but the tunnel is not active",
+        "a negociação terminou, mas o túnel não está ativo"
+    ))]
     NotEstablished,
     /// Erro do engine.
     #[error(transparent)]
@@ -228,7 +239,9 @@ pub async fn connect(
 
     send(
         events.as_ref(),
-        SessionEvent::State(SessionState::Preparing("verificando o ambiente".into())),
+        SessionEvent::State(SessionState::Preparing(
+            crate::tr!("checking the environment", "verificando o ambiente").into(),
+        )),
     );
     let checks = diagnostics::preflight(true).await;
     if checks.iter().any(|c| c.status == CheckStatus::Fail) {
@@ -238,7 +251,9 @@ pub async fn connect(
     if matches!(backend, Backend::Docker(_)) {
         send(
             events.as_ref(),
-            SessionEvent::State(SessionState::Preparing("imagem do engine".into())),
+            SessionEvent::State(SessionState::Preparing(
+                crate::tr!("engine image", "imagem do engine").into(),
+            )),
         );
     }
     backend
@@ -251,7 +266,9 @@ pub async fn connect(
 
     send(
         events.as_ref(),
-        SessionEvent::State(SessionState::Preparing("subindo o engine".into())),
+        SessionEvent::State(SessionState::Preparing(
+            crate::tr!("starting the engine", "subindo o engine").into(),
+        )),
     );
     let engine = backend.start(profile, options.privileged).await?;
 
@@ -259,7 +276,7 @@ pub async fn connect(
     if result.is_err()
         && let Err(e) = backend.stop().await
     {
-        warn!("falha ao derrubar o engine após erro: {e}");
+        warn!("failed to stop the engine after an error: {e}");
     }
     result
 }
@@ -402,7 +419,7 @@ pub async fn disconnect() -> Result<bool, SessionError> {
     {
         for sa in sas {
             if let Err(e) = charon.terminate(&sa.name, Duration::from_secs(5)).await {
-                debug!("terminate de {}: {e}", sa.name);
+                debug!("terminate of {}: {e}", sa.name);
             }
         }
     }
@@ -479,20 +496,22 @@ mod tests {
     fn preflight_error_lists_only_failures() {
         let checks = vec![
             Check {
+                id: "docker",
                 name: "Docker",
                 status: CheckStatus::Fail,
-                detail: "inacessível".into(),
+                detail: "unreachable".into(),
                 hint: Some("usermod".into()),
             },
             Check {
+                id: "resolved",
                 name: "resolved",
                 status: CheckStatus::Warn,
-                detail: "ausente".into(),
+                detail: "missing".into(),
                 hint: None,
             },
         ];
         let msg = SessionError::Preflight(checks).to_string();
-        assert!(msg.contains("Docker: inacessível (usermod)"));
+        assert!(msg.contains("Docker: unreachable (usermod)"));
         assert!(!msg.contains("resolved"));
     }
 }

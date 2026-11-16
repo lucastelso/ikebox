@@ -48,7 +48,8 @@ impl NativeEngine {
 
     fn call(&self, request: &Request) -> Result<Response, EngineError> {
         let unavailable = |e: std::io::Error| {
-            EngineError::Helper(format!(
+            EngineError::Helper(crate::trf!(
+                "network component unavailable ({e}); reinstall IPsec Client",
                 "componente de rede indisponível ({e}); reinstale o IPsec Client"
             ))
         };
@@ -76,7 +77,10 @@ impl NativeEngine {
     }
 
     fn unexpected(response: &Response) -> EngineError {
-        EngineError::Helper(format!("resposta inesperada do helper: {response:?}"))
+        EngineError::Helper(crate::trf!(
+            "unexpected helper response: {response:?}",
+            "resposta inesperada do helper: {response:?}"
+        ))
     }
 
     /// Versão do helper (também confirma que ele responde).

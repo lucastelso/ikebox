@@ -73,17 +73,17 @@ fn parse_args() -> Result<Options, String> {
     let mut allow = Vec::new();
     let mut args = std::env::args().skip(1);
     while let Some(arg) = args.next() {
-        let mut value = || args.next().ok_or(format!("{arg} exige um valor"));
+        let mut value = || args.next().ok_or(format!("{arg} requires a value"));
         match arg.as_str() {
             "--socket" => socket = Some(PathBuf::from(value()?)),
             "--engine-dir" => engine_dir = PathBuf::from(value()?),
             "--libexec-dir" => libexec_dir = PathBuf::from(value()?),
-            "--allow-uid" => allow.push(value()?.parse().map_err(|_| "uid inválido".to_owned())?),
+            "--allow-uid" => allow.push(value()?.parse().map_err(|_| "invalid uid".to_owned())?),
             "--version" => {
                 println!("ipsec-client-helper {}", env!("CARGO_PKG_VERSION"));
                 std::process::exit(0);
             }
-            other => return Err(format!("argumento desconhecido: {other}")),
+            other => return Err(format!("unknown argument: {other}")),
         }
     }
     Ok(Options {
@@ -145,13 +145,13 @@ fn serve(mut stream: UnixStream, options: &Options) -> std::io::Result<()> {
                 engine::handle(request, &peer, &options.paths)
             }
             Err(message) => {
-                eprintln!("uid {}: recusado ({message})", peer.uid);
+                eprintln!("uid {}: refused ({message})", peer.uid);
                 Response::Error { message }
             }
         },
     };
     let encoded = encode(&response)
-        .unwrap_or_else(|_| "{\"result\":\"error\",\"message\":\"falha interna\"}\n".to_owned());
+        .unwrap_or_else(|_| "{\"result\":\"error\",\"message\":\"internal failure\"}\n".to_owned());
     stream.write_all(encoded.as_bytes())
 }
 
@@ -159,7 +159,7 @@ fn serve(mut stream: UnixStream, options: &Options) -> std::io::Result<()> {
 fn describe(request: &Request) -> String {
     match request {
         Request::Ping => "ping".to_owned(),
-        Request::Start(p) => format!("start (perfil {})", p.profile_id),
+        Request::Start(p) => format!("start (profile {})", p.profile_id),
         Request::Stop => "stop".to_owned(),
         Request::Status => "status".to_owned(),
         Request::Logs { tail } => format!("logs ({tail})"),
@@ -175,14 +175,14 @@ fn main() {
         }
     };
     if !rustix::process::geteuid().is_root() {
-        eprintln!("ipsec-client-helper: precisa rodar como root (pelo systemd)");
+        eprintln!("ipsec-client-helper: must run as root (from systemd)");
         std::process::exit(1);
     }
     let listener = match (&options.socket, inherited_listener()) {
         (Some(path), _) => bind(path),
         (None, Some(listener)) => Ok(listener),
         (None, None) => Err(std::io::Error::other(
-            "sem socket: use a ativação do systemd ou --socket",
+            "no socket: use systemd socket activation or --socket",
         )),
     };
     let listener = match listener {
@@ -193,11 +193,11 @@ fn main() {
         }
     };
     eprintln!(
-        "ipsec-client-helper {} pronto (autorização: {})",
+        "ipsec-client-helper {} ready (authorization: {})",
         env!("CARGO_PKG_VERSION"),
         match options.authorizer {
             Authorizer::Polkit => "polkit",
-            Authorizer::AllowList(_) => "lista de uids (teste)",
+            Authorizer::AllowList(_) => "uid list (test)",
         }
     );
     let options = Arc::new(options);
@@ -205,18 +205,18 @@ fn main() {
         match stream {
             Ok(stream) => {
                 let Some(slot) = ClientSlot::take() else {
-                    eprintln!("conexão recusada: {MAX_CLIENTS} já em atendimento");
+                    eprintln!("connection refused: {MAX_CLIENTS} already being served");
                     continue;
                 };
                 let options = Arc::clone(&options);
                 std::thread::spawn(move || {
                     let _slot = slot;
                     if let Err(e) = serve(stream, &options) {
-                        eprintln!("conexão encerrada com erro: {e}");
+                        eprintln!("connection closed with an error: {e}");
                     }
                 });
             }
-            Err(e) => eprintln!("falha ao aceitar conexão: {e}"),
+            Err(e) => eprintln!("failed to accept a connection: {e}"),
         }
     }
 }

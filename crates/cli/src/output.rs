@@ -52,21 +52,21 @@ pub fn connection(info: &ConnectionInfo) -> String {
     let profile = info.profile_id.as_deref().unwrap_or("?");
     if !info.is_established() {
         return format!(
-            "Engine ativo (perfil {profile}), mas sem túnel no momento (negociando ou reconectando)."
+            "Engine running (profile {profile}), but no tunnel right now (negotiating or reconnecting)."
         );
     }
-    let mut out = format!("Conectado: {profile}\n");
+    let mut out = format!("Connected: {profile}\n");
     out.push_str(&format!("  Gateway:    {}\n", info.gateway));
     out.push_str(&format!(
-        "  IP virtual: {}\n",
-        info.vip.as_deref().unwrap_or("(nenhum)")
+        "  Virtual IP: {}\n",
+        info.vip.as_deref().unwrap_or("(none)")
     ));
-    out.push_str(&format!("  Redes:      {}\n", info.remote_ts.join(", ")));
+    out.push_str(&format!("  Networks:   {}\n", info.remote_ts.join(", ")));
     if let Some(secs) = info.established_secs {
-        out.push_str(&format!("  Há:         {}\n", duration(secs)));
+        out.push_str(&format!("  Up for:     {}\n", duration(secs)));
     }
     out.push_str(&format!(
-        "  Tráfego:    ↓ {}  ↑ {}",
+        "  Traffic:    ↓ {}  ↑ {}",
         bytes(info.bytes_in),
         bytes(info.bytes_out)
     ));
