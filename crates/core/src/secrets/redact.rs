@@ -1,16 +1,17 @@
-//! Mascaramento de identidades em texto exibido (ADR-0007) e anonimização de
-//! logs para compartilhar.
+//! Identity masking in displayed text (ADR-0007) and anonymization of logs
+//! for sharing.
 //!
-//! O charon, no nível de log 1, não registra PSK nem senha, mas registra
-//! identidades, como o usuário XAuth (`XAuth authentication of '<usuário>'`) e
-//! o id do grupo (`established between ...[grupo]`). Antes de exibir um log, o
-//! app troca essas identidades por versões mascaradas ([`Redactor`]).
+//! At log level 1, charon does not log the PSK or the password, but it does
+//! log identities, such as the XAuth username (`XAuth authentication of
+//! '<user>'`) and the group id (`established between ...[group]`). Before
+//! showing a log, the app replaces those identities with masked versions
+//! ([`Redactor`]).
 //!
-//! O log também mostra o endereço do gateway, o IP virtual, as redes internas
-//! e os domínios da organização. Isso é útil na tela, mas não deve ir para um
-//! relatório de bug. O texto **copiado** passa pelo [`Anonymizer`], que troca
-//! esses dados por marcadores estáveis (`<gateway>`, `<ip-1>`,
-//! `<dominio-1>`).
+//! The log also shows the gateway address, the virtual IP, the internal
+//! networks and the organization's domains. That is useful on screen, but must
+//! not go into a bug report. **Copied** text goes through the [`Anonymizer`],
+//! which replaces that data with stable placeholders (`<gateway>`, `<ip-1>`,
+//! `<domain-1>`).
 
 use std::net::IpAddr;
 
@@ -128,7 +129,7 @@ impl Anonymizer {
                 continue;
             }
             n += 1;
-            names.push((name, format!("<dominio-{n}>")));
+            names.push((name, format!("<domain-{n}>")));
         }
         names.sort_by_key(|(name, _)| std::cmp::Reverse(name.len()));
         Self {
@@ -306,10 +307,10 @@ rota 0.0.0.0/1 via ipsc0; fe80::1 e 2001:db8::7 vistos; versão 6.1.0; hora 15:3
         assert!(out.contains("virtual IP <ip-3>"), "{out}");
         assert!(out.contains("TS <ip-3>/32 === <ip-4>/8"), "{out}");
         assert!(
-            out.contains("servidores [<dns-1>] domínios [~<dominio-1>]"),
+            out.contains("servidores [<dns-1>] domínios [~<domain-1>]"),
             "{out}"
         );
-        assert!(out.contains("host srv.<dominio-1>."), "{out}");
+        assert!(out.contains("host srv.<domain-1>."), "{out}");
         assert!(
             out.contains("rota 0.0.0.0/1"),
             "a rota padrão ajuda a ler o log: {out}"

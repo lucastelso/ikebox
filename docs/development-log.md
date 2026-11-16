@@ -1332,7 +1332,8 @@ one with the same shape, enforced by TypeScript; a provider that picks the
 system language (`navigator.languages`), remembers the choice in
 `localStorage`, sets `<html lang>` and tells Rust through the new
 `set_language` command, so errors and the tray menu follow the UI. Byte sizes
-are formatted for the chosen language.
+are formatted for the chosen language. The anonymized log placeholder for domains became
+`<domain-N>` (it was `<dominio-N>`), since that text goes into bug reports.
 
 **Scripts and packaging.** Messages in English in the installer, the engine
 entrypoint and updown, the build, release and test scripts. The markers the
