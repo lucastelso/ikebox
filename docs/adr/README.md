@@ -1,31 +1,34 @@
-# Registros de decisão de arquitetura (ADRs)
+# Architecture decision records (ADRs)
 
-Cada ADR registra **uma** decisão relevante: o contexto, o que foi decidido, as
-consequências e as alternativas descartadas. ADRs não são editados depois de
-aceitos. Se uma decisão mudar, um novo ADR a substitui e o antigo passa a
-`Substituído por ADR-XXXX`.
+Each ADR records **one** relevant decision: the context, what was decided, the
+consequences and the discarded alternatives. ADRs are not edited after they
+are accepted. If a decision changes, a new ADR supersedes it and the old one
+becomes `Superseded by ADR-XXXX`.
 
-| # | Decisão | Status |
+The ADRs were written in Portuguese up to version 0.1.1 and translated to
+English in 0.2.0.
+
+| # | Decision | Status |
 |---|---|---|
-| [0001](0001-engine-docker-strongswan-5.8.2.md) | Engine em container Docker com strongSwan 5.8.2 | Substituído pelo 0013 (só nos testes) |
-| [0002](0002-container-sempre-recriado.md) | Container recriado a cada conexão | Aceito |
-| [0003](0003-controle-via-vici.md) | Controle do charon via VICI | Aceito |
-| [0004](0004-roteamento-por-interface-xfrm.md) | Roteamento e DNS por interface XFRM dedicada | Aceito |
-| [0005](0005-privilegio-minimo.md) | Privilégio mínimo no container | Aceito |
-| [0006](0006-imagem-versionada-por-hash.md) | Imagem do engine embutida e versionada por hash | Aceito |
-| [0007](0007-segredos.md) | Segredos só em memória ou no chaveiro do sistema | Aceito |
-| [0008](0008-perfis-genericos.md) | Perfis genéricos em JSON versionado | Aceito |
-| [0009](0009-ipc-tipado-tauri-specta.md) | IPC tipado entre UI e Rust com tauri-specta | Aceito |
-| [0010](0010-dados-privados-fora-do-repositorio.md) | Nenhum dado real de VPN no repositório | Aceito |
-| [0011](0011-cliente-vici-proprio.md) | Cliente VICI próprio em vez do `rsvici` | Aceito |
-| [0012](0012-presets-locais-nao-embutidos.md) | Presets locais não são embutidos no binário | Aceito |
-| [0013](0013-engine-embutido-sem-docker.md) | Engine embutido no app, sem Docker para o usuário | Aceito |
-| [0014](0014-helper-privilegiado-polkit.md) | Helper com privilégio, autorizado uma vez (polkit + systemd) | Aceito |
-| [0015](0015-distribuicao-appimage-rpm-deb.md) | Distribuição em AppImage, rpm e deb (sem Flatpak) | Aceito |
-| [0016](0016-strongswan-6.1-compilado.md) | strongSwan 6.1.0 no engine embutido, com a 5.8.2 de reserva | Aceito |
-| [0017](0017-licenca-gpl-3.md) | Licença GPL-3.0-or-later | Aceito |
-| [0018](0018-instalacao-do-componente-pelo-app.md) | O app instala o componente de rede (pacote embutido + pkexec) | Aceito |
-| [0019](0019-updown-e-if-id-forcados.md) | Quem fala VICI não escolhe o updown nem o if_id (engine embutido) | Aceito |
+| [0001](0001-docker-engine-strongswan-5.8.2.md) | Engine in a Docker container with strongSwan 5.8.2 | Superseded by 0013 (tests only) |
+| [0002](0002-container-always-recreated.md) | Container recreated on every connection | Accepted |
+| [0003](0003-control-via-vici.md) | charon controlled via VICI | Accepted |
+| [0004](0004-routing-by-xfrm-interface.md) | Routing and DNS on a dedicated XFRM interface | Accepted |
+| [0005](0005-least-privilege.md) | Least privilege in the container | Accepted |
+| [0006](0006-image-versioned-by-hash.md) | Engine image embedded and versioned by hash | Accepted |
+| [0007](0007-secrets.md) | Secrets only in memory or in the system keyring | Accepted |
+| [0008](0008-generic-profiles.md) | Generic profiles in versioned JSON | Accepted |
+| [0009](0009-typed-ipc-tauri-specta.md) | Typed IPC between the UI and Rust with tauri-specta | Accepted |
+| [0010](0010-private-data-outside-the-repository.md) | No real VPN data in the repository | Accepted |
+| [0011](0011-own-vici-client.md) | Our own VICI client instead of `rsvici` | Accepted |
+| [0012](0012-local-presets-not-embedded.md) | Local presets are not embedded in the binary | Accepted |
+| [0013](0013-embedded-engine-without-docker.md) | Engine embedded in the app, no Docker for the user | Accepted |
+| [0014](0014-privileged-helper-polkit.md) | Privileged helper, authorized once (polkit + systemd) | Accepted |
+| [0015](0015-distribution-appimage-rpm-deb.md) | Distribution as AppImage, rpm and deb (no Flatpak) | Accepted |
+| [0016](0016-compiled-strongswan-6.1.md) | strongSwan 6.1.0 in the embedded engine, with 5.8.2 as a fallback | Accepted |
+| [0017](0017-gpl-3-license.md) | GPL-3.0-or-later license | Accepted |
+| [0018](0018-component-installed-by-the-app.md) | The app installs the network component (embedded bundle + pkexec) | Accepted |
+| [0019](0019-forced-updown-and-if-id.md) | Whoever talks VICI does not choose the updown or the if_id (embedded engine) | Accepted |
 
-Modelo para novos ADRs: copie um existente e mantenha as seções
-**Contexto · Decisão · Consequências · Alternativas consideradas**.
+Template for new ADRs: copy an existing one and keep the sections
+**Context · Decision · Consequences · Alternatives considered**.
