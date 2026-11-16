@@ -32,8 +32,8 @@ as() {
     runuser -u "$user" -- env XDG_CONFIG_HOME="/tmp/$user-config" \
         IPSEC_CLIENT_BACKEND=native "$@"
 }
-# helper USER JSON: raw request to the helper.
-helper() { runuser -u "$1" -- python3 -I /test/helper_client.py "$2"; }
+# helper USER JSON [--hold SECONDS | --drip SECONDS]: raw request to the helper.
+helper() { runuser -u "$1" -- python3 -I /test/helper_client.py "${@:2}"; }
 # The output of `ip xfrm state` has keys: it is only counted, never printed.
 count_xfrm_state() { ip -o xfrm state 2>/dev/null | grep -c "if_id $1" || true; }
 
@@ -148,6 +148,17 @@ ok "CLI output (status, logs, anonymized logs, profile) and exported profile: no
 [[ $(systemctl show ipsec-client-helper.service -p LimitCORE --value) == 0 ]] ||
     fail "the helper can leave a core dump (LimitCORE)"
 ok "no core dumps: LimitCORE=0 in the engine and in the helper"
+helper_prop() { systemctl show ipsec-client-helper.service -p "$1" --value; }
+for prop in ProtectKernelLogs=yes NoNewPrivileges=yes ProtectSystem=strict UMask=0077; do
+    [[ $(helper_prop "${prop%%=*}") == "${prop#*=}" ]] || fail "helper: $prop not applied"
+done
+[[ -n $(helper_prop SystemCallFilter) ]] || fail "helper: SystemCallFilter not applied"
+ok "helper sandbox: ProtectKernelLogs, UMask and SystemCallFilter applied (it served the requests above)"
+# Sandbox score (information for the audit report; lower is better).
+for unit in ipsec-client-helper.service ipsec-client-engine.service; do
+    score=$(systemd-analyze security --no-pager "$unit" 2>/dev/null | tail -n 1 || true)
+    ok "systemd-analyze security: ${score:-not available}"
+done
 
 step "Sandbox of the engine unit (systemd-run)"
 for prop in PrivateDevices=yes ProtectKernelTunables=yes ProtectKernelLogs=yes \
@@ -179,12 +190,19 @@ if runuser -u bob -- python3 -I -c "import socket; socket.socket(socket.AF_UNIX)
 fi
 ok "bob cannot stop it, read its log, see the profile or reach alice's VICI"
 
-for _ in 1 2 3; do helper bob '{}' --hold 5 & done
+# bob opens more connections than the helper serves at once, half of them
+# idle and half dripping one byte per second (each byte inside a per-read
+# timeout): alice must still be served, and the drip must be cut by the
+# request deadline (3 s), not kept until it ends (20 s).
+for _ in 1 2 3 4 5; do helper bob '{}' --hold 6 & done
+for _ in 1 2 3 4 5; do helper bob '{}' --drip 20 & done
 sleep 0.3
 timeout 2 runuser -u alice -- python3 -I /test/helper_client.py '{"op":"status"}' >/dev/null ||
-    fail "idle clients blocked the helper"
+    fail "bob's idle and slow connections blocked the helper for alice"
+started=$SECONDS
 wait
-ok "three idle connections from bob do not block the helper"
+((SECONDS - started < 12)) || fail "a dripping client held its connection for $((SECONDS - started)) s"
+ok "ten idle or dripping connections from bob do not block alice; the drip is cut by the deadline"
 
 step "alice: status, log and disconnection"
 out=$(as alice "$CLI" status) || fail "status should exit with 0 when connected"
@@ -197,6 +215,46 @@ host_is_clean
 must_be_empty "credentials left in a file after disconnecting" "$(files_with "$SECRETS_FILE" /)"
 [[ ! -e /run/ipsec-client-engine ]] || fail "the engine runtime directory was left over"
 ok "after disconnecting: no credential in any file, engine runtime directory removed"
+
+step "bob connects after alice: he must not get the log of her session"
+reply=$(helper bob '{"op":"start","iface":"ipsc0","if_id":777,"mtu":1400,"log_level":1,"profile_id":"bob","dns":{"servers":[],"domains":[],"use_received":false,"default_route":false}}')
+[[ $reply == *'"result":"started"'* ]] || fail "bob's start failed: $reply"
+# The journal may take a moment to have the last line.
+for _ in 1 2 3 4 5 6 7 8 9 10; do
+    reply=$(helper bob '{"op":"logs","tail":2000}')
+    [[ $reply == *"ready: VICI socket handed over to uid 1001"* ]] && break
+    sleep 0.3
+done
+[[ $reply == *"ready: VICI socket handed over to uid 1001"* ]] || fail "bob does not get his own log: $reply"
+text_has "$USER_FILE" "$reply" && fail "bob's log has alice's username (lines of her session)"
+[[ $reply != *"uid 1000"* && $reply != *"$GW_IP"* ]] || fail "bob's log has lines of alice's session"
+# The whole unit journal does have her session: the filter is what hides it.
+text_has "$USER_FILE" "$(journalctl -u ipsec-client-engine --no-pager -o cat)" ||
+    fail "the test lost its reference: alice's session is not in the unit journal"
+ok "bob's log has only his own session (alice's is in the journal, out of his reach)"
+reply=$(helper bob '{"op":"stop"}')
+[[ $reply == *'"was_running":true'* ]] || fail "bob's stop failed: $reply"
+host_is_clean
+
+step "A client asks root to take over an interface that is not the VPN's"
+ip link add br-audit type bridge
+ip link add ipsc0 type bridge
+for name in br-audit eth0 lo; do
+    reply=$(helper alice "{\"op\":\"start\",\"iface\":\"$name\",\"if_id\":4242,\"mtu\":1400,\"log_level\":1,\"profile_id\":\"attack\"}")
+    [[ $reply == *'"result":"error"'* && $reply == *"invalid interface name"* ]] ||
+        fail "the helper accepted the interface $name: $reply"
+done
+ip link show br-audit >/dev/null 2>&1 || fail "root deleted br-audit for the client"
+ok "the helper refuses any interface name that is not ipsc<N> (br-audit, eth0, lo)"
+# The right name, but the link is something else (not an XFRM interface):
+# the engine must leave it alone and give up.
+reply=$(helper alice '{"op":"start","iface":"ipsc0","if_id":4242,"mtu":1400,"log_level":1,"profile_id":"attack"}')
+[[ $reply == *'"result":"error"'* && $reply == *"not an XFRM interface"* ]] ||
+    fail "the engine started over a foreign ipsc0: $reply"
+[[ $(ip -d link show dev ipsc0) == *bridge* ]] || fail "the engine deleted a foreign ipsc0"
+ok "an existing ipsc0 that is not an XFRM interface is left alone, and the engine does not start"
+ip link del ipsc0
+ip link del br-audit
 
 step "Attack (ADR-0019): a VICI client picks the updown and the if_id"
 sed -e "s|@GATEWAY@|$GW_IP|" -e "s|@IFACE@|$IFACE|" -e "s|@IF_ID@|999|" \

@@ -34,3 +34,9 @@ LockPersonality=yes
 MemoryDenyWriteExecute=yes
 SystemCallArchitectures=native
 RestrictAddressFamilies=AF_UNIX
+ProtectKernelLogs=yes
+UMask=0077
+# The helper and what it runs (systemd-run, systemctl, journalctl) need no
+# more than an ordinary service does.
+SystemCallFilter=@system-service
+SystemCallErrorNumber=EPERM
