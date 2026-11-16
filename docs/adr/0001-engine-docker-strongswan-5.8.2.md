@@ -1,6 +1,6 @@
 # ADR-0001: Engine em container Docker com strongSwan 5.8.2
 
-- **Status:** Aceito
+- **Status:** Substituído pelo ADR-0013 para o usuário final. O Docker continua nos testes.
 - **Data:** 2026-11-15
 
 ## Contexto

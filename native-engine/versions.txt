@@ -1,0 +1,8 @@
+# Versões do strongSwan suportadas pelo engine embutido.
+# versão  caminho-no-servidor  sha256 do tarball .tar.bz2
+# Hashes conferidos em 2026-11-16 junto com a assinatura GPG oficial
+# (chave 948F158A4E76A27BF3D07532DF42C170B34DBA77, Andreas Steffen).
+6.1.0   /                 fe6c97481298767213cfc2e9a1da29fdd8018d481ff4cb9cf0283099654f20d4
+6.0.7   /old/6.x/         e518e34e159514f4c6ba80d1f926cb151e0dd4e3a1d94213171234b8b9ae6f55
+5.9.14  /old/5.x/         728027ddda4cb34c67c4cec97d3ddb8c274edfbabdaeecf7e74693b54fc33678
+5.8.2   /old/5.x/         86900ddbe7337c923dadf2c8339ae8ed2b9158e3691745884d08ae534677430e

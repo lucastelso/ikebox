@@ -7,7 +7,7 @@ aceitos. Se uma decisão mudar, um novo ADR a substitui e o antigo passa a
 
 | # | Decisão | Status |
 |---|---|---|
-| [0001](0001-engine-docker-strongswan-5.8.2.md) | Engine em container Docker com strongSwan 5.8.2 | Aceito |
+| [0001](0001-engine-docker-strongswan-5.8.2.md) | Engine em container Docker com strongSwan 5.8.2 | Substituído pelo 0013 (só nos testes) |
 | [0002](0002-container-sempre-recriado.md) | Container recriado a cada conexão | Aceito |
 | [0003](0003-controle-via-vici.md) | Controle do charon via VICI | Aceito |
 | [0004](0004-roteamento-por-interface-xfrm.md) | Roteamento e DNS por interface XFRM dedicada | Aceito |
@@ -19,6 +19,10 @@ aceitos. Se uma decisão mudar, um novo ADR a substitui e o antigo passa a
 | [0010](0010-dados-privados-fora-do-repositorio.md) | Nenhum dado real de VPN no repositório | Aceito |
 | [0011](0011-cliente-vici-proprio.md) | Cliente VICI próprio em vez do `rsvici` | Aceito |
 | [0012](0012-presets-locais-nao-embutidos.md) | Presets locais não são embutidos no binário | Aceito |
+| [0013](0013-engine-embutido-sem-docker.md) | Engine embutido no app, sem Docker para o usuário | Aceito |
+| [0014](0014-helper-privilegiado-polkit.md) | Helper com privilégio, autorizado uma vez (polkit + systemd) | Aceito |
+| [0015](0015-distribuicao-appimage-rpm-deb.md) | Distribuição em AppImage, rpm e deb (sem Flatpak) | Aceito |
+| [0016](0016-strongswan-6.1-compilado.md) | strongSwan 6.1.0 no engine embutido, com a 5.8.2 de reserva | Aceito |
 
 Modelo para novos ADRs: copie um existente e mantenha as seções
 **Contexto · Decisão · Consequências · Alternativas consideradas**.

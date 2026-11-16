@@ -85,3 +85,15 @@ jobs:
         run: scripts/check-rust.sh --docker-tests
       - name: Fluxo completo do CLI
         run: tests/cli/e2e.sh
+
+  native-engine:
+    name: Engine embutido (strongSwan compilado + E2E)
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - name: Módulo xfrm_interface
+        run: sudo modprobe xfrm_interface
+      - name: Build (SHA-256 + GPG) e E2E com 4 cenários
+        run: npm run test:native

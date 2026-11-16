@@ -1,6 +1,6 @@
 # ADR-0006: Imagem do engine embutida e versionada por hash
 
-- **Status:** Aceito
+- **Status:** Aceito para o backend Docker. O engine embutido é identificado pelo hash do tarball (ADR-0013).
 - **Data:** 2026-11-15
 
 ## Contexto

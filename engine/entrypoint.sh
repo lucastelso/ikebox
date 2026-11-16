@@ -13,13 +13,15 @@
 #   IPSEC_CLIENT_MTU         MTU da interface, 576..9000      (padrão: 1400)
 #   IPSEC_CLIENT_SOCKET_GID  gid que pode usar o socket VICI  (obrigatória)
 #   IPSEC_CLIENT_LOG_LEVEL   nível de log do charon, 0..2     (padrão: 1)
+#   IPSEC_CLIENT_CHARON      caminho do charon   (padrão: o do pacote do Ubuntu)
+#   IPSEC_CLIENT_STRONGSWAN_D diretório strongswan.d (padrão: /etc/strongswan.d)
 
 set -euo pipefail
 
 readonly SOCKET_DIR=/run/ipsec-client
 readonly SOCKET="$SOCKET_DIR/charon.vici"
-readonly RUNTIME_CONF=/etc/strongswan.d/zzz-ipsec-client-runtime.conf
-readonly CHARON=/usr/lib/ipsec/charon
+readonly CHARON=${IPSEC_CLIENT_CHARON:-/usr/lib/ipsec/charon}
+readonly RUNTIME_CONF=${IPSEC_CLIENT_STRONGSWAN_D:-/etc/strongswan.d}/zzz-ipsec-client-runtime.conf
 # Protocolo de rota usado pelo updown para marcar as rotas da sessão.
 readonly RT_PROTO=241
 
@@ -62,16 +64,15 @@ validate_env() {
     SOCKET_GID=$((10#$SOCKET_GID))
 }
 
-# Remove as SAs XFRM marcadas com o nosso if_id que tenham sobrado de uma sessão
-# encerrada de forma abrupta (SIGKILL). Nunca faz flush global: outros IPsec do
-# host não são afetados. A saída do `ip xfrm state` contém chaves; ela só é
-# lida pelo awk e nunca é impressa.
+# Remove SAs e políticas XFRM marcadas com o nosso if_id que tenham sobrado de
+# uma sessão encerrada de forma abrupta (SIGKILL). Nunca faz flush global:
+# outros IPsec do host não são afetados. A saída do `ip xfrm state` contém
+# chaves; ela só é lida pelo awk e nunca é impressa.
 #
-# Políticas órfãs com if_id NÃO podem ser removidas com o iproute2 5.5 do
-# Ubuntu 20.04: `delete`/`deleteall` não aceitam if_id, e o kernel exige o if_id
-# para achar a política. Elas são inertes (só casam com tráfego da interface
-# XFRM com aquele if_id); uma sessão nova com o mesmo VIP as substitui e as
-# remove ao sair, e elas somem no reboot. Ver docs/desenvolvimento.md.
+# As políticas só saem com um iproute2 que aceite `if_id` no delete (o do host,
+# no engine embutido). Com o iproute2 5.5 do Ubuntu 20.04 (imagem Docker),
+# elas ficam: são inertes, uma sessão com o mesmo VIP as substitui e elas
+# somem no reboot. Ver docs/desenvolvimento.md.
 flush_stale_xfrm() {
     local hex_id src dst proto spi stale_policies
     hex_id=$(printf '0x%x' "$IF_ID")
@@ -92,6 +93,24 @@ flush_stale_xfrm() {
                 if ($i == "spi" && spi == "") spi = $(i + 1)
             }
             if (ok) print s, d, p, spi
+        }')
+
+    # Políticas: o iproute2 moderno (host) aceita if_id no delete; o 5.5 do
+    # Ubuntu 20.04 não, e aí elas ficam (inertes) e só geram o aviso abaixo.
+    while read -r src dst dir; do
+        [[ -n $dir ]] || continue
+        ip xfrm policy delete src "$src" dst "$dst" dir "$dir" if_id "$IF_ID" 2>/dev/null || true
+    done < <(ip -o xfrm policy 2>/dev/null | awk -v want="$hex_id" '
+        {
+            gsub(/\\/, " ")
+            ok = 0; s = ""; d = ""; dir = ""
+            for (i = 1; i < NF; i++) {
+                if ($i == "if_id" && tolower($(i + 1)) == want) ok = 1
+                if ($i == "src" && s == "") s = $(i + 1)
+                if ($i == "dst" && d == "") d = $(i + 1)
+                if ($i == "dir" && dir == "") dir = $(i + 1)
+            }
+            if (ok) print s, d, dir
         }')
 
     stale_policies=$(ip -o xfrm policy 2>/dev/null |
@@ -173,7 +192,9 @@ main() {
     validate_env
     trap shutdown TERM INT
 
-    log "preparando (strongSwan $(dpkg-query -W -f='${Version}' strongswan 2>/dev/null || echo '?'))"
+    local version
+    version=$("$CHARON" --version 2>/dev/null | grep -oE '[0-9]+\.[0-9]+\.[0-9]+' | head -n 1 || true)
+    log "preparando (strongSwan ${version:-?})"
     cleanup
     create_iface
     write_runtime_conf

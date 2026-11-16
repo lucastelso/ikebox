@@ -35,6 +35,16 @@ crates/cli (ipsec-client-cli): a mesma lógica, sem GUI (scripts, testes E2E hea
 | Perfis | `~/.config/ipsec-client/profiles/<id>.json` |
 | Chaveiro | serviço `ipsec-client`, chave `<perfil>:<campo>` |
 
+## O engine embutido (direção atual, ADRs 0013–0016)
+
+O strongSwan **6.1.0** é compilado a partir do código-fonte oficial
+(`native-engine/`) e roda no host, iniciado pelo helper com privilégio
+(ADR-0014, fase D). Ele usa **os mesmos scripts e o mesmo contrato** do engine
+em container descrito abaixo. A diferença é que o charon vem de
+`/opt/ipsec-client/engine/libexec/ipsec/charon`, configurado por
+`IPSEC_CLIENT_CHARON` e `IPSEC_CLIENT_STRONGSWAN_D`. Até a fase D, o engine
+em container continua sendo o backend em uso e o dos testes.
+
 ## O engine (container)
 
 Os arquivos ficam em [`engine/`](../engine).

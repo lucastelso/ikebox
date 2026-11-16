@@ -40,3 +40,7 @@ node_modules/
 # Logs e artefatos de teste
 *.log
 __pycache__/
+trabalho.json
+
+# Artefatos do engine embutido (gerados por native-engine/build.sh)
+/native-engine/dist/

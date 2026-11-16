@@ -3,7 +3,8 @@
 # Docker isolada, e imita uma VPN legada: IKEv1 agressivo, PSK de grupo +
 # XAuth, modp1024/modp768.
 #
-# Rede protegida: 192.0.2.0/24 (RFC 5737). O gateway responde em 192.0.2.1.
+# Redes protegidas (RFC 5737): 192.0.2.0/24 (o gateway responde em 192.0.2.1)
+# e 203.0.113.0/24 (child só com PFS modp768; responde em 203.0.113.1).
 # Nenhum dado real: credenciais falsas em swanctl.conf.
 
 set -euo pipefail
@@ -13,6 +14,7 @@ log() { printf '[gateway-teste] %s\n' "$*" >&2; }
 # Rede "interna" atrás do gateway.
 ip link add dum0 type dummy
 ip addr add 192.0.2.1/24 dev dum0
+ip addr add 203.0.113.1/24 dev dum0
 ip link set dum0 up
 
 # Overrides só do gateway de teste (o responder precisa aceitar aggressive+PSK).

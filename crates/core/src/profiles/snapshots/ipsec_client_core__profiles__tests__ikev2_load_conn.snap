@@ -6,7 +6,7 @@ remote_addrs = [203.0.113.10]
 version = 2
 aggressive = no
 encap = no
-proposals = [aes256gcm16-prfsha256-ecp256, aes256-sha256-modp2048]
+proposals = [aes256gcm16-prfsha256-curve25519, aes256-sha256-modp2048]
 vips = [0.0.0.0]
 local-1 {
     auth = psk
@@ -19,7 +19,7 @@ remote {
 children {
     rede {
         remote_ts = [198.51.100.0/24, 2001:db8:100::/48]
-        esp_proposals = [aes256gcm16-ecp256, aes256-sha256-modp2048]
+        esp_proposals = [aes256gcm16-curve25519, aes256-sha256-modp2048]
         start_action = none
         dpd_action = restart
         close_action = none
