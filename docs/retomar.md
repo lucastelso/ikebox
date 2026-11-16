@@ -36,7 +36,10 @@
     (`feat/log-anonimizado`, passo 33);
   - varredura de dados privados dentro dos pacotes, no fim de todo build de
     release (`chore/higiene-privacidade`, passo 34);
-  - falta a release v0.1.1.
+  - versão 0.1.1 preparada (`chore/versao-0.1.1`): notas em
+    `docs/releases/v0.1.1.md`. Pacotes gerados por
+    `npm run release:build -- v0.1.1`. A publicação e a validação na VPN real
+    ficam com o mantenedor.
   - Enquanto o componente instalado neste computador for o da v0.1.0, rode
     `test:docker` e `test:cli` com `IPSEC_CLIENT_BACKEND=docker`. O helper
     antigo recusa o pedido novo, e é para recusar mesmo.

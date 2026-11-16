@@ -16,7 +16,14 @@ cada um.
   - tarball oficial em <https://download.strongswan.org/>, com a versão e o
     SHA-256 fixados em `native-engine/versions.txt` e a assinatura GPG
     conferida no build (chave em `native-engine/keys/`);
-  - nenhuma modificação no código. As opções de compilação estão em
+  - **uma modificação**, feita em 2026-11-16 pelo IPsec Client:
+    `native-engine/patches/0001-vici-forced-updown-if-id.patch`. Ela altera
+    `src/libcharon/plugins/vici/vici_config.c` para o charon ignorar o
+    `updown` e o `if_id` enviados pelo cliente VICI quando
+    `charon.plugins.vici.force_updown`/`force_if_id` estão definidos
+    (ADR-0019). O build aplica os patches de `native-engine/patches/` sobre o
+    tarball oficial e registra o SHA-256 de cada um no `BUILDINFO` do pacote;
+  - as opções de compilação estão em
     `native-engine/build/build-strongswan.sh` e no `BUILDINFO` do pacote.
 
 ### GMP (GNU Multiple Precision Arithmetic Library)

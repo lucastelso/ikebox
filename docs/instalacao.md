@@ -18,9 +18,9 @@ precisa de Docker, Rust, Node nem terminal para usar.
 
 | Sua distribuição | Arquivo | Exemplo |
 |---|---|---|
-| Fedora, RHEL, Rocky, AlmaLinux, openSUSE | **.rpm** | `ipsec-client-0.1.0-1.x86_64.rpm` |
-| Ubuntu, Debian, Linux Mint, Pop!_OS | **.deb** | `ipsec-client_0.1.0_amd64.deb` |
-| Outras (Arch, etc.) | **.AppImage** | `ipsec-client_0.1.0_amd64.AppImage` |
+| Fedora, RHEL, Rocky, AlmaLinux, openSUSE | **.rpm** | `ipsec-client-0.1.1-1.x86_64.rpm` |
+| Ubuntu, Debian, Linux Mint, Pop!_OS | **.deb** | `ipsec-client_0.1.1_amd64.deb` |
+| Outras (Arch, etc.) | **.AppImage** | `ipsec-client_0.1.1_amd64.AppImage` |
 
 Os arquivos ficam na página [Releases](https://github.com/lucastelso/ipsec-client/releases) do repositório no GitHub,
 junto com o `SHA256SUMS`, que serve para conferir o download
