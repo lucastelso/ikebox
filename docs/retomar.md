@@ -64,7 +64,7 @@ npm run test:native    # strongSwan compilado (engine embutido) + E2E
 
 ## Pendências do mantenedor
 
-- [ ] Definir a licença antes de tornar o repositório público.
+- [x] Licença definida: GPL-3.0-or-later (ADR-0017).
 - [ ] Antes de tornar o repositório público, decidir se o e-mail pessoal fica
       nos commits. A alternativa é reescrever o histórico com o e-mail
       `noreply` do GitHub (`git filter-repo --mailbox`).

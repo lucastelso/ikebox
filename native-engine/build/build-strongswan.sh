@@ -84,12 +84,19 @@ find "$root" -type f -perm -u+x -exec sh -c 'file -b "$1" | grep -q ELF && strip
 # Build estático: as bibliotecas .a e os headers não servem em tempo de execução.
 rm -rf "${root:?}/share/man" "${root:?}/lib" "${root:?}/include"
 
+# Conformidade (ADR-0017): textos de licença do strongSwan e do GMP no pacote.
+mkdir -p "$root/share/licenses/strongswan" "$root/share/licenses/gmp"
+cp "$SRC/COPYING" "$SRC/LICENSE" "$root/share/licenses/strongswan/"
+cp /usr/share/doc/libgmp10/copyright "$root/share/licenses/gmp/copyright"
+gmp_version=$(dpkg-query -W -f='${Version}' libgmp-dev)
+
 charon="$root/libexec/ipsec/charon"
 [[ -x $charon ]] || { echo "charon não foi gerado" >&2; exit 1; }
 {
     echo "strongswan=$version"
     echo "sha256=$sha256"
     echo "builder=ubuntu:22.04 (glibc $(ldd --version | head -n 1 | awk '{print $NF}'))"
+    echo "gmp=$gmp_version (estático; fonte: pacote gmp do Ubuntu 22.04)"
     echo "configure=${configure_flags[*]}"
     echo "charon_deps=$(ldd "$charon" | awk '{print $1}' | tr '\n' ' ')"
 } >"$root/BUILDINFO"

@@ -34,9 +34,13 @@ allow = [
     "MPL-2.0",
 ]
 
-[licenses.private]
-# Os crates do workspace têm publish = false (licença ainda a definir).
-ignore = true
+# Os crates do próprio projeto: GPL-3.0-or-later (ADR-0017). As dependências
+# continuam restritas à lista permissiva acima.
+exceptions = [
+    { allow = ["GPL-3.0-or-later"], crate = "ipsec-client-core" },
+    { allow = ["GPL-3.0-or-later"], crate = "ipsec-client-cli" },
+    { allow = ["GPL-3.0-or-later"], crate = "ipsec-client-app" },
+]
 
 [bans]
 multiple-versions = "warn"
