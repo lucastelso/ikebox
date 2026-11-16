@@ -32,3 +32,6 @@ dbus = "0.9.12"
 ipsec-client-proto = { path = "../proto" }
 rustix = { version = "1.1.6", features = ["net", "process", "fs"] }
 serde_json = "1.0.154"
+
+[dev-dependencies]
+tempfile = "3.27.0"

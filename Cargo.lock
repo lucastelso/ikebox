@@ -1965,6 +1965,7 @@ dependencies = [
  "ipsec-client-proto",
  "rustix",
  "serde_json",
+ "tempfile",
 ]
 
 [[package]]
