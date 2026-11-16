@@ -6,20 +6,18 @@
 
 ## Onde estamos
 
-- **Último branch integrado:** `feat/vici`. O cliente VICI próprio (ADR-0011)
-  já estabelece um túnel completo contra o gateway de teste, com
-  `npm run test:docker`.
-- **Próximo branch:** `feat/perfis`:
-  - modelo de perfil em JSON com `schema_version`;
-  - validação;
-  - geração da mensagem `load-conn` e dos argumentos do `updown` (com aspas
-    simples e validados);
-  - presets genéricos em `presets/` e `presets.local/` (ignorado pelo git);
-  - import/export;
-  - snapshots com insta.
-
-  O teste `crates/core/tests/vici_docker.rs` (`test_conn`) mostra a mensagem
-  `load-conn` que o perfil precisa gerar.
+- **Último branch integrado:** `feat/perfis`. Existem o modelo, a validação, a
+  geração do `load-conn`/`updown` e o store. O teste de integração já conecta a
+  partir de um perfil JSON.
+- **Próximo branch:** `feat/segredos`:
+  - credenciais em memória com `secrecy`/`zeroize`;
+  - chaveiro do sistema com o crate `keyring` (Secret Service), serviço
+    `ipsec-client`, chave `<perfil>:<campo>` (ver `CredentialKind::key`);
+  - mascaramento do usuário XAuth em logs;
+  - testes com backend mock.
+- **Para o mantenedor:** dá para montar o perfil da VPN do trabalho seguindo a
+  tabela de `docs/perfis.md` e salvá-lo em `presets.local/` (ignorado pelo
+  git). O CLI vai importá-lo no branch `feat/sessao-cli`.
 - **Status por branch:** ver o [roadmap](roadmap.md).
 
 ## Preparar o ambiente (uma vez)

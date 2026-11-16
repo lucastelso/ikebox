@@ -1,0 +1,30 @@
+---
+source: crates/core/src/profiles/mod.rs
+expression: text
+---
+remote_addrs = [203.0.113.10]
+version = 2
+aggressive = no
+encap = no
+proposals = [aes256gcm16-prfsha256-ecp256, aes256-sha256-modp2048]
+vips = [0.0.0.0]
+local-1 {
+    auth = psk
+    id = cliente@example.com
+}
+remote {
+    auth = psk
+    id = vpn.example.com
+}
+children {
+    rede {
+        remote_ts = [198.51.100.0/24, 2001:db8:100::/48]
+        esp_proposals = [aes256gcm16-ecp256, aes256-sha256-modp2048]
+        start_action = none
+        dpd_action = restart
+        close_action = none
+        if_id_in = 7
+        if_id_out = 7
+        updown = /usr/local/libexec/ipsec-client/updown --iface 'ipsc0' --use-received-dns
+    }
+}

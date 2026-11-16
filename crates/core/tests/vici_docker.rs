@@ -1,6 +1,8 @@
-//! Conexão IPsec completa feita só pelo cliente VICI em Rust (sem swanctl),
-//! contra o gateway de teste local (feature `docker-tests`).
+//! Conexão IPsec completa feita só pelo Rust (sem swanctl), contra o gateway
+//! de teste local (feature `docker-tests`).
 //!
+//! Cadeia testada: perfil JSON (`tests/fixtures`) → validação → `load-conn`
+//! gerado pelo perfil → charon real → túnel.
 //! Cobre: `version`, `load-shared` (PSK + XAuth), `load-conn`, `list-conns`,
 //! `initiate`, `list-sas`, eventos (`child-updown`, `log`), ping pelo túnel,
 //! `terminate` e `unload-conn`.
@@ -12,8 +14,9 @@ mod support;
 use std::time::Duration;
 
 use ipsec_client_core::engine::{DockerEngine, EngineSpec, current_gid, default_runtime_dir};
+use ipsec_client_core::profiles::{ConnParams, Profile, parse_profile};
 use ipsec_client_core::vici::{
-    Charon, CharonEvent, Message, SecretKind, SharedSecret, ViciClient, ViciEvents,
+    Charon, CharonEvent, SecretKind, SharedSecret, ViciClient, ViciEvents,
 };
 use support::{
     TEST_GROUP_ID, TEST_PSK, TEST_XAUTH_PASSWORD, TEST_XAUTH_USER, TestGateway, host_cmd,
@@ -24,58 +27,12 @@ use tokio::sync::mpsc;
 const PREFIX: &str = "ipsec-client-rs-vici";
 const IFACE: &str = "ipsct2";
 const IF_ID: u32 = 7343;
-const CONN: &str = "teste";
-const CHILD: &str = "rede-teste";
 
-/// Mesma forma de uma VPN legada (equivalente ao tests/engine/initiator.conf.in).
-fn test_conn(gateway: &str) -> Message {
-    let child = Message::new()
-        .list("remote_ts", ["192.0.2.0/24"])
-        .list(
-            "esp_proposals",
-            [
-                "aes256-sha1-modp1024",
-                "aes256-sha1-modp768",
-                "aes128-sha1-modp1024",
-            ],
-        )
-        .kv("rekey_time", "43200s")
-        .kv("start_action", "none")
-        .kv("dpd_action", "restart")
-        .kv("close_action", "start")
-        .kv("if_id_in", IF_ID.to_string())
-        .kv("if_id_out", IF_ID.to_string())
-        .kv(
-            "updown",
-            format!(
-                "/usr/local/libexec/ipsec-client/updown --iface '{IFACE}' \
-                 --domain '~ipsec-client.test' --use-received-dns"
-            ),
-        );
-    Message::new()
-        .list("remote_addrs", [gateway])
-        .kv("version", "1")
-        .kv("aggressive", "yes")
-        .kv("encap", "yes")
-        .list(
-            "proposals",
-            ["aes256-sha1-modp1024", "aes128-sha1-modp1024"],
-        )
-        .kv("rekey_time", "86400s")
-        .kv("dpd_delay", "30s")
-        .list("vips", ["0.0.0.0"])
-        .section(
-            "local-1",
-            Message::new().kv("auth", "psk").kv("id", TEST_GROUP_ID),
-        )
-        .section(
-            "local-2",
-            Message::new()
-                .kv("auth", "xauth")
-                .kv("xauth_id", TEST_XAUTH_USER),
-        )
-        .section("remote", Message::new().kv("auth", "psk"))
-        .section("children", Message::new().section(CHILD, child))
+fn test_profile(gateway: &str) -> Profile {
+    let mut profile = parse_profile(include_str!("fixtures/perfil-gateway-teste.json"))
+        .expect("perfil de teste válido");
+    profile.gateway = gateway.to_owned();
+    profile
 }
 
 async fn wait_for(
@@ -138,6 +95,16 @@ async fn scenario(spec: EngineSpec, gateway_ip: String) {
     let engine = DockerEngine::connect().expect("Docker");
     engine.start(&spec).await.expect("engine pronto");
     let socket = spec.socket_path();
+    let profile = test_profile(&gateway_ip);
+    let conn_name = profile.conn_name().to_owned();
+    let child_name = profile.child.name.clone();
+    let load_conn = profile
+        .to_load_conn(&ConnParams {
+            iface: IFACE,
+            if_id: IF_ID,
+            xauth_user: Some(TEST_XAUTH_USER),
+        })
+        .expect("load-conn gerado pelo perfil");
 
     // Conexão de eventos (separada da de comandos).
     let mut events = ViciEvents::subscribe(&socket, &["ike-updown", "child-updown", "log"])
@@ -179,26 +146,29 @@ async fn scenario(spec: EngineSpec, gateway_ip: String) {
         .await
         .expect("load-shared XAuth");
     charon
-        .load_conn(CONN, &test_conn(&gateway_ip))
+        .load_conn(&conn_name, &load_conn)
         .await
         .expect("load-conn");
-    assert_eq!(charon.list_conns().await.expect("list-conns"), [CONN]);
+    assert_eq!(
+        charon.list_conns().await.expect("list-conns"),
+        [conn_name.as_str()]
+    );
 
     charon
-        .initiate(CONN, CHILD, Duration::from_secs(30))
+        .initiate(&conn_name, &child_name, Duration::from_secs(30))
         .await
         .expect("initiate");
     assert!(
         wait_for(&mut rx, |e| matches!(
             e,
-            CharonEvent::ChildUpDown { up: true, children, .. } if children.iter().any(|c| c == CHILD)
+            CharonEvent::ChildUpDown { up: true, children, .. } if children.contains(&child_name)
         ))
         .await,
         "evento child-updown (up) não chegou"
     );
 
     let sas = charon.list_sas().await.expect("list-sas");
-    let sa = sas.iter().find(|s| s.name == CONN).expect("IKE_SA");
+    let sa = sas.iter().find(|s| s.name == conn_name).expect("IKE_SA");
     assert_eq!(sa.state, "ESTABLISHED");
     assert_eq!(sa.remote_host, gateway_ip);
     let vip = sa.local_vips.first().expect("VIP").clone();
@@ -206,7 +176,7 @@ async fn scenario(spec: EngineSpec, gateway_ip: String) {
     let child = sa
         .children
         .iter()
-        .find(|c| c.name == CHILD)
+        .find(|c| c.name == child_name)
         .expect("CHILD_SA");
     assert_eq!(child.state, "INSTALLED");
     assert_eq!(child.remote_ts, ["192.0.2.0/24"]);
@@ -230,7 +200,7 @@ async fn scenario(spec: EngineSpec, gateway_ip: String) {
     );
 
     charon
-        .terminate(CONN, Duration::from_secs(10))
+        .terminate(&conn_name, Duration::from_secs(10))
         .await
         .expect("terminate");
     assert!(
@@ -247,6 +217,6 @@ async fn scenario(spec: EngineSpec, gateway_ip: String) {
         "rotas sobraram após o down: {routes}"
     );
 
-    charon.unload_conn(CONN).await.expect("unload-conn");
+    charon.unload_conn(&conn_name).await.expect("unload-conn");
     assert!(charon.list_conns().await.expect("list-conns").is_empty());
 }

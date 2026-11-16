@@ -164,7 +164,7 @@ docs/            arquitetura, roadmap, diário de desenvolvimento, ADRs
 crates/core/     núcleo em Rust: perfis, segredos, engine, sessão, diagnóstico (em construção)
 crates/cli/      ipsec-client-cli (em construção)
 src-tauri/ src/  (em breve) app desktop Tauri v2 + React
-presets/         (em breve) exemplos genéricos de perfis
+presets/         exemplos genéricos de perfis (os seus vão em presets.local/, ignorado)
 ```
 
 ### Fluxo de trabalho
@@ -180,6 +180,7 @@ Os detalhes estão em [CONTRIBUTING.md](CONTRIBUTING.md).
 
 - **[Estado atual e como retomar](docs/retomar.md)**
 - [Arquitetura](docs/arquitetura.md)
+- [Perfis de conexão (formato, swanctl → perfil, compartilhar com colegas)](docs/perfis.md)
 - [Decisões de arquitetura (ADRs)](docs/adr/README.md)
 - [Roadmap](docs/roadmap.md)
 - [Diário de desenvolvimento](docs/desenvolvimento.md)

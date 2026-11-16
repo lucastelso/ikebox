@@ -345,3 +345,58 @@ para descartar flakiness.
   falhar, porque o cenário roda numa task separada.
 - O clippy passou a rodar com `--all-features`, para analisar também o código
   dos testes Docker.
+
+### Passo 10: perfis (`feat/perfis`)
+
+- **Modelo** (schema 1, serde com `deny_unknown_fields`):
+  - gateway;
+  - IKE: versão, agressivo, encap, propostas, rekey, DPD;
+  - autenticação: método `psk` ou `psk-xauth`, `local_id`, `remote_id`;
+  - child: nome, propostas ESP, rekey, TS, ações de DPD e de fechamento;
+  - rede: VIP, MTU e DNS (servidores, domínios, DNS recebidos, rota padrão).
+- **Decisões:**
+  - O **usuário XAuth não fica no perfil.** Ele é credencial, como a senha.
+    Assim o perfil do trabalho pode ser passado a um colega sem a matrícula de
+    quem o criou.
+  - A autenticação é um `method` enumerado, extensível para `eap`/`pubkey` num
+    schema 2, sem quebrar perfis existentes. `parse_profile` lê o
+    `schema_version` antes do resto, que é onde as migrações vão entrar.
+  - **ADR-0012: `presets.local/` não é embutido no binário**, como previa o
+    plano. Um build local publicado por engano levaria os dados do trabalho.
+    A distribuição é feita por exportação e importação de JSON.
+  - `close_action`: o fluxo validado usa `start`, e o perfil gera `restart`.
+    No parser de configuração do charon, os dois são a mesma ação, e o teste de
+    integração confirma que o charon aceita `restart`.
+- **Validação** campo a campo, que devolve todos os problemas para a UI:
+  - slug do id;
+  - host do gateway;
+  - IKEv1 obrigatório para agressivo e XAuth;
+  - formato das propostas;
+  - CIDRs;
+  - domínios no formato do resolved;
+  - MTU;
+  - durações;
+  - identidades sem aspas nem caracteres de controle.
+
+  As regras de domínio e IP são as mesmas do `updown.sh`.
+- **Geração:** `to_load_conn` e `updown_command`. Os argumentos vão entre aspas
+  simples, e `shell_quote` recusa qualquer aspa ou controle como segunda
+  barreira.
+- **Store:** gravação atômica (temporário + `rename`), arquivos 0600,
+  diretório 0700, importação limitada a 1 MiB e recusa a sobrescrever sem
+  `overwrite`. Ids com `../` não escapam do diretório.
+- **Testes** (43 no core):
+  - snapshots com insta do `load-conn` dos dois presets. **Revisão manual:** o
+    snapshot do preset legado reproduz exatamente as propostas, os tempos e as
+    rodadas do fluxo validado;
+  - todos os presets válidos e canônicos (ida e volta);
+  - erros reportados em todos os campos;
+  - JSON com `"psk"` recusado;
+  - versão desconhecida recusada;
+  - store com permissões, export/import e path traversal.
+- **Integração:** o `vici_docker.rs` deixou de usar uma conexão escrita à mão e
+  passou a gerar o `load-conn` a partir de `tests/fixtures/perfil-gateway-teste.json`.
+  A cadeia inteira (JSON → validação → `load-conn` → charon real → túnel →
+  ping) passa em cerca de 2,4 s.
+- Docs: `docs/perfis.md` (formato, tabela de correspondência swanctl → perfil,
+  como passar a um colega) e `presets/README.md`.

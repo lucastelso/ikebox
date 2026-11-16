@@ -1,0 +1,20 @@
+{
+  "schema_version": 1,
+  "id": "exemplo-ikev2",
+  "name": "Exemplo: IKEv2 com PSK",
+  "gateway": "203.0.113.10",
+  "ike": {
+    "version": 2,
+    "proposals": ["aes256gcm16-prfsha256-ecp256", "aes256-sha256-modp2048"]
+  },
+  "auth": {
+    "method": "psk",
+    "local_id": "cliente@example.com",
+    "remote_id": "vpn.example.com"
+  },
+  "child": {
+    "esp_proposals": ["aes256gcm16-ecp256", "aes256-sha256-modp2048"],
+    "remote_ts": ["198.51.100.0/24", "2001:db8:100::/48"],
+    "dpd_action": "restart"
+  }
+}

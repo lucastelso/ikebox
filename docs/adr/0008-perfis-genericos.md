@@ -1,6 +1,7 @@
 # ADR-0008: Perfis genéricos em JSON versionado
 
-- **Status:** Aceito
+- **Status:** Aceito. O trecho sobre embutir `presets.local/` foi substituído
+  pelo ADR-0012.
 - **Data:** 2026-11-15
 
 ## Contexto
