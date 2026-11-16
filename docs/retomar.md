@@ -11,8 +11,14 @@
   [roadmap](roadmap.md).
 - **Base pronta:** o núcleo Rust e o `ipsec-client-cli` funcionam de ponta a
   ponta. O mantenedor já importou o perfil do trabalho.
-- **Fase em andamento:** A (push e CI) e depois B, a prova do engine embutido
-  em `spike/engine-nativo`.
+- **Fase B concluída** (`spike/engine-nativo`): o strongSwan **6.1.0** compilado
+  por nós funciona (ADRs 0013–0016). O build e o E2E rodam com
+  `npm run test:native`.
+- **Próximo branch:** `chore/scaffold-gui` (fase C): Tauri 2.12 estável + React
+  19 + Vite + Tailwind 4 + shadcn/ui.
+- **Pendente com o mantenedor:** `git push origin --all` (o ambiente
+  automatizado não tem as credenciais do GitHub) e conferir a primeira
+  execução da CI.
 
 ## Preparar o ambiente (uma vez)
 
@@ -27,7 +33,9 @@
 ```bash
 npm run check          # dados privados + shellcheck + fmt/clippy/testes/cargo-deny
 npm run test:engine    # E2E do engine com gateway IPsec local (~10 s)
-npm run test:docker    # integração do core::engine (Rust) com o Docker real
+npm run test:docker    # integração do núcleo Rust com o Docker real
+npm run test:cli       # fluxo completo do CLI
+npm run test:native    # strongSwan compilado (engine embutido) + E2E
 ```
 
 ## Regras que não mudam

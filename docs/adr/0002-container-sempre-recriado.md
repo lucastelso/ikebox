@@ -1,6 +1,6 @@
 # ADR-0002: Container recriado a cada conexão
 
-- **Status:** Aceito
+- **Status:** Aceito. No engine embutido, vira "processo recriado" (ADR-0013).
 - **Data:** 2026-11-15
 
 ## Contexto

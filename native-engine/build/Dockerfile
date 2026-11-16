@@ -1,0 +1,15 @@
+# Builder do engine embutido: compila o strongSwan a partir do código-fonte.
+#
+# Ubuntu 22.04 (glibc 2.35): mesma base usada para o AppImage do Tauri; o
+# binário roda em distribuições com glibc igual ou mais nova.
+FROM ubuntu:22.04@sha256:9abcaffc92a5279fff3a6a41635c0800ea33e528425fb389658806476e7defde
+
+ENV DEBIAN_FRONTEND=noninteractive
+RUN set -eux; \
+    apt-get update; \
+    apt-get install -y --no-install-recommends \
+        build-essential pkg-config libgmp-dev ca-certificates curl gnupg bzip2 file python3; \
+    rm -rf /var/lib/apt/lists/*
+
+COPY build-strongswan.sh /usr/local/bin/build-strongswan
+ENTRYPOINT ["/usr/local/bin/build-strongswan"]

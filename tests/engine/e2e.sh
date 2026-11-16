@@ -12,6 +12,8 @@
 #     políticas/SAs XFRM com o if_id, socket).
 #   cenário 2, recuperação após SIGKILL:
 #     o engine morre sem limpar e o próximo engine remove os restos.
+#   cenário 3, túnel completo (0.0.0.0/0) em rede isolada.
+#   cenário 4, PFS só com modp768 (DH1) na fase 2.
 #
 # Altera o host só temporariamente: cria a interface ipsct0 (nome e if_id
 # próprios do teste, para não colidir com uma sessão real), rotas para
@@ -25,7 +27,12 @@ set -euo pipefail
 repo_root=$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)
 here="$repo_root/tests/engine"
 
+# IMAGE: gateway de teste (strongSwan 5.8.2 validado) e utilitários.
+# ENGINE_IMAGE: o engine testado (padrão: a mesma imagem; o spike do engine
+# embutido passa outra, com o strongSwan compilado por nós).
 readonly IMAGE=${IPSEC_CLIENT_E2E_IMAGE:-ipsec-client-engine:e2e}
+readonly ENGINE_IMAGE=${IPSEC_CLIENT_E2E_ENGINE_IMAGE:-$IMAGE}
+readonly EXPECT_VERSION=${IPSEC_CLIENT_E2E_EXPECT_VERSION:-5.8.2}
 readonly NET=ipsec-client-e2e
 readonly GW=ipsec-client-e2e-gateway
 readonly ENGINE=ipsec-client-e2e-engine
@@ -104,7 +111,7 @@ start_engine() {
         -e IPSEC_CLIENT_IFACE="$IFACE" \
         -e IPSEC_CLIENT_IF_ID="$IF_ID" \
         -e IPSEC_CLIENT_SOCKET_GID="$(id -g)" \
-        "$IMAGE" >/dev/null
+        "$ENGINE_IMAGE" >/dev/null
 
     local sock="$rundir/charon.vici" _
     for _ in $(seq 1 150); do
@@ -179,6 +186,10 @@ main() {
     render_conf initiator.conf 192.0.2.0/24 \
         " --dns '192.0.2.54' --domain '~ipsec-client.test' --use-received-dns"
     render_conf initiator-full.conf 0.0.0.0/0 ""
+    render_conf initiator-modp768.conf 203.0.113.0/24 ""
+    # No IKEv1, a fase 2 só leva um grupo DH (o da primeira proposta): para
+    # oferecer modp768, ele precisa vir primeiro.
+    sed -i 's/esp_proposals = .*/esp_proposals = aes256-sha1-modp768/' "$confdir/initiator-modp768.conf"
     ok "gateway em $gw_ip (rede protegida 192.0.2.0/24)"
 
     # ------------------------------------------------------------------ 1 --
@@ -197,7 +208,7 @@ main() {
     local version
     version=$(python3 -I "$here/vici_version.py" "$rundir/charon.vici") ||
         fail "VICI 'version' falhou como usuário comum"
-    [[ $version == *"version=5.8.2"* ]] || fail "versão inesperada do charon: $version"
+    [[ $version == *"version=$EXPECT_VERSION"* ]] || fail "versão inesperada do charon: $version"
     ok "VICI 'version' como usuário comum: $(grep '^version=' <<<"$version")"
 
     docker inspect "$ENGINE" | grep -qE "$TEST_SECRETS_RE" && fail "segredo visível no docker inspect"
@@ -277,7 +288,7 @@ main() {
     ok "restos removidos: interface recriada, rotas, DNS e SAs"
     # Limitação conhecida: o iproute2 5.5 não remove políticas com if_id.
     policies=$(count_xfrm policy)
-    ok "políticas órfãs (inertes, limitação do iproute2 5.5): $policies"
+    ok "políticas órfãs restantes: $policies (só sobram com o iproute2 5.5 da imagem Docker; são inertes)"
 
     step "Cenário 2: reconexão por cima dos restos"
     # Simula o gateway real descartando a sessão morta (timeout de DPD): o
@@ -317,6 +328,17 @@ main() {
     default_after=$(docker exec "$ENGINE" ip -4 route show default)
     [[ $default_before == "$default_after" ]] || fail "rota padrão alterada"
     ok "updown down removeu as rotas /1 e a rota de host; rota padrão intacta"
+    docker stop -t 10 "$ENGINE" >/dev/null
+
+    # ------------------------------------------------------------------ 4 --
+    step "Cenário 4: PFS só com modp768 (DH1) na fase 2, como VPNs legadas"
+    docker rm "$ENGINE" >/dev/null
+    start_engine isolado
+    connect_tunnel initiator-modp768.conf
+    docker exec "$ENGINE" swanctl --list-sas --uri "$VICI_URI" 2>/dev/null | grep -q "MODP_768" ||
+        fail "a fase 2 não negociou MODP_768"
+    docker exec "$ENGINE" ping -c 2 -W 2 -q 203.0.113.1 >/dev/null || fail "ping com PFS modp768 falhou"
+    ok "fase 2 com PFS MODP_768 negociada e ping 203.0.113.1 pelo túnel"
     docker stop -t 10 "$ENGINE" >/dev/null
 
     step "Resultado"

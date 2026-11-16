@@ -1,6 +1,6 @@
 # ADR-0005: Privilégio mínimo no container
 
-- **Status:** Aceito
+- **Status:** Aceito. No engine embutido, o sandbox é do systemd (ADR-0014).
 - **Data:** 2026-11-15
 
 ## Contexto

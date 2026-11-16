@@ -609,3 +609,65 @@ instala nada além do próprio app.
 - O `core::engine` ganha a trait `EngineBackend`.
 - A lógica do `entrypoint.sh` vai para o helper.
 - O roadmap foi reescrito com as fases A a E.
+
+### Passo 15: prova do engine embutido (`spike/engine-nativo`)
+
+**Objetivo:** provar que dá para tirar o Docker do usuário compilando o próprio
+strongSwan, e escolher a versão.
+
+**Build** (`native-engine/`):
+
+- tarballs oficiais de 6.1.0, 6.0.7, 5.9.14 e 5.8.2, conferidos por **SHA-256
+  fixado** e **assinatura GPG** (chave `948F…BA77`, versionada em
+  `native-engine/keys/`);
+- builder Ubuntu 22.04 (glibc 2.35, a mesma base do AppImage), com o tarball
+  de saída determinístico.
+
+Três tropeços, todos resolvidos:
+
+1. **Plugins ausentes no executável estático.** O charon subia com
+   `aes_plugin_create not found`. Num build estático, os plugins só entram com
+   `--enable-monolithic`, que gera uma tabela de construtores. Para gerá-la, o
+   strongSwan precisa do Python **no build**, que foi acrescentado ao builder.
+2. **O 5.8.2 não linkava** no gcc 11. É o código antigo diante do
+   `-fno-common`, padrão desde o gcc 10. Solução: `-fcommon` só para a 5.8.x.
+3. **Pacote de 12 MB** por causa das bibliotecas `.a` de build. Depois de
+   removê-las, ficam cerca de 1,8 MB compactados e 4 MB instalados, com o
+   charon dependendo **só da glibc** (o gmp ficou estático).
+
+**Teste:**
+
+- `native-engine/spike/` monta uma imagem **Fedora 45** (a mesma glibc 2.44 e o
+  mesmo iproute2 moderno do host do mantenedor) só como substituto do root,
+  porque o modelo real de privilégio é a fase D;
+- o `tests/engine/e2e.sh` ganhou `IPSEC_CLIENT_E2E_ENGINE_IMAGE` e
+  `IPSEC_CLIENT_E2E_EXPECT_VERSION`. O gateway de teste continua sendo o
+  strongSwan 5.8.2 do Ubuntu, imitando as VPNs legadas.
+
+**Novo cenário 4: PFS só com modp768 na fase 2.** O `vpn-legada.conf` do
+mantenedor diz que o gateway "pediu DH1". O primeiro teste falhou e revelou
+uma regra do IKEv1: **a fase 2 só leva um grupo DH, o da primeira proposta**.
+O strongSwan descarta as propostas com outros grupos. Como a lista do
+mantenedor começa com modp1024, a VPN real negocia hoje PFS modp1024. O
+cenário passou a oferecer modp768 primeiro, e agora passa.
+
+**Resultado:** **as quatro versões passaram nos 26 testes** (4 cenários). A
+6.1.0 não registrou nenhum aviso de algoritmo fraco. Bônus: com o iproute2
+moderno, o `entrypoint.sh` agora **remove as políticas XFRM órfãs** (0
+restantes no cenário 2). A limitação antiga só existe na imagem Docker.
+
+**Decisões (ADRs):**
+
+- 0013: engine embutido, sem Docker para o usuário;
+- 0014: helper com privilégio, autorizado uma vez (polkit + `systemd-run` com
+  sandbox);
+- 0015: AppImage + rpm + deb, sem Flatpak;
+- 0016: strongSwan 6.1.0, com a 5.8.2 de reserva.
+
+**Limitação registrada:** sem OpenSSL, não há curvas ECP. O preset IKEv2 de
+exemplo passou a usar `curve25519`.
+
+**CI:** novo job `native-engine` (`npm run test:native`).
+
+**Pendente:** o push e a primeira execução da CI, que dependem do mantenedor,
+porque o ambiente automatizado não tem as credenciais do GitHub.

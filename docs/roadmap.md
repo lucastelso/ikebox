@@ -57,15 +57,15 @@ usuário: App (Tauri 2 + React) ou CLI
 
 | Entrega | Aceite | Status |
 |---|---|---|
-| Push de `main` e dos branches; primeira execução da CI no GitHub | CI verde (ou correções em `fix/ci`) | ⏳ |
+| Push de `main` e dos branches; primeira execução da CI no GitHub | CI verde (ou correções em `fix/ci`) | ⏳ com o mantenedor (o ambiente automatizado não tem credenciais do GitHub) |
 | Validação real do mantenedor (`connect trabalho` + Remmina) | registrada no diário | ⏳ |
 
 ### Fase B: prova do engine embutido (decide o caminho)
 
 | Branch | Entrega | Aceite | Status |
 |---|---|---|---|
-| `spike/engine-nativo` | `native-engine/`: compila o strongSwan num container com glibc antiga, monolítico, com plugins próprios (gmp estático, sem OpenSSL) e tarball verificado. Testa 6.x → 5.9.14 → 5.8.2 | Contra o gateway de teste, com o charon no host: IKEv1 agressivo + PSK + XAuth + modp1024/768, `ipsc0` com `if_id`, VICI pelo usuário, updown, ping. Medir tamanho e dependências | ⏳ |
-| (mesmo) | ADRs 0013 (engine embutido), 0014 (helper + polkit), 0015 (distribuição sem Flatpak), 0016 (versão do strongSwan) | aceitos | ⏳ |
+| `spike/engine-nativo` | `native-engine/`: compila o strongSwan num container com glibc antiga, monolítico, com plugins próprios (gmp estático, sem OpenSSL) e tarball verificado. Testa 6.x → 5.9.14 → 5.8.2 | Contra o gateway de teste, com o charon no host: IKEv1 agressivo + PSK + XAuth + modp1024/768, `ipsc0` com `if_id`, VICI pelo usuário, updown, ping. Medir tamanho e dependências | ✅ as 4 versões passaram nos 26 testes; engine de cerca de 4 MB, dependendo só da glibc |
+| (mesmo) | ADRs 0013 (engine embutido), 0014 (helper + polkit), 0015 (distribuição sem Flatpak), 0016 (versão do strongSwan) | aceitos | ✅ escolhido o strongSwan 6.1.0 (reserva: 5.8.2) |
 
 ### Fase C: interface gráfica
 
@@ -81,7 +81,7 @@ usuário: App (Tauri 2 + React) ou CLI
 
 | Branch | Entrega | Status |
 |---|---|---|
-| `feat/engine-nativo-build` | Build reproduzível do strongSwan na CI | ⏳ |
+| `feat/engine-nativo-build` | Build reproduzível do strongSwan na CI. Em parte adiantado: o build e o E2E já rodam na CI (`npm run test:native`). Falta empacotar no bundle | ⏳ |
 | `feat/helper` | `crates/helper` (root): socket systemd, `SO_PEERCRED` + polkit, charon via `systemd-run` com hardening | ⏳ |
 | `feat/backend-nativo` | Trait `EngineBackend`, com `NativeBackend` (padrão) e `DockerBackend` (testes) | ⏳ |
 | `feat/setup-appimage` | Primeiro uso do AppImage: instala o componente de rede com a senha de administrador, uma vez | ⏳ |

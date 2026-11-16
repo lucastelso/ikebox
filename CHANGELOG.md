@@ -57,3 +57,18 @@ commits.
 - `profiles import-swanctl`: gera o perfil a partir de um `swanctl.conf`
   existente, pulando a seção `secrets` sem lê-la e sem copiar o usuário XAuth.
   O DNS vem por `--dns`/`--domain`.
+- `docs/guia-rapido.md`: passo a passo para quem recebe um perfil exportado.
+- Engine embutido (`native-engine/`): strongSwan compilado a partir do
+  código-fonte oficial (SHA-256 + GPG), estático, sem OpenSSL. O charon
+  depende só da glibc, e o engine inteiro tem cerca de 4 MB. Versões testáveis:
+  6.1.0 (padrão), 6.0.7, 5.9.14 e 5.8.2 (`npm run test:native`). ADRs
+  0013–0016.
+- E2E do engine: cenário 4, com PFS só modp768 (DH1) na fase 2.
+
+### Alterado
+
+- `entrypoint.sh`: caminhos do charon configuráveis
+  (`IPSEC_CLIENT_CHARON`/`IPSEC_CLIENT_STRONGSWAN_D`) e remoção das políticas
+  XFRM órfãs quando o iproute2 aceita `if_id` (o caso do engine embutido).
+- Preset IKEv2 de exemplo: `curve25519` no lugar de `ecp256`, porque o engine
+  embutido não tem ECP.
