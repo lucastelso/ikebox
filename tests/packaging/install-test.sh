@@ -140,7 +140,14 @@ main() {
     step "montando um pacote com engine e helper falsos"
     mkdir -p "$work/root/opt/ipsec-client/engine/etc/strongswan.d" \
         "$work/root/opt/ipsec-client/engine/libexec/ipsec"
-    printf 'strongswan=0.0.0-teste\n' >"$work/root/opt/ipsec-client/engine/BUILDINFO"
+    # O BUILDINFO declara os patches deste commit, como um engine compilado de
+    # verdade: sem isso, o script de produção recusa o engine (ADR-0019).
+    local patches=() patch_file
+    for patch_file in "$repo"/native-engine/patches/*.patch; do
+        patches+=("$(basename "$patch_file"):$(sha256sum "$patch_file" | cut -c1-64)")
+    done
+    printf 'strongswan=0.0.0-teste\npatches=%s\n' "${patches[*]}" \
+        >"$work/root/opt/ipsec-client/engine/BUILDINFO"
     printf '#!/bin/sh\nexit 0\n' >"$work/root/opt/ipsec-client/engine/libexec/ipsec/charon"
     chmod 0755 "$work/root/opt/ipsec-client/engine/libexec/ipsec/charon"
     tar -czf "$work/engine.tar.gz" -C "$work/root" opt
