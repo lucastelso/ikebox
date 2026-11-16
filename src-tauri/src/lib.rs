@@ -19,6 +19,7 @@ pub fn specta_builder() -> Builder<tauri::Wry> {
         .disable_serde_phases()
         .commands(collect_commands![
             commands::app_info,
+            commands::run_diagnostics,
             commands::list_profiles,
             commands::credentials_status,
             commands::connect,

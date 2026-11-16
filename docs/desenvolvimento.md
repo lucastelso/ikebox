@@ -833,3 +833,21 @@ O Rust testa a detecção de tipo, o token de uso único e a validação do DNS.
 
 **Fica para depois:** o editor de perfis (criar, editar, duplicar), que vira
 `feat/ui-editor-perfis` no roadmap.
+
+### Passo 19: o app abre de verdade e a aba Sistema (`feat/ui-diagnostico`)
+
+- **Teste de fumaça do app real.** Um `tauri build --debug --no-bundle` (com o
+  frontend embutido) e a execução por alguns segundos, repetida algumas vezes:
+  o app abre e roda estável na sessão Wayland do mantenedor, sem erros de
+  capability, de plugin ou de CSP. Esse tipo de problema escapa dos testes
+  com mock.
+- **Aba Sistema:**
+  - comando `run_diagnostics`, que reaproveita `core::diagnostics::doctor`, e a
+    lista com ícone por nível e a dica de correção;
+  - tema sistema/claro/escuro em `data-theme` no `<html>`, aplicado antes da
+    primeira renderização e lembrado (localStorage protegido por try/catch);
+  - versão do app e do engine.
+- **Acessibilidade:** o biome recusou `role="radio"` em botão, e o seletor de
+  tema passou a usar `<input type="radio">` de verdade, visualmente oculto,
+  com foco visível no rótulo.
+- 18 testes no frontend.

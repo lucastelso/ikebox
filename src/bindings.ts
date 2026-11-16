@@ -10,6 +10,8 @@ import * as __TAURI_EVENT from "@tauri-apps/api/event";
 export const commands = {
 	/**  Versão do app e do engine. */
 	appInfo: (options?: InvokeOptions) => __TAURI_INVOKE<AppInfo>("app_info", undefined, options),
+	/**  Diagnóstico do ambiente (o mesmo do `ipsec-client-cli doctor`). */
+	runDiagnostics: (options?: InvokeOptions) => __TAURI_INVOKE<DiagnosticCheck[]>("run_diagnostics", undefined, options),
 	/**  Perfis disponíveis. */
 	listProfiles: (options?: InvokeOptions) => typedError<ProfileList, UiError>(__TAURI_INVOKE("list_profiles", undefined, options)),
 	/**  O que o perfil exige e o que já está guardado (sem revelar valores). */
@@ -64,6 +66,15 @@ export type BrokenProfile = {
 	error: string,
 };
 
+/**  Resultado de uma verificação do ambiente. */
+export type CheckLevel = 
+/**  Tudo certo. */
+"ok" | 
+/**  Funciona com limitação. */
+"warn" | 
+/**  Impede a conexão. */
+"fail";
+
 /**  Conexão ativa (sem identidades). */
 export type Connection = {
 	/**  Perfil conectado. */
@@ -116,6 +127,18 @@ export type CredentialsStatus = {
 	maskedUser: string | null,
 	/**  O chaveiro do sistema está disponível ("lembrar" possível)? */
 	keyringAvailable: boolean,
+};
+
+/**  Uma verificação do diagnóstico (o `doctor` do CLI). */
+export type DiagnosticCheck = {
+	/**  O que foi verificado. */
+	name: string,
+	/**  Resultado. */
+	level: CheckLevel,
+	/**  Detalhe. */
+	detail: string,
+	/**  Como corrigir. */
+	hint: string | null,
 };
 
 /**  Tipo do arquivo importado. */
