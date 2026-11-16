@@ -140,7 +140,7 @@ Rules for every phase:
 | Phase | Goal | Delivery | Status |
 |---|---|---|---|
 | 0 | Preparation | old `v0.1.1` tag removed from the remote (it pointed to the pre-rewrite history); this program recorded here | ⏳ (the remote tag is deleted by the maintainer) |
-| 1 | Audit I: credentials, private data, supply chain | [audit report](audits/v0.2.0.md) (part 1), fixes, canary sweep in `test:systemd` | ⏳ |
+| 1 | Audit I: credentials, private data, supply chain | [audit report](audits/v0.2.0.md) (part 1), fixes, canary sweep in `test:systemd` | ✅ (step 37) |
 | 2 | Audit II: privilege boundaries | full report, fixes | ⏳ |
 | 3 | Compatibility across distributions | tested matrix, fixes | ⏳ |
 | 4 | Optimization and base images | measurements, ADR, lighter images and binaries | ⏳ |

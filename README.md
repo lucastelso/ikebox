@@ -267,6 +267,7 @@ The details are in [CONTRIBUTING.md](CONTRIBUTING.md).
 - [How to build and publish a release](docs/release.md)
 - [Current state and how to resume development](docs/resume.md)
 - [Development log](docs/development-log.md)
+- [Audit of 0.2.0](docs/audits/v0.2.0.md)
 - [Security](SECURITY.md) ([pt-BR](docs/pt-BR/seguranca.md)) · [Contributing](CONTRIBUTING.md) · [Changelog](CHANGELOG.md)
 
 ## License

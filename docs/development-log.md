@@ -1371,3 +1371,57 @@ is already extracted next to them and scanned there. Checked both ways: the
 `test:systemd`, `test:packaging`, `test:engine`, `test:docker` and `test:cli`
 green with the English scripts; vitest covers the Portuguese screen and the
 language switch.
+
+### Step 37: audit of 0.2.0, part 1 (credentials, private data, supply chain)
+
+**The maintainer's request:** a new audit of the published 0.2.0 (security,
+no credential leaks, optimization, compatibility, interface), plus lighter
+base images, a better-looking interface and more IPsec modes. It became a
+**program in phases, one per session** (roadmap, "Post-0.2.0 program").
+Decisions: fix clear security, leak or compatibility flaws right away and
+propose the rest; no release until the maintainer decides.
+
+**Repository leftover.** A `git fetch` brought back a `v0.1.1` tag: it had
+been pushed before the email rewrite, and a force push does not delete a
+remote tag that is gone locally. It kept the old history, with the personal
+email, reachable on the remote. Deleted locally; the maintainer deletes it on
+the remote.
+
+**Canary sweep.** New scenario in `test:systemd` (real systemd, helper and
+polkit): connect to the test gateway and look for the test PSK, password and
+username in every regular file, process command line and environment, the
+journal, the unit properties, the CLI output and the exported profile. The
+patterns live in files under `/dev`, which the sweep skips, so that `grep`'s
+own command line does not match.
+
+- PSK and password: **nowhere**, while connected and after disconnecting.
+- Username: the sweep failed on `ipsec-client-cli logs`. The masking only
+  replaced identities the process knew, and the username comes from the
+  credentials: without them in the keyring, another process showed it raw,
+  including in "Copy anonymized".
+- No core dump limit anywhere.
+
+**Fixes:**
+
+- `fix/mask-unknown-identities`: identities are masked by the shape of the
+  charon line as well. The strongSwan source prints identities quoted (184
+  formats), in brackets after an address (26) and, at log level 2, as
+  `xauth_id = value`; those three shapes are masked, and quoted values that
+  are not identities (plugin, config, interface, file) are left alone. The
+  anonymizer applies it after the known replacements and before the
+  addresses.
+- `fix/no-core-dumps`: `RLIMIT_CORE=0` in the app and the CLI (inherited by
+  the webview processes), `LimitCORE=0` in the engine and helper units.
+
+**Supply chain:** `npm audit` and `cargo deny` clean; Actions by SHA, images
+by digest, strongSwan by SHA-256 + GPG; gitleaks and the private data guard
+clean; shipped binaries with PIE, full RELRO and non-executable stack.
+strongSwan 6.1.0 is the latest release and fixes the September 2026 CVEs.
+
+**Strategic finding:** the 6.1.0 announcement says IKEv1 is now disabled by
+default and will be removed in a future release. The embedded build enables
+it, so nothing breaks today, but every supported profile is IKEv1. Recorded
+in the audit report (P1) and in SECURITY.md as an open decision.
+
+**Report:** [audits/v0.2.0.md](audits/v0.2.0.md), with the fixed, proposed
+and accepted findings and what was checked.

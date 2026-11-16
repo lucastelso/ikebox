@@ -271,6 +271,7 @@ Em inglês:
 - [Como gerar e publicar uma versão](docs/release.md)
 - [Estado atual e como retomar o desenvolvimento](docs/resume.md)
 - [Diário de desenvolvimento](docs/development-log.md)
+- [Auditoria da 0.2.0](docs/audits/v0.2.0.md)
 - [Contribuindo](CONTRIBUTING.md) · [Changelog](CHANGELOG.md)
 
 ## Licença

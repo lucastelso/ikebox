@@ -21,7 +21,8 @@ a vulnerability"). Do not open public issues for vulnerabilities.
 | Component installation | The installer checks `SHA256SUMS` on a root-only copy and refuses links and out-of-place paths; removal only runs the root-owned installer (ADR-0018) |
 | Host network | Routes, VIP and DNS only on the dedicated `ipsc0` interface, no global XFRM flush and the physical interface is not touched (ADR-0004) |
 | The user's organization data | Never enters the repository; an automatic guard checks commits, the history and the inside of release packages (ADR-0010) |
-| Shared logs | "Copy anonymized" replaces the gateway, IPs and domains with placeholders before the text leaves the app |
+| Shared logs | Identities (XAuth username, group id, gateway identity) are masked wherever charon prints them, whether or not the app knows them. "Copy anonymized" also replaces the gateway, IPs and domains with placeholders before the text leaves the app |
+| Memory of a crashed process | No core dumps: the app, the CLI, the network component and charon run with the core limit at zero, so a crash does not write credentials or session keys to disk |
 
 ### Known and accepted risks
 
@@ -55,6 +56,16 @@ a vulnerability"). Do not open public issues for vulnerabilities.
    strongSwan 5.8.2 of Ubuntu 20.04, which is out of standard support. The
    fallback privileged mode (`--privileged`) is off. End users do not need
    Docker.
+6. **What other users of the same computer can see.** That a VPN is up, its
+   virtual IP, routes, DNS servers and domains, and the profile id: Linux
+   shows network state to every local user. They cannot read the connection
+   log, talk to its strongSwan or disconnect it. The system journal keeps the
+   unmasked log for administrators (root and the journal groups).
+7. **IKEv1 is being retired upstream.** strongSwan 6.1.0 disables IKEv1 by
+   default (the embedded build enables it) and announced its removal in a
+   future release. The profiles this app supports today are IKEv1; how to
+   keep them working with security fixes is an open decision (see the
+   [audit of 0.2.0](docs/audits/v0.2.0.md), P1).
 
 ### Out of scope
 

@@ -5,6 +5,28 @@ All notable changes to this project are recorded here.
 The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and the project uses [Semantic Versioning](https://semver.org/).
 
+## [Unreleased]
+
+Fixes from the [audit of 0.2.0](docs/audits/v0.2.0.md). They change the
+network component: after updating the app, click "Update" on it.
+
+### Security
+
+- **XAuth username unmasked in logs.** The log masking only knew the
+  identities of the current session. When the credentials were not in the
+  keyring and another process read the log, the username was shown as is in
+  the log panel, in `ipsec-client-cli logs` and in "Copy anonymized".
+  Identities are now masked wherever charon prints them, known or not.
+- **No core dumps.** The app, the CLI, the network component and charon no
+  longer leave a core dump on a crash, which could put credentials and
+  session keys on disk.
+
+### Changed
+
+- `npm run test:systemd` has a canary sweep: it looks for the test
+  credentials in every file, process, journal entry, unit property and CLI
+  output while connected and after disconnecting.
+
 ## [0.2.0] - 2026-11-16
 
 Security, privacy and internationalization release, the result of a security
