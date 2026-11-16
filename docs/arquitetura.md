@@ -123,6 +123,19 @@ da `ipsc0`.
 | `SharedSecret` | Segredo para o `load-shared` (`IKE`/`XAUTH`/`EAP`), com dados zerados e `Debug` sem dados nem donos |
 | `IkeSa`/`ChildSa`/`CharonEvent` | Respostas e eventos tipados, **sem identidades**. As linhas de log (`CharonEvent::Log`) podem conter o usuário XAuth, e quem exibe deve mascarar |
 
+## Módulo `core::profiles` (Rust)
+
+| Item | O que faz |
+|---|---|
+| `Profile` | Modelo serde (`deny_unknown_fields`), sem credenciais. Formato em [perfis.md](perfis.md) |
+| `validate` | Devolve **todos** os problemas, campo a campo (para a UI). Protege o `load-conn` e o `updown` |
+| `Profile::to_load_conn` | Gera a mensagem VICI. O usuário XAuth vem de `ConnParams`, nunca do perfil |
+| `Profile::updown_command` | Argumentos entre aspas simples. `shell_quote` recusa aspas e caracteres de controle, como segunda barreira |
+| `Profile::if_id` | Derivado do id do perfil (SHA-256 → 1..=2³¹-1) |
+| `Profile::required_credentials` | `psk`, ou `psk` + `xauth-user` + `xauth-password` |
+| `ProfileStore` | `list`/`load`/`save` (atômico, 0600 em diretório 0700)/`delete`/`import` (limite de 1 MiB, recusa sobrescrever)/`export` |
+| `parse_profile` | Confere `schema_version` antes do resto, que é o ponto de entrada de migrações futuras |
+
 ## Fluxo de conexão (`core::session`)
 
 1. **Preflight:**

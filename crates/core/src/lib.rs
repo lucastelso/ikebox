@@ -12,6 +12,7 @@
 //! - `diagnostics`: verificações do ambiente.
 
 pub mod engine;
+pub mod profiles;
 pub mod vici;
 
 /// Versão do núcleo (a mesma do workspace).

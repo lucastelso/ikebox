@@ -1,0 +1,32 @@
+{
+  "schema_version": 1,
+  "id": "gateway-teste",
+  "name": "Gateway IPsec de teste (local)",
+  "gateway": "gw.ipsec-client.test",
+  "ike": {
+    "version": 1,
+    "aggressive": true,
+    "encap": true,
+    "proposals": ["aes256-sha1-modp1024", "aes128-sha1-modp1024"],
+    "rekey_time_secs": 86400,
+    "dpd_delay_secs": 30
+  },
+  "auth": {
+    "method": "psk-xauth",
+    "local_id": "keyid:grupo-teste"
+  },
+  "child": {
+    "name": "rede-teste",
+    "esp_proposals": ["aes256-sha1-modp1024", "aes256-sha1-modp768", "aes128-sha1-modp1024"],
+    "rekey_time_secs": 43200,
+    "remote_ts": ["192.0.2.0/24"],
+    "dpd_action": "restart",
+    "close_action": "restart"
+  },
+  "network": {
+    "dns": {
+      "domains": ["~ipsec-client.test"],
+      "use_received": true
+    }
+  }
+}

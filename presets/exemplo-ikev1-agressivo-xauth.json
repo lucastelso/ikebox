@@ -1,0 +1,36 @@
+{
+  "schema_version": 1,
+  "id": "exemplo-legado",
+  "name": "Exemplo: VPN legada (IKEv1 agressivo, PSK de grupo + XAuth)",
+  "gateway": "vpn.example.com",
+  "ike": {
+    "version": 1,
+    "aggressive": true,
+    "encap": true,
+    "proposals": ["aes256-sha1-modp1024", "aes128-sha1-modp1024"],
+    "rekey_time_secs": 86400,
+    "dpd_delay_secs": 30
+  },
+  "auth": {
+    "method": "psk-xauth",
+    "local_id": "keyid:nome-do-grupo"
+  },
+  "child": {
+    "name": "rede-interna",
+    "esp_proposals": ["aes256-sha1-modp1024", "aes256-sha1-modp768", "aes128-sha1-modp1024"],
+    "rekey_time_secs": 43200,
+    "remote_ts": ["192.0.2.0/24"],
+    "dpd_action": "restart",
+    "close_action": "restart"
+  },
+  "network": {
+    "request_vip": true,
+    "mtu": 1400,
+    "dns": {
+      "servers": ["192.0.2.53"],
+      "domains": ["~corp.example.com"],
+      "use_received": false,
+      "default_route": false
+    }
+  }
+}

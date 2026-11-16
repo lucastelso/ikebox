@@ -37,3 +37,8 @@ commits.
   drop, conexões de comandos e de eventos e a trait `Charon` tipada. Um teste
   de integração estabelece um túnel IPsec completo contra o gateway de teste
   só pelo Rust.
+- `core::profiles`: perfil JSON (schema 1, sem credenciais), validação campo a
+  campo, geração do `load-conn` e do `updown` (aspas simples + validação),
+  `if_id` por perfil e store com gravação atômica e permissões privadas. Inclui
+  os presets genéricos `presets/`, o guia `docs/perfis.md` (com a
+  correspondência swanctl → perfil) e o ADR-0012.
