@@ -1,42 +1,42 @@
 #!/usr/bin/env bash
-# Teste ponta a ponta do engine, SEM nenhuma VPN real.
+# End-to-end test of the engine, WITHOUT any real VPN.
 #
-# Sobe um gateway IPsec de teste (IKEv1 agressivo, PSK de grupo + XAuth,
-# modp1024/768) numa rede Docker isolada e conecta o engine a ele do mesmo jeito
-# que o app vai fazer (--network host, só NET_ADMIN). Verifica:
+# Starts a test IPsec gateway (IKEv1 aggressive, group PSK + XAuth,
+# modp1024/768) on an isolated Docker network and connects the engine to it the
+# same way the app does (--network host, NET_ADMIN only). Checks:
 #
-#   cenário 1, ciclo normal:
-#     interface XFRM + MTU, socket VICI (dono/permissão, `version` como usuário
-#     comum), docker inspect sem segredos, VIP, rota, DNS split, ping pelo
-#     túnel; depois do `docker stop`, que não sobrou nada (interface, rotas,
-#     políticas/SAs XFRM com o if_id, socket).
-#   cenário 2, recuperação após SIGKILL:
-#     o engine morre sem limpar e o próximo engine remove os restos.
-#   cenário 3, túnel completo (0.0.0.0/0) em rede isolada.
-#   cenário 4, PFS só com modp768 (DH1) na fase 2.
-#   cenário 5 (só no engine embutido, IPSEC_CLIENT_E2E_FORCED=1): um cliente
-#     VICI malicioso tenta escolher o updown (que roda como root) e o if_id;
-#     o charon com o patch do IPsec Client ignora os dois (ADR-0019).
+#   scenario 1, normal cycle:
+#     XFRM interface + MTU, VICI socket (owner/permissions, `version` as a
+#     regular user), docker inspect without secrets, VIP, route, split DNS,
+#     ping through the tunnel; after `docker stop`, that nothing is left
+#     (interface, routes, XFRM policies/SAs with the if_id, socket).
+#   scenario 2, recovery after SIGKILL:
+#     the engine dies without cleaning up and the next engine removes the leftovers.
+#   scenario 3, full tunnel (0.0.0.0/0) on an isolated network.
+#   scenario 4, PFS with modp768 (DH1) only in phase 2.
+#   scenario 5 (embedded engine only, IPSEC_CLIENT_E2E_FORCED=1): a malicious
+#     VICI client tries to pick the updown (which runs as root) and the if_id;
+#     charon with the IPsec Client patch ignores both (ADR-0019).
 #
-# Altera o host só temporariamente: cria a interface ipsct0 (nome e if_id
-# próprios do teste, para não colidir com uma sessão real), rotas para
-# 192.0.2.0/24 (RFC 5737) e DNS de ~ipsec-client.test nessa interface.
+# Changes the host only temporarily: creates the ipsct0 interface (name and
+# if_id of its own, so it does not collide with a real session), routes to
+# 192.0.2.0/24 (RFC 5737) and DNS for ~ipsec-client.test on that interface.
 #
-# Requisitos: Docker (usuário no grupo docker), python3, iproute2, ping,
-# systemd-resolved e as portas UDP 500/4500 livres.
+# Requirements: Docker (user in the docker group), python3, iproute2, ping,
+# systemd-resolved and free UDP ports 500/4500.
 
 set -euo pipefail
 
 repo_root=$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)
 here="$repo_root/tests/engine"
 
-# IMAGE: gateway de teste (strongSwan 5.8.2 validado) e utilitários.
-# ENGINE_IMAGE: o engine testado (padrão: a mesma imagem; o spike do engine
-# embutido passa outra, com o strongSwan compilado por nós).
+# IMAGE: test gateway (validated strongSwan 5.8.2) and utilities.
+# ENGINE_IMAGE: the engine under test (default: the same image; the embedded
+# engine spike passes another one, with the strongSwan we compile).
 readonly IMAGE=${IPSEC_CLIENT_E2E_IMAGE:-ipsec-client-engine:e2e}
 readonly ENGINE_IMAGE=${IPSEC_CLIENT_E2E_ENGINE_IMAGE:-$IMAGE}
 readonly EXPECT_VERSION=${IPSEC_CLIENT_E2E_EXPECT_VERSION:-5.8.2}
-# 1 = engine embutido: updown/if_id forçados pelo root e socket do uid (0600).
+# 1 = embedded engine: updown/if_id forced by root and a uid-owned socket (0600).
 readonly FORCED=${IPSEC_CLIENT_E2E_FORCED:-0}
 readonly UPDOWN=/usr/local/libexec/ipsec-client/updown
 readonly NET=ipsec-client-e2e
@@ -56,15 +56,15 @@ fail() {
     printf '  \033[0;31m✘ %s\033[0m\n' "$*" >&2
     exit 1
 }
-need() { command -v "$1" >/dev/null 2>&1 || fail "comando necessário não encontrado: $1"; }
+need() { command -v "$1" >/dev/null 2>&1 || fail "required command not found: $1"; }
 
 workdir=""
 rundir=""
 confdir=""
 gw_ip=""
 
-# Roda `ip` com privilégio, num container descartável na rede do host.
-# A saída de `ip xfrm state` contém chaves: só é usada para contar, nunca impressa.
+# Runs `ip` with privileges, in a throwaway container on the host network.
+# The output of `ip xfrm state` contains keys: it is only counted, never printed.
 host_ip() {
     docker run --rm --network host --cap-add NET_ADMIN --security-opt label=disable \
         --entrypoint ip "$IMAGE" "$@"
@@ -94,10 +94,11 @@ cleanup() {
 }
 
 # start_engine [host|isolado]
-#   host:    como o app sobe (--network host + D-Bus do host).
-#   isolado: no namespace de rede da rede de teste e SEM o D-Bus do host. O
-#            resolvectl resolve o índice da interface no namespace dele e
-#            poderia configurar a interface errada no systemd-resolved do host.
+#   host:    the way the app starts it (--network host + the host D-Bus).
+#   isolado: in the network namespace of the test network and WITHOUT the host
+#            D-Bus. resolvectl resolves the interface index in its own
+#            namespace and could configure the wrong interface in the host's
+#            systemd-resolved.
 start_engine() {
     local mode=${1:-host} net_args
     if [[ $mode == host ]]; then
@@ -134,14 +135,14 @@ start_engine() {
 
     local sock="$rundir/charon.vici" _
     for _ in $(seq 1 150); do
-        if docker logs "$ENGINE" 2>&1 | grep -q '^\[engine\] pronto'; then
-            [[ -S $sock ]] || fail "engine pronto, mas sem socket VICI"
+        if grep -q '^\[engine\] ready' < <(docker logs "$ENGINE" 2>&1); then
+            [[ -S $sock ]] || fail "engine ready, but no VICI socket"
             return 0
         fi
-        [[ $(docker inspect -f '{{.State.Running}}' "$ENGINE") == true ]] || fail "o engine parou durante a inicialização"
+        [[ $(docker inspect -f '{{.State.Running}}' "$ENGINE") == true ]] || fail "the engine stopped during startup"
         sleep 0.1
     done
-    fail "o engine não ficou pronto em 15 s"
+    fail "the engine did not become ready within 15 s"
 }
 
 # render_conf ARQUIVO TS_REMOTO ARGS_EXTRAS_DO_UPDOWN
@@ -157,24 +158,24 @@ connect_tunnel() {
     docker exec "$ENGINE" swanctl --load-all --uri "$VICI_URI" --file "/test/$conf" \
         >"$workdir/load.log" 2>&1 || {
         cat "$workdir/load.log"
-        fail "swanctl --load-all falhou"
+        fail "swanctl --load-all failed"
     }
     docker exec "$ENGINE" swanctl --initiate --uri "$VICI_URI" --child rede-teste --timeout 30 \
         >"$workdir/initiate.log" 2>&1 || {
         cat "$workdir/initiate.log"
-        fail "a negociação IKE falhou"
+        fail "the IKE negotiation failed"
     }
 }
 
 main() {
-    step "Pré-requisitos"
+    step "Prerequisites"
     for cmd in docker python3 ip ss ping resolvectl stat; do need "$cmd"; done
-    docker info >/dev/null 2>&1 || fail "o Docker não está acessível (usuário no grupo docker?)"
-    [[ -S /run/dbus/system_bus_socket ]] || fail "socket D-Bus do sistema ausente"
+    docker info >/dev/null 2>&1 || fail "Docker is not reachable (user in the docker group?)"
+    [[ -S /run/dbus/system_bus_socket ]] || fail "system D-Bus socket missing"
     if [[ -n $(ss -Hlun '( sport = :500 or sport = :4500 )') ]]; then
-        fail "UDP 500/4500 em uso no host (outra VPN IPsec conectada?)"
+        fail "UDP 500/4500 in use on the host (another IPsec VPN connected?)"
     fi
-    ip link show "$IFACE" >/dev/null 2>&1 && fail "a interface $IFACE já existe"
+    ip link show "$IFACE" >/dev/null 2>&1 && fail "the $IFACE interface already exists"
     docker rm -f "$ENGINE" "$GW" >/dev/null 2>&1 || true
     docker network rm "$NET" >/dev/null 2>&1 || true
     trap cleanup EXIT
@@ -183,25 +184,25 @@ main() {
     rundir="$workdir/run"
     confdir="$workdir/conf"
     mkdir -m 0700 "$rundir" "$confdir"
-    ok "ambiente pronto"
+    ok "environment ready"
 
-    step "Build da imagem do engine ($IMAGE)"
+    step "Engine image build ($IMAGE)"
     docker build -q -t "$IMAGE" "$repo_root/engine" >/dev/null
-    ok "imagem construída"
+    ok "image built"
 
-    step "Gateway IPsec de teste"
+    step "Test IPsec gateway"
     docker network create "$NET" >/dev/null
     docker run -d --name "$GW" --network "$NET" --cap-add NET_ADMIN \
         --security-opt label=disable \
         -v "$here/gateway:/test:ro" --entrypoint /test/gateway.sh "$IMAGE" >/dev/null
     local _
     for _ in $(seq 1 150); do
-        docker logs "$GW" 2>&1 | grep -q '\[gateway-teste\] pronto' && break
+        grep -q '\[test-gateway\] ready' < <(docker logs "$GW" 2>&1) && break
         sleep 0.1
     done
-    docker logs "$GW" 2>&1 | grep -q '\[gateway-teste\] pronto' || fail "o gateway de teste não subiu"
+    grep -q '\[test-gateway\] ready' < <(docker logs "$GW" 2>&1) || fail "the test gateway did not start"
     gw_ip=$(docker inspect -f '{{range .NetworkSettings.Networks}}{{.IPAddress}}{{end}}' "$GW")
-    [[ $gw_ip =~ ^[0-9]+(\.[0-9]+){3}$ ]] || fail "IP do gateway inválido: $gw_ip"
+    [[ $gw_ip =~ ^[0-9]+(\.[0-9]+){3}$ ]] || fail "invalid gateway IP: $gw_ip"
     render_conf initiator.conf 192.0.2.0/24 \
         " --dns '192.0.2.54' --domain '~ipsec-client.test' --use-received-dns"
     render_conf initiator-full.conf 0.0.0.0/0 ""
@@ -215,190 +216,190 @@ main() {
     # No IKEv1, a fase 2 só leva um grupo DH (o da primeira proposta): para
     # oferecer modp768, ele precisa vir primeiro.
     sed -i 's/esp_proposals = .*/esp_proposals = aes256-sha1-modp768/' "$confdir/initiator-modp768.conf"
-    ok "gateway em $gw_ip (rede protegida 192.0.2.0/24)"
+    ok "gateway at $gw_ip (protected network 192.0.2.0/24)"
 
     # ------------------------------------------------------------------ 1 --
-    step "Cenário 1: engine sobe como o app sobe"
+    step "Scenario 1: the engine starts the way the app starts it"
     start_engine
     local link
     link=$(ip -d link show "$IFACE")
-    [[ $link == *"mtu 1400"* ]] || fail "MTU da $IFACE não é 1400"
-    [[ $link == *xfrm* && $link == *"if_id $HEX_ID"* ]] || fail "$IFACE não é XFRM com if_id $HEX_ID"
-    ok "$IFACE: interface XFRM, if_id $HEX_ID, MTU 1400"
+    [[ $link == *"mtu 1400"* ]] || fail "MTU of $IFACE is not 1400"
+    [[ $link == *xfrm* && $link == *"if_id $HEX_ID"* ]] || fail "$IFACE is not XFRM with if_id $HEX_ID"
+    ok "$IFACE: XFRM interface, if_id $HEX_ID, MTU 1400"
 
     if ((FORCED)); then
         [[ $(stat -c '%a %u' "$rundir/charon.vici") == "600 $(id -u)" ]] ||
-            fail "socket VICI sem 0600/uid do usuário"
-        ok "socket VICI 0600, dono $(id -u)"
+            fail "VICI socket without 0600/user uid"
+        ok "VICI socket 0600, owner $(id -u)"
     else
         [[ $(stat -c '%a %g' "$rundir/charon.vici") == "660 $(id -g)" ]] ||
-            fail "socket VICI sem 0660/gid do usuário"
-        ok "socket VICI 0660, grupo $(id -g)"
+            fail "VICI socket without 0660/user gid"
+        ok "VICI socket 0660, group $(id -g)"
     fi
 
     local version
     version=$(python3 -I "$here/vici_version.py" "$rundir/charon.vici") ||
-        fail "VICI 'version' falhou como usuário comum"
-    [[ $version == *"version=$EXPECT_VERSION"* ]] || fail "versão inesperada do charon: $version"
-    ok "VICI 'version' como usuário comum: $(grep '^version=' <<<"$version")"
+        fail "VICI 'version' failed as a regular user"
+    [[ $version == *"version=$EXPECT_VERSION"* ]] || fail "unexpected charon version: $version"
+    ok "VICI 'version' as a regular user: $(grep '^version=' <<<"$version")"
 
-    docker inspect "$ENGINE" | grep -qE "$TEST_SECRETS_RE" && fail "segredo visível no docker inspect"
-    ok "docker inspect sem segredos"
+    grep -qE "$TEST_SECRETS_RE" < <(docker inspect "$ENGINE") && fail "secret visible in docker inspect"
+    ok "docker inspect without secrets"
 
-    step "Cenário 1: negociação (IKEv1 agressivo + PSK + XAuth)"
+    step "Scenario 1: negotiation (IKEv1 aggressive + PSK + XAuth)"
     connect_tunnel
-    ok "túnel estabelecido"
+    ok "tunnel established"
 
-    if docker logs "$ENGINE" 2>&1 | grep -qE "$TEST_SECRETS_RE" ||
+    if grep -qE "$TEST_SECRETS_RE" < <(docker logs "$ENGINE" 2>&1) ||
         grep -qE "$TEST_SECRETS_RE" "$workdir/load.log" "$workdir/initiate.log"; then
-        fail "PSK ou senha XAuth apareceu nos logs do charon"
+        fail "PSK or XAuth password showed up in the charon logs"
     fi
-    ok "logs do charon (nível 1) sem PSK nem senha XAuth"
+    ok "charon logs (level 1) without PSK or XAuth password"
 
     local vip
     vip=$(ip -4 -o addr show dev "$IFACE" | awk '{ print $4 }' | cut -d/ -f1 | head -n 1)
-    [[ $vip == 198.51.100.* ]] || fail "VIP não instalado na $IFACE (achei: '${vip:-nada}')"
-    ok "VIP $vip na $IFACE"
+    [[ $vip == 198.51.100.* ]] || fail "VIP not installed on $IFACE (found: '${vip:-nothing}')"
+    ok "VIP $vip on $IFACE"
 
     local route
     route=$(ip -4 route show dev "$IFACE" proto "$RT_PROTO")
-    [[ $route == *"192.0.2.0/24"* && $route == *"src $vip"* ]] || fail "rota 192.0.2.0/24 ausente: '$route'"
-    ok "rota 192.0.2.0/24 dev $IFACE src $vip (proto $RT_PROTO)"
+    [[ $route == *"192.0.2.0/24"* && $route == *"src $vip"* ]] || fail "route 192.0.2.0/24 missing: '$route'"
+    ok "route 192.0.2.0/24 dev $IFACE src $vip (proto $RT_PROTO)"
 
     local dns domains default_route
     dns=$(resolvectl dns "$IFACE")
     domains=$(resolvectl domain "$IFACE")
     default_route=$(resolvectl default-route "$IFACE")
-    [[ $dns == *192.0.2.54* ]] || fail "DNS fixo ausente: $dns"
-    [[ $dns == *192.0.2.53* ]] || fail "DNS recebido do gateway ausente: $dns"
-    [[ $domains == *"~ipsec-client.test"* ]] || fail "domínio ausente: $domains"
-    [[ $default_route == *no ]] || fail "default-route deveria ser 'no': $default_route"
-    ok "DNS split: 192.0.2.54 (fixo) + 192.0.2.53 (recebido), ~ipsec-client.test, sem default-route"
+    [[ $dns == *192.0.2.54* ]] || fail "static DNS missing: $dns"
+    [[ $dns == *192.0.2.53* ]] || fail "DNS received from the gateway missing: $dns"
+    [[ $domains == *"~ipsec-client.test"* ]] || fail "domain missing: $domains"
+    [[ $default_route == *no ]] || fail "default-route should be 'no': $default_route"
+    ok "split DNS: 192.0.2.54 (static) + 192.0.2.53 (received), ~ipsec-client.test, no default-route"
 
-    ping -c 3 -W 2 -q 192.0.2.1 >/dev/null || fail "ping 192.0.2.1 pelo túnel falhou"
-    ok "ping 192.0.2.1 pelo túnel"
+    ping -c 3 -W 2 -q 192.0.2.1 >/dev/null || fail "ping 192.0.2.1 through the tunnel failed"
+    ok "ping 192.0.2.1 through the tunnel"
 
     local policies states
     policies=$(count_xfrm policy)
     states=$(count_xfrm state)
-    ((policies >= 2 && states >= 2)) || fail "XFRM sem políticas/SAs com if_id ($policies/$states)"
-    ok "XFRM: $policies políticas e $states SAs com if_id $HEX_ID"
+    ((policies >= 2 && states >= 2)) || fail "XFRM without policies/SAs with the if_id ($policies/$states)"
+    ok "XFRM: $policies policies and $states SAs with if_id $HEX_ID"
 
-    ip -4 route show default | grep -q "dev $IFACE" &&
-        fail "rota padrão foi alterada (split tunnel esperado)"
-    ok "rota padrão do host intacta"
+    grep -q "dev $IFACE" < <(ip -4 route show default) &&
+        fail "the default route was changed (split tunnel expected)"
+    ok "host default route intact"
 
-    step "Cenário 1: desconexão (docker stop)"
+    step "Scenario 1: disconnection (docker stop)"
     docker stop -t 10 "$ENGINE" >/dev/null
-    [[ $(docker inspect -f '{{.State.ExitCode}}' "$ENGINE") == 0 ]] || fail "o entrypoint não saiu com 0"
-    ip link show "$IFACE" >/dev/null 2>&1 && fail "a $IFACE sobrou"
-    [[ -z $(ip -4 route show proto "$RT_PROTO")$(ip -6 route show proto "$RT_PROTO") ]] || fail "sobraram rotas proto $RT_PROTO"
-    [[ ! -e "$rundir/charon.vici" ]] || fail "o socket VICI sobrou"
+    [[ $(docker inspect -f '{{.State.ExitCode}}' "$ENGINE") == 0 ]] || fail "the entrypoint did not exit with 0"
+    ip link show "$IFACE" >/dev/null 2>&1 && fail "$IFACE was left over"
+    [[ -z $(ip -4 route show proto "$RT_PROTO")$(ip -6 route show proto "$RT_PROTO") ]] || fail "proto $RT_PROTO routes were left over"
+    [[ ! -e "$rundir/charon.vici" ]] || fail "the VICI socket was left over"
     policies=$(count_xfrm policy)
     states=$(count_xfrm state)
-    ((policies == 0 && states == 0)) || fail "sobrou XFRM com if_id ($policies políticas, $states SAs)"
-    ok "nada sobrou: interface, rotas, DNS, XFRM e socket"
+    ((policies == 0 && states == 0)) || fail "XFRM with the if_id left over ($policies policies, $states SAs)"
+    ok "nothing left: interface, routes, DNS, XFRM and socket"
     docker rm "$ENGINE" >/dev/null
 
     # ------------------------------------------------------------------ 2 --
-    step "Cenário 2: engine morto com SIGKILL (sem limpeza)"
+    step "Scenario 2: engine killed with SIGKILL (no cleanup)"
     start_engine
     connect_tunnel
     docker kill -s KILL "$ENGINE" >/dev/null
     docker rm "$ENGINE" >/dev/null
-    ip link show "$IFACE" >/dev/null 2>&1 || fail "esperava restos da sessão morta"
-    ok "restos presentes: $IFACE, $(count_xfrm policy) políticas, $(count_xfrm state) SAs"
+    ip link show "$IFACE" >/dev/null 2>&1 || fail "expected leftovers from the dead session"
+    ok "leftovers present: $IFACE, $(count_xfrm policy) policies, $(count_xfrm state) SAs"
 
-    step "Cenário 2: o próximo engine limpa os restos"
+    step "Scenario 2: the next engine cleans up the leftovers"
     start_engine
     route=$(ip -4 route show dev "$IFACE")
-    [[ -z $route ]] || fail "rotas antigas na $IFACE: $route"
-    [[ $(resolvectl dns "$IFACE") != *192.0.2.* ]] || fail "DNS antigo na $IFACE"
+    [[ -z $route ]] || fail "old routes on $IFACE: $route"
+    [[ $(resolvectl dns "$IFACE") != *192.0.2.* ]] || fail "old DNS on $IFACE"
     states=$(count_xfrm state)
-    ((states == 0)) || fail "sobraram $states SAs com if_id"
-    ok "restos removidos: interface recriada, rotas, DNS e SAs"
+    ((states == 0)) || fail "$states SAs with the if_id were left over"
+    ok "leftovers removed: interface recreated, routes, DNS and SAs"
     # Limitação conhecida: o iproute2 5.5 não remove políticas com if_id.
     policies=$(count_xfrm policy)
-    ok "políticas órfãs restantes: $policies (só sobram com o iproute2 5.5 da imagem Docker; são inertes)"
+    ok "remaining orphan policies: $policies (only with the iproute2 5.5 of the Docker image; they are inert)"
 
-    step "Cenário 2: reconexão por cima dos restos"
+    step "Scenario 2: reconnecting on top of the leftovers"
     # Simula o gateway real descartando a sessão morta (timeout de DPD): o
     # mesmo usuário recebe de volta o mesmo VIP, e o charon substitui as
     # políticas órfãs (que têm o mesmo seletor) e as remove ao sair. Sem isso,
     # elas continuariam inertes no kernel de quem roda o teste.
     docker exec "$GW" swanctl --terminate --ike gateway-teste --force --timeout 2 >/dev/null 2>&1 || true
     connect_tunnel
-    [[ $(ip -4 -o addr show dev "$IFACE") == *" $vip/"* ]] || fail "esperava o mesmo VIP $vip na reconexão"
-    ping -c 3 -W 2 -q 192.0.2.1 >/dev/null || fail "ping pelo túnel novo falhou"
-    ok "túnel novo funciona (ping 192.0.2.1)"
+    [[ $(ip -4 -o addr show dev "$IFACE") == *" $vip/"* ]] || fail "expected the same VIP $vip on reconnection"
+    ping -c 3 -W 2 -q 192.0.2.1 >/dev/null || fail "ping through the new tunnel failed"
+    ok "new tunnel works (ping 192.0.2.1)"
     docker stop -t 10 "$ENGINE" >/dev/null
-    ip link show "$IFACE" >/dev/null 2>&1 && fail "a $IFACE sobrou"
+    ip link show "$IFACE" >/dev/null 2>&1 && fail "$IFACE was left over"
     policies=$(count_xfrm policy)
     states=$(count_xfrm state)
-    ((policies == 0 && states == 0)) || fail "sobrou XFRM com if_id ($policies políticas, $states SAs)"
-    ok "o charon substituiu as políticas órfãs e removeu tudo ao sair"
+    ((policies == 0 && states == 0)) || fail "XFRM with the if_id left over ($policies policies, $states SAs)"
+    ok "charon replaced the orphan policies and removed everything on exit"
 
     # ------------------------------------------------------------------ 3 --
-    step "Cenário 3: túnel completo (0.0.0.0/0), engine em rede isolada"
+    step "Scenario 3: full tunnel (0.0.0.0/0), engine on an isolated network"
     docker rm "$ENGINE" >/dev/null
     start_engine isolado
     connect_tunnel initiator-full.conf
     local routes default_before default_after
     routes=$(docker exec "$ENGINE" ip -4 route show proto "$RT_PROTO")
     [[ $routes == *"0.0.0.0/1 dev $IFACE"* && $routes == *"128.0.0.0/1 dev $IFACE"* ]] ||
-        fail "rotas /1 do túnel completo ausentes: $routes"
-    [[ $routes == *"$gw_ip "*"dev eth0"* ]] || fail "rota de host para o gateway ausente: $routes"
-    ok "rotas 0.0.0.0/1 + 128.0.0.0/1 via $IFACE e rota de host para $gw_ip via eth0"
+        fail "full tunnel /1 routes missing: $routes"
+    [[ $routes == *"$gw_ip "*"dev eth0"* ]] || fail "host route to the gateway missing: $routes"
+    ok "routes 0.0.0.0/1 + 128.0.0.0/1 via $IFACE and host route to $gw_ip via eth0"
     default_before=$(docker exec "$ENGINE" ip -4 route show default)
-    docker exec "$ENGINE" ping -c 3 -W 2 -q 192.0.2.1 >/dev/null || fail "ping pelo túnel completo falhou"
-    ok "ping 192.0.2.1 pelo túnel completo (o IKE/ESP não entrou em loop)"
+    docker exec "$ENGINE" ping -c 3 -W 2 -q 192.0.2.1 >/dev/null || fail "ping through the full tunnel failed"
+    ok "ping 192.0.2.1 through the full tunnel (IKE/ESP did not loop)"
     docker exec "$ENGINE" swanctl --terminate --uri "$VICI_URI" --ike teste --timeout 10 >/dev/null 2>&1 ||
-        fail "terminate falhou"
+        fail "terminate failed"
     routes=$(docker exec "$ENGINE" ip -4 route show proto "$RT_PROTO")
-    [[ -z $routes ]] || fail "rotas do túnel completo sobraram após o down: $routes"
+    [[ -z $routes ]] || fail "full tunnel routes left over after down: $routes"
     default_after=$(docker exec "$ENGINE" ip -4 route show default)
-    [[ $default_before == "$default_after" ]] || fail "rota padrão alterada"
-    ok "updown down removeu as rotas /1 e a rota de host; rota padrão intacta"
+    [[ $default_before == "$default_after" ]] || fail "default route changed"
+    ok "updown down removed the /1 routes and the host route; default route intact"
     docker stop -t 10 "$ENGINE" >/dev/null
 
     # ------------------------------------------------------------------ 4 --
-    step "Cenário 4: PFS só com modp768 (DH1) na fase 2, como VPNs legadas"
+    step "Scenario 4: PFS with modp768 (DH1) only in phase 2, like legacy VPNs"
     docker rm "$ENGINE" >/dev/null
     start_engine isolado
     connect_tunnel initiator-modp768.conf
-    docker exec "$ENGINE" swanctl --list-sas --uri "$VICI_URI" 2>/dev/null | grep -q "MODP_768" ||
-        fail "a fase 2 não negociou MODP_768"
-    docker exec "$ENGINE" ping -c 2 -W 2 -q 203.0.113.1 >/dev/null || fail "ping com PFS modp768 falhou"
-    ok "fase 2 com PFS MODP_768 negociada e ping 203.0.113.1 pelo túnel"
+    grep -q "MODP_768" < <(docker exec "$ENGINE" swanctl --list-sas --uri "$VICI_URI" 2>/dev/null) ||
+        fail "phase 2 did not negotiate MODP_768"
+    docker exec "$ENGINE" ping -c 2 -W 2 -q 203.0.113.1 >/dev/null || fail "ping with modp768 PFS failed"
+    ok "phase 2 with MODP_768 PFS negotiated and ping 203.0.113.1 through the tunnel"
     docker stop -t 10 "$ENGINE" >/dev/null
 
     # ------------------------------------------------------------------ 5 --
     if ((FORCED)); then
-        step "Cenário 5: cliente VICI malicioso (updown e if_id próprios)"
+        step "Scenario 5: malicious VICI client (its own updown and if_id)"
         docker rm "$ENGINE" >/dev/null
         start_engine
         connect_tunnel initiator-evil.conf
-        [[ ! -e "$rundir/PWNED" ]] || fail "o charon executou o updown do cliente (como root)"
-        docker logs "$ENGINE" 2>&1 | grep -q "ignoring updown command supplied by client" ||
-            fail "o charon não registrou que ignorou o updown do cliente"
-        ok "updown do cliente ignorado: nenhum comando dele rodou"
+        [[ ! -e "$rundir/PWNED" ]] || fail "charon ran the client updown (as root)"
+        grep -q "ignoring updown command supplied by client" < <(docker logs "$ENGINE" 2>&1) ||
+            fail "charon did not log that it ignored the client updown"
+        ok "client updown ignored: none of its commands ran"
         route=$(ip -4 route show dev "$IFACE" proto "$RT_PROTO")
-        [[ $route == *"192.0.2.0/24"* ]] || fail "o updown forçado não instalou a rota: '$route'"
+        [[ $route == *"192.0.2.0/24"* ]] || fail "the forced updown did not install the route: '$route'"
         [[ $(resolvectl domain "$IFACE") == *"~ipsec-client.test"* ]] ||
-            fail "o updown forçado não aplicou o DNS do root"
-        ok "o updown forçado rodou: rota 192.0.2.0/24 e DNS ~ipsec-client.test"
+            fail "the forced updown did not apply the DNS from root"
+        ok "the forced updown ran: route 192.0.2.0/24 and DNS ~ipsec-client.test"
         states=$(count_xfrm state)
         local evil
         evil=$(host_ip -o xfrm state | grep -c "if_id 0x3e7" || true)
-        ((states >= 2 && evil == 0)) || fail "if_id do cliente usado ($states SAs com $HEX_ID, $evil com 0x3e7)"
-        ok "SAs com o if_id forçado $HEX_ID (nenhuma com o 999 do cliente)"
+        ((states >= 2 && evil == 0)) || fail "client if_id used ($states SAs with $HEX_ID, $evil with 0x3e7)"
+        ok "SAs with the forced if_id $HEX_ID (none with the client 999)"
         docker stop -t 10 "$ENGINE" >/dev/null
-        ip link show "$IFACE" >/dev/null 2>&1 && fail "a $IFACE sobrou"
-        ok "limpeza ok"
+        ip link show "$IFACE" >/dev/null 2>&1 && fail "$IFACE was left over"
+        ok "cleanup ok"
     fi
 
-    step "Resultado"
-    ok "todos os cenários passaram"
+    step "Result"
+    ok "all scenarios passed"
 }
 
 main "$@"

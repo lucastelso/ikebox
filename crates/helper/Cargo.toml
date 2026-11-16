@@ -1,6 +1,6 @@
 [package]
 name = "ipsec-client-helper"
-description = "Helper com privilégio do ipsec-client: sobe e derruba o engine embutido (root, systemd)"
+description = "Privileged ipsec-client helper: starts and stops the embedded engine (root, systemd)"
 version.workspace = true
 edition.workspace = true
 rust-version.workspace = true

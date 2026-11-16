@@ -11,5 +11,6 @@ Terminal=false
 Categories=Network;
 Keywords=VPN;IPsec;IKE;XAuth;strongSwan;
 Keywords[pt_BR]=VPN;IPsec;IKE;XAuth;strongSwan;túnel;
+Keywords[pt]=VPN;IPsec;IKE;XAuth;strongSwan;túnel;
 StartupNotify=true
 StartupWMClass=ipsec-client

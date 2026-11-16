@@ -1,6 +1,6 @@
 [package]
 name = "ipsec-client-proto"
-description = "Protocolo entre o app e o helper com privilégio do ipsec-client"
+description = "Protocol between the ipsec-client app and its privileged helper"
 version.workspace = true
 edition.workspace = true
 rust-version.workspace = true

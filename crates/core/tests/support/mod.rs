@@ -141,7 +141,7 @@ impl TestGateway {
         let mut logs = self.docker.logs(&self.name, Some(options));
         let ready = tokio::time::timeout(Duration::from_secs(15), async {
             while let Some(Ok(chunk)) = logs.next().await {
-                if String::from_utf8_lossy(&chunk.into_bytes()).contains("[gateway-teste] pronto") {
+                if String::from_utf8_lossy(&chunk.into_bytes()).contains("[test-gateway] ready") {
                     return true;
                 }
             }

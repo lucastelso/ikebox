@@ -20,9 +20,9 @@ set -euo pipefail
 version=${1:?versão}
 path=${2:?caminho no servidor}
 sha256=${3:?sha256}
-[[ $version =~ ^[0-9]+\.[0-9]+\.[0-9]+$ ]] || { echo "versão inválida" >&2; exit 2; }
-[[ $sha256 =~ ^[0-9a-f]{64}$ ]] || { echo "sha256 inválido" >&2; exit 2; }
-[[ $path =~ ^/([a-z0-9.]+/)*$ ]] || { echo "caminho inválido" >&2; exit 2; }
+[[ $version =~ ^[0-9]+\.[0-9]+\.[0-9]+$ ]] || { echo "invalid version" >&2; exit 2; }
+[[ $sha256 =~ ^[0-9a-f]{64}$ ]] || { echo "invalid sha256" >&2; exit 2; }
+[[ $path =~ ^/([a-z0-9.]+/)*$ ]] || { echo "invalid path" >&2; exit 2; }
 
 readonly PREFIX=/opt/ipsec-client/engine
 readonly SRC=/build/src
@@ -35,17 +35,17 @@ log() { printf '[build] %s\n' "$*" >&2; }
 mkdir -p "$SRC" "$STAGE" /build/gmp-static
 cd /build
 
-log "baixando $url"
+log "downloading $url"
 curl -sSfL --proto '=https' --tlsv1.2 -o "$tarball" "$url"
 curl -sSfL --proto '=https' --tlsv1.2 -o "$tarball.sig" "$url.sig"
 echo "$sha256  $tarball" | sha256sum -c --quiet
-log "SHA-256 conferido"
+log "SHA-256 verified"
 export GNUPGHOME=/build/gnupg
 mkdir -m 0700 "$GNUPGHOME"
 gpg --batch --quiet --import /keys/strongswan-release.asc
 gpg --batch --verify "$tarball.sig" "$tarball" 2>&1 | grep -q "Good signature" ||
-    { echo "assinatura GPG inválida" >&2; exit 1; }
-log "assinatura GPG conferida"
+    { echo "invalid GPG signature" >&2; exit 1; }
+log "GPG signature verified"
 
 tar -xjf "$tarball" -C "$SRC" --strip-components=1
 
@@ -55,11 +55,11 @@ patches=()
 for patch_file in /patches/*.patch; do
     [[ -f $patch_file ]] || continue
     patch -d "$SRC" -p1 --forward --quiet <"$patch_file" ||
-        { echo "o patch $(basename "$patch_file") não aplica no strongSwan $version" >&2; exit 1; }
+        { echo "patch $(basename "$patch_file") does not apply to strongSwan $version" >&2; exit 1; }
     patches+=("$(basename "$patch_file"):$(sha256sum "$patch_file" | cut -c1-64)")
-    log "patch aplicado: $(basename "$patch_file")"
+    log "patch applied: $(basename "$patch_file")"
 done
-((${#patches[@]} > 0)) || { echo "nenhum patch em /patches" >&2; exit 1; }
+((${#patches[@]} > 0)) || { echo "no patch in /patches" >&2; exit 1; }
 
 # Diretório só com a libgmp estática: o linker acha libgmp.a antes da .so.
 cp "$(gcc -print-file-name=libgmp.a)" /build/gmp-static/
@@ -85,7 +85,7 @@ configure_flags=(
 [[ $version == 6.* ]] && configure_flags+=(--enable-kdf)
 
 cd "$SRC"
-log "configure (${#configure_flags[@]} opções)"
+log "configure (${#configure_flags[@]} options)"
 # 5.8.x é anterior ao -fno-common, padrão do gcc >= 10 (definições duplicadas).
 cflags="-O2"
 [[ $version == 5.8.* ]] && cflags+=" -fcommon"
@@ -107,12 +107,12 @@ cp /usr/share/doc/libgmp10/copyright "$root/share/licenses/gmp/copyright"
 gmp_version=$(dpkg-query -W -f='${Version}' libgmp-dev)
 
 charon="$root/libexec/ipsec/charon"
-[[ -x $charon ]] || { echo "charon não foi gerado" >&2; exit 1; }
+[[ -x $charon ]] || { echo "charon was not built" >&2; exit 1; }
 {
     echo "strongswan=$version"
     echo "sha256=$sha256"
     echo "builder=ubuntu:22.04 (glibc $(ldd --version | head -n 1 | awk '{print $NF}'))"
-    echo "gmp=$gmp_version (estático; fonte: pacote gmp do Ubuntu 22.04)"
+    echo "gmp=$gmp_version (static; source: Ubuntu 22.04 gmp package)"
     echo "patches=${patches[*]}"
     echo "configure=${configure_flags[*]}"
     echo "charon_deps=$(ldd "$charon" | awk '{print $1}' | tr '\n' ' ')"
@@ -121,5 +121,5 @@ charon="$root/libexec/ipsec/charon"
 out="/out/ipsec-client-engine-$version-x86_64.tar.gz"
 tar --sort=name --mtime='@0' --owner=0 --group=0 --numeric-owner \
     -C "$STAGE" -cf - opt | gzip -n -9 >"$out"
-log "pronto: $(basename "$out") ($(du -h "$out" | cut -f1))"
-log "dependências do charon: $(ldd "$charon" | awk '{print $1}' | tr '\n' ' ')"
+log "done: $(basename "$out") ($(du -h "$out" | cut -f1))"
+log "charon dependencies: $(ldd "$charon" | awk '{print $1}' | tr '\n' ' ')"

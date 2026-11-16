@@ -1,6 +1,6 @@
-# Computador de teste com systemd de verdade (Fedora 45), para o
-# tests/systemd/run.sh: o componente de rede é instalado pelo instalador real
-# e o helper sobe o engine com systemd-run e o sandbox de produção.
+# Test computer with real systemd (Fedora 45), for tests/systemd/run.sh: the
+# network component is installed by the real installer and the helper starts
+# the engine with systemd-run and the production sandbox.
 FROM fedora@sha256:a7d72ba2745b100a3351087472e5ee7b2450af7cf331e7673007e3817612839c
 
 RUN set -eux; \

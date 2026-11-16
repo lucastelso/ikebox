@@ -24,7 +24,7 @@ fi
 if command -v shellcheck >/dev/null 2>&1; then
     exec shellcheck "${files[@]}"
 elif command -v docker >/dev/null 2>&1; then
-    printf 'lint-sh: shellcheck não encontrado; usando %s\n' "${SHELLCHECK_IMAGE%%@*}" >&2
+    printf 'lint-sh: shellcheck not found; using %s\n' "${SHELLCHECK_IMAGE%%@*}" >&2
     exec docker run --rm --network none \
         -v "$repo_root:/mnt:ro" -w /mnt \
         "$SHELLCHECK_IMAGE" "${files[@]}"

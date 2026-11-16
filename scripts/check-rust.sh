@@ -17,7 +17,7 @@ if [[ -f "$HOME/.cargo/env" ]]; then
     . "$HOME/.cargo/env"
 fi
 command -v cargo >/dev/null 2>&1 || {
-    printf 'check-rust: cargo não encontrado (veja README, "Pré-requisitos").\n' >&2
+    printf 'check-rust: cargo not found (see README, "Prerequisites").\n' >&2
     exit 1
 }
 
@@ -34,6 +34,6 @@ cargo test --workspace --locked
 if command -v cargo-deny >/dev/null 2>&1; then
     cargo deny --log-level error check
 else
-    printf 'check-rust: cargo-deny ausente; instale com: cargo install --locked cargo-deny\n' >&2
+    printf 'check-rust: cargo-deny missing; install it with: cargo install --locked cargo-deny\n' >&2
     exit 1
 fi

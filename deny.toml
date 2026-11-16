@@ -1,4 +1,4 @@
-# cargo-deny: licenças, vulnerabilidades (RustSec), crates banidos e origens.
+# cargo-deny: licenses, vulnerabilities (RustSec), banned crates and sources.
 # https://embarkstudios.github.io/cargo-deny/
 
 [graph]
@@ -7,13 +7,13 @@ all-features = true
 [advisories]
 version = 2
 yanked = "deny"
-# Exceções revisadas: só macros de compilação (não entram no binário), sem
-# vulnerabilidade conhecida e sem alternativa no ecossistema do Tauri 2.
-# Revisar a cada atualização do Tauri/specta.
+# Reviewed exceptions: compile-time macros only (not in the binary), no known
+# vulnerability and no alternative in the Tauri 2 ecosystem.
+# Review on every Tauri/specta update.
 ignore = [
     # paste: proc-macro usada pelo specta (IPC tipado, ADR-0009).
     { id = "RUSTSEC-2024-0436", reason = "proc-macro de compilação via specta; sem código em tempo de execução" },
-    # proc-macro-error: via glib-macros 0.18 (GTK3 do Tauri 2 no Linux).
+    # proc-macro-error: via glib-macros 0.18 (GTK3 of Tauri 2 on Linux).
     { id = "RUSTSEC-2024-0370", reason = "proc-macro de compilação via glib-macros (GTK3 do Tauri 2); sem alternativa até o GTK4" },
 ]
 
@@ -34,8 +34,8 @@ allow = [
     "MPL-2.0",
 ]
 
-# Os crates do próprio projeto: GPL-3.0-or-later (ADR-0017). As dependências
-# continuam restritas à lista permissiva acima.
+# The project's own crates: GPL-3.0-or-later (ADR-0017). Dependencies stay
+# restricted to the permissive list above.
 exceptions = [
     { allow = ["GPL-3.0-or-later"], crate = "ipsec-client-core" },
     { allow = ["GPL-3.0-or-later"], crate = "ipsec-client-cli" },
@@ -47,7 +47,7 @@ exceptions = [
 [bans]
 multiple-versions = "warn"
 wildcards = "deny"
-# Dependências por caminho entre crates do workspace (não publicados).
+# Path dependencies between workspace crates (not published).
 allow-wildcard-paths = true
 
 [sources]

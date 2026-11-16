@@ -2,8 +2,8 @@
 <!DOCTYPE policyconfig PUBLIC
  "-//freedesktop//DTD PolicyKit Policy Configuration 1.0//EN"
  "http://www.freedesktop.org/standards/PolicyKit/1/policyconfig.dtd">
-<!-- IPsec Client (ADR-0014): o usuário da sessão local ativa conecta e
-     desconecta sem senha; sessões remotas ou inativas, não. -->
+<!-- IPsec Client (ADR-0014): the user of the active local session connects
+     and disconnects without a password; remote or inactive sessions do not. -->
 <policyconfig>
   <vendor>IPsec Client</vendor>
   <action id="io.github.lucastelso.ipsecclient.connect">

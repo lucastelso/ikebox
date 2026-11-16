@@ -1,13 +1,13 @@
-## O que muda
+## What changes
 
-<!-- Descreva a mudança e o motivo. Referencie ADRs quando houver decisão de arquitetura. -->
+<!-- Describe the change and why. Reference ADRs when there is an architecture decision. -->
 
-## Como foi testado
+## How it was tested
 
-<!-- Comandos rodados (npm run check, npm run test:engine, ...) e resultados. -->
+<!-- Commands you ran (npm run check, npm run test:engine, ...) and their results. -->
 
 ## Checklist
 
-- [ ] `npm run check` verde
-- [ ] Nenhum dado real de VPN (gateway, grupo, DNS/domínios internos, usuários, caminhos locais)
-- [ ] Documentação atualizada (README, docs/, ADR se houver decisão nova, CHANGELOG)
+- [ ] `npm run check` is green
+- [ ] No real VPN data (gateway, group, internal DNS/domains, users, local paths)
+- [ ] Documentation updated (README, docs/, ADR for a new decision, CHANGELOG)

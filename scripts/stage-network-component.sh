@@ -27,7 +27,7 @@ repo=$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)
 readonly POLICY=io.github.lucastelso.ipsecclient.policy
 
 die() {
-    printf 'stage-network-component: erro: %s\n' "$*" >&2
+    printf 'stage-network-component: error: %s\n' "$*" >&2
     exit 1
 }
 
@@ -45,7 +45,7 @@ done
 
 strongswan=$(grep -vE '^\s*(#|$)' "$repo/native-engine/versions.txt" | head -n 1 | awk '{print $1}')
 app_version=$(awk -F'"' '/^\[workspace.package\]/ {s = 1} s && /^version *=/ {print $2; exit}' "$repo/Cargo.toml")
-[[ -n $strongswan && -n $app_version ]] || die "não consegui ler as versões"
+[[ -n $strongswan && -n $app_version ]] || die "could not read the versions"
 
 if [[ -z $engine ]]; then
     engine="$repo/native-engine/dist/ipsec-client-engine-$strongswan-x86_64.tar.gz"
@@ -60,8 +60,8 @@ if [[ -z $helper ]]; then
     (cd "$repo" && cargo build --release --locked -p ipsec-client-helper)
     helper="$repo/target/release/ipsec-client-helper"
 fi
-[[ -f $engine ]] || die "tarball do engine não encontrado: $engine"
-[[ -f $helper ]] || die "helper não encontrado: $helper"
+[[ -f $engine ]] || die "engine tarball not found: $engine"
+[[ -f $helper ]] || die "helper not found: $helper"
 
 # O engine precisa ter exatamente os patches de segurança deste commit
 # (ADR-0019): um tarball velho em native-engine/dist/ deixaria o app vulnerável.
@@ -73,7 +73,7 @@ done
 engine_patches=$(tar -xzOf "$engine" opt/ipsec-client/engine/BUILDINFO 2>/dev/null |
     sed -n 's/^patches=//p')
 [[ $engine_patches == "${expected_patches[*]}" ]] ||
-    die "o engine $engine não tem os patches deste commit (native-engine/patches): recompile com native-engine/build.sh"
+    die "the engine $engine lacks the patches of this commit (native-engine/patches): rebuild it with native-engine/build.sh"
 
 rm -rf "${out:?}"
 install -d -m 0755 "$out" "$out/engine/strongswan.d" "$out/packaging/systemd" "$out/packaging/polkit"
@@ -96,4 +96,4 @@ printf 'version=%s\nstrongswan=%s\n' "$app_version" "$strongswan" >"$out/VERSION
     find . -type f ! -name SHA256SUMS -printf '%P\n' | LC_ALL=C sort |
         xargs -d '\n' sha256sum >SHA256SUMS
 )
-echo "pacote do componente de rede em $out (app $app_version, strongSwan $strongswan)"
+echo "network component bundle in $out (app $app_version, strongSwan $strongswan)"

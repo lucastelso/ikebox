@@ -1,13 +1,13 @@
-# SPIKE: simula o host do usuário (Fedora 45: glibc 2.44, iproute2 moderno)
-# rodando o engine embutido. O container é só um substituto do root neste
-# teste; no produto, quem roda o charon é o helper (fase D do roadmap).
+# SPIKE: simulates the user's host (Fedora 45: glibc 2.44, modern iproute2)
+# running the embedded engine. The container only stands in for root in this
+# test; in the product, the helper runs charon (phase D of the roadmap).
 FROM fedora@sha256:a7d72ba2745b100a3351087472e5ee7b2450af7cf331e7673007e3817612839c
 
 RUN set -eux; \
     dnf -y install --setopt=install_weak_deps=False iproute systemd-resolved gawk iputils; \
     dnf clean all
 
-# O tarball do build (native-engine/dist) é extraído em /opt/ipsec-client/engine.
+# The build tarball (native-engine/dist) is extracted to /opt/ipsec-client/engine.
 ADD engine.tar.gz /
 COPY zz-ipsec-client.conf /opt/ipsec-client/engine/etc/strongswan.d/zz-ipsec-client.conf
 COPY entrypoint.sh /usr/local/sbin/ipsec-client-entrypoint

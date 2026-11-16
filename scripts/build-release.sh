@@ -20,21 +20,21 @@ repo=$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)
 cd "$repo"
 
 die() {
-    printf 'build-release: erro: %s\n' "$*" >&2
+    printf 'build-release: error: %s\n' "$*" >&2
     exit 1
 }
 step() { printf '\n\033[1;36m==> %s\033[0m\n' "$*"; }
 
 ref=${1:-HEAD}
-commit=$(git rev-parse --verify --quiet "$ref^{commit}") || die "commit/tag não encontrado: $ref"
+commit=$(git rev-parse --verify --quiet "$ref^{commit}") || die "commit/tag not found: $ref"
 version=$(git show "$commit:Cargo.toml" |
     awk -F'"' '/^\[workspace.package\]/ {s = 1} s && /^version *=/ {print $2; exit}')
-[[ -n $version ]] || die "não consegui ler a versão no Cargo.toml de $ref"
+[[ -n $version ]] || die "could not read the version in the Cargo.toml of $ref"
 if [[ $ref == v* && $ref != "v$version" ]]; then
-    die "a tag $ref não bate com a versão $version do Cargo.toml"
+    die "tag $ref does not match version $version in Cargo.toml"
 fi
 if [[ $ref == HEAD && -n $(git status --porcelain) ]]; then
-    echo "aviso: há mudanças não commitadas; elas NÃO entram no build" >&2
+    echo "warning: there are uncommitted changes; they are NOT part of the build" >&2
 fi
 
 strongswan=$(git show "$commit:native-engine/versions.txt" | grep -vE '^\s*(#|$)' | head -n 1 | awk '{print $1}')
@@ -47,14 +47,14 @@ expected_patches=$(git ls-tree --name-only "$commit" native-engine/patches/ | gr
 engine_patches=""
 [[ -f $engine ]] && engine_patches=$(tar -xzOf "$engine" opt/ipsec-client/engine/BUILDINFO | sed -n 's/^patches=//p')
 if [[ ! -f $engine || $engine_patches != "$expected_patches" ]]; then
-    step "compilando o strongSwan $strongswan (com os patches do commit)"
+    step "building strongSwan $strongswan (with the patches of the commit)"
     native-engine/build.sh "$strongswan"
 fi
 
 rust=$(git show "$commit:rust-toolchain.toml" | awk -F'"' '/^channel/ {print $2}')
 image="ipsec-client-release:rust$rust-$(sha256sum packaging/release/Dockerfile | cut -c1-12)"
 if ! docker image inspect "$image" >/dev/null 2>&1; then
-    step "preparando a imagem de build ($image)"
+    step "preparing the build image ($image)"
     docker build --build-arg "RUST_VERSION=$rust" -t "$image" packaging/release
 fi
 
@@ -62,7 +62,7 @@ out="$repo/target/release-artifacts/$version"
 rm -rf "$out"
 mkdir -p "$out"
 
-step "gerando AppImage, deb e rpm da versão $version (commit ${commit:0:12})"
+step "building AppImage, deb and rpm for version $version (commit ${commit:0:12})"
 # Volumes nomeados guardam só downloads (crates, npm, ferramentas do AppImage);
 # a compilação é sempre do zero.
 git archive --format=tar "$commit" |
@@ -83,7 +83,7 @@ git archive --format=tar "$commit" |
                target/release/bundle/deb/*.deb \
                target/release/bundle/rpm/*.rpm /out/
             chown -R "$HOST_UID:$HOST_GID" /out
-            echo "==> conferindo os pacotes"
+            echo "==> checking the packages"
             scripts/verify-release.sh /out
         '
 
@@ -91,7 +91,7 @@ git archive --format=tar "$commit" |
 
 # Aqui no host, onde estão os padrões privados (o container não os vê):
 # nada do mantenedor pode ter entrado nos pacotes.
-step "procurando dados privados dentro dos pacotes"
+step "looking for private data inside the packages"
 scripts/check-private.sh --artifacts "$out"
-step "pacotes prontos em ${out#"$repo"/}"
+step "packages ready in ${out#"$repo"/}"
 ls -lh "$out"

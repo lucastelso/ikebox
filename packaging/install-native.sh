@@ -1,18 +1,18 @@
 #!/usr/bin/env bash
-# Instala/remove o componente de rede do IPsec Client (engine embutido + helper
-# com privilégio, ADRs 0013, 0014 e 0018). Roda como root.
+# Installs/removes the IPsec Client network component (embedded engine +
+# privileged helper, ADRs 0013, 0014 and 0018). Runs as root.
 #
-# Uso:
+# Usage:
 #   install-native.sh install --bundle <dir> [--origin app|package|manual]
 #   install-native.sh uninstall
 #
-# <dir> é o pacote gerado por scripts/stage-network-component.sh (o app traz
-# um dentro dele). Origem: quem instalou (o app só remove o que não veio de
-# um pacote .rpm/.deb).
+# <dir> is the bundle built by scripts/stage-network-component.sh (the app
+# ships one inside it). Origin: who installed it (the app only removes what
+# did not come from a .rpm/.deb package).
 #
-# Instala:
-#   /opt/ipsec-client/engine/        strongSwan compilado (do tarball)
-#   /opt/ipsec-client/libexec/       entrypoint.sh, updown e este instalador
+# Installs:
+#   /opt/ipsec-client/engine/        compiled strongSwan (from the tarball)
+#   /opt/ipsec-client/libexec/       entrypoint.sh, updown and this installer
 #   /opt/ipsec-client/bin/           ipsec-client-helper
 #   /opt/ipsec-client/{VERSION,SHA256SUMS,ORIGIN}
 #   /etc/systemd/system/             ipsec-client-helper.{socket,service}
@@ -24,7 +24,7 @@ readonly PREFIX=/opt/ipsec-client
 readonly UNIT_DIR=/etc/systemd/system
 readonly POLKIT_DIR=/usr/share/polkit-1/actions
 readonly POLICY=io.github.lucastelso.ipsecclient.policy
-# Arquivos obrigatórios do pacote (o app confere a mesma lista).
+# Required bundle files (the app checks the same list).
 readonly REQUIRED=(
     VERSION
     install-native.sh
@@ -38,19 +38,19 @@ readonly REQUIRED=(
     "packaging/polkit/$POLICY"
 )
 
-log() { printf '[componente de rede] %s\n' "$*"; }
+log() { printf '[network component] %s\n' "$*"; }
 die() {
-    printf '[componente de rede] erro: %s\n' "$*" >&2
+    printf '[network component] error: %s\n' "$*" >&2
     exit 1
 }
 
-# Uma saída só (o app mostra o log na ordem em que aconteceu).
+# A single output stream (the app shows the log in the order it happened).
 exec 2>&1
 
-[[ $(id -u) -eq 0 ]] || die "rode como root (sudo/pkexec)"
+[[ $(id -u) -eq 0 ]] || die "run it as root (sudo/pkexec)"
 
 do_uninstall() {
-    log "parando e removendo"
+    log "stopping and removing"
     systemctl stop ipsec-client-engine.service 2>/dev/null || true
     systemctl disable --now ipsec-client-helper.socket 2>/dev/null || true
     systemctl stop ipsec-client-helper.service 2>/dev/null || true
@@ -58,31 +58,31 @@ do_uninstall() {
     rm -f "$POLKIT_DIR/$POLICY"
     rm -rf "${PREFIX:?}"
     systemctl daemon-reload
-    log "removido"
+    log "removed"
 }
 
-# Copia o pacote para um diretório só do root e confere os hashes ali: o que
-# é instalado é exatamente o que foi conferido, mesmo que a origem mude
-# depois.
+# Copies the bundle to a root-only directory and checks the hashes there:
+# what gets installed is exactly what was checked, even if the source
+# changes afterwards.
 verify_bundle() {
     local bundle=$1 work=$2 path
     cp -R --no-preserve=all "$bundle"/. "$work"/
     if [[ -n $(find "$work" ! -type f ! -type d -print -quit) ]]; then
-        die "pacote com links ou arquivos especiais"
+        die "bundle with links or special files"
     fi
-    [[ -f $work/SHA256SUMS ]] || die "pacote sem SHA256SUMS"
+    [[ -f $work/SHA256SUMS ]] || die "bundle without SHA256SUMS"
     (cd "$work" && sha256sum --check --strict --quiet SHA256SUMS) ||
-        die "arquivos do pacote corrompidos (SHA256SUMS não confere)"
+        die "corrupted bundle files (SHA256SUMS does not match)"
     local -A listed=()
     while read -r _ path; do
         listed[${path#\*}]=1
     done <"$work/SHA256SUMS"
     for path in "${REQUIRED[@]}"; do
-        [[ -n ${listed[$path]:-} ]] || die "pacote incompleto: falta $path"
+        [[ -n ${listed[$path]:-} ]] || die "incomplete bundle: missing $path"
     done
-    # O tarball só pode conter opt/ipsec-client/engine/... (nada fora disso).
+    # The tarball may only contain opt/ipsec-client/engine/... (nothing else).
     if tar -tzf "$work/engine.tar.gz" | grep -vqE '^opt/(ipsec-client/(engine(/.*)?)?)?/?$'; then
-        die "tarball do engine com caminhos inesperados"
+        die "engine tarball with unexpected paths"
     fi
 }
 
@@ -92,21 +92,21 @@ do_install() {
         case $1 in
         --bundle) bundle=${2:?}; shift 2 ;;
         --origin) origin=${2:?}; shift 2 ;;
-        *) die "argumento desconhecido: $1" ;;
+        *) die "unknown argument: $1" ;;
         esac
     done
-    [[ -d $bundle ]] || die "pacote do componente não encontrado (--bundle)"
+    [[ -d $bundle ]] || die "component bundle not found (--bundle)"
     case $origin in
     app | package | manual) ;;
-    *) die "origem inválida: $origin" ;;
+    *) die "invalid origin: $origin" ;;
     esac
 
     work=$(mktemp -d)
-    # shellcheck disable=SC2064 # o caminho é fixado agora, de propósito
+    # shellcheck disable=SC2064 # the path is fixed now, on purpose
     trap "rm -rf '$work'" EXIT
     verify_bundle "$bundle" "$work"
 
-    log "instalando em $PREFIX"
+    log "installing in $PREFIX"
     systemctl stop ipsec-client-engine.service 2>/dev/null || true
     rm -rf "$PREFIX/engine"
     install -d -m 0755 "$PREFIX" "$PREFIX/bin" "$PREFIX/libexec"
@@ -116,7 +116,7 @@ do_install() {
     install -m 0755 "$work/engine/entrypoint.sh" "$PREFIX/libexec/entrypoint.sh"
     install -m 0755 "$work/engine/updown.sh" "$PREFIX/libexec/updown"
     install -m 0755 "$work/install-native.sh" "$PREFIX/libexec/install-native.sh"
-    # O helper vem compactado (ver scripts/stage-network-component.sh).
+    # The helper comes compressed (see scripts/stage-network-component.sh).
     gzip -d -c "$work/ipsec-client-helper.gz" >"$work/ipsec-client-helper"
     install -m 0755 "$work/ipsec-client-helper" "$PREFIX/bin/ipsec-client-helper"
     install -m 0644 "$work/VERSION" "$PREFIX/VERSION"
@@ -130,8 +130,8 @@ do_install() {
     install -m 0644 "$work/packaging/systemd/ipsec-client-helper.service" "$UNIT_DIR/"
     install -m 0644 "$work/packaging/polkit/$POLICY" "$POLKIT_DIR/$POLICY"
 
-    # SELinux: rótulos padrão nos arquivos copiados (senão podem herdar o rótulo
-    # do diretório temporário de onde vieram).
+    # SELinux: default labels on the copied files (otherwise they may inherit
+    # the label of the temporary directory they came from).
     if command -v restorecon >/dev/null 2>&1; then
         restorecon -RF "$PREFIX" "$UNIT_DIR/ipsec-client-helper.socket" \
             "$UNIT_DIR/ipsec-client-helper.service" "$POLKIT_DIR/$POLICY" 2>/dev/null || true
@@ -140,7 +140,7 @@ do_install() {
     systemctl daemon-reload
     systemctl stop ipsec-client-helper.service 2>/dev/null || true
     systemctl enable --now ipsec-client-helper.socket
-    log "instalado: $("$PREFIX/bin/ipsec-client-helper" --version), strongSwan $(grep -m1 '^strongswan=' "$PREFIX/engine/BUILDINFO" | cut -d= -f2) (origem: $origin)"
+    log "installed: $("$PREFIX/bin/ipsec-client-helper" --version), strongSwan $(grep -m1 '^strongswan=' "$PREFIX/engine/BUILDINFO" | cut -d= -f2) (origin: $origin)"
 }
 
 case ${1:-} in
@@ -149,5 +149,5 @@ install)
     do_install "$@"
     ;;
 uninstall) do_uninstall ;;
-*) die "uso: $0 install --bundle <dir> [--origin app|package|manual] | uninstall" ;;
+*) die "usage: $0 install --bundle <dir> [--origin app|package|manual] | uninstall" ;;
 esac

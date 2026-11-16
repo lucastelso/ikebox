@@ -1,16 +1,16 @@
-# IPsec Client: helper com privilégio (ADR-0014). Ativado pelo socket.
-# Ele só valida pedidos e chama systemd-run/systemctl/journalctl; o engine
-# roda numa unidade transitória com sandbox próprio (ver crates/helper).
+# IPsec Client: privileged helper (ADR-0014). Socket activated.
+# It only validates requests and calls systemd-run/systemctl/journalctl; the
+# engine runs in a transient unit with its own sandbox (see crates/helper).
 [Unit]
-Description=IPsec Client - componente de rede
+Description=IPsec Client - network component
 Requires=ipsec-client-helper.socket
 After=ipsec-client-helper.socket
 
 [Service]
 Type=simple
 ExecStart=/opt/ipsec-client/bin/ipsec-client-helper
-# /run/ipsec-client: diretórios dos sockets VICI por usuário (preservados
-# quando o helper reinicia, para não derrubar uma sessão ativa).
+# /run/ipsec-client: per-user VICI socket directories (kept when the helper
+# restarts, so an active session does not drop).
 RuntimeDirectory=ipsec-client
 RuntimeDirectoryMode=0755
 RuntimeDirectoryPreserve=yes

@@ -1,13 +1,13 @@
 #!/usr/bin/env bash
-# Parte do tests/systemd/run.sh que roda DENTRO do "computador" de teste
-# (container Fedora com systemd), como root. Credenciais e endereços são do
-# gateway de teste (FALSOS, RFC 5737).
+# The part of tests/systemd/run.sh that runs INSIDE the test "computer"
+# (Fedora container with systemd), as root. Credentials and addresses belong
+# to the test gateway (FAKE, RFC 5737).
 #
-# Uso: inside.sh <IP do gateway de teste>
+# Usage: inside.sh <test gateway IP>
 
 set -euo pipefail
 
-readonly GW_IP=${1:?ip do gateway}
+readonly GW_IP=${1:?gateway ip}
 readonly CLI=/test/ipsec-client-cli
 readonly IFACE=ipsc0
 readonly RT_PROTO=241
@@ -24,149 +24,149 @@ fail() {
     exit 1
 }
 
-# as USUARIO CMD...: roda como o usuário, com config própria e o engine
-# embutido forçado.
+# as USER CMD...: runs as the user, with their own config and the embedded
+# engine forced.
 as() {
     local user=$1
     shift
     runuser -u "$user" -- env XDG_CONFIG_HOME="/tmp/$user-config" \
         IPSEC_CLIENT_BACKEND=native "$@"
 }
-# helper USUARIO JSON: pedido cru ao helper.
+# helper USER JSON: raw request to the helper.
 helper() { runuser -u "$1" -- python3 -I /test/helper_client.py "$2"; }
-# A saída do `ip xfrm state` tem chaves: só é contada, nunca impressa.
+# The output of `ip xfrm state` has keys: it is only counted, never printed.
 count_xfrm_state() { ip -o xfrm state 2>/dev/null | grep -c "if_id $1" || true; }
 
 host_is_clean() {
-    ip link show "$IFACE" >/dev/null 2>&1 && fail "a $IFACE sobrou"
-    [[ -z $(ip -4 route show proto "$RT_PROTO") ]] || fail "sobraram rotas proto $RT_PROTO"
-    [[ ! -e $ALICE_SOCKET ]] || fail "o socket VICI sobrou"
-    ok "nada sobrou: interface, rotas e socket"
+    ip link show "$IFACE" >/dev/null 2>&1 && fail "$IFACE was left over"
+    [[ -z $(ip -4 route show proto "$RT_PROTO") ]] || fail "proto $RT_PROTO routes were left over"
+    [[ ! -e $ALICE_SOCKET ]] || fail "the VICI socket was left over"
+    ok "nothing left: interface, routes and socket"
 }
 
 engine_prop() { systemctl show ipsec-client-engine -p "$1" --value; }
 
-step "Instalação pelo instalador real"
+step "Installation with the real installer"
 bash /test/bundle/install-native.sh install --bundle /test/bundle --origin manual \
     >/tmp/install.log 2>&1 || {
     cat /tmp/install.log
-    fail "o instalador falhou"
+    fail "the installer failed"
 }
-# Sem polkit no container: autorização por lista de uids. Só o root troca a
-# linha de comando do helper.
+# No polkit in the container: authorization by a uid list. Only root can
+# change the helper command line.
 install -d /etc/systemd/system/ipsec-client-helper.service.d
 printf '[Service]\nExecStart=\nExecStart=/opt/ipsec-client/bin/ipsec-client-helper --allow-uid 1000 --allow-uid 1001\n' \
-    >/etc/systemd/system/ipsec-client-helper.service.d/teste.conf
+    >/etc/systemd/system/ipsec-client-helper.service.d/test.conf
 systemctl daemon-reload
 systemctl stop ipsec-client-helper.service 2>/dev/null || true
 useradd -m -u 1000 alice
 useradd -m -u 1001 bob
 ok "$(tail -n 1 /tmp/install.log)"
 
-step "alice conecta pelo ipsec-client-cli (DNS do perfil vai pelo helper)"
-sed "s/\"gw.ipsec-client.test\"/\"$GW_IP\"/" /test/perfil-gateway-teste.json >/tmp/perfil.json
-chmod 0644 /tmp/perfil.json
-as alice "$CLI" profiles import /tmp/perfil.json >/dev/null
+step "alice connects with ipsec-client-cli (the profile DNS goes through the helper)"
+sed "s/\"gw.ipsec-client.test\"/\"$GW_IP\"/" /test/perfil-gateway-teste.json >/tmp/profile.json
+chmod 0644 /tmp/profile.json
+as alice "$CLI" profiles import /tmp/profile.json >/dev/null
 out=$(as alice "$CLI" connect gateway-teste --detach --credentials-stdin <<<"$CREDS" 2>&1) || {
     printf '%s\n' "$out"
-    fail "connect falhou"
+    fail "connect failed"
 }
-[[ $out == *"Conectado: gateway-teste"* ]] || fail "saída inesperada do connect: $out"
-ok "conectado"
+[[ $out == *"Connected: gateway-teste"* ]] || fail "unexpected connect output: $out"
+ok "connected"
 
-[[ $(stat -c '%a %U' "$ALICE_SOCKET") == "600 alice" ]] || fail "socket VICI sem 0600/alice"
+[[ $(stat -c '%a %U' "$ALICE_SOCKET") == "600 alice" ]] || fail "VICI socket without 0600/alice"
 [[ $(stat -c '%a %U %G' "$(dirname "$ALICE_SOCKET")") == "711 root root" ]] ||
-    fail "diretório do socket sem 0711 root:root"
-ok "socket VICI 0600 de alice, diretório 0711 do root"
+    fail "socket directory without 0711 root:root"
+ok "VICI socket 0600 owned by alice, directory 0711 owned by root"
 
 route=$(ip -4 route show dev "$IFACE" proto "$RT_PROTO")
-[[ $route == *"192.0.2.0/24"* ]] || fail "rota ausente: '$route'"
-[[ $(resolvectl domain "$IFACE") == *"~ipsec-client.test"* ]] || fail "domínio do perfil ausente"
-[[ $(resolvectl dns "$IFACE") == *192.0.2.53* ]] || fail "DNS recebido do gateway ausente"
-ping -c 2 -W 2 -q 192.0.2.1 >/dev/null || fail "ping pelo túnel falhou"
-ok "rota 192.0.2.0/24, DNS ~ipsec-client.test + 192.0.2.53 (via helper) e ping pelo túnel"
+[[ $route == *"192.0.2.0/24"* ]] || fail "route missing: '$route'"
+[[ $(resolvectl domain "$IFACE") == *"~ipsec-client.test"* ]] || fail "profile domain missing"
+[[ $(resolvectl dns "$IFACE") == *192.0.2.53* ]] || fail "DNS received from the gateway missing"
+ping -c 2 -W 2 -q 192.0.2.1 >/dev/null || fail "ping through the tunnel failed"
+ok "route 192.0.2.0/24, DNS ~ipsec-client.test + 192.0.2.53 (through the helper) and ping through the tunnel"
 
-step "Sandbox da unidade do engine (systemd-run)"
+step "Sandbox of the engine unit (systemd-run)"
 for prop in PrivateDevices=yes ProtectKernelTunables=yes ProtectKernelLogs=yes \
     ProtectProc=invisible PrivateIPC=yes NoNewPrivileges=yes ProtectSystem=strict; do
-    [[ $(engine_prop "${prop%%=*}") == "${prop#*=}" ]] || fail "$prop não aplicado"
+    [[ $(engine_prop "${prop%%=*}") == "${prop#*=}" ]] || fail "$prop not applied"
 done
-[[ -n $(engine_prop SystemCallFilter) ]] || fail "SystemCallFilter não aplicado"
+[[ -n $(engine_prop SystemCallFilter) ]] || fail "SystemCallFilter not applied"
 pid=$(engine_prop MainPID)
 [[ $(awk '$5 == "/proc/sys" { print $6 }' "/proc/$pid/mountinfo") == ro* ]] ||
-    fail "/proc/sys gravável dentro do engine"
-# has_disks DIR: há nós de disco (sdX, nvmeN, vdX) no /dev dado?
+    fail "/proc/sys writable inside the engine"
+# has_disks DIR: are there disk nodes (sdX, nvmeN, vdX) in the given /dev?
 has_disks() { compgen -G "$1/sd[a-z]" >/dev/null || compgen -G "$1/nvme[0-9]*" >/dev/null ||
     compgen -G "$1/vd[a-z]" >/dev/null; }
 if has_disks /dev && has_disks "/proc/$pid/root/dev"; then
-    fail "o engine enxerga os discos do computador"
+    fail "the engine sees the computer's disks"
 fi
-ok "PrivateDevices, ProtectKernelTunables (/proc/sys só leitura), ProtectKernelLogs, ProtectProc, PrivateIPC, SystemCallFilter"
+ok "PrivateDevices, ProtectKernelTunables (read-only /proc/sys), ProtectKernelLogs, ProtectProc, PrivateIPC, SystemCallFilter"
 
-step "bob (outro usuário) tenta mexer na VPN de alice"
+step "bob (another user) tries to touch alice's VPN"
 reply=$(helper bob '{"op":"stop"}')
-[[ $reply == *'"result":"error"'* && $reply == *"outro usuário"* ]] || fail "bob parou a VPN de alice: $reply"
-ip link show "$IFACE" >/dev/null 2>&1 || fail "a VPN de alice caiu"
+[[ $reply == *'"result":"error"'* && $reply == *"another user"* ]] || fail "bob stopped alice's VPN: $reply"
+ip link show "$IFACE" >/dev/null 2>&1 || fail "alice's VPN went down"
 reply=$(helper bob '{"op":"logs","tail":50}')
-[[ $reply == '{"result":"logs","lines":[]}' ]] || fail "bob leu o log de alice"
+[[ $reply == '{"result":"logs","lines":[]}' ]] || fail "bob read alice's log"
 reply=$(helper bob '{"op":"status"}')
-[[ $reply == *'"running":true'* && $reply == *'"profile_id":null'* ]] || fail "bob viu o perfil de alice: $reply"
+[[ $reply == *'"running":true'* && $reply == *'"profile_id":null'* ]] || fail "bob saw alice's profile: $reply"
 if runuser -u bob -- python3 -I -c "import socket; socket.socket(socket.AF_UNIX).connect('$ALICE_SOCKET')" 2>/dev/null; then
-    fail "bob conectou no socket VICI de alice"
+    fail "bob connected to alice's VICI socket"
 fi
-ok "bob não para, não lê o log, não vê o perfil e não acessa o VICI de alice"
+ok "bob cannot stop it, read its log, see the profile or reach alice's VICI"
 
 for _ in 1 2 3; do helper bob '{}' --hold 5 & done
 sleep 0.3
 timeout 2 runuser -u alice -- python3 -I /test/helper_client.py '{"op":"status"}' >/dev/null ||
-    fail "clientes parados travaram o helper"
+    fail "idle clients blocked the helper"
 wait
-ok "três conexões paradas de bob não travam o helper"
+ok "three idle connections from bob do not block the helper"
 
-step "alice: status, log e desconexão"
-out=$(as alice "$CLI" status) || fail "status deveria sair com 0 quando conectado"
-[[ $out == *"IP virtual: 198.51.100."* ]] || fail "status sem VIP"
+step "alice: status, log and disconnection"
+out=$(as alice "$CLI" status) || fail "status should exit with 0 when connected"
+[[ $out == *"Virtual IP: 198.51.100."* ]] || fail "status without VIP"
 out=$(as alice "$CLI" logs -n 200)
-[[ $out == *pronto* ]] || fail "log sem a linha de prontidão"
+[[ $out == *ready* ]] || fail "log without the readiness line"
 out=$(as alice "$CLI" disconnect)
-[[ $out == *Desconectado* ]] || fail "disconnect falhou"
+[[ $out == *Disconnected* ]] || fail "disconnect failed"
 host_is_clean
 
-step "Ataque (ADR-0019): cliente VICI escolhe o updown e o if_id"
+step "Attack (ADR-0019): a VICI client picks the updown and the if_id"
 sed -e "s|@GATEWAY@|$GW_IP|" -e "s|@IFACE@|$IFACE|" -e "s|@IF_ID@|999|" \
     -e "s|@REMOTE_TS@|192.0.2.0/24|" -e "s|@UPDOWN_EXTRA@||" \
     -e "s|updown = .*|updown = /bin/touch /run/ipsec-client/1000/PWNED|" \
-    /test/initiator.conf.in >/tmp/ataque.conf
-chmod 0644 /tmp/ataque.conf
-reply=$(helper alice '{"op":"start","iface":"ipsc0","if_id":4242,"mtu":1400,"log_level":1,"profile_id":"ataque","dns":{"servers":["192.0.2.54"],"domains":["~ipsec-client.test"],"use_received":false,"default_route":false}}')
-[[ $reply == *'"result":"started"'* ]] || fail "start falhou: $reply"
-runuser -u alice -- "$SWANCTL" --load-all --uri "unix://$ALICE_SOCKET" --file /tmp/ataque.conf \
+    /test/initiator.conf.in >/tmp/attack.conf
+chmod 0644 /tmp/attack.conf
+reply=$(helper alice '{"op":"start","iface":"ipsc0","if_id":4242,"mtu":1400,"log_level":1,"profile_id":"attack","dns":{"servers":["192.0.2.54"],"domains":["~ipsec-client.test"],"use_received":false,"default_route":false}}')
+[[ $reply == *'"result":"started"'* ]] || fail "start failed: $reply"
+runuser -u alice -- "$SWANCTL" --load-all --uri "unix://$ALICE_SOCKET" --file /tmp/attack.conf \
     >/tmp/load.log 2>&1 || {
     cat /tmp/load.log
-    fail "swanctl --load-all falhou"
+    fail "swanctl --load-all failed"
 }
 runuser -u alice -- "$SWANCTL" --initiate --uri "unix://$ALICE_SOCKET" --child rede-teste \
     --timeout 30 >/tmp/initiate.log 2>&1 || {
     cat /tmp/initiate.log
-    fail "a negociação falhou"
+    fail "the negotiation failed"
 }
-[[ ! -e /run/ipsec-client/1000/PWNED ]] || fail "o charon executou o comando do cliente como root"
-# Lido inteiro antes do grep: com pipefail, o `grep -q` sairia cedo e o
-# journalctl morreria com SIGPIPE.
+[[ ! -e /run/ipsec-client/1000/PWNED ]] || fail "charon ran the client's command as root"
+# Read in full before grep: with pipefail, `grep -q` would exit early and
+# journalctl would die with SIGPIPE.
 journal=$(journalctl -u ipsec-client-engine --no-pager)
 grep -q "ignoring updown command supplied by client" <<<"$journal" ||
-    fail "o charon não registrou que ignorou o updown do cliente"
-ok "o comando do cliente não rodou (o charon ignorou o updown dele)"
+    fail "charon did not log that it ignored the client updown"
+ok "the client's command did not run (charon ignored its updown)"
 route=$(ip -4 route show dev "$IFACE" proto "$RT_PROTO")
-[[ $route == *"192.0.2.0/24"* ]] || fail "o updown forçado não rodou: '$route'"
-[[ $(resolvectl dns "$IFACE") == *192.0.2.54* ]] || fail "o DNS do helper não foi aplicado"
+[[ $route == *"192.0.2.0/24"* ]] || fail "the forced updown did not run: '$route'"
+[[ $(resolvectl dns "$IFACE") == *192.0.2.54* ]] || fail "the helper DNS was not applied"
 forced=$(count_xfrm_state 0x1092)
 evil=$(count_xfrm_state 0x3e7)
-((forced >= 2 && evil == 0)) || fail "if_id do cliente usado ($forced com 0x1092, $evil com 0x3e7)"
-ok "o updown forçado rodou (rota e DNS do helper) e as SAs usam o if_id do helper"
+((forced >= 2 && evil == 0)) || fail "client if_id used ($forced with 0x1092, $evil with 0x3e7)"
+ok "the forced updown ran (route and helper DNS) and the SAs use the helper's if_id"
 reply=$(helper alice '{"op":"stop"}')
-[[ $reply == *'"was_running":true'* ]] || fail "stop falhou: $reply"
+[[ $reply == *'"was_running":true'* ]] || fail "stop failed: $reply"
 host_is_clean
 
-step "Resultado"
-ok "engine embutido com systemd: túnel, sandbox, isolamento entre usuários e ataque bloqueado"
+step "Result"
+ok "embedded engine with systemd: tunnel, sandbox, user isolation and attack blocked"

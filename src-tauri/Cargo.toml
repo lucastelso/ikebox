@@ -1,6 +1,6 @@
 [package]
 name = "ipsec-client-app"
-description = "IPsec Client: app desktop (Tauri)"
+description = "IPsec Client: desktop app (Tauri)"
 version.workspace = true
 edition.workspace = true
 rust-version.workspace = true
