@@ -22,11 +22,16 @@
   - instalação do componente pelo app (ADR-0018);
   - pacotes `.rpm`/`.deb` que entram no menu, com o
     [manual de instalação](instalacao.md).
-- **Próximo:** `chore/release`:
-  - AppImage + rpm + deb gerados na CI (Ubuntu 22.04);
+- **Release v0.1.0** (`chore/release-pacotes`, passo 31): AppImage, deb e rpm
+  gerados por `npm run release:build -- v0.1.0` num container Ubuntu 22.04,
+  conferidos e prontos em `target/release-artifacts/0.1.0/`. A publicação é
+  manual, pelo [guia de release](release.md).
+- **Próximo:** `chore/release`, para automatizar na CI:
+  - gerar e anexar os pacotes à release ao criar a tag (o mesmo
+    `scripts/build-release.sh`);
   - pós-instalação do rpm/deb instalando o componente (`--origin package`);
-  - `.deb` com a `libayatana-appindicator3-1`;
-  - `SHA256SUMS` assinado, GitHub Releases e tag `v0.1.0`.
+  - `SHA256SUMS` assinado;
+  - aceite numa VM limpa.
 - **Depois:** `feat/ui-editor-perfis` (editar perfis na interface).
 - **Ideias anotadas:**
   - teste de longa duração (rekey em ~11 h);

@@ -6,9 +6,8 @@ que os clientes atuais do Linux já não conseguem conectar.
 
 > **Status: v0.1.0, primeira versão funcional (pré-alfa).** O app desktop,
 > instalado pelo `.rpm` e com o strongSwan embutido (**sem Docker**), conecta
-> de ponta a ponta numa VPN FortiGate real. Os pacotes para baixar (AppImage,
-> rpm e deb) vão ser publicados no GitHub Releases. Até lá, eles podem ser
-> gerados a partir do código ([manual](docs/instalacao.md#6-gerar-o-pacote-a-partir-do-código)).
+> de ponta a ponta numa VPN FortiGate real. Os pacotes (AppImage, rpm e deb)
+> estão na página [Releases](https://github.com/lucastelso/ipsec-client/releases).
 > O que já existe e o que vem a seguir estão no [roadmap](docs/roadmap.md). Os
 > passos já dados estão no [diário de desenvolvimento](docs/desenvolvimento.md).
 
@@ -51,6 +50,8 @@ guardadas com segurança, diagnóstico e ícone na bandeja.
 
 ## Instalação
 
+Baixe o arquivo da sua distribuição na página [Releases](https://github.com/lucastelso/ipsec-client/releases):
+
 | Sua distribuição | Arquivo | Como instalar |
 |---|---|---|
 | Fedora, RHEL, openSUSE | `.rpm` | `sudo dnf install ./ipsec-client-*.x86_64.rpm` |
@@ -61,8 +62,8 @@ Depois, abra o **IPsec Client** pelo menu de aplicativos. Na primeira vez, ele
 pede a senha de administrador **uma vez** para instalar o componente de rede.
 
 O passo a passo completo, com primeiro uso, atualização, desinstalação e
-como gerar os pacotes a partir do código enquanto eles não estão no GitHub
-Releases, está no **[manual de instalação](docs/instalacao.md)**.
+como gerar os pacotes a partir do código, está no
+**[manual de instalação](docs/instalacao.md)**.
 
 > Recebeu um perfil de um colega? Siga o **[guia rápido](docs/guia-rapido.md)**.
 
@@ -184,6 +185,7 @@ npm install                 # ferramentas, dependências do frontend e git hooks
 npm run tauri dev           # abre o app desktop em modo de desenvolvimento
 npm run check               # tudo o que precisa estar verde antes de um merge
 npm run bundle -- --bundles rpm   # gera o pacote instalável (rpm, deb ou appimage)
+npm run release:build -- v0.1.0   # pacotes de release (os três) num container Ubuntu 22.04
 npm run test:engine         # teste ponta a ponta do engine com um gateway IPsec local
 npm run test:docker         # integração do núcleo Rust com o Docker real (engine, VICI, sessão)
 npm run test:cli            # fluxo completo do CLI contra o gateway de teste
@@ -242,6 +244,7 @@ Os detalhes estão em [CONTRIBUTING.md](CONTRIBUTING.md).
 - [Arquitetura](docs/arquitetura.md)
 - [Decisões de arquitetura (ADRs)](docs/adr/README.md)
 - [Roadmap](docs/roadmap.md)
+- [Como gerar e publicar uma versão](docs/release.md)
 - [Estado atual e como retomar o desenvolvimento](docs/retomar.md)
 - [Diário de desenvolvimento](docs/desenvolvimento.md)
 - [Segurança](SECURITY.md) · [Contribuindo](CONTRIBUTING.md) · [Changelog](CHANGELOG.md)

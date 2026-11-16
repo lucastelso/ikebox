@@ -93,7 +93,8 @@ usuário: App (Tauri 2 + React) ou CLI
 |---|---|---|
 | `chore/instalacao-desktop` | Pacotes que entram no menu (nome `ipsec-client`, atalho próprio na categoria Rede), [manual de instalação](instalacao.md), guia rápido pelo app, README e SECURITY.md atualizados | ✅ |
 | — | **Versão 0.1.0**: primeira versão funcional, validada pelo mantenedor na VPN real com o app instalado pelo `.rpm` e o engine embutido, sem Docker (passo 30) | ✅ |
-| `chore/release` | AppImage + rpm + deb na CI, checksums assinados, GitHub Releases, tag `v0.1.0`. Inclui o pós-instalação do rpm/deb (`install-native.sh --bundle /usr/lib/ipsec-client/network --origin package`), a dependência da bandeja certa no `.deb` (`libayatana-appindicator3-1`, ao gerar no Ubuntu) e, como ideia, o próprio AppImage oferecer "Adicionar ao menu de aplicativos". Aceite: numa VM limpa, só com o AppImage, conecta com um perfil exportado | ⏳ |
+| `chore/release-pacotes` | Pacotes de release gerados num container Ubuntu 22.04 (`scripts/build-release.sh`), conferidos (`scripts/verify-release.sh`) e publicados à mão no GitHub Releases ([guia](release.md)); tag `v0.1.0` | ✅ (passo 31) |
+| `chore/release` | Automatizar na CI: gerar os pacotes e anexar à release ao criar a tag, com checksums assinados. Inclui o pós-instalação do rpm/deb (`install-native.sh --bundle /usr/lib/ipsec-client/network --origin package`), a dependência da bandeja certa no `.deb` (`libayatana-appindicator3-1`, ao gerar no Ubuntu) e, como ideia, o próprio AppImage oferecer "Adicionar ao menu de aplicativos". Aceite: numa VM limpa, só com o AppImage, conecta com um perfil exportado | ⏳ (a parte manual já existe: `chore/release-pacotes`) |
 | `feat/updater` (opcional) | Atualização automática assinada | ⏳ |
 
 **Antes de tornar público:** reescrita do e-mail dos commits e varredura completa

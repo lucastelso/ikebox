@@ -13,7 +13,10 @@
 #   SHA256SUMS                      hash de todos os outros arquivos
 #   install-native.sh               instalador (roda como root)
 #   engine.tar.gz                   strongSwan compilado
-#   ipsec-client-helper             helper com privilégio
+#   ipsec-client-helper.gz          helper com privilégio, compactado: o
+#                                   linuxdeploy (AppImage) reescreve o RPATH
+#                                   de todo ELF solto no pacote, e o hash
+#                                   deixaria de bater
 #   engine/{entrypoint.sh,updown.sh,strongswan.d/zz-ipsec-client.conf}
 #   packaging/systemd/ipsec-client-helper.{socket,service}
 #   packaging/polkit/io.github.lucastelso.ipsecclient.policy
@@ -63,7 +66,8 @@ fi
 rm -rf "${out:?}"
 install -d -m 0755 "$out" "$out/engine/strongswan.d" "$out/packaging/systemd" "$out/packaging/polkit"
 install -m 0644 "$engine" "$out/engine.tar.gz"
-install -m 0755 "$helper" "$out/ipsec-client-helper"
+gzip -9 -n -c "$helper" >"$out/ipsec-client-helper.gz"
+chmod 0644 "$out/ipsec-client-helper.gz"
 install -m 0755 "$repo/packaging/install-native.sh" "$out/install-native.sh"
 install -m 0755 "$repo/engine/entrypoint.sh" "$repo/engine/updown.sh" "$out/engine/"
 install -m 0644 "$repo/engine/strongswan.d/zz-ipsec-client.conf" "$out/engine/strongswan.d/"

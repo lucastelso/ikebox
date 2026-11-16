@@ -1242,3 +1242,54 @@ no plano. Assim, a tag aponta para o commit que a CI empacota.
 Efeito esperado ao instalar o `.rpm` 0.1.0 por cima do 0.0.0: o app vai
 mostrar "Atualização do componente de rede", porque o `VERSION` do pacote
 muda. É o fluxo de atualização funcionando.
+
+### Passo 31: pacotes de release da v0.1.0 (`chore/release-pacotes`)
+
+**Pedido do mantenedor:** gerar o rpm, o deb e o AppImage da versão e mostrar
+como publicá-los no GitHub.
+
+**Onde gerar.** Não no Fedora do mantenedor, e sim num **container Ubuntu
+22.04** (`packaging/release/Dockerfile`, chamado por
+`scripts/build-release.sh`), que é o mesmo ambiente que a CI vai usar:
+
+- **AppImage:** ele só roda em sistemas com glibc igual ou mais nova que a de
+  onde foi gerado. Gerado no Ubuntu 22.04, exige glibc 2.34 e roda no Ubuntu
+  22.04+, no Debian 12+ e no Fedora;
+- **.deb:** gerado no Ubuntu, ele depende de `libayatana-appindicator3-1`, o
+  nome certo nos Ubuntu/Debian atuais (o gerado no Fedora pedia
+  `libappindicator3-1`);
+- **privacidade:** o código vem do commit (`git archive`) e é compilado em
+  `/build`, então nenhum caminho da home do mantenedor entra nos binários.
+  Conferido com `strings`;
+- **Rust e Node** entram na imagem conferidos por checksum (rustup-init
+  `.sha256` e `SHASUMS256.txt` do Node). O `npm ci` roda com
+  `--ignore-scripts`.
+
+**O primeiro build achou um problema que quebraria o AppImage.** Dentro dele,
+o `ipsec-client-helper` não batia com o `SHA256SUMS` do componente. Ao montar
+o AppImage, o linuxdeploy percorre os executáveis ELF do app e reescreve o
+RPATH deles. Como o app confere os hashes antes de instalar, ele recusaria o
+componente como "corrompido". O `.deb` e o `.rpm` não passam pelo linuxdeploy
+e estavam íntegros.
+
+**Correção:**
+
+- o helper vai no pacote como `ipsec-client-helper.gz`. Não sobra nenhum ELF
+  solto para o linuxdeploy mexer, e o instalador descompacta depois de
+  conferir o hash;
+- novo `scripts/verify-release.sh`, que roda no fim de todo build de
+  release. Ele extrai os três pacotes e recusa se o componente não bater com
+  o próprio `SHA256SUMS`, ou se o AppImage exigir glibc acima de 2.35.
+  Rodado nos pacotes antigos, ele recusou o AppImage, como esperado.
+
+**Publicação:** `docs/release.md` traz o passo a passo:
+
+- preparar a versão, criar a tag e gerar os pacotes;
+- conferir;
+- publicar pelo site do GitHub (Releases → Draft a new release → anexar os
+  arquivos → pre-release) ou pelo `gh release create`;
+- quem consegue baixar enquanto o repositório é privado.
+
+As notas da versão ficam em `docs/releases/v0.1.0.md`. O push e a publicação
+são feitos pelo mantenedor, porque este ambiente não tem credenciais do
+GitHub.
