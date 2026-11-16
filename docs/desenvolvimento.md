@@ -1140,3 +1140,72 @@ evitar.
   permissões preservadas, e o `SHA256SUMS` confere lá dentro. É o caminho que
   o app procura, pelo `resource_dir()` do Tauri. No AppImage, o caminho é
   `$APPDIR/usr/lib/IPsec Client/network`.
+
+### Passo 29: instalar como um app de verdade (`chore/instalacao-desktop`)
+
+**Pedido do mantenedor:** instalar "bonitinho", como um usuário faria, com o
+app aparecendo no menu, e um manual curto no repositório.
+
+**O que o primeiro `.rpm`/`.deb` mostrou:**
+
+- **Nome do pacote `i-psec-client`.** O Tauri deriva o nome do pacote do
+  `productName` ("IPsec Client" em kebab-case), sem opção para mudar. O mesmo
+  nome entrava no caminho dos recursos (`/usr/lib/IPsec Client`, com espaço).
+- **Mantenedor "github",** tirado do identificador
+  (`io.github.lucastelso...`).
+- **Atalho no menu** gerado a partir do nome do produto, na categoria
+  `Utility`.
+
+**Correções:**
+
+- `productName` = `ipsec-client`. Agora o pacote se chama `ipsec-client` (`dnf
+  remove ipsec-client`), os arquivos são `ipsec-client-0.0.0-1.x86_64.rpm` e
+  `ipsec-client_0.0.0_amd64.deb`, e os recursos ficam em
+  `/usr/lib/ipsec-client/network`. O nome exibido continua "IPsec Client": o
+  título da janela e os textos da interface não dependem do `productName`.
+- `publisher` = "IPsec Client contributors" (o mantenedor do `.deb`).
+- Atalho próprio, `src-tauri/linux/ipsec-client.desktop`, usado pelo rpm e
+  pelo deb:
+  - `Name=IPsec Client`, categoria `Network`;
+  - nome genérico e descrição em inglês e pt-BR;
+  - palavras-chave (VPN, IPsec, IKE, XAuth), para a busca do menu achar o app
+    por "vpn";
+  - `StartupWMClass=ipsec-client`.
+
+  Passa no `desktop-file-validate`.
+- Conferido no código do Tauri: sem `enableGTKAppId`, o GTK usa o nome do
+  programa (`ipsec-client`) como app id. Assim o GNOME liga a janela ao
+  atalho, e a dock mostra o ícone certo.
+
+**Verificado no `.rpm` gerado:**
+
+- nome, licença e arquivos (`/usr/bin/ipsec-client`,
+  `/usr/lib/ipsec-client/network/...`, ícones e o atalho);
+- as dependências (`libwebkit2gtk-4.1`, `libgtk-3` e `libappindicator3`) já
+  estão instaladas no Fedora do mantenedor;
+- o `SHA256SUMS` do componente confere dentro do pacote.
+
+**Documentação:**
+
+- novo [manual de instalação](instalacao.md):
+  - qual arquivo baixar e como instalar (rpm, deb e AppImage, inclusive como
+    pôr o AppImage no menu);
+  - primeiro uso, atualização e desinstalação;
+  - como gerar o pacote a partir do código;
+  - problemas comuns;
+- o [guia rápido](guia-rapido.md) do colega passou a usar o app, sem Docker,
+  Rust nem terminal;
+- o README foi reescrito com o estado atual: app desktop, engine embutido sem
+  Docker, instalação, novo diagrama e requisitos sem Docker;
+- o SECURITY.md ganhou o modelo de ameaças do engine embutido (componente
+  root, sandbox, instalação, AppImage). O Docker ficou como caminho só de
+  desenvolvimento.
+
+**Ponto de atenção registrado** (para o `chore/release`): o `.deb` gerado no
+Fedora depende de `libappindicator3-1`, que não existe nos Debian/Ubuntu
+recentes. O `.deb` de release deve ser gerado no Ubuntu, onde o Tauri escolhe
+a `libayatana-appindicator3-1`.
+
+**Achado de comportamento** (documentado no manual): fechar a janela encerra
+o app, mas não desconecta a VPN, porque o engine é um serviço do sistema. Ao
+reabrir, o app mostra a conexão ativa.

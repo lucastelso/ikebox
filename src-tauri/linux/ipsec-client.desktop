@@ -1,0 +1,15 @@
+[Desktop Entry]
+Type=Application
+Name=IPsec Client
+GenericName=VPN Client
+GenericName[pt_BR]=Cliente de VPN
+Comment=IPsec VPN client for Linux (IKEv1/IKEv2, PSK + XAuth)
+Comment[pt_BR]=Cliente de VPN IPsec para Linux (IKEv1/IKEv2, PSK + XAuth)
+Exec={{exec}}
+Icon={{icon}}
+Terminal=false
+Categories=Network;
+Keywords=VPN;IPsec;IKE;XAuth;strongSwan;
+Keywords[pt_BR]=VPN;IPsec;IKE;XAuth;strongSwan;túnel;
+StartupNotify=true
+StartupWMClass=ipsec-client

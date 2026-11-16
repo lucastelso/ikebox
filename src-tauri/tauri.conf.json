@@ -1,6 +1,6 @@
 {
   "$schema": "https://schema.tauri.app/config/2",
-  "productName": "IPsec Client",
+  "productName": "ipsec-client",
   "mainBinaryName": "ipsec-client",
   "version": "0.0.0",
   "identifier": "io.github.lucastelso.ipsecclient",
@@ -47,6 +47,15 @@
     ],
     "license": "GPL-3.0-or-later",
     "licenseFile": "../LICENSE",
-    "copyright": "IPsec Client contributors"
+    "copyright": "IPsec Client contributors",
+    "publisher": "IPsec Client contributors",
+    "linux": {
+      "deb": {
+        "desktopTemplate": "linux/ipsec-client.desktop"
+      },
+      "rpm": {
+        "desktopTemplate": "linux/ipsec-client.desktop"
+      }
+    }
   }
 }
