@@ -16,6 +16,28 @@ pub use store::{KEYRING_SERVICE, KeyringStore, MemoryStore, SecretStore, keyring
 
 use crate::profiles::CredentialKind;
 
+/// Makes sure a crash of this process never writes its memory to disk.
+///
+/// While connecting, the process holds the PSK and the password. A core dump
+/// (kept by `systemd-coredump` for days, readable by the user) would put them
+/// on disk, which ADR-0007 forbids. The limit is inherited by child
+/// processes, so it also covers the webview, where the password is typed.
+///
+/// # Errors
+/// The `setrlimit` error (lowering a limit is always allowed, so this is not
+/// expected).
+pub fn disable_core_dumps() -> std::io::Result<()> {
+    use rustix::process::{Resource, Rlimit, setrlimit};
+    setrlimit(
+        Resource::Core,
+        Rlimit {
+            current: Some(0),
+            maximum: Some(0),
+        },
+    )
+    .map_err(Into::into)
+}
+
 /// Credential errors. Messages are for the end user (see [`crate::i18n`]).
 #[derive(Debug, thiserror::Error)]
 pub enum SecretsError {
