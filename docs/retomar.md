@@ -27,9 +27,14 @@
   - `feat/tray`;
   - `feat/ui-editor-perfis`: editar perfis na interface;
   - depois a fase D (engine embutido de verdade).
-- **Pendente com o mantenedor:** `git push origin --all` (o ambiente
-  automatizado não tem as credenciais do GitHub) e conferir a primeira
-  execução da CI.
+- **Pendente com o mantenedor:**
+  1. `git push origin --all` (o ambiente automatizado não tem as credenciais do
+     GitHub) e conferir a primeira execução da CI;
+  2. **testar o app com a VPN real:** `npm run tauri dev`, depois Perfis →
+     Importar (ou arrastar o `trabalho.json`), Conexão → Conectar → Remmina,
+     e dar retorno sobre o visual e o uso;
+  3. a fase D (helper com root) vai precisar de testes com `sudo` no
+     computador do mantenedor.
 
 ## Preparar o ambiente (uma vez)
 
