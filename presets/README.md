@@ -1,14 +1,15 @@
-# Presets de exemplo
+# Example presets
 
-Perfis **genéricos**, só com endereços e nomes reservados para documentação
-(RFC 5737 e RFC 2606). Servem de ponto de partida e são validados pelos testes.
+**Generic** profiles, with addresses and names reserved for documentation
+only (RFC 5737 and RFC 2606). They are a starting point and are validated by
+the tests.
 
-| Arquivo | Cenário |
+| File | Scenario |
 |---|---|
-| `exemplo-ikev1-agressivo-xauth.json` | VPN legada típica (ex.: FortiGate): IKEv1 agressivo, PSK de grupo (`keyid:`) + XAuth, modp1024/768, split tunnel |
-| `exemplo-ikev2-psk.json` | IKEv2 com PSK, propostas modernas, IPv4 + IPv6 |
+| `exemplo-ikev1-agressivo-xauth.json` | Typical legacy VPN (e.g. FortiGate): IKEv1 aggressive, group PSK (`keyid:`) + XAuth, modp1024/768, split tunnel |
+| `exemplo-ikev2-psk.json` | IKEv2 with PSK, modern proposals, IPv4 + IPv6 |
 
-Para criar o seu, copie um exemplo para `presets.local/`, que é ignorado pelo
-git, e ajuste. O formato e a correspondência com o `swanctl.conf` estão em
-[docs/perfis.md](../docs/perfis.md). **Não** coloque credenciais no arquivo:
-elas são informadas no app.
+To create yours, copy an example to `presets.local/`, which git ignores, and
+adjust it. The format and the mapping from `swanctl.conf` are in
+[docs/profiles.md](../docs/profiles.md). Do **not** put credentials in the
+file: they are entered in the app.

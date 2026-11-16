@@ -1,36 +1,35 @@
-# Engine embutido (strongSwan compilado)
+# Embedded engine (compiled strongSwan)
 
-O app leva o próprio strongSwan, compilado a partir do código-fonte oficial,
-e por isso o usuário não precisa de Docker (ADR-0013 e ADR-0016).
+The app ships its own strongSwan, compiled from the official source code, so
+the user does not need Docker (ADR-0013 and ADR-0016).
 
-| Arquivo | Função |
+| File | Role |
 |---|---|
-| `versions.txt` | Versões suportadas, cada uma com caminho e **SHA-256** do tarball |
-| `keys/strongswan-release.asc` | Chave pública de release do strongSwan (para conferir a assinatura GPG) |
-| `build/Dockerfile` | Builder Ubuntu 22.04 (glibc 2.35, a mesma base do AppImage) |
-| `patches/*.patch` | Patches de segurança do IPsec Client, aplicados **depois** da conferência do código-fonte. Hoje há um só: o cliente VICI não escolhe o `updown` (executado como root) nem o `if_id` (ADR-0019) |
-| `build/build-strongswan.sh` | Baixa o tarball, confere SHA-256 e GPG, aplica os patches (todos precisam aplicar), compila (estático, monolítico, sem OpenSSL) e gera um tarball determinístico |
-| `build.sh` | Roda o builder: `native-engine/build.sh [versão\|all]` |
-| `spike/` | Teste do engine compilado contra o gateway de teste, num "host" Fedora 45 simulado |
+| `versions.txt` | Supported versions, each with its path and the tarball **SHA-256** |
+| `keys/strongswan-release.asc` | strongSwan release public key (to check the GPG signature) |
+| `build/Dockerfile` | Ubuntu 22.04 builder (glibc 2.35, the same base as the AppImage) |
+| `patches/*.patch` | IPsec Client security patches, applied **after** checking the source. Today there is one: the VICI client does not choose the `updown` (run as root) or the `if_id` (ADR-0019) |
+| `build/build-strongswan.sh` | Downloads the tarball, checks SHA-256 and GPG, applies the patches (all must apply), compiles (static, monolithic, no OpenSSL) and builds a deterministic tarball |
+| `build.sh` | Runs the builder: `native-engine/build.sh [version\|all]` |
+| `spike/` | Test of the compiled engine against the test gateway, on a simulated Fedora 45 "host" |
 
 ```bash
-npm run build:engine     # compila a versão padrão (a primeira de versions.txt)
-npm run test:native      # E2E completo (5 cenários, inclusive o ataque do ADR-0019)
-npm run test:systemd     # systemd de verdade em container: instalador, helper, sandbox, 2 usuários
-native-engine/build.sh all && native-engine/spike/run-e2e.sh 5.8.2   # reserva
+npm run build:engine     # builds the default version (the first in versions.txt)
+npm run test:native      # full E2E (5 scenarios, including the ADR-0019 attack)
+npm run test:systemd     # real systemd in a container: installer, helper, sandbox, 2 users
+native-engine/build.sh all && native-engine/spike/run-e2e.sh 5.8.2   # fallback
 ```
 
-O resultado vai para `native-engine/dist/` (ignorado pelo git):
-`ipsec-client-engine-<versão>-x86_64.tar.gz`, com o charon, o swanctl, a
-configuração e um `BUILDINFO` (versão, hash, patches com SHA-256, opções de
-build, dependências). O empacotamento (`scripts/stage-network-component.sh`),
-o build de release e o `verify-release.sh` recusam um engine sem os patches do
-commit. Ao trocar a versão do strongSwan, porte o patch se ele não aplicar; as
-versões de reserva 5.x não têm o patch portado.
-O charon depende **só da glibc**.
+The result goes to `native-engine/dist/` (ignored by git):
+`ipsec-client-engine-<version>-x86_64.tar.gz`, with charon, swanctl, the
+configuration and a `BUILDINFO` (version, hash, patches with SHA-256, build
+options, dependencies). Staging (`scripts/stage-network-component.sh`), the
+release build and `verify-release.sh` refuse an engine without the patches of
+the commit. When changing the strongSwan version, port the patch if it does
+not apply; the 5.x fallback versions do not have the patch ported. charon
+depends **only on glibc**.
 
-Plugins incluídos: kernel-netlink, socket-default, vici, updown,
-xauth-generic, unity, nonce, random, drbg, aes, des, sha1, sha2, md5, hmac,
-gcm, chapoly, curve25519, gmp (modp, inclusive 768/1024), pem, pkcs1, pkcs8,
-x509 e pubkey. O kdf entra nas versões 6.x. Sem OpenSSL, **não há curvas
-ECP**.
+Included plugins: kernel-netlink, socket-default, vici, updown, xauth-generic,
+unity, nonce, random, drbg, aes, des, sha1, sha2, md5, hmac, gcm, chapoly,
+curve25519, gmp (modp, including 768/1024), pem, pkcs1, pkcs8, x509 and pubkey.
+kdf is included in 6.x. Without OpenSSL, **there are no ECP curves**.
