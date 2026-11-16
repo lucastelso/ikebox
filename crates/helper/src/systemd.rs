@@ -3,6 +3,7 @@
 
 use std::path::Path;
 use std::process::Command;
+use std::time::SystemTime;
 
 use ipsec_client_proto::{ENGINE_UNIT, EngineStatus, StartParams, socket_dir};
 
@@ -149,13 +150,27 @@ pub fn engine_run_args(launch: &Launch<'_>) -> Vec<String> {
     args
 }
 
-/// Interpreta `systemctl show <unit> --property=ActiveState --property=Environment`.
+/// The engine unit as systemd sees it, read in a single `systemctl show`.
+#[derive(Debug, Clone, Default, PartialEq, Eq)]
+pub struct UnitState {
+    /// State, profile and owner.
+    pub status: EngineStatus,
+    /// Invocation ID of the running session (32 hex digits): it tells this
+    /// session's journal entries apart from those of earlier sessions.
+    pub invocation: Option<String>,
+}
+
+/// Parses `systemctl show <unit> --property=ActiveState --property=Environment
+/// --property=InvocationID`.
 #[must_use]
-pub fn parse_status(show_output: &str) -> EngineStatus {
+pub fn parse_unit(show_output: &str) -> UnitState {
     let mut status = EngineStatus::default();
+    let mut invocation = None;
     for line in show_output.lines() {
         if let Some(state) = line.strip_prefix("ActiveState=") {
             status.running = matches!(state.trim(), "active" | "activating" | "reloading");
+        } else if let Some(id) = line.strip_prefix("InvocationID=") {
+            invocation = Some(id.trim().to_owned()).filter(|id| is_invocation_id(id));
         } else if let Some(env) = line.strip_prefix("Environment=") {
             for pair in env.split_whitespace() {
                 if let Some(id) = pair.strip_prefix("IPSEC_CLIENT_PROFILE=") {
@@ -169,8 +184,14 @@ pub fn parse_status(show_output: &str) -> EngineStatus {
     if !status.running {
         status.profile_id = None;
         status.owner_uid = None;
+        invocation = None;
     }
-    status
+    UnitState { status, invocation }
+}
+
+/// 32 lowercase hex digits, as systemd prints an invocation ID.
+fn is_invocation_id(id: &str) -> bool {
+    id.len() == 32 && id.bytes().all(|b| matches!(b, b'0'..=b'9' | b'a'..=b'f'))
 }
 
 /// Roda um comando e devolve (sucesso, stdout, stderr).
@@ -185,8 +206,8 @@ pub fn run(program: &str, args: &[String]) -> (bool, String, String) {
     }
 }
 
-/// Estado atual da unidade do engine.
-pub fn engine_status() -> EngineStatus {
+/// Current state of the engine unit, with its invocation ID.
+pub fn engine_unit() -> UnitState {
     let (_, out, _) = run(
         "systemctl",
         &[
@@ -194,9 +215,15 @@ pub fn engine_status() -> EngineStatus {
             ENGINE_UNIT.into(),
             "--property=ActiveState".into(),
             "--property=Environment".into(),
+            "--property=InvocationID".into(),
         ],
     );
-    parse_status(&out)
+    parse_unit(&out)
+}
+
+/// Current state of the engine unit.
+pub fn engine_status() -> EngineStatus {
+    engine_unit().status
 }
 
 /// Para a unidade do engine (espera o fim: o entrypoint limpa o host).
@@ -209,20 +236,52 @@ pub fn stop_engine() -> Result<(), String> {
     }
 }
 
-/// Últimas linhas do log da unidade.
-pub fn engine_logs(tail: u32) -> Vec<String> {
-    let (_, out, _) = run(
-        "journalctl",
-        &[
-            "--unit".into(),
-            ENGINE_UNIT.into(),
-            "--lines".into(),
-            tail.to_string(),
-            "--output=cat".into(),
-            "--no-pager".into(),
-            "--quiet".into(),
+/// Which journal entries of the engine unit to read. The unit name is reused
+/// by every session, of any user: a session must only get its own lines.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub enum LogScope {
+    /// One session, by its invocation ID (see [`UnitState::invocation`]).
+    Invocation(String),
+    /// Entries since a moment (a session that died while starting: its
+    /// invocation ID is gone with the unit).
+    Since(SystemTime),
+    /// Every session of the unit. Root only.
+    Unit,
+}
+
+/// `journalctl` arguments for the last `tail` lines in `scope`.
+#[must_use]
+pub fn logs_args(scope: &LogScope, tail: u32) -> Vec<String> {
+    let mut args: Vec<String> = match scope {
+        LogScope::Invocation(id) => vec![
+            format!("_SYSTEMD_UNIT={ENGINE_UNIT}.service"),
+            format!("_SYSTEMD_INVOCATION_ID={id}"),
         ],
-    );
+        LogScope::Since(moment) => {
+            let since = moment
+                .duration_since(SystemTime::UNIX_EPOCH)
+                .unwrap_or_default();
+            vec![
+                "--unit".into(),
+                ENGINE_UNIT.into(),
+                format!("--since=@{}.{:06}", since.as_secs(), since.subsec_micros()),
+            ]
+        }
+        LogScope::Unit => vec!["--unit".into(), ENGINE_UNIT.into()],
+    };
+    args.extend([
+        "--lines".into(),
+        tail.to_string(),
+        "--output=cat".into(),
+        "--no-pager".into(),
+        "--quiet".into(),
+    ]);
+    args
+}
+
+/// Last lines of the engine log, within `scope`.
+pub fn engine_logs(scope: &LogScope, tail: u32) -> Vec<String> {
+    let (_, out, _) = run("journalctl", &logs_args(scope, tail));
     out.lines().map(str::to_owned).collect()
 }
 
@@ -306,13 +365,67 @@ mod tests {
 
     #[test]
     fn parses_systemctl_show() {
-        let running = "ActiveState=active\nEnvironment=IPSEC_CLIENT_IFACE=ipsc0 IPSEC_CLIENT_PROFILE=trabalho IPSEC_CLIENT_OWNER_UID=1000 PATH=/usr/bin\n";
-        let s = parse_status(running);
-        assert!(s.running);
-        assert_eq!(s.profile_id.as_deref(), Some("trabalho"));
-        assert_eq!(s.owner_uid, Some(1000));
-        let stopped = parse_status("ActiveState=inactive\nEnvironment=\n");
-        assert_eq!(stopped, EngineStatus::default());
-        assert_eq!(parse_status(""), EngineStatus::default());
+        let id = "0123456789abcdef0123456789abcdef";
+        let running = format!(
+            "ActiveState=active\nInvocationID={id}\nEnvironment=IPSEC_CLIENT_IFACE=ipsc0 IPSEC_CLIENT_PROFILE=trabalho IPSEC_CLIENT_OWNER_UID=1000 PATH=/usr/bin\n"
+        );
+        let unit = parse_unit(&running);
+        assert!(unit.status.running);
+        assert_eq!(unit.status.profile_id.as_deref(), Some("trabalho"));
+        assert_eq!(unit.status.owner_uid, Some(1000));
+        assert_eq!(unit.invocation.as_deref(), Some(id));
+        let stopped = parse_unit(&format!(
+            "ActiveState=inactive\nInvocationID={id}\nEnvironment=\n"
+        ));
+        assert_eq!(
+            stopped,
+            UnitState::default(),
+            "a stopped unit has no session"
+        );
+        assert_eq!(parse_unit(""), UnitState::default());
+        // Anything that is not an invocation ID never reaches journalctl.
+        for bad in [
+            "",
+            "abc",
+            "0123456789ABCDEF0123456789ABCDEF",
+            "--file=/etc/shadow",
+        ] {
+            let unit = parse_unit(&format!("ActiveState=active\nInvocationID={bad}\n"));
+            assert_eq!(unit.invocation, None, "{bad}");
+        }
+    }
+
+    #[test]
+    fn logs_are_scoped_to_one_session() {
+        let id = "0123456789abcdef0123456789abcdef".to_owned();
+        let args = logs_args(&LogScope::Invocation(id.clone()), 50);
+        assert_eq!(
+            args[..2],
+            [
+                "_SYSTEMD_UNIT=ipsec-client-engine.service".to_owned(),
+                format!("_SYSTEMD_INVOCATION_ID={id}"),
+            ]
+        );
+        assert!(
+            !args.iter().any(|a| a == "--unit"),
+            "the unit match alone would bring earlier sessions"
+        );
+        assert!(args.windows(2).any(|w| w == ["--lines", "50"]));
+
+        let moment =
+            SystemTime::UNIX_EPOCH + std::time::Duration::from_micros(1_700_000_000_000_042);
+        let args = logs_args(&LogScope::Since(moment), 15);
+        assert!(args.contains(&"--since=@1700000000.000042".to_owned()));
+        assert!(
+            args.windows(2)
+                .any(|w| w == ["--unit", "ipsec-client-engine"])
+        );
+
+        let args = logs_args(&LogScope::Unit, 10);
+        assert!(
+            !args
+                .iter()
+                .any(|a| a.starts_with("--since") || a.starts_with("_SYSTEMD"))
+        );
     }
 }
