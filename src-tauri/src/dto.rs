@@ -420,3 +420,124 @@ mod tests {
         assert!((c.bytes_in - 2048.0).abs() < f64::EPSILON);
     }
 }
+
+/// Tipo do arquivo importado.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, Type)]
+#[serde(rename_all = "camelCase")]
+pub enum ImportKind {
+    /// Perfil do IPsec Client (.json).
+    Json,
+    /// `swanctl.conf` de uma VPN que já funciona.
+    Swanctl,
+}
+
+/// Prévia de um arquivo a importar. O arquivo fica guardado no Rust, e a UI
+/// só recebe o `token` (o webview nunca manipula caminhos).
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize, Type, tauri_specta::Event)]
+#[serde(rename_all = "camelCase")]
+pub struct ImportPreview {
+    /// Identifica o arquivo na confirmação.
+    pub token: String,
+    /// Nome do arquivo (sem diretório).
+    pub file_name: String,
+    /// Tipo detectado.
+    pub kind: ImportKind,
+    /// Id sugerido.
+    pub suggested_id: String,
+    /// Nome sugerido.
+    pub suggested_name: String,
+    /// Gateway (se o arquivo pôde ser lido).
+    pub gateway: Option<String>,
+    /// Redes remotas.
+    pub remote_ts: Vec<String>,
+    /// Avisos (ex.: chaves ignoradas do swanctl.conf).
+    pub warnings: Vec<String>,
+    /// Problema que impede importar (arquivo inválido).
+    pub error: Option<String>,
+    /// Já existe perfil com o id sugerido?
+    pub exists: bool,
+}
+
+/// Opções da confirmação de importação.
+#[derive(Debug, Clone, Default, Deserialize, Type)]
+#[serde(rename_all = "camelCase")]
+pub struct ImportOptions {
+    /// Id do perfil (vazio = o sugerido).
+    #[serde(default)]
+    #[specta(optional)]
+    pub id: Option<String>,
+    /// Nome exibido (vazio = o sugerido).
+    #[serde(default)]
+    #[specta(optional)]
+    pub name: Option<String>,
+    /// Servidores DNS (só swanctl.conf; o JSON já tem os seus).
+    #[serde(default)]
+    pub dns_servers: Vec<String>,
+    /// Domínios DNS (só swanctl.conf).
+    #[serde(default)]
+    pub dns_domains: Vec<String>,
+    /// Usar também os DNS enviados pelo gateway (só swanctl.conf).
+    #[serde(default)]
+    pub use_received_dns: bool,
+    /// Substituir um perfil existente com o mesmo id.
+    #[serde(default)]
+    pub overwrite: bool,
+}
+
+/// Detalhes de um perfil (somente leitura; não há credenciais no perfil).
+#[derive(Debug, Clone, Serialize, Type)]
+#[serde(rename_all = "camelCase")]
+pub struct ProfileDetails {
+    /// Resumo.
+    pub summary: ProfileSummary,
+    /// "IKEv1 agressivo", "IKEv2"...
+    pub ike: String,
+    /// Propostas da fase 1.
+    pub ike_proposals: Vec<String>,
+    /// Propostas da fase 2.
+    pub esp_proposals: Vec<String>,
+    /// Autenticação, em texto.
+    pub auth: String,
+    /// Identidade local (ex.: id do grupo).
+    pub local_id: Option<String>,
+    /// Servidores DNS fixos.
+    pub dns_servers: Vec<String>,
+    /// Domínios DNS.
+    pub dns_domains: Vec<String>,
+    /// Usa os DNS enviados pelo gateway.
+    pub use_received_dns: bool,
+    /// MTU.
+    pub mtu: u16,
+}
+
+impl From<&Profile> for ProfileDetails {
+    fn from(p: &Profile) -> Self {
+        let ike = match (p.ike.version, p.ike.aggressive) {
+            (1, true) => "IKEv1 (modo agressivo)".to_owned(),
+            (1, false) => "IKEv1 (modo principal)".to_owned(),
+            (v, _) => format!("IKEv{v}"),
+        };
+        let auth = match p.auth.method {
+            AuthMethod::Psk => "PSK".to_owned(),
+            AuthMethod::PskXauth => "PSK do grupo + usuário e senha (XAuth)".to_owned(),
+        };
+        Self {
+            summary: ProfileSummary::from(p),
+            ike,
+            ike_proposals: p.ike.proposals.clone(),
+            esp_proposals: p.child.esp_proposals.clone(),
+            auth,
+            local_id: p.auth.local_id.clone(),
+            dns_servers: p
+                .network
+                .dns
+                .servers
+                .iter()
+                .map(ToString::to_string)
+                .collect(),
+            dns_domains: p.network.dns.domains.clone(),
+            use_received_dns: p.network.dns.use_received,
+            mtu: p.network.mtu,
+        }
+    }
+}

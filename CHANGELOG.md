@@ -82,6 +82,16 @@ commits.
   IPC: `list_profiles`, `credentials_status`, `connect`, `disconnect`,
   `status` e `forget_credentials`, com o evento `SessionUpdate` e erros
   tipados (`UiError`).
+- Gerenciador de presets no app:
+  - importar um perfil (.json) ou um swanctl.conf, pelo diálogo nativo ou
+    arrastando o arquivo para a janela, com prévia, DNS para swanctl.conf,
+    renomear/substituir e avisos da conversão;
+  - exportar sem credenciais (diálogo nativo, arquivo 0600);
+  - ver detalhes;
+  - excluir, opcionalmente apagando as credenciais.
+
+  Navegação Conexão | Perfis e avisos (toasts). Os caminhos de arquivo ficam
+  só no Rust: a UI recebe uma prévia com token.
 
 ### Alterado
 

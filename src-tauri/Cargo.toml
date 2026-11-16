@@ -28,6 +28,7 @@ serde = { version = "1.0.229", features = ["derive"] }
 specta = { version = "=2.0.0-rc.28", features = ["derive"] }
 specta-typescript = "=0.0.15"
 tauri = "2.12"
+tauri-plugin-dialog = "2.8"
 tauri-specta = { version = "=2.0.0-rc.29", features = ["derive", "typescript"] }
 tokio = { version = "1.54.1", features = ["sync", "time"] }
 

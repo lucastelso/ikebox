@@ -1,6 +1,7 @@
 import { FileUp, Network } from 'lucide-react';
 import { useState } from 'react';
 import { type CredentialField, type CredentialsInput, commands, type UiError } from '@/bindings';
+import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import {
   Select,
@@ -23,7 +24,7 @@ interface DialogState {
 }
 
 /** Tela principal: perfil, botão de conexão, estado, erros e log. */
-export function HomeScreen() {
+export function HomeScreen({ onImport }: { onImport?: () => void }) {
   const { list, error: listError, selected, select } = useProfiles();
   const { state, connect, disconnect, dismissError } = useConnection();
   const [dialog, setDialog] = useState<DialogState | null>(null);
@@ -70,14 +71,15 @@ export function HomeScreen() {
             Nenhum perfil ainda
           </CardTitle>
           <CardDescription>
-            Para conectar, importe o arquivo de perfil (.json) que você recebeu da sua equipe.
+            Para conectar, importe o perfil (.json) que você recebeu da sua equipe, ou o
+            swanctl.conf de uma VPN que já funciona.
           </CardDescription>
         </CardHeader>
-        <CardContent className="text-sm text-muted-foreground" data-selectable>
-          A importação pela interface chega na próxima versão. Por enquanto, use:
-          <pre className="mt-2 rounded-md bg-muted p-2 font-mono text-xs">
-            ipsec-client-cli profiles import perfil.json
-          </pre>
+        <CardContent>
+          <Button onClick={onImport}>
+            <FileUp />
+            Importar perfil
+          </Button>
         </CardContent>
       </Card>
     );
