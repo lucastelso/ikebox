@@ -40,7 +40,9 @@
   ([roadmap](roadmap.md#post-020-program-decided-on-2026-11-16)): audit I
   (credentials, private data, supply chain) → audit II (privilege boundaries)
   → compatibility → optimization and base images → interface → IPsec modes.
-  **Current phase: 1.** Each phase ends by updating this line.
+  **Phase 1 is done** (step 37, [audit report](audits/v0.2.0.md)): username
+  masking and core dump fixes merged, not released. **Next: phase 2.** Each
+  phase ends by updating this line.
 - **Still open from before:** `chore/release` (CI builds the packages on the
   tag, rpm/deb post-install with `--origin package`, signed `SHA256SUMS`,
   acceptance on a clean VM); running charon without root (ADR-0019).

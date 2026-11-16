@@ -22,7 +22,8 @@ vulnerabilidades.
 | Instalação do componente | O instalador confere o `SHA256SUMS` numa cópia só do root e recusa links e caminhos fora do lugar; a remoção só executa o instalador que pertence ao root (ADR-0018) |
 | Rede do host | Rotas, VIP e DNS só na interface dedicada `ipsc0`, sem flush global de XFRM e sem tocar na interface física (ADR-0004) |
 | Dados da organização do usuário | Nunca entram no repositório; há um guarda automático, que também varre os pacotes de release por dentro (ADR-0010) |
-| Logs compartilhados | "Copiar anonimizado" troca gateway, IPs e domínios por marcadores antes de o texto sair do app |
+| Logs compartilhados | As identidades (usuário XAuth, id do grupo, identidade do gateway) são mascaradas onde o charon as imprime, conhecidas ou não pelo app. O "Copiar anonimizado" também troca gateway, IPs e domínios por marcadores antes de o texto sair do app |
+| Memória de um processo que travou | Sem core dumps: o app, a CLI, o componente de rede e o charon rodam com o limite de core em zero, então um travamento não grava credenciais nem chaves de sessão em disco |
 
 ### Riscos conhecidos e aceitos
 
@@ -56,6 +57,17 @@ vulnerabilidades.
    grupo `docker` equivale a ter root, e esse engine usa o strongSwan 5.8.2 do
    Ubuntu 20.04, que já saiu do suporte padrão. O modo privilegiado de reserva
    (`--privileged`) vem desligado. O usuário final não precisa do Docker.
+6. **O que outros usuários do mesmo computador conseguem ver.** Que há uma
+   VPN ativa, o IP virtual, as rotas, os servidores DNS e domínios, e o id do
+   perfil: o Linux mostra o estado da rede a todo usuário local. Eles não
+   conseguem ler o log da conexão, falar com o strongSwan dela nem
+   desconectá-la. O journal do sistema guarda o log sem máscara para os
+   administradores (root e os grupos do journal).
+7. **O IKEv1 está sendo aposentado pelo strongSwan.** A versão 6.1.0 desativa
+   o IKEv1 por padrão (o build embutido o habilita) e anunciou a remoção numa
+   versão futura. Os perfis que o app aceita hoje são IKEv1; como mantê-los
+   funcionando com correções de segurança é uma decisão em aberto (veja a
+   [auditoria da 0.2.0](../audits/v0.2.0.md), em inglês, item P1).
 
 ### Fora do escopo
 
