@@ -9,6 +9,9 @@ pre-commit:
     shellcheck:
       glob: "*.sh"
       run: scripts/lint-sh.sh {staged_files}
+    biome:
+      glob: "*.{ts,tsx,json,css}"
+      run: npx --no -- biome check --no-errors-on-unmatched {staged_files}
     rustfmt:
       glob: "*.rs"
       run: scripts/check-rust.sh --fmt

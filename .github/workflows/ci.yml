@@ -33,6 +33,8 @@ jobs:
           --from "${{ github.event.pull_request.base.sha }}"
           --to "${{ github.event.pull_request.head.sha }}"
       - run: npm run check:private && npm run lint:sh
+      - name: Frontend (biome, tsc, vitest, build)
+        run: npm run lint:web && npm run typecheck && npm run test:web && npm run build
 
   rust:
     name: Rust (fmt, clippy, testes, cargo-deny)
@@ -41,8 +43,10 @@ jobs:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           persist-credentials: false
-      - name: Dependências de sistema (libdbus para o chaveiro)
-        run: sudo apt-get update && sudo apt-get install -y libdbus-1-dev pkg-config
+      - name: Dependências de sistema (Tauri + libdbus)
+        run: >-
+          sudo apt-get update && sudo apt-get install -y libdbus-1-dev pkg-config
+          libwebkit2gtk-4.1-dev libayatana-appindicator3-dev librsvg2-dev libxdo-dev libssl-dev
       - name: Toolchain (rust-toolchain.toml)
         run: rustup show active-toolchain || rustup toolchain install
       - uses: Swatinem/rust-cache@d1527c8f67ef9af357290475d4af4b0fab8f12e0 # v2.9.3

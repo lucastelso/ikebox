@@ -71,7 +71,7 @@ usuário: App (Tauri 2 + React) ou CLI
 
 | Branch | Entrega | Status |
 |---|---|---|
-| `chore/scaffold-gui` | Tauri 2.12 (estável) + React 19 + Vite + Tailwind 4 + shadcn/ui, biome, vitest, tauri-specta com versão exata, capabilities mínimas, CSP estrita | ⏳ |
+| `chore/scaffold-gui` | Tauri 2.12 (estável) + React 19 + Vite + Tailwind 4 + shadcn/ui, biome, vitest, tauri-specta com versão exata, capabilities mínimas, CSP estrita | ✅ |
 | `feat/ui-conexao` | Tela principal (perfil, botão Conectar/Desconectar, estado com VIP, tempo e tráfego), credenciais com "lembrar", erros claros, log mascarado | ⏳ |
 | `feat/ui-perfis` | Gerenciador de presets: importar JSON/swanctl.conf (arrastar e soltar), **exportar**, editor com validação campo a campo, duplicar, excluir | ⏳ |
 | `feat/ui-diagnostico` | Tela do `doctor` com ações e configurações (tema, iniciar com o sistema, bandeja) | ⏳ |

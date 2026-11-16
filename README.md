@@ -151,7 +151,8 @@ Também é preciso Node.js ≥ 22, Docker e o cargo-deny
 ### Comandos
 
 ```bash
-npm install                 # instala as ferramentas e os git hooks (lefthook)
+npm install                 # ferramentas, dependências do frontend e git hooks (só para desenvolver)
+npm run tauri dev           # abre o app desktop em modo de desenvolvimento
 npm run check               # tudo o que precisa estar verde antes de um merge
 npm run test:engine         # teste ponta a ponta do engine com um gateway IPsec local
 npm run test:docker         # integração do núcleo Rust com o Docker real (engine, VICI, sessão)
@@ -184,7 +185,10 @@ docs/            arquitetura, roadmap, diário de desenvolvimento, ADRs
 crates/core/     núcleo em Rust: perfis, segredos, engine, sessão, diagnóstico (em construção)
 crates/cli/      ipsec-client-cli
 tests/cli/       teste ponta a ponta do CLI com gateway IPsec local
-src-tauri/ src/  (em breve) app desktop Tauri v2 + React
+src-tauri/       app desktop (Tauri v2): comandos finos sobre o core, DTOs, capabilities
+src/             interface (React 19 + TypeScript + Tailwind 4 + componentes shadcn/ui)
+native-engine/   build do strongSwan embutido (sem Docker para o usuário)
+assets/          logo (fonte dos ícones)
 presets/         exemplos genéricos de perfis (os seus vão em presets.local/, ignorado)
 ```
 
