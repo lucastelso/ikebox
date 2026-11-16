@@ -6,17 +6,24 @@
 
 ## Onde estamos
 
-- **Último branch integrado:** `feat/sessao-cli`. O `ipsec-client-cli` conecta
-  de ponta a ponta (`npm run test:cli`): doctor, profiles, secrets, connect,
-  status, logs e disconnect, com diagnóstico de falhas.
-- **Próximo branch:** `feat/import-swanctl`, adiantado no roadmap. Ele importa
-  um `swanctl.conf` existente para um perfil sem ler os segredos, o que
-  permite ao mantenedor gerar o perfil do trabalho sem digitar nada, e depois
-  passá-lo ao colega.
-- **E2E real (com o mantenedor):** importar o perfil, rodar
-  `ipsec-client-cli secrets set <perfil>`, depois `ipsec-client-cli connect
-  <perfil>`, e validar o RDP pelo Remmina. Antes, desconectar o script antigo,
-  porque as portas 500/4500 ficam ocupadas.
+- **Último branch integrado:** `feat/import-swanctl`, adiantado. O CLI gera o
+  perfil a partir de um `swanctl.conf` sem ler a seção `secrets`.
+- **Próximo passo (com o mantenedor): E2E real com a VPN do trabalho.**
+
+  ```bash
+  cargo build --release -p ipsec-client-cli
+  install -Dm755 target/release/ipsec-client-cli ~/.local/bin/ipsec-client-cli
+  ipsec-client-cli doctor
+  ipsec-client-cli profiles import-swanctl <seu swanctl.conf> --id trabalho \
+      --name "VPN do trabalho" --dns <DNS interno> --domain '~<domínio interno>'
+  ipsec-client-cli secrets set trabalho      # PSK, usuário e senha → chaveiro
+  # derrube o script antigo antes (as portas 500/4500 ficam ocupadas)
+  ipsec-client-cli connect trabalho          # depois, testar o RDP pelo Remmina
+  ```
+
+  Para o colega: `ipsec-client-cli profiles export trabalho trabalho.json`,
+  enviado por um canal privado, com a PSK do grupo indo por outro canal.
+- **Próximo branch de código:** `chore/scaffold-gui` (Tauri v2 + React).
 - **Status por branch:** ver o [roadmap](roadmap.md).
 
 ## Preparar o ambiente (uma vez)

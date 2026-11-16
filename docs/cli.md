@@ -22,6 +22,8 @@ Para conferir tudo: `ipsec-client-cli doctor`.
 ```bash
 ipsec-client-cli doctor                                   # o ambiente está pronto?
 ipsec-client-cli profiles import presets.local/vpn.json   # o perfil (ver docs/perfis.md)
+# ou, a partir de um swanctl.conf que já funciona:
+ipsec-client-cli profiles import-swanctl swanctl.conf --id vpn --dns 192.0.2.53 --domain '~corp.example.com'
 ipsec-client-cli secrets set vpn                          # PSK, usuário e senha → chaveiro
 ipsec-client-cli connect vpn                              # Ctrl+C desconecta
 ```
@@ -38,6 +40,7 @@ e precisa de internet. Os seguintes conectam em poucos segundos.
 | `profiles show <id>` | Mostra o perfil (JSON) |
 | `profiles import <arquivo> [--force]` | Importa um perfil (valida antes; `--force` substitui um existente) |
 | `profiles export <id> <arquivo>` | Exporta o perfil, sem credenciais, para passar a um colega |
+| `profiles import-swanctl <swanctl.conf> [--id] [--name] [--dns IP]... [--domain D]... [--use-received-dns] [--output arq] [--force]` | Gera o perfil a partir de um `swanctl.conf` existente. Pula a seção `secrets` sem ler e não copia o usuário XAuth |
 | `profiles validate <arquivo>` | Valida sem importar e lista os problemas campo a campo |
 | `profiles delete <id>` | Remove o perfil (as credenciais ficam no chaveiro) |
 | `profiles path` | Mostra o diretório dos perfis |

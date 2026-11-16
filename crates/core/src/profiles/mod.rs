@@ -9,6 +9,7 @@
 mod model;
 mod render;
 mod store;
+mod swanctl;
 mod validate;
 
 pub use model::{
@@ -17,6 +18,7 @@ pub use model::{
 };
 pub use render::{ConnParams, UPDOWN_PATH};
 pub use store::{MAX_PROFILE_BYTES, ProfileList, ProfileStore, parse_profile, to_json};
+pub use swanctl::{SwanctlImport, SwanctlImportOptions, import_swanctl};
 pub use validate::{ValidationIssue, validate};
 
 /// O id é válido (`[a-z0-9][a-z0-9-]{0,62}`)? Usado também nas chaves do
@@ -56,6 +58,9 @@ pub enum ProfileError {
     /// Arquivo acima do limite.
     #[error("arquivo de perfil grande demais")]
     TooLarge,
+    /// swanctl.conf que não pôde ser importado.
+    #[error("swanctl.conf: {0}")]
+    Swanctl(String),
     /// Sem diretório de configuração.
     #[error("não foi possível achar o diretório de configuração (XDG_CONFIG_HOME/HOME)")]
     NoConfigDir,

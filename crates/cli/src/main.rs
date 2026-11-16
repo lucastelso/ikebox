@@ -26,7 +26,10 @@ use clap::{Parser, Subcommand};
 use futures_util::StreamExt;
 use ipsec_client_core::diagnostics::{self, CheckStatus};
 use ipsec_client_core::engine::{CONTAINER_NAME, DockerEngine};
-use ipsec_client_core::profiles::{Profile, ProfileError, ProfileStore, parse_profile};
+use ipsec_client_core::profiles::{
+    DnsSettings, Profile, ProfileError, ProfileStore, SwanctlImportOptions, import_swanctl,
+    parse_profile,
+};
 use ipsec_client_core::secrets::{
     Credentials, KeyringStore, Redactor, SecretStore, describe, mask,
 };
@@ -118,6 +121,35 @@ enum ProfilesCmd {
     Delete {
         /// Id do perfil.
         profile: String,
+    },
+    /// Cria um perfil a partir de um swanctl.conf existente (sem copiar segredos).
+    ImportSwanctl {
+        /// O swanctl.conf (ou arquivo de conf.d) com a conexão.
+        file: PathBuf,
+        /// Conexão a importar (padrão: a primeira).
+        #[arg(long)]
+        conn: Option<String>,
+        /// Id do perfil (padrão: derivado do nome da conexão).
+        #[arg(long)]
+        id: Option<String>,
+        /// Nome exibido (padrão: o nome da conexão).
+        #[arg(long)]
+        name: Option<String>,
+        /// Servidor DNS da VPN (repetível; o swanctl.conf não tem essa informação).
+        #[arg(long = "dns")]
+        dns: Vec<std::net::IpAddr>,
+        /// Domínio DNS da VPN (repetível): `~dominio` só roteia consultas.
+        #[arg(long = "domain")]
+        domains: Vec<String>,
+        /// Usa também os DNS enviados pelo gateway.
+        #[arg(long)]
+        use_received_dns: bool,
+        /// Grava o perfil neste arquivo em vez de salvá-lo na lista de perfis.
+        #[arg(long)]
+        output: Option<PathBuf>,
+        /// Substitui um perfil existente com o mesmo id.
+        #[arg(long)]
+        force: bool,
     },
     /// Valida um arquivo de perfil sem importar.
     Validate {
@@ -319,6 +351,69 @@ fn profiles(cmd: ProfilesCmd) -> anyhow::Result<ExitCode> {
                 "  As credenciais continuam no chaveiro: ipsec-client-cli secrets forget {profile}"
             );
         }
+        ProfilesCmd::ImportSwanctl {
+            file,
+            conn,
+            id,
+            name,
+            dns,
+            domains,
+            use_received_dns,
+            output,
+            force,
+        } => {
+            let text = std::fs::read_to_string(&file)
+                .with_context(|| format!("não foi possível ler {}", file.display()))?;
+            let options = SwanctlImportOptions {
+                connection: conn,
+                id,
+                name,
+                dns: DnsSettings {
+                    servers: dns,
+                    domains,
+                    use_received: use_received_dns,
+                    default_route: false,
+                },
+            };
+            let result = import_swanctl(&text, &options)?;
+            let p = &result.profile;
+            for warning in &result.warnings {
+                println!("⚠ {warning}");
+            }
+            println!("Perfil gerado (sem segredos):");
+            println!("  id:        {}", p.id);
+            println!("  nome:      {}", p.name);
+            println!("  gateway:   {}", p.gateway);
+            println!(
+                "  IKE:       v{}{}",
+                p.ike.version,
+                if p.ike.aggressive { " agressivo" } else { "" }
+            );
+            println!("  redes:     {}", p.child.remote_ts.join(", "));
+            if p.network.dns.servers.is_empty() && p.network.dns.domains.is_empty() {
+                println!("  DNS:       (nenhum; use --dns/--domain se a VPN tiver DNS interno)");
+            }
+            match output {
+                Some(path) => {
+                    write_private(&path, &ipsec_client_core::profiles::to_json(p)?)?;
+                    println!(
+                        "✔ Gravado em {} (0600). Importe com `profiles import`.",
+                        path.display()
+                    );
+                }
+                None => {
+                    if !force && store.load(&p.id).is_ok() {
+                        bail!(
+                            "já existe um perfil '{}'; use --force para substituir",
+                            p.id
+                        );
+                    }
+                    store.save(p)?;
+                    println!("✔ Perfil '{}' salvo.", p.id);
+                    println!("  Próximo passo: ipsec-client-cli secrets set {}", p.id);
+                }
+            }
+        }
         ProfilesCmd::Validate { file } => {
             let json = std::fs::read_to_string(&file)
                 .with_context(|| format!("não foi possível ler {}", file.display()))?;
@@ -336,6 +431,21 @@ fn profiles(cmd: ProfilesCmd) -> anyhow::Result<ExitCode> {
         ProfilesCmd::Path => println!("{}", store.dir().display()),
     }
     Ok(ExitCode::SUCCESS)
+}
+
+/// Grava um arquivo com permissão 0600 (perfis têm dados da organização).
+fn write_private(path: &std::path::Path, content: &str) -> anyhow::Result<()> {
+    use std::io::Write as _;
+    use std::os::unix::fs::OpenOptionsExt as _;
+    let mut file = std::fs::OpenOptions::new()
+        .write(true)
+        .create(true)
+        .truncate(true)
+        .mode(0o600)
+        .open(path)
+        .with_context(|| format!("não foi possível gravar {}", path.display()))?;
+    file.write_all(content.as_bytes())?;
+    Ok(())
 }
 
 fn secrets(cmd: SecretsCmd) -> anyhow::Result<ExitCode> {

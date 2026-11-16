@@ -530,3 +530,35 @@ para descartar flakiness.
   8. disconnect, com status = 3 e o host limpo.
 
   O teste passou e entrou na CI.
+
+### Passo 13: importar `swanctl.conf` (`feat/import-swanctl`, adiantado)
+
+- **Por que adiantar:** é o caminho mais curto para o mantenedor gerar o perfil
+  do trabalho a partir do arquivo que já funciona, sem digitar valores e sem
+  que eles passem por esta sessão, e para passar a configuração ao colega.
+- **Parser** do formato do strongswan.conf: seções, `chave = valor`, `#` fora de
+  aspas e avisos para `include`.
+- **Segurança:**
+  - a seção `secrets` é **pulada sem ser armazenada**: o parser só conta as
+    chaves de abertura e fechamento;
+  - uma chave `secret` fora de `secrets` faz a importação ser recusada;
+  - o `xauth_id` não é copiado, porque o usuário é credencial;
+  - os testes conferem que nem o JSON do perfil nem o `Debug` contêm os
+    segredos da fixture.
+- **Mapeamento:**
+  - campos da conexão, rodadas `local*`/`remote*` (psk, xauth) e o primeiro
+    child;
+  - ações `start`/`restart` → `restart`, `route`/`trap`/`hold` → `trap`,
+    `none`/`clear` → `none`;
+  - durações com sufixo s/m/h/d;
+  - nomes convertidos em ids (`rede_interna` → `rede-interna`);
+  - certificados e EAP são recusados com uma mensagem clara.
+- **Fixture:** a mesma estrutura do `swanctl.conf` real do mantenedor (tabs,
+  comentários, `#proposals`, `local-1`/`local-2`, `secrets` com aspas e `#`
+  dentro), com valores falsos.
+- **CLI:** `profiles import-swanctl`, com `--dns`/`--domain`/`--use-received-dns`,
+  porque o DNS não existe no swanctl.conf, e `--output` para gerar um arquivo
+  0600.
+- **E2E do CLI:** importa o `swanctl.conf` do gateway de teste (que tem
+  `secrets` com credenciais falsas), confere que o perfil não tem segredos nem
+  o usuário, e **conecta com esse perfil**, com ping pelo túnel. Passou.
