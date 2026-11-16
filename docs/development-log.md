@@ -1356,6 +1356,17 @@ even though the line was there. The same pattern in `check-private.sh` could
 hide a match in an ELF file. Both now use `grep -q pattern < <(command)`, and
 CONTRIBUTING records the rule.
 
+**Scanner false positive in the 0.2.0 build.** The private data scan flagged
+`engine.tar.gz` in the three packages. Checked without printing pattern or
+match: one short pattern matched the **compressed bytes** of the tarball
+only; the decompressed stream and the extracted files were clean, and the
+home path and hostname were absent. gzip output is pseudo-random, so a short
+case-insensitive pattern matches by chance (0.1.1 passed by luck). The
+scanner now skips `.gz` files when applying the patterns, since their content
+is already extracted next to them and scanned there. Checked both ways: the
+0.2.0 packages pass, and a synthetic package with a marker inside the nested
+`engine.tar.gz` is refused, pointing at the extracted file.
+
 **Verification:** `npm run check` green; `test:native` (5 scenarios),
 `test:systemd`, `test:packaging`, `test:engine`, `test:docker` and `test:cli`
 green with the English scripts; vitest covers the Portuguese screen and the
