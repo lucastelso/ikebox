@@ -1,73 +1,78 @@
-# Segurança
+# Security
 
-## Reportando vulnerabilidades
+**[Português](docs/pt-BR/seguranca.md)** · English
 
-Quando o repositório for público, use o recurso **Security Advisories** do
-GitHub ("Report a vulnerability"). Não abra issue pública para
-vulnerabilidades.
+## Reporting vulnerabilities
 
-## Modelo de ameaças (resumo)
+Once the repository is public, use GitHub's **Security Advisories** ("Report
+a vulnerability"). Do not open public issues for vulnerabilities.
 
-### O que o app protege
+## Threat model (summary)
 
-| Ativo | Proteção |
+### What the app protects
+
+| Asset | Protection |
 |---|---|
-| PSK, usuário e senha XAuth | Ficam em memória (`secrecy`/`zeroize`) ou no chaveiro do sistema. Vão do app direto ao charon pelo socket VICI; o componente de rede (root) nunca as recebe. Nunca vão para disco, env, argumentos ou logs (ADR-0007) |
-| Socket de controle VICI | Socket Unix `0600`, dono = uid da sessão, em `/run/ipsec-client/<uid>` (`0711`, do root). Só o dono da sessão fala com o charon (ADRs 0003, 0014 e 0019) |
-| Comandos executados como root | Quem fala VICI **não escolhe** o `updown` nem o `if_id`: o charon embutido tem um patch que os força para os valores definidos pelo root, e os argumentos do `updown` vão num arquivo, nunca por um shell (ADR-0019) |
-| Componente de rede (root) | API mínima por socket: aceita só números, o id do perfil e o DNS, validados, nunca caminhos, comandos ou segredos. Cada pedido é autorizado pelo polkit (`allow_active`: só a sessão local ativa) e o uid vem do kernel (`SO_PEERCRED`). Parar a VPN e ler o log só para o dono da sessão; conexões atendidas em paralelo, com limite (ADRs 0014 e 0019) |
-| Host durante a conexão | O charon roda como serviço transitório do systemd com sandbox: sistema somente leitura, `/proc/sys` e `/sys` somente leitura, sem dispositivos reais, sem ver outros processos, filtro de syscalls, só as capabilities de rede e sem novos privilégios (ADRs 0014 e 0019) |
-| Instalação do componente | O instalador confere o `SHA256SUMS` numa cópia só do root e recusa links e caminhos fora do lugar; a remoção só executa o instalador que pertence ao root (ADR-0018) |
-| Rede do host | Rotas, VIP e DNS só na interface dedicada `ipsc0`, sem flush global de XFRM e sem tocar na interface física (ADR-0004) |
-| Dados da organização do usuário | Nunca entram no repositório; há um guarda automático (ADR-0010) |
+| PSK, XAuth username and password | Kept in memory (`secrecy`/`zeroize`) or in the system keyring. They go from the app straight to charon through the VICI socket; the network component (root) never receives them. They never go to disk, environment, arguments or logs (ADR-0007) |
+| VICI control socket | Unix socket `0600`, owned by the session uid, in `/run/ipsec-client/<uid>` (`0711`, owned by root). Only the session owner talks to charon (ADRs 0003, 0014 and 0019) |
+| Commands run as root | Whoever talks VICI **does not choose** the `updown` or the `if_id`: the embedded charon carries a patch that forces them to the values set by root, and the `updown` arguments go in a file, never through a shell (ADR-0019) |
+| Network component (root) | Minimal socket API: accepts only validated numbers, the profile id and the DNS settings, never paths, commands or secrets. Every request is authorized by polkit (`allow_active`: only the active local session) and the uid comes from the kernel (`SO_PEERCRED`). Stopping the VPN and reading its log is limited to the session owner; connections are served in parallel, with a limit (ADRs 0014 and 0019) |
+| Host during the connection | charon runs as a sandboxed transient systemd service: read-only system, read-only `/proc/sys` and `/sys`, no real devices, no view of other processes, a syscall filter, network capabilities only and no new privileges (ADRs 0014 and 0019) |
+| Component installation | The installer checks `SHA256SUMS` on a root-only copy and refuses links and out-of-place paths; removal only runs the root-owned installer (ADR-0018) |
+| Host network | Routes, VIP and DNS only on the dedicated `ipsc0` interface, no global XFRM flush and the physical interface is not touched (ADR-0004) |
+| The user's organization data | Never enters the repository; an automatic guard checks commits, the history and the inside of release packages (ADR-0010) |
+| Shared logs | "Copy anonymized" replaces the gateway, IPs and domains with placeholders before the text leaves the app |
 
-### Riscos conhecidos e aceitos
+### Known and accepted risks
 
-1. **O componente de rede roda como root.** É o mínimo para criar o túnel
-   (XFRM, rotas, portas 500/4500). O código com root fica num binário pequeno,
-   testado, que só sobe o strongSwan com sandbox. Depois de instalado,
-   qualquer usuário na sessão local ativa conecta sem senha, como no
-   NetworkManager. O charon ainda roda como root dentro do sandbox. O próximo
-   passo é rodá-lo com um usuário próprio e só as capabilities de rede
-   (ADR-0019).
-2. **O strongSwan é compilado por nós, com um patch nosso.** O código-fonte
-   é verificado por SHA-256 e pela assinatura GPG dos autores (ADR-0016). O
-   único patch, pequeno e de segurança (ADR-0019), é aplicado depois dessa
-   conferência. As correções de
-   segurança chegam quando o projeto publica uma versão nova, e não pelo
-   gerenciador de pacotes da distribuição. O daemon fica exposto (UDP
-   500/4500) **só enquanto a VPN está conectada**.
-3. **Criptografia legada.** IKEv1 agressivo com PSK expõe o hash da PSK a quem
-   observar o handshake, que fica sujeito a ataque offline de dicionário.
-   modp768/modp1024 e SHA1 também são fracos. Isso é uma limitação **da VPN
-   legada**, não do app: o app só consegue usar o que o gateway aceita.
-   Recomende à equipe de TI da sua organização migrar para IKEv2 com
-   certificados ou EAP.
-4. **AppImage.** O arquivo baixado é a base da confiança. Um programa
-   malicioso rodando como o próprio usuário poderia trocar os arquivos durante
-   a instalação do componente (ADR-0018). Quem quiser a verificação do
-   gerenciador de pacotes deve usar o `.rpm` ou o `.deb`.
-5. **Engine em Docker (só desenvolvimento e testes).** Sem o componente de
-   rede, o app ainda usa o engine em container, se houver Docker. Pertencer ao
-   grupo `docker` equivale a ter root, e esse engine usa o strongSwan 5.8.2 do
-   Ubuntu 20.04, que já saiu do suporte padrão. O modo privilegiado de reserva
-   (`--privileged`) vem desligado. O usuário final não precisa do Docker.
+1. **The network component runs as root.** It is the minimum needed to
+   create the tunnel (XFRM, routes, ports 500/4500). The root code lives in a
+   small, tested binary that only starts strongSwan in a sandbox. Once it is
+   installed, any user in the active local session can connect without a
+   password, as with NetworkManager. charon still runs as root inside the
+   sandbox. The next step is to run it as its own user with network
+   capabilities only (ADR-0019).
+2. **We compile strongSwan, with one patch of our own.** The source code is
+   verified by SHA-256 and by the authors' GPG signature (ADR-0016). The only
+   patch, small and security-related (ADR-0019), is applied after that check.
+   Security fixes arrive when the project publishes a new version, not through
+   the distribution's package manager. The daemon is exposed (UDP 500/4500)
+   **only while the VPN is connected**.
+3. **Legacy cryptography.** IKEv1 aggressive mode with PSK exposes the PSK
+   hash to whoever observes the handshake, which is subject to an offline
+   dictionary attack. modp768/modp1024 and SHA1 are also weak. This is a
+   limitation **of the legacy VPN**, not of the app: the app can only use what
+   the gateway accepts. Recommend that your organization's IT team move to
+   IKEv2 with certificates or EAP.
+4. **AppImage.** The downloaded file is the root of trust. A malicious
+   program running as the user could swap files during the component
+   installation (ADR-0018). The AppImage also carries its own libraries (such
+   as WebKitGTK), which do not get the distribution's security updates. Prefer
+   the `.rpm` or the `.deb`.
+5. **Docker engine (development and tests only).** Without the network
+   component, the app still uses the container engine, if Docker is present.
+   Being in the `docker` group is equivalent to root, and that engine uses the
+   strongSwan 5.8.2 of Ubuntu 20.04, which is out of standard support. The
+   fallback privileged mode (`--privileged`) is off. End users do not need
+   Docker.
 
-### Fora do escopo
+### Out of scope
 
-- Proteger os dados do usuário de um host já comprometido (root local) ou de
-  um programa malicioso rodando como o próprio usuário. **Em escopo:** o
-  componente de rede não pode servir de degrau desse programa para o root
+- Protecting the user's data from an already compromised host (local root)
+  or from a malicious program running as the user. **In scope:** the network
+  component must not be a stepping stone from that program to root
   (ADR-0019).
-- Kill switch / bloqueio de vazamento fora do túnel. O app faz split tunnel por
-  padrão.
+- Kill switch / blocking leaks outside the tunnel. The app does split
+  tunneling by default.
 
-## Boas práticas no desenvolvimento
+## Development practices
 
-- Nada de dados reais de VPN no repositório. Use as RFCs 5737/2606 nos
-  exemplos e configure `.git/info/private-patterns` (ver CONTRIBUTING.md).
-- Dependências fixadas: Rust via `Cargo.lock` + `cargo deny`, npm via
-  `package-lock.json`, imagens base por digest, código-fonte do strongSwan
-  embutido por SHA-256 + GPG, pacotes do strongSwan do engine Docker por
-  versão exata.
-- A CI roda um scanner de segredos (gitleaks) em todo push.
+- No real VPN data in the repository. Use RFC 5737/2606 values in examples
+  and set up `.git/info/private-patterns` (see [CONTRIBUTING.md](CONTRIBUTING.md)).
+- Pinned dependencies: Rust via `Cargo.lock` + `cargo deny`, npm via
+  `package-lock.json`, base images by digest, the embedded strongSwan source by
+  SHA-256 + GPG, the Docker engine strongSwan packages by exact version.
+- CI runs a secret scanner (gitleaks) on every push.
+- Release packages are checked before publishing: network component
+  integrity, strongSwan security patches, glibc limit and private data
+  (`scripts/verify-release.sh`, `scripts/check-private.sh --artifacts`).

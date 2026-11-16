@@ -1,162 +1,179 @@
 # IPsec Client
 
-Cliente de VPN IPsec para **Linux**, feito para VPNs **legadas**: IKEv1, modo
-agressivo, PSK de grupo + XAuth, grupos DH antigos. É o tipo de VPN corporativa
-que os clientes atuais do Linux já não conseguem conectar.
+**[Português](README.pt-BR.md)** · English
 
-> **Status: v0.1.1 (pré-alfa), versão de segurança.** O app desktop,
-> instalado pelo `.rpm` e com o strongSwan embutido (**sem Docker**), conecta
-> de ponta a ponta numa VPN FortiGate real. A 0.1.1 corrige uma escalada
-> local de privilégio da 0.1.0: quem usa a 0.1.0 deve atualizar o app **e**
-> o componente de rede (ver o [CHANGELOG](CHANGELOG.md)). Os pacotes (AppImage, rpm e deb)
-> estão na página [Releases](https://github.com/lucastelso/ipsec-client/releases).
-> O que já existe e o que vem a seguir estão no [roadmap](docs/roadmap.md). Os
-> passos já dados estão no [diário de desenvolvimento](docs/desenvolvimento.md).
+IPsec VPN client for **Linux**, built for **legacy** VPNs: IKEv1, aggressive
+mode, group PSK + XAuth, old DH groups. It is the kind of corporate VPN that
+today's Linux clients can no longer connect to.
+
+> **Status: v0.2.0 (pre-alpha).** The desktop app, installed from the `.rpm`
+> and with its own embedded strongSwan (**no Docker**), connects end to end to
+> a real FortiGate VPN. The interface speaks English and Portuguese. Version
+> 0.2.0 fixes a local privilege escalation in 0.1.0: if you use 0.1.0, update
+> the app **and** the network component (see the [CHANGELOG](CHANGELOG.md)).
+> The packages (AppImage, rpm and deb) are on the
+> [Releases](https://github.com/lucastelso/ipsec-client/releases) page. What
+> exists and what comes next is in the [roadmap](docs/roadmap.md); the steps
+> taken so far are in the [development log](docs/development-log.md).
 
 ---
 
-## Por que este projeto existe
+## Why this project exists
 
-Muitas empresas e órgãos públicos ainda usam concentradores VPN (por exemplo,
-FortiGate) configurados com IKEv1 e algoritmos antigos. No Windows e no macOS,
-o fabricante oferece um cliente oficial, como o FortiClient. No Linux, o
-suporte foi abandonado. E as ferramentas nativas não ajudam:
+Many companies and public agencies still run VPN concentrators (FortiGate,
+for example) configured with IKEv1 and old algorithms. On Windows and macOS,
+the vendor ships an official client, such as FortiClient. On Linux, support
+was dropped, and the native tools do not help:
 
-- as distribuições atuais, com suas políticas de criptografia, recusam ou já
-  não oferecem esses algoritmos;
-- o NetworkManager não cobre bem a combinação **PSK de grupo + XAuth em modo
-  agressivo**.
+- current distributions, with their crypto policies, refuse or no longer
+  offer those algorithms;
+- NetworkManager does not handle the **group PSK + XAuth in aggressive mode**
+  combination well.
 
-O IPsec Client resolve isso trazendo o **próprio strongSwan** (6.1.0,
-compilado a partir do código-fonte oficial). Ele mantém os algoritmos legados
-sem rebaixar nada no sistema. Para o usuário, é um app com perfis, credenciais
-guardadas com segurança, diagnóstico e ícone na bandeja.
+IPsec Client solves this by shipping **its own strongSwan** (6.1.0, compiled
+from the official source code). It keeps the legacy algorithms without
+weakening anything in the system. For the user, it is an app with profiles,
+safely stored credentials, diagnostics and a tray icon.
 
-## Para quem é
+## Who it is for
 
-- **Usuários de Linux** que precisam acessar uma VPN IPsec corporativa sem
-  cliente oficial para Linux.
-- **Equipes** que querem distribuir um perfil pronto para os colegas, com
-  gateway, propostas, rotas e DNS. Cada pessoa só informa as próprias
-  credenciais.
-- **Quem automatiza:** existe uma linha de comando (`ipsec-client-cli`) com a
-  mesma lógica do app.
+- **Linux users** who need to reach a corporate IPsec VPN that has no
+  official Linux client.
+- **Teams** that want to hand a ready-made profile to colleagues, with the
+  gateway, proposals, routes and DNS. Each person only enters their own
+  credentials.
+- **Automation:** there is a command line (`ipsec-client-cli`) with the same
+  logic as the app.
 
-### Para quem não é
+### Who it is not for
 
-| Caso | Use |
+| Case | Use |
 |---|---|
-| VPN SSL do FortiGate (SSL-VPN) | [openfortivpn](https://github.com/adrienverge/openfortivpn) |
-| L2TP/IPsec, OpenVPN, WireGuard | Fora do escopo: há bons clientes nativos |
-| Windows / macOS | O cliente oficial do fabricante |
+| FortiGate SSL VPN (SSL-VPN) | [openfortivpn](https://github.com/adrienverge/openfortivpn) |
+| L2TP/IPsec, OpenVPN, WireGuard | Out of scope: there are good native clients |
+| Windows / macOS | The vendor's official client |
 
-## Instalação
+## Installation
 
-Baixe o arquivo da sua distribuição na página [Releases](https://github.com/lucastelso/ipsec-client/releases):
+Download the file for your distribution from the
+[Releases](https://github.com/lucastelso/ipsec-client/releases) page:
 
-| Sua distribuição | Arquivo | Como instalar |
+| Your distribution | File | How to install |
 |---|---|---|
 | Fedora, RHEL, openSUSE | `.rpm` | `sudo dnf install ./ipsec-client-*.x86_64.rpm` |
 | Ubuntu, Debian, Mint | `.deb` | `sudo apt install ./ipsec-client_*_amd64.deb` |
-| Outras | `.AppImage` | `chmod +x` e abrir |
+| Others | `.AppImage` | `chmod +x` and open it |
 
-Depois, abra o **IPsec Client** pelo menu de aplicativos. Na primeira vez, ele
-pede a senha de administrador **uma vez** para instalar o componente de rede.
+Then open **IPsec Client** from the applications menu. The first time, it asks
+for the administrator password **once** to install the network component.
 
-O passo a passo completo, com primeiro uso, atualização, desinstalação e
-como gerar os pacotes a partir do código, está no
-**[manual de instalação](docs/instalacao.md)**.
+The full walkthrough (first use, updating, uninstalling and building the
+packages from source) is in the **[installation guide](docs/installation.md)**.
 
-> Recebeu um perfil de um colega? Siga o **[guia rápido](docs/guia-rapido.md)**.
+> Got a profile from a colleague? Follow the **[quick start](docs/quick-start.md)**.
 
-## Como funciona
+## Languages
+
+The app follows the system language: Portuguese on a Portuguese system,
+English on any other. You can change it in **System → Appearance →
+Language**. The command line speaks English. The user documentation exists in
+both languages (Portuguese versions in [docs/pt-BR](docs/pt-BR/)); the
+technical documentation is in English.
+
+## How it works
 
 ```
-┌──────────────────────────────── host Linux ─────────────────────────────────┐
-│  IPsec Client (app)  ou  ipsec-client-cli                (seu usuário)      │
-│     │ perfis: ~/.config/ipsec-client   credenciais: chaveiro do sistema     │
-│     │ "suba o engine" (socket + polkit)      │ VICI (socket 0600, só seu)   │
+┌──────────────────────────────── Linux host ─────────────────────────────────┐
+│  IPsec Client (app)  or  ipsec-client-cli                (your user)        │
+│     │ profiles: ~/.config/ipsec-client   credentials: system keyring        │
+│     │ "start the engine" (socket + polkit)   │ VICI (socket 0600, yours)    │
 │     ▼                                        │                              │
-│  ipsec-client-helper (root, API mínima)      │                              │
-│     │ systemd-run, com sandbox               ▼                              │
-│     └──► charon (strongSwan 6.1.0 embutido) ── updown → rotas + DNS         │
-│              │ SAs e políticas XFRM (com if_id)                             │
+│  ipsec-client-helper (root, minimal API)     │                              │
+│     │ systemd-run, sandboxed                 ▼                              │
+│     └──► charon (embedded strongSwan 6.1.0) ── updown → routes + DNS        │
+│              │ XFRM SAs and policies (with if_id)                           │
 │              ▼                                                              │
-│  kernel: interface ipsc0 (XFRM) ═══════ ESP/UDP 4500 ═══════► gateway VPN   │
+│  kernel: ipsc0 interface (XFRM) ═══════ ESP/UDP 4500 ═══════► VPN gateway   │
 └─────────────────────────────────────────────────────────────────────────────┘
 ```
 
-- **Conectar:**
-  - o app pede ao **componente de rede** (o helper) que suba o strongSwan;
-  - o helper confere quem pediu (polkit) e sobe o strongSwan como um serviço
-    temporário do systemd, isolado, só com as permissões de rede;
-  - o app entrega o perfil e as credenciais ao strongSwan em memória, pelo
-    socket de controle (VICI), e inicia a negociação.
-- **Conectado:**
-  - o IP virtual, as rotas e o DNS da VPN ficam na interface dedicada `ipsc0`;
-  - a sua interface Wi-Fi/Ethernet não é tocada;
-  - outras VPNs (WireGuard, Tailscale) não são afetadas.
-- **Desconectar:** o serviço do strongSwan é encerrado, e a interface `ipsc0`
-  some levando junto rotas, IP e DNS.
+- **Connecting:**
+  - the app asks the **network component** (the helper) to start strongSwan;
+  - the helper checks who asked (polkit) and starts strongSwan as a temporary,
+    isolated systemd service with network permissions only;
+  - the app hands the profile and the credentials to strongSwan in memory,
+    through the control socket (VICI), and starts the negotiation.
+- **Connected:**
+  - the virtual IP, the routes and the VPN DNS live on the dedicated `ipsc0`
+    interface;
+  - your Wi-Fi/Ethernet interface is not touched;
+  - other VPNs (WireGuard, Tailscale) are not affected.
+- **Disconnecting:** the strongSwan service stops, and the `ipsc0` interface
+  goes away along with the routes, the IP and the DNS.
 
-Os detalhes estão em [docs/arquitetura.md](docs/arquitetura.md). O porquê de
-cada escolha está nos [ADRs](docs/adr/README.md).
+The details are in [docs/architecture.md](docs/architecture.md). The reason
+behind each choice is in the [ADRs](docs/adr/README.md).
 
-## Segurança e privacidade
+## Security and privacy
 
-- **Credenciais** (PSK, usuário e senha XAuth):
-  - não vão para disco, variáveis de ambiente nem logs;
-  - o componente de rede, que roda como root, **nunca** as recebe: elas vão
-    do app direto para o strongSwan;
-  - "lembrar credenciais" usa o chaveiro do sistema (GNOME Keyring/KWallet).
-- **Componente de rede:**
-  - é instalado uma vez, com a senha de administrador, e o instalador confere
-    os hashes de todos os arquivos;
-  - recebe do app só números validados e o nome do perfil, nunca caminhos nem
-    comandos;
-  - conectar sem senha vale só para quem está na sessão local ativa (polkit).
-- **strongSwan:** roda isolado pelo systemd (sistema somente leitura, só
-  permissões de rede) e só escuta nas portas UDP 500/4500 **enquanto a VPN está
-  conectada**.
-- **Repositório:** não contém dados de nenhuma VPN real. Perfis com dados da
-  sua organização ficam em `presets.local/`, que é ignorado pelo git, ou são
-  criados e importados pelo próprio app.
-- **Riscos conhecidos:** VPNs legadas usam criptografia fraca por natureza.
-  Esse e os demais riscos estão em [SECURITY.md](SECURITY.md) e nos ADRs
-  [0014](docs/adr/0014-helper-privilegiado-polkit.md) e
-  [0018](docs/adr/0018-instalacao-do-componente-pelo-app.md).
+- **Credentials** (PSK, XAuth username and password):
+  - never go to disk, environment variables or logs;
+  - the network component, which runs as root, **never** receives them: they
+    go from the app straight to strongSwan;
+  - "remember credentials" uses the system keyring (GNOME Keyring/KWallet).
+- **Network component:**
+  - installed once, with the administrator password; the installer checks
+    the hashes of every file;
+  - receives from the app only validated numbers, the profile name and the
+    DNS settings, never paths or commands; the command strongSwan runs as root
+    is fixed by root, not by the app (ADR-0019);
+  - connecting without a password is only allowed for the user of the active
+    local session (polkit); only that user can stop the VPN or read its log.
+- **strongSwan:** runs isolated by systemd (read-only system, no access to
+  devices or kernel settings, network permissions only) and only listens on
+  UDP ports 500/4500 **while the VPN is connected**.
+- **Logs:** "Copy anonymized" replaces the gateway, IPs and domains with
+  placeholders before the log leaves the app.
+- **Repository:** contains no data from any real VPN. Profiles with your
+  organization's data stay in `presets.local/`, which git ignores, or are
+  created and imported by the app itself.
+- **Known risks:** legacy VPNs use weak cryptography by nature. This and the
+  other risks are in [SECURITY.md](SECURITY.md) and in ADRs
+  [0014](docs/adr/0014-privileged-helper-polkit.md),
+  [0018](docs/adr/0018-component-installed-by-the-app.md) and
+  [0019](docs/adr/0019-forced-updown-and-if-id.md).
 
-## Requisitos
+## Requirements
 
-- Linux x86_64 com kernel ≥ 4.19 e o módulo `xfrm_interface` (padrão nas
-  distribuições atuais).
-- systemd e polkit, padrão nas distribuições de desktop.
-- `systemd-resolved` ativo, para o DNS da VPN. Sem ele, o túnel funciona por
+- Linux x86_64 with kernel ≥ 4.19 and the `xfrm_interface` module (the default
+  in current distributions).
+- systemd and polkit, the default in desktop distributions.
+- `systemd-resolved` running, for the VPN DNS. Without it, the tunnel works by
   IP.
-- Uma conta de administrador, só para instalar o componente de rede uma vez.
-- Opcional: Secret Service (GNOME Keyring/KWallet), para lembrar credenciais;
-  no GNOME, a extensão AppIndicator, para o ícone na bandeja.
+- An administrator account, only to install the network component once.
+- Optional: Secret Service (GNOME Keyring/KWallet), to remember credentials;
+  on GNOME, the AppIndicator extension, for the tray icon.
 
-## Linha de comando
+## Command line
 
-O `ipsec-client-cli` faz o mesmo que o app, pelo terminal. Por enquanto, ele é
-compilado a partir do código:
+`ipsec-client-cli` does the same as the app, from the terminal. For now, it is
+built from source:
 
 ```bash
 cargo build --release -p ipsec-client-cli
-target/release/ipsec-client-cli doctor             # o ambiente está pronto?
-target/release/ipsec-client-cli profiles import minha-vpn.json
-target/release/ipsec-client-cli secrets set minha-vpn
-target/release/ipsec-client-cli connect minha-vpn  # Ctrl+C desconecta
+target/release/ipsec-client-cli doctor             # is this computer ready?
+target/release/ipsec-client-cli profiles import my-vpn.json
+target/release/ipsec-client-cli secrets set my-vpn
+target/release/ipsec-client-cli connect my-vpn     # Ctrl+C disconnects
 ```
 
-O perfil é um JSON sem credenciais: ver [docs/perfis.md](docs/perfis.md),
-que inclui a correspondência com um `swanctl.conf`. O guia completo do CLI
-está em [docs/cli.md](docs/cli.md).
+A profile is a JSON file without credentials: see
+[docs/profiles.md](docs/profiles.md), which includes the mapping from a
+`swanctl.conf`. The full CLI guide is in [docs/cli.md](docs/cli.md).
 
-## Desenvolvimento
+## Development
 
-### Pré-requisitos
+### Prerequisites
 
 Fedora:
 
@@ -175,97 +192,86 @@ sudo apt install -y libwebkit2gtk-4.1-dev build-essential curl wget file \
 curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh
 ```
 
-Também é preciso Node.js ≥ 22, o cargo-deny (`cargo install --locked
-cargo-deny`) e o Docker. O Docker serve só para compilar o strongSwan
-embutido e para os testes com um gateway IPsec local; o usuário final não
-precisa dele.
+You also need Node.js ≥ 22, cargo-deny (`cargo install --locked cargo-deny`)
+and Docker. Docker is only used to compile the embedded strongSwan and for the
+tests with a local IPsec gateway; end users do not need it.
 
-### Comandos
+### Commands
 
 ```bash
-npm install                 # ferramentas, dependências do frontend e git hooks (só para desenvolver)
-npm run tauri dev           # abre o app desktop em modo de desenvolvimento
-npm run check               # tudo o que precisa estar verde antes de um merge
-npm run bundle -- --bundles rpm   # gera o pacote instalável (rpm, deb ou appimage)
-npm run release:build -- v0.1.1   # pacotes de release (os três) num container Ubuntu 22.04
-npm run test:engine         # teste ponta a ponta do engine com um gateway IPsec local
-npm run test:docker         # integração do núcleo Rust com o Docker real (engine, VICI, sessão)
-npm run test:cli            # fluxo completo do CLI contra o gateway de teste
-npm run test:native         # strongSwan compilado (engine embutido) + teste ponta a ponta
-npm run test:systemd        # engine embutido com systemd de verdade num container (sandbox, 2 usuários, ataque)
-npm run test:packaging      # instalador do componente de rede, como root num container
-scripts/test-native.sh      # instala o componente de verdade (sudo) e testa o CLI por ele
-scripts/check-private.sh    # procura dados privados no conteúdo staged
+npm install                 # tools, frontend dependencies and git hooks (development only)
+npm run tauri dev           # opens the desktop app in development mode
+npm run check               # everything that must be green before a merge
+npm run bundle -- --bundles rpm   # builds the installable package (rpm, deb or appimage)
+npm run release:build -- v0.2.0   # release packages (all three) in an Ubuntu 22.04 container
+npm run test:engine         # end-to-end engine test with a local IPsec gateway
+npm run test:docker         # Rust core integration with real Docker (engine, VICI, session)
+npm run test:cli            # full CLI flow against the test gateway
+npm run test:native         # compiled strongSwan (embedded engine) + end-to-end test
+npm run test:systemd        # embedded engine with real systemd in a container (sandbox, 2 users, attack)
+npm run test:packaging      # network component installer, as root in a container
+scripts/test-native.sh      # installs the real component (sudo) and tests the CLI through it
+scripts/check-private.sh    # looks for private data in the staged content
 ```
 
-Os testes ponta a ponta sobem um **gateway IPsec de mentira** num container e
-conectam nele com IKEv1 agressivo, PSK + XAuth e modp1024/modp768, a mesma
-família das VPNs legadas. Eles verificam:
+The end-to-end tests start a **fake IPsec gateway** in a container and connect
+to it with IKEv1 aggressive mode, PSK + XAuth and modp1024/modp768, the same
+family as legacy VPNs. They check:
 
-- a interface, as rotas, o DNS split e um ping pelo túnel;
-- se os logs estão sem segredos;
-- se tudo é limpo ao desconectar, inclusive depois de o engine ser morto à
-  força;
-- o túnel completo (`0.0.0.0/0`), num namespace de rede isolado.
+- the interface, the routes, the split DNS and a ping through the tunnel;
+- that the logs have no secrets;
+- that everything is cleaned up on disconnect, even after the engine is
+  killed;
+- the full tunnel (`0.0.0.0/0`), in an isolated network namespace;
+- that a malicious VICI client cannot choose the command run as root.
 
-Nenhum teste usa uma VPN real.
+No test uses a real VPN.
 
-### Estrutura do repositório
+### Repository layout
 
 ```
-crates/core/     núcleo em Rust: perfis, segredos, engine, sessão, diagnóstico, componente de rede
+crates/core/     Rust core: profiles, secrets, engine, session, diagnostics, network component, i18n
 crates/cli/      ipsec-client-cli
-crates/proto/    protocolo entre o app e o helper (validação compartilhada)
-crates/helper/   ipsec-client-helper: o componente de rede que roda como root
-src-tauri/       app desktop (Tauri v2): comandos finos sobre o core, DTOs, bandeja, pacotes
-src/             interface (React 19 + TypeScript + Tailwind 4 + componentes shadcn/ui)
-native-engine/   build do strongSwan embutido (código-fonte verificado por SHA-256 + GPG)
-engine/          scripts do engine (entrypoint, updown, config) e a imagem Docker dos testes
-packaging/       units do systemd, policy do polkit e instalador do componente de rede
-scripts/         utilitários (dados privados, shellcheck, pacote do componente, testes)
-tests/           testes ponta a ponta (engine, CLI) e do instalador
-docs/            manual, guias, arquitetura, roadmap, diário de desenvolvimento, ADRs
-assets/          logo (fonte dos ícones)
-presets/         exemplos genéricos de perfis (os seus vão em presets.local/, ignorado)
+crates/proto/    protocol between the app and the helper (shared validation)
+crates/helper/   ipsec-client-helper: the network component that runs as root
+src-tauri/       desktop app (Tauri v2): thin commands over the core, DTOs, tray, packages
+src/             interface (React 19 + TypeScript + Tailwind 4 + shadcn/ui components), src/i18n
+native-engine/   embedded strongSwan build (source verified by SHA-256 + GPG, security patches)
+engine/          engine scripts (entrypoint, updown, config) and the test Docker image
+packaging/       systemd units, polkit policy and the network component installer
+scripts/         utilities (private data, shellcheck, component bundle, release)
+tests/           end-to-end tests (engine, CLI, systemd) and the installer test
+docs/            guides, architecture, roadmap, development log, ADRs; docs/pt-BR in Portuguese
+assets/          logo (icon source)
+presets/         generic profile examples (yours go in presets.local/, ignored)
 ```
 
-### Fluxo de trabalho
+### Workflow
 
-- Um branch por funcionalidade.
-- Commits no padrão [Conventional Commits](https://www.conventionalcommits.org/)
-  em pt-BR.
-- Merge `--no-ff` em `main` com o `npm run check` verde.
+- One branch per feature.
+- [Conventional Commits](https://www.conventionalcommits.org/) in English
+  (the history up to v0.1.1 is in Portuguese).
+- `--no-ff` merges into `main` with `npm run check` green.
 
-Os detalhes estão em [CONTRIBUTING.md](CONTRIBUTING.md).
+The details are in [CONTRIBUTING.md](CONTRIBUTING.md).
 
-## Documentação
+## Documentation
 
-- **[Manual de instalação](docs/instalacao.md)**
-- **[Guia rápido: conectar com um perfil recebido](docs/guia-rapido.md)**
-- [Perfis de conexão (formato, swanctl → perfil, compartilhar com colegas)](docs/perfis.md)
-- [Linha de comando (ipsec-client-cli)](docs/cli.md)
-- [Arquitetura](docs/arquitetura.md)
-- [Decisões de arquitetura (ADRs)](docs/adr/README.md)
+- **[Installation guide](docs/installation.md)** ([pt-BR](docs/pt-BR/instalacao.md))
+- **[Quick start: connect with a profile you received](docs/quick-start.md)** ([pt-BR](docs/pt-BR/guia-rapido.md))
+- [Connection profiles (format, swanctl → profile, sharing with colleagues)](docs/profiles.md)
+- [Command line (ipsec-client-cli)](docs/cli.md)
+- [Architecture](docs/architecture.md)
+- [Architecture decisions (ADRs)](docs/adr/README.md)
 - [Roadmap](docs/roadmap.md)
-- [Como gerar e publicar uma versão](docs/release.md)
-- [Estado atual e como retomar o desenvolvimento](docs/retomar.md)
-- [Diário de desenvolvimento](docs/desenvolvimento.md)
-- [Segurança](SECURITY.md) · [Contribuindo](CONTRIBUTING.md) · [Changelog](CHANGELOG.md)
+- [How to build and publish a release](docs/release.md)
+- [Current state and how to resume development](docs/resume.md)
+- [Development log](docs/development-log.md)
+- [Security](SECURITY.md) ([pt-BR](docs/pt-BR/seguranca.md)) · [Contributing](CONTRIBUTING.md) · [Changelog](CHANGELOG.md)
 
-## Publicação no GitHub (mantenedor)
+## License
 
-O repositório começa privado. Para enviá-lo:
-
-```bash
-scripts/check-private.sh --history          # varre o histórico inteiro antes
-git remote add origin git@github.com:<usuario>/ipsec-client.git
-git push -u origin --all && git push --tags
-```
-
-## Licença
-
-[GPL-3.0-or-later](LICENSE). Qualquer versão redistribuída precisa manter o
-código aberto, que é o que se espera de uma ferramenta de segurança. O motivo
-da escolha está no [ADR-0017](docs/adr/0017-licenca-gpl-3.md). O strongSwan e
-o GMP, embutidos no engine, têm licenças próprias: ver
-[THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md).
+[GPL-3.0-or-later](LICENSE). Any redistributed version must stay open source,
+which is what you expect from a security tool. The reason for the choice is in
+[ADR-0017](docs/adr/0017-gpl-3-license.md). strongSwan and GMP, embedded in the
+engine, have their own licenses: see [THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md).

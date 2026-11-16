@@ -1,89 +1,96 @@
-# Contribuindo
+# Contributing
 
-## Regra nº 1: nenhum dado real de VPN no repositório
+## Rule #1: no real VPN data in the repository
 
-Este projeto não pode conter informação que identifique uma organização ou uma
-pessoa (ADR-0010). Isso inclui:
+This project must not contain information that identifies an organization or
+a person (ADR-0010). That includes:
 
-- gateway e redes internas;
-- id de grupo;
-- servidores DNS e domínios internos;
-- matrícula ou usuário;
-- caminhos locais (`/home/<você>`);
-- e, claro, PSKs e senhas.
+- gateway and internal networks;
+- group id;
+- internal DNS servers and domains;
+- employee id or username;
+- local paths (`/home/<you>`);
+- and, of course, PSKs and passwords.
 
-**Em exemplos, testes e documentação, use só valores reservados:**
+**In examples, tests and documentation, use only reserved values:**
 
-| Tipo | Use |
+| Type | Use |
 |---|---|
 | IPv4 | `192.0.2.0/24`, `198.51.100.0/24`, `203.0.113.0/24` (RFC 5737) |
 | IPv6 | `2001:db8::/32` (RFC 3849) |
-| Domínios | `example.com`, `example.org`, `*.test`, `*.invalid` (RFC 2606) |
-| Credenciais de teste | Obviamente falsas, por exemplo `ipsec-client-test-psk` |
+| Domains | `example.com`, `example.org`, `*.test`, `*.invalid` (RFC 2606) |
+| Test credentials | Obviously fake, for example `ipsec-client-test-psk` |
 
-### Configure o guarda de dados privados
+### Set up the private data guard
 
-Crie o arquivo `.git/info/private-patterns`. Ele fica dentro de `.git/` e nunca
-é versionado. Escreva **uma expressão regular por linha**. Exemplo:
+Create the file `.git/info/private-patterns`. It lives inside `.git/` and is
+never versioned. Write **one regular expression per line**. Example:
 
 ```
-# meus dados privados (nunca versionados)
-vpn\.minhaempresa\.com\.br
+# my private data (never versioned)
+vpn\.mycompany\.example
 203\.0\.113\.10
-\bminha-matricula\b
+\bmy-employee-id\b
 ```
 
-Os hooks rodam `scripts/check-private.sh` automaticamente:
+The hooks run `scripts/check-private.sh` automatically:
 
-- no **pre-commit**, sobre o conteúdo staged;
-- no **commit-msg**, sobre a mensagem;
-- no **pre-push**, sobre o histórico inteiro.
+- on **pre-commit**, over the staged content;
+- on **commit-msg**, over the message;
+- on **pre-push**, over the whole history.
 
-> Não coloque PSKs ou senhas nesse arquivo. Isso criaria mais uma cópia delas
-> em texto puro. A proteção para segredos é arquitetural: eles nunca são
-> escritos em arquivos do projeto.
+> Do not put PSKs or passwords in that file. It would create one more
+> plain-text copy of them. The protection for secrets is architectural: they
+> are never written to project files.
 
-## Licença das contribuições
+## License of contributions
 
-O projeto é GPL-3.0-or-later (ADR-0017). Ao contribuir, você concorda que a
-sua contribuição é licenciada nos mesmos termos (*inbound = outbound*).
-Dependências novas precisam ter licença compatível, e o `cargo deny` verifica
-isso no lado Rust.
+The project is GPL-3.0-or-later (ADR-0017). By contributing, you agree that
+your contribution is licensed under the same terms (*inbound = outbound*).
+New dependencies need a compatible license, and `cargo deny` checks that on
+the Rust side.
 
-## Fluxo de trabalho
+## Workflow
 
-1. Crie o branch a partir de `main`, com o nome `tipo/descricao`. Exemplos:
-   `feat/perfis`, `fix/updown-ipv6`.
-2. Faça commits pequenos no padrão
-   [Conventional Commits](https://www.conventionalcommits.org/), em pt-BR:
+1. Create the branch from `main`, named `type/description`. Examples:
+   `feat/profiles`, `fix/updown-ipv6`.
+2. Make small commits following
+   [Conventional Commits](https://www.conventionalcommits.org/), in English:
    ```
-   feat(engine): cria interface XFRM dedicada no entrypoint
-   fix(updown): ignora rota quando o TS remoto é o próprio gateway
-   docs(adr): registra decisão sobre roteamento por if_id
+   feat(engine): create a dedicated XFRM interface in the entrypoint
+   fix(updown): skip the route when the remote TS is the gateway itself
+   docs(adr): record the decision on routing by if_id
    ```
-   Tipos aceitos: `feat`, `fix`, `docs`, `chore`, `refactor`, `test`, `ci`,
-   `build`, `perf`, `style`, `revert`. O commitlint valida a mensagem.
-3. Antes do merge, o `npm run check` precisa estar verde.
-4. Faça o merge em `main` com `git merge --no-ff`. O branch fica guardado.
-5. Versões seguem o [SemVer](https://semver.org/). O CHANGELOG é gerado a partir
-   dos commits (git-cliff).
+   Accepted types: `feat`, `fix`, `docs`, `chore`, `refactor`, `test`, `ci`,
+   `build`, `perf`, `style`, `revert`. commitlint checks the message. (The
+   history up to v0.1.1 is in Portuguese.)
+3. Before merging, `npm run check` must be green.
+4. Merge into `main` with `git merge --no-ff`. The branch is kept.
+5. Versions follow [SemVer](https://semver.org/).
 
-## Verificações
+## Checks
 
-| Comando | O que faz |
+| Command | What it does |
 |---|---|
-| `npm run check` | Tudo: guarda de dados privados, shellcheck e, conforme os componentes forem entrando, fmt/clippy/test/deny (Rust) e biome/tsc/vitest (frontend) |
-| `npm run lint:sh` | shellcheck em todos os scripts. Se o shellcheck não estiver instalado, usa a imagem Docker oficial |
-| `npm run test:engine` | Teste ponta a ponta do engine com um gateway IPsec local. Precisa de Docker e das portas UDP 500/4500 livres |
-| `scripts/check-private.sh --history` | Varre todo o histórico. Rode antes de publicar |
-| `scripts/check-private.sh --artifacts <dir>` | Varre os pacotes de release por dentro (padrões privados, caminho da home, hostname). Roda sozinho no fim do `npm run release:build` |
+| `npm run check` | Everything: private data guard, shellcheck, fmt/clippy/test/deny (Rust) and biome/tsc/vitest (frontend) |
+| `npm run lint:sh` | shellcheck on every script. Without shellcheck installed, it uses the official Docker image |
+| `npm run test:engine` | End-to-end engine test with a local IPsec gateway. Needs Docker and free UDP ports 500/4500 |
+| `npm run test:native` / `test:systemd` | Embedded engine end to end, and with real systemd in a container (includes the ADR-0019 attack) |
+| `scripts/check-private.sh --history` | Scans the whole history. Run it before publishing |
+| `scripts/check-private.sh --artifacts <dir>` | Scans the inside of release packages (private patterns, home path, hostname). Runs on its own at the end of `npm run release:build` |
 
-## Estilo
+## Style
 
-- **Shell:** `bash` com `set -euo pipefail`, aspas em toda expansão e
-  shellcheck limpo. Valide toda entrada externa (variáveis de ambiente,
-  argumentos).
-- **Rust:** `cargo fmt`, `clippy -D warnings`, erros com `thiserror` no `core`.
-  Nunca derive `Debug` em tipos com segredo sem redação.
-- **Idioma:** documentação e mensagens para o usuário em pt-BR; identificadores
-  e comentários de código em inglês.
+- **Shell:** `bash` with `set -euo pipefail`, quotes on every expansion and
+  clean shellcheck. Validate every external input (environment variables,
+  arguments). Do not pipe into `grep -q` when a match matters: under
+  `pipefail`, the early exit turns into SIGPIPE on the producer. Use
+  `grep -q pattern < <(command)`.
+- **Rust:** `cargo fmt`, `clippy -D warnings`, errors with `thiserror` in
+  `core`. Never derive `Debug` on types with secrets without redaction.
+- **Language:** documentation, identifiers and code comments in English
+  (older comments are still being translated). User-facing messages are
+  bilingual: in Rust, `tr!("English", "Português")` / `trf!(...)` from
+  `ipsec_client_core::i18n`; in the UI, the dictionaries in `src/i18n`
+  (`pt` must have the same shape as `en`). The CLI, the helper and the scripts
+  speak English. User documentation has a Portuguese copy in `docs/pt-BR/`.
