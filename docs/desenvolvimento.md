@@ -1302,3 +1302,110 @@ deixa a decisão para a conferência do componente, que falha se a extração
 vier incompleta. Cada extração que falhar mostra uma mensagem clara. A tag
 `v0.1.0`, que ainda não tinha sido enviada, foi movida para o commit com o
 ajuste, e os pacotes foram gerados de novo a partir dela.
+
+### Passo 32: auditoria de segurança e correção de escalada de privilégio (`fix/engine-updown-forcado`)
+
+**Pedido do mantenedor:** auditoria de segurança do app (melhorias,
+otimizações e vulnerabilidades), sobretudo para garantir que nenhum dado do
+trabalho vazou. A v0.1.0 já estava publicada e com um colega.
+
+**Varredura de vazamento: limpa.** Feita só com leitura, contando
+ocorrências sem nunca imprimir valores:
+
+- o guarda (`check-private.sh --tracked` e `--history`), mais os nomes de
+  branch/tag e a mensagem da tag;
+- uma segunda rede de valores tirados dos arquivos privados (gateway, DNS,
+  domínio e rótulos, id de grupo, rede remota), além do caminho da home,
+  hostname e e-mail.
+
+Ela cobriu a árvore, os 70 commits de todas as refs e os três pacotes da
+v0.1.0, inclusive o strongSwan e o helper compactados dentro deles.
+Resultado: nenhum dado do trabalho em lugar nenhum. Nos pacotes, a única
+ocorrência foi o nome de usuário dentro do copyright do util-linux, que é o
+e-mail de outra pessoa (falso positivo).
+
+Observações:
+
+- os arquivos privados, que estavam na pasta do projeto fora do git e com
+  permissão 644 (a cópia `vpn-docker/` tem a PSK), foram movidos para fora,
+  com permissão só do mantenedor;
+- o `.rpm` gerado no host, que não é o da release, contém o caminho da home e
+  não deve ser distribuído;
+- o strongSwan 6.1.0 é a versão mais recente e já corrige todos os CVEs de
+  2026.
+
+**A vulnerabilidade: escalada local para root.** No engine embutido:
+
+1. o charon roda como root;
+2. o usuário fala VICI com ele;
+3. o VICI deixa o cliente escolher o `updown` de cada CHILD_SA;
+4. o charon executa esse comando via `/bin/sh -c`.
+
+Um programa malicioso rodando como o usuário da sessão ativa podia, sem
+senha (polkit `allow_active`), subir o engine pelo helper e carregar uma
+conexão com `updown = <comando>`. Esse comando rodaria como root. O sandbox
+não segurava o pior: `/proc/sys` era gravável e os discos apareciam em `/dev`.
+Não é explorável pela rede nem pelo gateway.
+
+**Correção (ADR-0019):**
+
+- **patch mínimo no strongSwan** (`native-engine/patches/`):
+  - com `force_updown` e `force_if_id` na config, o parser VICI ignora o
+    `updown` e o `if_id` do cliente;
+  - é aplicado depois da conferência SHA-256 + GPG e registrado no
+    `BUILDINFO`;
+  - o empacotamento, o build de release e o `verify-release.sh` recusam um
+    engine sem o patch. O verificador já recusa os pacotes da v0.1.0;
+- **argumentos sem shell:** o entrypoint escreve a config e os argumentos do
+  `updown`, um por linha, num arquivo do root (`--args-file`). O DNS do
+  perfil passa a ir pelo helper (`StartParams.dns`, validado no `proto`). Um
+  helper antigo recusa o campo novo, e o app oferece "Atualizar componente
+  de rede";
+- **socket e helper:**
+  - socket VICI `0600` do uid, num diretório `0711` do root. Antes era
+    `0660` do grupo efetivo;
+  - `stop` e `logs` só para o dono, e `status` sem o perfil de outro
+    usuário;
+  - helper atendendo até 8 conexões em paralelo, com 3 s para o pedido
+    chegar;
+- **sandbox do engine:** `PrivateDevices`, `ProtectKernelTunables`,
+  `ProtectKernelLogs`, `ProtectProc=invisible`, `PrivateIPC`, `UMask=0077` e
+  `SystemCallFilter=@system-service`.
+
+**Testes:**
+
+- **`test:native`, cenário 5:** um cliente VICI tenta
+  `updown = /bin/touch ...` e `if_id = 999`.
+  - Com o patch: o comando não roda, o updown oficial aplica rota e DNS, e as
+    SAs ficam com o `if_id` do root.
+  - Com o engine da v0.1.0: o teste falha ("o charon executou o updown do
+    cliente"). Isso confirma a falha e que o teste a detecta.
+- **`test:systemd` (novo):** um "computador" Fedora 45 com systemd de verdade
+  num container privilegiado. Nele:
+  - instalação pelo instalador real;
+  - conexão pelo CLI, com o DNS do perfil indo pelo helper;
+  - conferência do sandbox aplicado (`/proc/sys` só leitura, discos
+    invisíveis);
+  - o usuário bob não para nem lê o log da VPN de alice, não vê o perfil e
+    não acessa o VICI dela;
+  - conexões paradas não travam o helper;
+  - o ataque bloqueado;
+  - limpeza.
+
+**O teste com systemd achou dois bugs que o container comum escondia** (lá o
+root tem todas as capabilities):
+
+- depois do `chown` para o usuário, o root do sandbox (sem `CAP_FOWNER`) não
+  consegue mais fazer `chmod` no socket. A ordem foi invertida;
+- o helper testava a prontidão conectando no socket. Sem
+  `CAP_DAC_OVERRIDE`, ele não conecta num socket `0600` de outro uid. Agora
+  ele confere dono, permissão e tipo do arquivo, que o entrypoint só entrega
+  depois de o charon abri-lo.
+
+**Verificação:** `npm run check` verde, inclusive o cargo-deny sem alertas.
+`test:native` (5 cenários), `test:systemd`, `test:packaging`, `test:engine`,
+`test:docker` e `test:cli` verdes.
+
+**Próximo:** `feat/log-anonimizado` e `chore/higiene-privacidade`, depois a
+release v0.1.1. Quem tem a v0.1.0 precisa atualizar o app **e** clicar em
+"Atualizar" no componente de rede.

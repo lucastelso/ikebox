@@ -73,7 +73,7 @@ como gerar os pacotes a partir do código, está no
 ┌──────────────────────────────── host Linux ─────────────────────────────────┐
 │  IPsec Client (app)  ou  ipsec-client-cli                (seu usuário)      │
 │     │ perfis: ~/.config/ipsec-client   credenciais: chaveiro do sistema     │
-│     │ "suba o engine" (socket + polkit)      │ VICI (socket 0660, só seu)   │
+│     │ "suba o engine" (socket + polkit)      │ VICI (socket 0600, só seu)   │
 │     ▼                                        │                              │
 │  ipsec-client-helper (root, API mínima)      │                              │
 │     │ systemd-run, com sandbox               ▼                              │
@@ -190,6 +190,7 @@ npm run test:engine         # teste ponta a ponta do engine com um gateway IPsec
 npm run test:docker         # integração do núcleo Rust com o Docker real (engine, VICI, sessão)
 npm run test:cli            # fluxo completo do CLI contra o gateway de teste
 npm run test:native         # strongSwan compilado (engine embutido) + teste ponta a ponta
+npm run test:systemd        # engine embutido com systemd de verdade num container (sandbox, 2 usuários, ataque)
 npm run test:packaging      # instalador do componente de rede, como root num container
 scripts/test-native.sh      # instala o componente de verdade (sudo) e testa o CLI por ele
 scripts/check-private.sh    # procura dados privados no conteúdo staged

@@ -97,6 +97,15 @@ usuário: App (Tauri 2 + React) ou CLI
 | `chore/release` | Automatizar na CI: gerar os pacotes e anexar à release ao criar a tag, com checksums assinados. Inclui o pós-instalação do rpm/deb (`install-native.sh --bundle /usr/lib/ipsec-client/network --origin package`), a dependência da bandeja certa no `.deb` (`libayatana-appindicator3-1`, ao gerar no Ubuntu) e, como ideia, o próprio AppImage oferecer "Adicionar ao menu de aplicativos". Aceite: numa VM limpa, só com o AppImage, conecta com um perfil exportado | ⏳ (a parte manual já existe: `chore/release-pacotes`) |
 | `feat/updater` (opcional) | Atualização automática assinada | ⏳ |
 
+### Auditoria de segurança e privacidade (v0.1.1)
+
+| Branch | Entrega | Status |
+|---|---|---|
+| `fix/engine-updown-forcado` | **Escalada local para root corrigida** (ADR-0019): o cliente VICI não escolhe mais o `updown` nem o `if_id` (patch no strongSwan); DNS pelo helper; socket VICI `0600` do uid; `stop`/`logs` só para o dono; helper em paralelo; sandbox do engine mais fechado; testes do ataque (`test:native`, `test:systemd`) | ✅ (passo 32) |
+| `feat/log-anonimizado` | "Copiar log" anonimizado: gateway, IPs, domínios e DNS trocados por marcadores | ⏳ |
+| `chore/higiene-privacidade` | Varredura de dados privados dentro dos pacotes (`check-private.sh --artifacts`), servidor de dev sem servir arquivos privados | ⏳ |
+| — | Charon sem root (usuário próprio + capabilities ambientes), depois de validar o `resolvectl` sem root | ⏳ (ideia) |
+
 **Antes de tornar público:** reescrita do e-mail dos commits e varredura completa
 do histórico (`check-private.sh --history` + gitleaks). A licença já está
 definida (GPL-3.0-or-later, ADR-0017).
