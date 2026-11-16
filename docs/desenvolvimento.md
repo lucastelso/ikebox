@@ -782,3 +782,54 @@ caso do zbus (passo 11), em que havia alternativa.
 
 O jsdom precisou de um stub de `ResizeObserver` por causa do Radix. O Rust
 ganhou testes dos DTOs e do `apply_input`.
+
+### Passo 18: gerenciador de presets (`feat/ui-perfis`)
+
+Importar e exportar presets foi um pedido explícito do mantenedor: o
+`trabalho.json` e o swanctl.conf.
+
+**Invariante de segurança: o webview nunca manipula caminhos de arquivo.**
+
+- O **diálogo nativo** (`tauri-plugin-dialog`, chamado do Rust; sem permissão
+  de diálogo para o JS na capability) e o **arrastar-e-soltar**
+  (`WindowEvent::DragDrop`, tratado no Rust) produzem uma `ImportPreview` com
+  um **token opaco de uso único**.
+- A UI confirma com `confirm_import(token, opções)`. Um token já usado ou
+  inexistente é recusado.
+- A prévia lê no máximo 1 MiB e detecta o tipo pela extensão ou pelo
+  conteúdo (JSON ou swanctl.conf).
+
+**Dependência:** o plugin de diálogo usa por padrão o seletor do GTK3, que o
+Tauri já carrega. O backend de portal XDG puxaria o zbus 5, barrado pelo
+cargo-deny no passo 11. O `cargo tree` confirma que não há zbus.
+
+**Comandos:**
+
+- `choose_import_file`;
+- `confirm_import` (id/nome, DNS para swanctl.conf, `overwrite`);
+- `profile_details`;
+- `export_profile` (diálogo de salvar, arquivo 0600, sem credenciais);
+- `delete_profile` (opcionalmente apagando as credenciais).
+
+**UI:**
+
+- navegação Conexão | Perfis;
+- tela de perfis com cartões que expandem os detalhes (protocolo, autenticação,
+  id do grupo, redes, propostas, DNS);
+- diálogo de importação com prévia, DNS para swanctl.conf, aviso de conflito
+  de id (exige "substituir" ou outro id) e avisos da conversão recolhíveis;
+- confirmação de exclusão;
+- toasts (sonner). Ao exportar, o toast lembra que a PSK vai por outro canal;
+- a tela vazia da Conexão ganhou o botão "Importar perfil".
+
+**Testes:** 16 no frontend:
+
+- importação de swanctl.conf, com os argumentos exatos que chegam ao Rust;
+- conflito de id;
+- arquivo inválido;
+- listar, exportar e excluir.
+
+O Rust testa a detecção de tipo, o token de uso único e a validação do DNS.
+
+**Fica para depois:** o editor de perfis (criar, editar, duplicar), que vira
+`feat/ui-editor-perfis` no roadmap.

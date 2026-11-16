@@ -18,11 +18,14 @@
   app.
 - **Tela de conexão pronta** (`feat/ui-conexao`). Ela já conecta de verdade
   pelo backend Docker atual; teste com `npm run tauri dev`.
-- **Próximo branch:** `feat/ui-perfis`, o gerenciador de presets:
-  - importar JSON ou swanctl.conf (com diálogo nativo e arrastar e soltar);
-  - exportar;
-  - editor com validação campo a campo;
-  - duplicar e excluir.
+- **Gerenciador de presets pronto** (`feat/ui-perfis`): importar JSON ou
+  swanctl.conf (botão ou arrastar o arquivo para a janela), exportar, ver
+  detalhes e excluir.
+- **Próximos branches:**
+  - `feat/ui-diagnostico`: tela do `doctor` e configurações;
+  - `feat/tray`;
+  - `feat/ui-editor-perfis`: editar perfis na interface;
+  - depois a fase D (engine embutido de verdade).
 - **Pendente com o mantenedor:** `git push origin --all` (o ambiente
   automatizado não tem as credenciais do GitHub) e conferir a primeira
   execução da CI.

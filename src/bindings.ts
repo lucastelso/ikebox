@@ -26,10 +26,24 @@ export const commands = {
 	status: (options?: InvokeOptions) => typedError<Connection | null, UiError>(__TAURI_INVOKE("status", undefined, options)),
 	/**  Apaga as credenciais guardadas do perfil. */
 	forgetCredentials: (profileId: string, options?: InvokeOptions) => typedError<null, UiError>(__TAURI_INVOKE("forget_credentials", { profileId }, options)),
+	/**  Abre o diálogo nativo para escolher um perfil (.json) ou swanctl.conf. */
+	chooseImportFile: (options?: InvokeOptions) => typedError<ImportPreview | null, UiError>(__TAURI_INVOKE("choose_import_file", undefined, options)),
+	/**  Confirma a importação de uma prévia. */
+	confirmImport: (token: string, options: ImportOptions, _options?: InvokeOptions) => typedError<ProfileSummary, UiError>(__TAURI_INVOKE("confirm_import", { token, options }, _options)),
+	/**  Detalhes de um perfil. */
+	profileDetails: (profileId: string, options?: InvokeOptions) => typedError<ProfileDetails, UiError>(__TAURI_INVOKE("profile_details", { profileId }, options)),
+	/**
+	 *  Exporta o perfil (sem credenciais) para um arquivo escolhido no diálogo
+	 *  nativo. Devolve o nome do arquivo gravado, ou `None` se cancelado.
+	 */
+	exportProfile: (profileId: string, options?: InvokeOptions) => typedError<string | null, UiError>(__TAURI_INVOKE("export_profile", { profileId }, options)),
+	/**  Exclui o perfil e, se pedido, as credenciais guardadas dele. */
+	deleteProfile: (profileId: string, forgetCredentials: boolean, options?: InvokeOptions) => typedError<null, UiError>(__TAURI_INVOKE("delete_profile", { profileId, forgetCredentials }, options)),
 };
 
 /** Events */
 export const events = {
+	importPreview: makeEvent<ImportPreview, ImportPreview>("import-preview"),
 	sessionUpdate: makeEvent<SessionUpdate, SessionUpdate>("session-update"),
 };
 
@@ -102,6 +116,80 @@ export type CredentialsStatus = {
 	maskedUser: string | null,
 	/**  O chaveiro do sistema está disponível ("lembrar" possível)? */
 	keyringAvailable: boolean,
+};
+
+/**  Tipo do arquivo importado. */
+export type ImportKind = 
+/**  Perfil do IPsec Client (.json). */
+"json" | 
+/**  `swanctl.conf` de uma VPN que já funciona. */
+"swanctl";
+
+/**  Opções da confirmação de importação. */
+export type ImportOptions = {
+	/**  Id do perfil (vazio = o sugerido). */
+	id?: string | null,
+	/**  Nome exibido (vazio = o sugerido). */
+	name?: string | null,
+	/**  Servidores DNS (só swanctl.conf; o JSON já tem os seus). */
+	dnsServers?: string[],
+	/**  Domínios DNS (só swanctl.conf). */
+	dnsDomains?: string[],
+	/**  Usar também os DNS enviados pelo gateway (só swanctl.conf). */
+	useReceivedDns?: boolean,
+	/**  Substituir um perfil existente com o mesmo id. */
+	overwrite?: boolean,
+};
+
+/**
+ *  Prévia de um arquivo a importar. O arquivo fica guardado no Rust, e a UI
+ *  só recebe o `token` (o webview nunca manipula caminhos).
+ */
+export type ImportPreview = {
+	/**  Identifica o arquivo na confirmação. */
+	token: string,
+	/**  Nome do arquivo (sem diretório). */
+	fileName: string,
+	/**  Tipo detectado. */
+	kind: ImportKind,
+	/**  Id sugerido. */
+	suggestedId: string,
+	/**  Nome sugerido. */
+	suggestedName: string,
+	/**  Gateway (se o arquivo pôde ser lido). */
+	gateway: string | null,
+	/**  Redes remotas. */
+	remoteTs: string[],
+	/**  Avisos (ex.: chaves ignoradas do swanctl.conf). */
+	warnings: string[],
+	/**  Problema que impede importar (arquivo inválido). */
+	error: string | null,
+	/**  Já existe perfil com o id sugerido? */
+	exists: boolean,
+};
+
+/**  Detalhes de um perfil (somente leitura; não há credenciais no perfil). */
+export type ProfileDetails = {
+	/**  Resumo. */
+	summary: ProfileSummary,
+	/**  "IKEv1 agressivo", "IKEv2"... */
+	ike: string,
+	/**  Propostas da fase 1. */
+	ikeProposals: string[],
+	/**  Propostas da fase 2. */
+	espProposals: string[],
+	/**  Autenticação, em texto. */
+	auth: string,
+	/**  Identidade local (ex.: id do grupo). */
+	localId: string | null,
+	/**  Servidores DNS fixos. */
+	dnsServers: string[],
+	/**  Domínios DNS. */
+	dnsDomains: string[],
+	/**  Usa os DNS enviados pelo gateway. */
+	useReceivedDns: boolean,
+	/**  MTU. */
+	mtu: number,
 };
 
 /**  Lista de perfis. */

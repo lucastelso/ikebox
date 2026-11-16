@@ -122,5 +122,6 @@ describe('HomeScreen', () => {
     mockBackend({ list: { profiles: [], broken: [] } });
     render(<HomeScreen />);
     expect(await screen.findByText('Nenhum perfil ainda')).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Importar perfil' })).toBeInTheDocument();
   });
 });

@@ -6,6 +6,7 @@
 
 pub mod commands;
 pub mod dto;
+pub mod profiles_cmd;
 
 use tauri_specta::{Builder, ErrorHandlingMode, collect_commands, collect_events};
 
@@ -24,8 +25,13 @@ pub fn specta_builder() -> Builder<tauri::Wry> {
             commands::disconnect,
             commands::status,
             commands::forget_credentials,
+            profiles_cmd::choose_import_file,
+            profiles_cmd::confirm_import,
+            profiles_cmd::profile_details,
+            profiles_cmd::export_profile,
+            profiles_cmd::delete_profile,
         ])
-        .events(collect_events![dto::SessionUpdate])
+        .events(collect_events![dto::SessionUpdate, dto::ImportPreview])
 }
 
 /// Sobe o app.
@@ -36,14 +42,37 @@ pub fn run() {
     let builder = specta_builder();
     #[allow(clippy::expect_used)] // falha na inicialização: não há como seguir
     tauri::Builder::default()
+        .plugin(tauri_plugin_dialog::init())
         .manage(commands::ConnectionLock::default())
+        .manage(profiles_cmd::PendingImports::default())
         .invoke_handler(builder.invoke_handler())
         .setup(move |app| {
             builder.mount_events(app);
             Ok(())
         })
+        .on_window_event(handle_drop)
         .run(tauri::generate_context!())
         .expect("falha ao iniciar o IPsec Client");
+}
+
+/// Arquivo solto na janela: o Rust lê, monta a prévia e avisa a UI (o webview
+/// não recebe o caminho).
+fn handle_drop(window: &tauri::Window, event: &tauri::WindowEvent) {
+    use tauri::{DragDropEvent, Manager, WindowEvent};
+    use tauri_specta::Event as _;
+    let WindowEvent::DragDrop(DragDropEvent::Drop { paths, .. }) = event else {
+        return;
+    };
+    let Some(path) = paths.first().cloned() else {
+        return;
+    };
+    let app = window.app_handle().clone();
+    tauri::async_runtime::spawn_blocking(move || {
+        let pending = app.state::<profiles_cmd::PendingImports>();
+        if let Ok(preview) = profiles_cmd::preview_path(&pending, path) {
+            let _ = preview.emit(&app);
+        }
+    });
 }
 
 #[cfg(test)]
