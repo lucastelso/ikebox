@@ -8,7 +8,7 @@
 #    ou root:<gid>, 0660, no engine Docker).
 # 5. No SIGTERM (docker stop): encerra o charon e desfaz tudo.
 #
-# Variáveis (ver docs/arquitetura.md):
+# Variables (see docs/architecture.md):
 #   IPSEC_CLIENT_IFACE       nome da interface XFRM          (padrão: ipsc0)
 #   IPSEC_CLIENT_IF_ID       if_id das SAs/políticas, 1..2^32-1 (obrigatória)
 #   IPSEC_CLIENT_MTU         MTU da interface, 576..9000      (padrão: 1400)
@@ -158,10 +158,10 @@ write_updown_args() {
 # outros IPsec do host não são afetados. A saída do `ip xfrm state` contém
 # chaves; ela só é lida pelo awk e nunca é impressa.
 #
-# As políticas só saem com um iproute2 que aceite `if_id` no delete (o do host,
-# no engine embutido). Com o iproute2 5.5 do Ubuntu 20.04 (imagem Docker),
-# elas ficam: são inertes, uma sessão com o mesmo VIP as substitui e elas
-# somem no reboot. Ver docs/desenvolvimento.md.
+# Policies are only removed with an iproute2 that accepts `if_id` on delete
+# (the host's, in the embedded engine). With the iproute2 5.5 of Ubuntu 20.04
+# (Docker image) they stay: they are inert, a session with the same VIP
+# replaces them and they are gone after a reboot. See docs/development-log.md.
 flush_stale_xfrm() {
     local hex_id src dst proto spi stale_policies
     hex_id=$(printf '0x%x' "$IF_ID")

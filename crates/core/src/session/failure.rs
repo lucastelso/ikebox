@@ -1,15 +1,15 @@
-//! Diagnóstico de falhas de conexão a partir do log do charon.
+//! Connection failure diagnosis from the charon log.
 //!
-//! As assinaturas foram capturadas do strongSwan 5.8.2 contra o gateway de
-//! teste, provocando cada falha de propósito (ver docs/desenvolvimento.md):
+//! The signatures were captured from strongSwan 5.8.2 against the test
+//! gateway, causing each failure on purpose (see docs/development-log.md):
 //!
-//! | Falha                     | Linha                                              |
+//! | Failure                   | Line                                               |
 //! |---------------------------|----------------------------------------------------|
-//! | PSK/id do grupo           | `calculated HASH does not match HASH payload`      |
-//! | Usuário/senha XAuth       | `XAuth authentication of '…' (myself) failed`      |
-//! | Propostas IKE             | `received NO_PROPOSAL_CHOSEN` antes do IKE_SA      |
-//! | Propostas ESP/PFS         | `received NO_PROPOSAL_CHOSEN` depois do IKE_SA     |
-//! | Gateway inacessível       | `retransmit … of request` + `not established after`|
+//! | PSK/group id              | `calculated HASH does not match HASH payload`      |
+//! | XAuth username/password   | `XAuth authentication of '…' (myself) failed`      |
+//! | IKE proposals             | `received NO_PROPOSAL_CHOSEN` before the IKE_SA    |
+//! | ESP/PFS proposals         | `received NO_PROPOSAL_CHOSEN` after the IKE_SA     |
+//! | Gateway unreachable       | `retransmit … of request` + `not established after`|
 
 use std::fmt;
 
