@@ -46,6 +46,37 @@ host_is_clean() {
 
 engine_prop() { systemctl show ipsec-client-engine -p "$1" --value; }
 
+# Canary sweep (audit of 0.2.0): the PSK and the password must exist nowhere
+# outside charon's memory, and the username only in the system journal.
+# The patterns go in files under /dev (left out of the sweep), so that grep's
+# own command line does not match. Only places are printed, never contents.
+readonly SECRETS_FILE=/dev/shm/canary-secrets
+readonly USER_FILE=/dev/shm/canary-user
+printf '%s\n' ipsec-client-test-psk senha-de-teste >"$SECRETS_FILE"
+printf '%s\n' usuario.teste >"$USER_FILE"
+
+# files_with PATTERNS_FILE ROOT...: regular files under the roots that contain
+# a pattern. /proc, /sys, /dev and the test material (/test) are left out.
+files_with() {
+    local patterns=$1
+    shift
+    find "$@" \( -path /proc -o -path /sys -o -path /dev -o -path /test \) -prune \
+        -o -type f -print0 2>/dev/null |
+        xargs -0 -r grep -l -a -F -f "$patterns" 2>/dev/null || true
+}
+# procs_with PATTERNS_FILE: /proc/<pid>/{cmdline,environ} that contain a pattern.
+procs_with() {
+    grep -l -a -F -f "$1" /proc/[0-9]*/cmdline /proc/[0-9]*/environ 2>/dev/null || true
+}
+# text_has PATTERNS_FILE TEXT: does the text contain a pattern?
+text_has() { grep -q -a -F -f "$1" <<<"$2"; }
+# must_be_empty WHAT LIST: fails listing the places (never the contents).
+must_be_empty() {
+    [[ -z $2 ]] && return 0
+    printf '%s\n' "$2" | sed 's/^/    /' >&2
+    fail "$1"
+}
+
 step "Installation with the real installer"
 bash /test/bundle/install-native.sh install --bundle /test/bundle --origin manual \
     >/tmp/install.log 2>&1 || {
@@ -85,6 +116,38 @@ route=$(ip -4 route show dev "$IFACE" proto "$RT_PROTO")
 [[ $(resolvectl dns "$IFACE") == *192.0.2.53* ]] || fail "DNS received from the gateway missing"
 ping -c 2 -W 2 -q 192.0.2.1 >/dev/null || fail "ping through the tunnel failed"
 ok "route 192.0.2.0/24, DNS ~ipsec-client.test + 192.0.2.53 (through the helper) and ping through the tunnel"
+
+step "Canary sweep while connected: credentials only in charon's memory"
+must_be_empty "PSK or password in a file" "$(files_with "$SECRETS_FILE" /)"
+must_be_empty "PSK or password in a process command line or environment" "$(procs_with "$SECRETS_FILE")"
+ok "PSK and password: in no file and in no process command line or environment"
+journal=$(journalctl --no-pager -o cat)
+text_has "$SECRETS_FILE" "$journal" && fail "PSK or password in the journal"
+units=$(systemctl show ipsec-client-engine ipsec-client-helper.service ipsec-client-helper.socket)
+text_has "$SECRETS_FILE" "$units" && fail "PSK or password in the unit properties"
+text_has "$USER_FILE" "$units" && fail "username in the unit properties"
+ok "PSK and password: not in the journal nor in the unit properties (systemctl show)"
+# The username is an identity: charon logs it, so it exists in the system
+# journal (root and the journal groups) and nowhere else.
+must_be_empty "username in a file outside the journal" \
+    "$(files_with "$USER_FILE" / | grep -v -E '^/(var|run)/log/journal/' || true)"
+must_be_empty "username in a process command line or environment" "$(procs_with "$USER_FILE")"
+ok "username: only in the system journal"
+for cmd in "status" "logs -n 500" "logs -n 500 --anonymize" "profiles show gateway-teste"; do
+    # shellcheck disable=SC2086  # $cmd is a list of arguments
+    out=$(as alice "$CLI" $cmd 2>&1) || true
+    text_has "$SECRETS_FILE" "$out" && fail "PSK or password in the output of '$cmd'"
+    text_has "$USER_FILE" "$out" && fail "raw username in the output of '$cmd'"
+done
+as alice "$CLI" profiles export gateway-teste /tmp/alice-config/exported.json >/dev/null
+exported=$(cat /tmp/alice-config/exported.json)
+text_has "$SECRETS_FILE" "$exported" && fail "PSK or password in the exported profile"
+text_has "$USER_FILE" "$exported" && fail "username in the exported profile"
+ok "CLI output (status, logs, anonymized logs, profile) and exported profile: no credentials, username masked"
+[[ $(engine_prop LimitCORE) == 0 ]] || fail "the engine can leave a core dump (LimitCORE)"
+[[ $(systemctl show ipsec-client-helper.service -p LimitCORE --value) == 0 ]] ||
+    fail "the helper can leave a core dump (LimitCORE)"
+ok "no core dumps: LimitCORE=0 in the engine and in the helper"
 
 step "Sandbox of the engine unit (systemd-run)"
 for prop in PrivateDevices=yes ProtectKernelTunables=yes ProtectKernelLogs=yes \
@@ -131,6 +194,9 @@ out=$(as alice "$CLI" logs -n 200)
 out=$(as alice "$CLI" disconnect)
 [[ $out == *Disconnected* ]] || fail "disconnect failed"
 host_is_clean
+must_be_empty "credentials left in a file after disconnecting" "$(files_with "$SECRETS_FILE" /)"
+[[ ! -e /run/ipsec-client-engine ]] || fail "the engine runtime directory was left over"
+ok "after disconnecting: no credential in any file, engine runtime directory removed"
 
 step "Attack (ADR-0019): a VICI client picks the updown and the if_id"
 sed -e "s|@GATEWAY@|$GW_IP|" -e "s|@IFACE@|$IFACE|" -e "s|@IF_ID@|999|" \
