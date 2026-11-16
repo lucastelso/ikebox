@@ -6,7 +6,11 @@
 #   - instala/remove a rota do TS remoto na interface XFRM dedicada;
 #   - configura o DNS split da interface no systemd-resolved do host.
 #
-# Argumentos (gerados e validados pelo app; validados de novo aqui):
+# Argumentos (validados de novo aqui). No engine embutido, o charon chama
+# `updown --args-file ARQUIVO`, e os argumentos vêm, um por linha, desse
+# arquivo escrito pelo entrypoint (root): quem fala VICI não escolhe o comando
+# nem os argumentos (ADR-0019). No engine Docker, vêm do app na linha de
+# comando:
 #   --iface NOME            interface XFRM da sessão (obrigatório)
 #   --dns IP                servidor DNS fixo (repetível)
 #   --domain DOMINIO        domínio de busca/roteamento; "~dominio" só roteia
@@ -56,6 +60,15 @@ is_domain() {
 }
 
 # --- argumentos -------------------------------------------------------------
+if [[ ${1:-} == --args-file ]]; then
+    (($# == 2)) || die "--args-file exige só o caminho do arquivo"
+    args_file=$2
+    [[ -f $args_file && ! -L $args_file ]] || die "arquivo de argumentos inválido"
+    [[ $(stat -c '%u' -- "$args_file") == 0 ]] || die "arquivo de argumentos não pertence ao root"
+    mapfile -t file_args <"$args_file"
+    set -- "${file_args[@]}"
+fi
+
 iface=""
 static_dns=()
 domains=()

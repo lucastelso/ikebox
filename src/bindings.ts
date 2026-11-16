@@ -334,6 +334,8 @@ export type UiErrorKind =
 "engine" | 
 /**  Falta instalar o componente de rede (a UI oferece instalar). */
 "componentMissing" | 
+/**  O componente de rede instalado é antigo (a UI oferece atualizar). */
+"componentOutdated" | 
 /**  Instalação/remoção do componente de rede. */
 "component" | 
 /**  O usuário cancelou (ex.: fechou o pedido de senha). */

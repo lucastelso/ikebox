@@ -3,13 +3,13 @@
 
 use std::path::PathBuf;
 
-use ipsec_client_proto::{StartParams, vici_socket};
+use ipsec_client_proto::{DnsParams, StartParams, vici_socket};
 
 use super::{
     BuildProgress, CONTAINER_NAME, DEFAULT_IFACE, DockerEngine, EngineError, EngineSpec,
     NativeEngine, current_gid, default_runtime_dir,
 };
-use crate::profiles::{NATIVE_UPDOWN_PATH, Profile, UPDOWN_PATH};
+use crate::profiles::{Profile, UPDOWN_PATH};
 
 /// Engine em execução: o que a sessão precisa para negociar.
 #[derive(Debug, Clone)]
@@ -20,8 +20,9 @@ pub struct RunningEngine {
     pub iface: String,
     /// `if_id` das SAs/políticas.
     pub if_id: u32,
-    /// Caminho do `updown` neste engine.
-    pub updown: &'static str,
+    /// `updown` a mandar no `load-conn`: o do engine Docker, ou `None` no
+    /// embutido, onde o root fixa o comando (ADR-0019).
+    pub updown: Option<&'static str>,
 }
 
 /// Engine disponível neste computador.
@@ -98,7 +99,7 @@ impl Backend {
                     socket: spec.socket_path(),
                     iface: spec.iface,
                     if_id,
-                    updown: UPDOWN_PATH,
+                    updown: Some(UPDOWN_PATH),
                 })
             }
             Self::Native(native) => {
@@ -108,6 +109,7 @@ impl Backend {
                     mtu: profile.network.mtu,
                     log_level: 1,
                     profile_id: profile.id.clone(),
+                    dns: dns_params(profile),
                 };
                 let native = native.clone();
                 let socket = blocking(move || native.start(&params)).await?;
@@ -115,7 +117,7 @@ impl Backend {
                     socket,
                     iface: DEFAULT_IFACE.to_owned(),
                     if_id,
-                    updown: NATIVE_UPDOWN_PATH,
+                    updown: None,
                 })
             }
         }
@@ -211,4 +213,15 @@ async fn blocking<T: Send + 'static>(
     tokio::task::spawn_blocking(f)
         .await
         .map_err(|e| EngineError::Helper(format!("falha interna: {e}")))?
+}
+
+/// DNS do perfil para o helper (o `updown` do engine embutido o aplica).
+fn dns_params(profile: &Profile) -> DnsParams {
+    let dns = &profile.network.dns;
+    DnsParams {
+        servers: dns.servers.clone(),
+        domains: dns.domains.clone(),
+        use_received: dns.use_received,
+        default_route: dns.default_route,
+    }
 }

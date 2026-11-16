@@ -63,6 +63,18 @@ fi
 [[ -f $engine ]] || die "tarball do engine não encontrado: $engine"
 [[ -f $helper ]] || die "helper não encontrado: $helper"
 
+# O engine precisa ter exatamente os patches de segurança deste commit
+# (ADR-0019): um tarball velho em native-engine/dist/ deixaria o app vulnerável.
+expected_patches=()
+for patch_file in "$repo"/native-engine/patches/*.patch; do
+    [[ -f $patch_file ]] || continue
+    expected_patches+=("$(basename "$patch_file"):$(sha256sum "$patch_file" | cut -c1-64)")
+done
+engine_patches=$(tar -xzOf "$engine" opt/ipsec-client/engine/BUILDINFO 2>/dev/null |
+    sed -n 's/^patches=//p')
+[[ $engine_patches == "${expected_patches[*]}" ]] ||
+    die "o engine $engine não tem os patches deste commit (native-engine/patches): recompile com native-engine/build.sh"
+
 rm -rf "${out:?}"
 install -d -m 0755 "$out" "$out/engine/strongswan.d" "$out/packaging/systemd" "$out/packaging/polkit"
 install -m 0644 "$engine" "$out/engine.tar.gz"

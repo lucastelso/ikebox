@@ -52,6 +52,14 @@ pub enum EngineError {
     #[error("{0}")]
     Helper(String),
 
+    /// O componente de rede instalado é anterior ao app e não entende o
+    /// pedido (ex.: o DNS que passou a ir pelo helper na 0.1.1).
+    #[error(
+        "o componente de rede instalado é de uma versão anterior. Atualize-o \
+         (aba Sistema, Componente de rede, Atualizar) e conecte de novo"
+    )]
+    HelperOutdated,
+
     /// Problema no diretório do socket VICI.
     #[error("diretório de runtime: {0}")]
     RuntimeDir(String),

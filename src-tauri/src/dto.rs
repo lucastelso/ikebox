@@ -250,6 +250,8 @@ pub enum UiErrorKind {
     Engine,
     /// Falta instalar o componente de rede (a UI oferece instalar).
     ComponentMissing,
+    /// O componente de rede instalado é antigo (a UI oferece atualizar).
+    ComponentOutdated,
     /// Instalação/remoção do componente de rede.
     Component,
     /// O usuário cancelou (ex.: fechou o pedido de senha).
@@ -350,6 +352,10 @@ impl From<EngineError> for UiError {
                 message: capitalize(&format!("o engine não ficou pronto: {reason}")),
                 details: recent_logs,
             },
+            EngineError::HelperOutdated => Self::new(
+                UiErrorKind::ComponentOutdated,
+                capitalize(&EngineError::HelperOutdated.to_string()),
+            ),
             other => Self::new(UiErrorKind::Engine, capitalize(&other.to_string())),
         }
     }

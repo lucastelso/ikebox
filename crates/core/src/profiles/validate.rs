@@ -142,12 +142,12 @@ pub fn validate(p: &Profile) -> Vec<ValidationIssue> {
         "use um MTU entre 576 e 9000",
     );
     v.check(
-        net.dns.servers.len() <= 8,
+        net.dns.servers.len() <= ipsec_client_proto::MAX_DNS_SERVERS,
         "network.dns.servers",
         "no máximo 8 servidores",
     );
     v.check(
-        net.dns.domains.len() <= 16,
+        net.dns.domains.len() <= ipsec_client_proto::MAX_DNS_DOMAINS,
         "network.dns.domains",
         "no máximo 16 domínios",
     );
@@ -214,14 +214,10 @@ pub(crate) fn is_host(s: &str) -> bool {
     !name.is_empty() && name.len() <= 253 && name.split('.').all(is_label)
 }
 
-/// Domínio para o systemd-resolved: `~.`, `dominio` ou `~dominio`.
+/// Domínio para o systemd-resolved: `~.`, `dominio` ou `~dominio`. A regra
+/// fica no `ipsec-client-proto`, porque o helper valida o mesmo dado.
 pub(crate) fn is_dns_domain(s: &str) -> bool {
-    if s == "~." {
-        return true;
-    }
-    let name = s.strip_prefix('~').unwrap_or(s);
-    let name = name.strip_suffix('.').unwrap_or(name);
-    !name.is_empty() && name.len() <= 253 && name.split('.').all(is_label)
+    ipsec_client_proto::valid_dns_domain(s)
 }
 
 /// CIDR (`192.0.2.0/24`, `2001:db8::/32`) ou IP único.

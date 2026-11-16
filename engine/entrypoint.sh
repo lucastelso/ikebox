@@ -4,14 +4,17 @@
 # 1. Valida o ambiente (só dados não sensíveis: os segredos chegam via VICI).
 # 2. Limpa restos de uma sessão anterior que tenha morrido de forma abrupta.
 # 3. Cria a interface XFRM dedicada (ADR-0004) e escreve a config de runtime.
-# 4. Sobe o charon e libera o socket VICI para o usuário (root:<gid>, 0660).
+# 4. Sobe o charon e libera o socket VICI para o usuário (dono <uid>, 0600;
+#    ou root:<gid>, 0660, no engine Docker).
 # 5. No SIGTERM (docker stop): encerra o charon e desfaz tudo.
 #
 # Variáveis (ver docs/arquitetura.md):
 #   IPSEC_CLIENT_IFACE       nome da interface XFRM          (padrão: ipsc0)
 #   IPSEC_CLIENT_IF_ID       if_id das SAs/políticas, 1..2^32-1 (obrigatória)
 #   IPSEC_CLIENT_MTU         MTU da interface, 576..9000      (padrão: 1400)
-#   IPSEC_CLIENT_SOCKET_GID  gid que pode usar o socket VICI  (obrigatória)
+#   IPSEC_CLIENT_SOCKET_UID  uid dono do socket VICI (0600). Engine embutido.
+#   IPSEC_CLIENT_SOCKET_GID  gid que pode usar o socket VICI (0660). Engine
+#                            Docker; obrigatória se não houver SOCKET_UID
 #   IPSEC_CLIENT_LOG_LEVEL   nível de log do charon, 0..2     (padrão: 1)
 #   IPSEC_CLIENT_CHARON      caminho do charon   (padrão: o do pacote do Ubuntu)
 #   IPSEC_CLIENT_STRONGSWAN_D diretório strongswan.d (padrão: /etc/strongswan.d)
@@ -20,6 +23,13 @@
 #                            gravável onde vai a config de runtime; o charon a lê
 #                            via STRONGSWAN_CONF, que inclui a config base
 #   IPSEC_CLIENT_STRONGSWAN_CONF  config base incluída no modo nativo
+#   IPSEC_CLIENT_UPDOWN      updown FORÇADO (ADR-0019): o charon embutido
+#                            (com o patch do IPsec Client) ignora o updown e o
+#                            if_id enviados pelo cliente VICI e usa estes. Os
+#                            argumentos vão num arquivo só do root.
+#   IPSEC_CLIENT_DNS_SERVERS IPs dos DNS fixos, separados por vírgula
+#   IPSEC_CLIENT_DNS_DOMAINS domínios (~dominio, ~.), separados por vírgula
+#   IPSEC_CLIENT_DNS_FLAGS   use-received e/ou default-route, por vírgula
 
 set -euo pipefail
 
@@ -36,7 +46,15 @@ IFACE=${IPSEC_CLIENT_IFACE:-ipsc0}
 IF_ID=${IPSEC_CLIENT_IF_ID:-}
 MTU=${IPSEC_CLIENT_MTU:-1400}
 SOCKET_GID=${IPSEC_CLIENT_SOCKET_GID:-}
+SOCKET_UID=${IPSEC_CLIENT_SOCKET_UID:-}
 LOG_LEVEL=${IPSEC_CLIENT_LOG_LEVEL:-1}
+UPDOWN=${IPSEC_CLIENT_UPDOWN:-}
+DNS_SERVERS=${IPSEC_CLIENT_DNS_SERVERS:-}
+DNS_DOMAINS=${IPSEC_CLIENT_DNS_DOMAINS:-}
+DNS_FLAGS=${IPSEC_CLIENT_DNS_FLAGS:-}
+# Argumentos do updown forçado (diretório só do root).
+ARGS_DIR=${IPSEC_CLIENT_STATE_DIR:-/run/ipsec-client-engine}
+UPDOWN_ARGS="$ARGS_DIR/updown.args"
 
 charon_pid=""
 
@@ -59,12 +77,17 @@ validate_env() {
         die "IPSEC_CLIENT_IF_ID inválido (inteiro 1-4294967295)"
     uint_in_range "$MTU" 576 9000 ||
         die "IPSEC_CLIENT_MTU inválido (inteiro 576-9000)"
-    uint_in_range "$SOCKET_GID" 0 2147483647 ||
-        die "IPSEC_CLIENT_SOCKET_GID inválido"
+    if [[ -n $SOCKET_UID ]]; then
+        uint_in_range "$SOCKET_UID" 0 2147483647 || die "IPSEC_CLIENT_SOCKET_UID inválido"
+        SOCKET_UID=$((10#$SOCKET_UID))
+    else
+        uint_in_range "$SOCKET_GID" 0 2147483647 || die "IPSEC_CLIENT_SOCKET_GID inválido"
+        SOCKET_GID=$((10#$SOCKET_GID))
+    fi
     [[ $LOG_LEVEL =~ ^[0-2]$ ]] ||
         die "IPSEC_CLIENT_LOG_LEVEL deve ser 0, 1 ou 2"
     local path
-    for path in "$SOCKET_DIR" ${STATE_DIR:+"$STATE_DIR"} "$BASE_CONF"; do
+    for path in "$SOCKET_DIR" ${STATE_DIR:+"$STATE_DIR"} "$BASE_CONF" "$ARGS_DIR" ${UPDOWN:+"$UPDOWN"}; do
         [[ $path =~ ^/[A-Za-z0-9/._-]+$ && $path != *..* ]] || die "caminho inválido: $path"
     done
     [[ -d $SOCKET_DIR ]] ||
@@ -73,10 +96,61 @@ validate_env() {
         [[ -d $STATE_DIR ]] || die "$STATE_DIR não existe"
         [[ -f $BASE_CONF ]] || die "config base $BASE_CONF não existe"
     fi
+    if [[ -n $UPDOWN ]]; then
+        [[ -f $UPDOWN && -x $UPDOWN ]] || die "updown não encontrado: $UPDOWN"
+        validate_dns_env
+    fi
     # Normaliza zeros à esquerda.
     IF_ID=$((10#$IF_ID))
     MTU=$((10#$MTU))
-    SOCKET_GID=$((10#$SOCKET_GID))
+}
+
+# Primeira barreira para o DNS vindo do helper (o updown valida de novo).
+# Os valores nunca passam por um shell: vão, um por linha, para um arquivo
+# que o updown lê como dados.
+validate_dns_env() {
+    local item n=0
+    local -a list
+    IFS=, read -r -a list <<<"$DNS_SERVERS"
+    for item in "${list[@]}"; do
+        [[ $item =~ ^[0-9A-Fa-f:.]{2,45}$ ]] || die "IPSEC_CLIENT_DNS_SERVERS inválido"
+        n=$((n + 1))
+    done
+    ((n <= 8)) || die "mais de 8 servidores DNS"
+    n=0
+    IFS=, read -r -a list <<<"$DNS_DOMAINS"
+    for item in "${list[@]}"; do
+        [[ $item == "~." || $item =~ ^~?[A-Za-z0-9][A-Za-z0-9.-]{0,252}$ ]] ||
+            die "IPSEC_CLIENT_DNS_DOMAINS inválido"
+        n=$((n + 1))
+    done
+    ((n <= 16)) || die "mais de 16 domínios DNS"
+    IFS=, read -r -a list <<<"$DNS_FLAGS"
+    for item in "${list[@]}"; do
+        [[ $item == use-received || $item == default-route ]] || die "IPSEC_CLIENT_DNS_FLAGS inválido"
+    done
+}
+
+# Argumentos do updown forçado, um por linha (ADR-0019).
+write_updown_args() {
+    local item
+    local -a list
+    install -d -m 0700 "$ARGS_DIR"
+    {
+        printf '%s\n' --iface "$IFACE"
+        IFS=, read -r -a list <<<"$DNS_SERVERS"
+        for item in "${list[@]}"; do printf '%s\n' --dns "$item"; done
+        IFS=, read -r -a list <<<"$DNS_DOMAINS"
+        for item in "${list[@]}"; do printf '%s\n' --domain "$item"; done
+        if [[ ,$DNS_FLAGS, == *,use-received,* ]]; then
+            printf '%s\n' --use-received-dns
+        fi
+        if [[ ,$DNS_FLAGS, == *,default-route,* ]]; then
+            printf '%s\n' --dns-default-route
+        fi
+    } >"$UPDOWN_ARGS.tmp"
+    chmod 0600 "$UPDOWN_ARGS.tmp"
+    mv -f "$UPDOWN_ARGS.tmp" "$UPDOWN_ARGS"
 }
 
 # Remove SAs e políticas XFRM marcadas com o nosso if_id que tenham sobrado de
@@ -148,7 +222,7 @@ cleanup() {
     ip -4 route flush proto "$RT_PROTO" >/dev/null 2>&1 || true
     ip -6 route flush proto "$RT_PROTO" >/dev/null 2>&1 || true
     flush_stale_xfrm
-    rm -f "$SOCKET"
+    rm -f "$SOCKET" "$UPDOWN_ARGS"
 }
 
 create_iface() {
@@ -165,12 +239,20 @@ create_iface() {
 }
 
 write_runtime_conf() {
-    local overrides
+    local overrides forced=""
+    # Lidos só pelo charon com o patch do IPsec Client (engine embutido); um
+    # charon sem o patch ignora as opções.
+    if [[ -n $UPDOWN ]]; then
+        write_updown_args
+        forced="
+            force_updown = $UPDOWN --args-file $UPDOWN_ARGS"
+    fi
     overrides="charon {
     install_virtual_ip_on = $IFACE
     plugins {
         vici {
             socket = unix://$SOCKET
+            force_if_id = $IF_ID$forced
         }
     }
     filelog {
@@ -231,9 +313,18 @@ main() {
     charon_pid=$!
 
     wait_for_socket
-    chgrp "$SOCKET_GID" "$SOCKET"
-    chmod 0660 "$SOCKET"
-    log "pronto: socket VICI liberado para o gid $SOCKET_GID"
+    if [[ -n $SOCKET_UID ]]; then
+        # Só o dono da sessão conecta (o diretório do socket é do root). O
+        # chmod vem antes: depois do chown, o root sem CAP_FOWNER (sandbox do
+        # engine embutido) não pode mais mudar a permissão.
+        chmod 0600 "$SOCKET"
+        chown "$SOCKET_UID:0" "$SOCKET"
+        log "pronto: socket VICI liberado para o uid $SOCKET_UID"
+    else
+        chgrp "$SOCKET_GID" "$SOCKET"
+        chmod 0660 "$SOCKET"
+        log "pronto: socket VICI liberado para o gid $SOCKET_GID"
+    fi
 
     local status=0
     wait "$charon_pid" || status=$?

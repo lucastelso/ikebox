@@ -5,6 +5,8 @@
 #   precisa bater com o próprio SHA256SUMS. O app recusa instalar um
 #   componente que não bate, e o empacotamento já alterou arquivos antes (o
 #   linuxdeploy reescreve o RPATH de executáveis dentro do AppImage);
+# - o strongSwan embutido precisa ter os patches de segurança do commit
+#   (native-engine/patches, ADR-0019);
 # - o AppImage não pode exigir uma glibc mais nova que a do Ubuntu 22.04.
 #
 # Uso: scripts/verify-release.sh <diretório com os pacotes>
@@ -33,12 +35,24 @@ work=$(mktemp -d)
 # shellcheck disable=SC2064 # caminho fixado agora
 trap "rm -rf '$work'" EXIT
 
+# Patches de segurança do strongSwan esperados (ADR-0019), como no BUILDINFO.
+repo=$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)
+expected_patches=()
+for patch_file in "$repo"/native-engine/patches/*.patch; do
+    [[ -f $patch_file ]] || continue
+    expected_patches+=("$(basename "$patch_file"):$(sha256sum "$patch_file" | cut -c1-64)")
+done
+((${#expected_patches[@]} > 0)) || fail "nenhum patch em native-engine/patches"
+
 component_ok() {
-    local name=$2 net="$1/usr/lib/ipsec-client/network"
+    local name=$2 net="$1/usr/lib/ipsec-client/network" patches
     [[ -f $net/SHA256SUMS ]] || fail "$name: componente de rede ausente"
     (cd "$net" && sha256sum --check --strict --quiet SHA256SUMS) ||
         fail "$name: o componente de rede não bate com o SHA256SUMS"
-    ok "$name: componente de rede íntegro ($(grep -h '^version=' "$net/VERSION"))"
+    patches=$(tar -xzOf "$net/engine.tar.gz" opt/ipsec-client/engine/BUILDINFO | sed -n 's/^patches=//p')
+    [[ $patches == "${expected_patches[*]}" ]] ||
+        fail "$name: o strongSwan embutido não tem os patches de segurança (ADR-0019)"
+    ok "$name: componente de rede íntegro ($(grep -h '^version=' "$net/VERSION"), strongSwan com os patches)"
 }
 
 mkdir "$work/appimage" "$work/deb" "$work/rpm"

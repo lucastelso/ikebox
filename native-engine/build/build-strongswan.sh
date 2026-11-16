@@ -2,12 +2,15 @@
 # Compila o strongSwan para o engine embutido (roda DENTRO do builder).
 #
 # Uso: build-strongswan VERSAO CAMINHO SHA256
-#   /keys  (ro)  chave pública de release do strongSwan
-#   /out   (rw)  destino do tarball
+#   /keys     (ro)  chave pública de release do strongSwan
+#   /patches  (ro)  patches do IPsec Client (native-engine/patches/*.patch)
+#   /out      (rw)  destino do tarball
 #
 # Garantias:
 #   - o tarball é conferido por SHA-256 (fixado em native-engine/versions.txt)
 #     E pela assinatura GPG oficial;
+#   - os patches de segurança do IPsec Client são aplicados DEPOIS da
+#     conferência, e todos precisam aplicar (ADR-0019);
 #   - gmp entra estático; só a glibc fica dinâmica (resolução de nomes);
 #   - plugins próprios, sem OpenSSL (políticas de cripto do host não afetam);
 #   - tarball determinístico (ordem, datas e donos fixos).
@@ -45,6 +48,18 @@ gpg --batch --verify "$tarball.sig" "$tarball" 2>&1 | grep -q "Good signature" |
 log "assinatura GPG conferida"
 
 tar -xjf "$tarball" -C "$SRC" --strip-components=1
+
+# Patches do IPsec Client (ADR-0019). Um patch que não aplica derruba o build:
+# o engine sem ele seria inseguro.
+patches=()
+for patch_file in /patches/*.patch; do
+    [[ -f $patch_file ]] || continue
+    patch -d "$SRC" -p1 --forward --quiet <"$patch_file" ||
+        { echo "o patch $(basename "$patch_file") não aplica no strongSwan $version" >&2; exit 1; }
+    patches+=("$(basename "$patch_file"):$(sha256sum "$patch_file" | cut -c1-64)")
+    log "patch aplicado: $(basename "$patch_file")"
+done
+((${#patches[@]} > 0)) || { echo "nenhum patch em /patches" >&2; exit 1; }
 
 # Diretório só com a libgmp estática: o linker acha libgmp.a antes da .so.
 cp "$(gcc -print-file-name=libgmp.a)" /build/gmp-static/
@@ -98,6 +113,7 @@ charon="$root/libexec/ipsec/charon"
     echo "sha256=$sha256"
     echo "builder=ubuntu:22.04 (glibc $(ldd --version | head -n 1 | awk '{print $NF}'))"
     echo "gmp=$gmp_version (estático; fonte: pacote gmp do Ubuntu 22.04)"
+    echo "patches=${patches[*]}"
     echo "configure=${configure_flags[*]}"
     echo "charon_deps=$(ldd "$charon" | awk '{print $1}' | tr '\n' ' ')"
 } >"$root/BUILDINFO"

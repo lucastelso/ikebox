@@ -20,6 +20,8 @@ use std::io::{BufRead, BufReader, Read, Write};
 use std::os::unix::fs::PermissionsExt;
 use std::os::unix::net::{UnixListener, UnixStream};
 use std::path::PathBuf;
+use std::sync::Arc;
+use std::sync::atomic::{AtomicUsize, Ordering};
 use std::time::Duration;
 
 use ipsec_client_proto::{MAX_LINE, Request, Response, decode, encode};
@@ -29,6 +31,33 @@ use crate::engine::Paths;
 
 const DEFAULT_ENGINE_DIR: &str = "/opt/ipsec-client/engine";
 const DEFAULT_LIBEXEC_DIR: &str = "/opt/ipsec-client/libexec";
+/// Conexões atendidas ao mesmo tempo. O socket aceita qualquer usuário: sem
+/// limite (e com uma conexão por vez), um cliente parado travaria o helper.
+const MAX_CLIENTS: usize = 8;
+/// Tempo para o cliente mandar a linha do pedido.
+const READ_TIMEOUT: Duration = Duration::from_secs(3);
+
+static ACTIVE_CLIENTS: AtomicUsize = AtomicUsize::new(0);
+
+/// Libera a vaga da conexão mesmo se a thread entrar em pânico.
+struct ClientSlot;
+
+impl ClientSlot {
+    fn take() -> Option<Self> {
+        if ACTIVE_CLIENTS.fetch_add(1, Ordering::SeqCst) >= MAX_CLIENTS {
+            ACTIVE_CLIENTS.fetch_sub(1, Ordering::SeqCst);
+            None
+        } else {
+            Some(Self)
+        }
+    }
+}
+
+impl Drop for ClientSlot {
+    fn drop(&mut self) {
+        ACTIVE_CLIENTS.fetch_sub(1, Ordering::SeqCst);
+    }
+}
 
 #[derive(Debug)]
 struct Options {
@@ -99,7 +128,7 @@ fn bind(path: &PathBuf) -> std::io::Result<UnixListener> {
 }
 
 fn serve(mut stream: UnixStream, options: &Options) -> std::io::Result<()> {
-    stream.set_read_timeout(Some(Duration::from_secs(10)))?;
+    stream.set_read_timeout(Some(READ_TIMEOUT))?;
     stream.set_write_timeout(Some(Duration::from_secs(10)))?;
     let peer = peer_of(&stream)?;
     let mut line = String::new();
@@ -171,12 +200,21 @@ fn main() {
             Authorizer::AllowList(_) => "lista de uids (teste)",
         }
     );
+    let options = Arc::new(options);
     for stream in listener.incoming() {
         match stream {
             Ok(stream) => {
-                if let Err(e) = serve(stream, &options) {
-                    eprintln!("conexão encerrada com erro: {e}");
-                }
+                let Some(slot) = ClientSlot::take() else {
+                    eprintln!("conexão recusada: {MAX_CLIENTS} já em atendimento");
+                    continue;
+                };
+                let options = Arc::clone(&options);
+                std::thread::spawn(move || {
+                    let _slot = slot;
+                    if let Err(e) = serve(stream, &options) {
+                        eprintln!("conexão encerrada com erro: {e}");
+                    }
+                });
             }
             Err(e) => eprintln!("falha ao aceitar conexão: {e}"),
         }

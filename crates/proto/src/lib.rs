@@ -7,6 +7,8 @@
 //! helper decide sozinho o que executar, onde e com qual sandbox. As mesmas
 //! regras de validação valem dos dois lados (este crate).
 
+use std::net::IpAddr;
+
 use serde::{Deserialize, Serialize};
 
 /// Socket do helper (criado pelo systemd, ativação por socket).
@@ -23,6 +25,10 @@ pub const VICI_SOCKET_FILE: &str = "charon.vici";
 pub const MAX_LINE: usize = 64 * 1024;
 /// Máximo de linhas de log devolvidas.
 pub const MAX_LOG_LINES: u32 = 2000;
+/// Máximo de servidores DNS fixos (o mesmo limite do perfil).
+pub const MAX_DNS_SERVERS: usize = 8;
+/// Máximo de domínios DNS (o mesmo limite do perfil).
+pub const MAX_DNS_DOMAINS: usize = 16;
 
 /// Diretório do socket VICI de um usuário.
 #[must_use]
@@ -69,6 +75,44 @@ pub struct StartParams {
     pub log_level: u8,
     /// Id do perfil (rótulo da sessão).
     pub profile_id: String,
+    /// DNS da sessão, aplicado pelo `updown` na interface da VPN. Vai pelo
+    /// helper, e não pelo VICI, porque o comando do `updown` é fixado pelo
+    /// root (ADR-0019).
+    #[serde(default)]
+    pub dns: DnsParams,
+}
+
+/// DNS da sessão (dados validados; nunca viram texto de shell).
+#[derive(Debug, Clone, Default, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct DnsParams {
+    /// Servidores fixos.
+    pub servers: Vec<IpAddr>,
+    /// Domínios (`dominio`, `~dominio` ou `~.`).
+    pub domains: Vec<String>,
+    /// Usar também os DNS enviados pelo gateway.
+    pub use_received: bool,
+    /// Usar estes DNS também fora dos domínios.
+    pub default_route: bool,
+}
+
+impl DnsParams {
+    /// Valida com as mesmas regras do perfil e do `updown`.
+    ///
+    /// # Errors
+    /// Descrição do primeiro problema.
+    pub fn validate(&self) -> Result<(), String> {
+        if self.servers.len() > MAX_DNS_SERVERS {
+            return Err(format!("no máximo {MAX_DNS_SERVERS} servidores DNS"));
+        }
+        if self.domains.len() > MAX_DNS_DOMAINS {
+            return Err(format!("no máximo {MAX_DNS_DOMAINS} domínios DNS"));
+        }
+        if !self.domains.iter().all(|d| valid_dns_domain(d)) {
+            return Err("domínio DNS inválido".to_owned());
+        }
+        Ok(())
+    }
 }
 
 impl StartParams {
@@ -92,7 +136,7 @@ impl StartParams {
         if !valid_profile_id(&self.profile_id) {
             return Err("id de perfil inválido".to_owned());
         }
-        Ok(())
+        self.dns.validate()
     }
 }
 
@@ -192,6 +236,25 @@ pub fn valid_profile_id(id: &str) -> bool {
         && chars.all(|c| matches!(c, 'a'..='z' | '0'..='9' | '-'))
 }
 
+/// Domínio para o systemd-resolved: `~.`, `dominio` ou `~dominio` (rótulos
+/// `[A-Za-z0-9-]`, sem hífen nas pontas, até 253 caracteres).
+#[must_use]
+pub fn valid_dns_domain(s: &str) -> bool {
+    if s == "~." {
+        return true;
+    }
+    let name = s.strip_prefix('~').unwrap_or(s);
+    let name = name.strip_suffix('.').unwrap_or(name);
+    let label = |l: &str| {
+        !l.is_empty()
+            && l.len() <= 63
+            && !l.starts_with('-')
+            && !l.ends_with('-')
+            && l.chars().all(|c| c.is_ascii_alphanumeric() || c == '-')
+    };
+    !name.is_empty() && name.len() <= 253 && name.split('.').all(label)
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -203,6 +266,12 @@ mod tests {
             mtu: 1400,
             log_level: 1,
             profile_id: "trabalho".into(),
+            dns: DnsParams {
+                servers: vec!["192.0.2.53".parse().expect("ip")],
+                domains: vec!["~corp.example.com".into(), "~.".into()],
+                use_received: true,
+                default_route: false,
+            },
         }
     }
 
@@ -230,6 +299,45 @@ mod tests {
     }
 
     #[test]
+    fn dns_is_optional_on_the_wire() {
+        // Cliente sem o campo `dns` (anterior à 0.1.1): DNS vazio.
+        let old =
+            r#"{"op":"start","iface":"ipsc0","if_id":1,"mtu":1400,"log_level":1,"profile_id":"x"}"#;
+        let Ok(Request::Start(p)) = decode::<Request>(old) else {
+            panic!("start sem dns deveria decodificar");
+        };
+        assert_eq!(p.dns, DnsParams::default());
+        // Servidor que não é IP é recusado já na decodificação.
+        let bad = r#"{"op":"start","iface":"ipsc0","if_id":1,"mtu":1400,"log_level":1,"profile_id":"x","dns":{"servers":["a;b"],"domains":[],"use_received":false,"default_route":false}}"#;
+        assert!(decode::<Request>(bad).is_err());
+    }
+
+    #[test]
+    fn dns_domains() {
+        for ok in [
+            "~.",
+            "corp.example.com",
+            "~corp.example.com",
+            "~corp",
+            "corp.example.com.",
+        ] {
+            assert!(valid_dns_domain(ok), "{ok}");
+        }
+        for bad in [
+            "",
+            "~",
+            "~~corp",
+            "corp..x",
+            "co rp",
+            "corp'; rm -rf /",
+            "-x",
+            "a\nb",
+        ] {
+            assert!(!valid_dns_domain(bad), "{bad}");
+        }
+    }
+
+    #[test]
     fn rejects_unknown_fields_and_ops() {
         // Um campo a mais (ex.: tentar passar um caminho ou comando) é recusado.
         let sneaky = r#"{"op":"start","iface":"ipsc0","if_id":1,"mtu":1400,"log_level":1,"profile_id":"x","charon":"/tmp/x"}"#;
@@ -251,6 +359,11 @@ mod tests {
             |p| p.log_level = 3,
             |p| p.profile_id = "../etc".into(),
             |p| p.profile_id = "Perfil".into(),
+            |p| p.dns.domains = vec!["x'; touch /tmp/p; '".into()],
+            |p| p.dns.domains = vec!["--iface".into()],
+            |p| p.dns.domains = vec!["corp..example".into()],
+            |p| p.dns.domains = vec!["a.example".into(); MAX_DNS_DOMAINS + 1],
+            |p| p.dns.servers = vec!["192.0.2.1".parse().expect("ip"); MAX_DNS_SERVERS + 1],
         ];
         for (i, mutate) in cases.iter().enumerate() {
             let mut p = params();

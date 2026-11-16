@@ -8,7 +8,7 @@ ENV DEBIAN_FRONTEND=noninteractive
 RUN set -eux; \
     apt-get update; \
     apt-get install -y --no-install-recommends \
-        build-essential pkg-config libgmp-dev ca-certificates curl gnupg bzip2 file python3; \
+        build-essential patch pkg-config libgmp-dev ca-certificates curl gnupg bzip2 file python3; \
     rm -rf /var/lib/apt/lists/*
 
 COPY build-strongswan.sh /usr/local/bin/build-strongswan

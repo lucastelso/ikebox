@@ -25,7 +25,7 @@ for entry in "${entries[@]}"; do
     [[ $wanted == all || $wanted == "$version" ]] || continue
     echo "==> strongSwan $version"
     docker run --rm --network bridge \
-        -v "$here/keys:/keys:ro" -v "$here/dist:/out" \
+        -v "$here/keys:/keys:ro" -v "$here/patches:/patches:ro" -v "$here/dist:/out" \
         --user "$(id -u):$(id -g)" -e HOME=/build \
         --tmpfs /build:exec,uid="$(id -u)",gid="$(id -g)" \
         "$BUILDER" "$version" "$path" "$sha256"
