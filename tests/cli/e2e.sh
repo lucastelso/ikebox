@@ -95,6 +95,18 @@ main() {
         fail "perfil sem permissão 0600"
     ok "perfil importado (0600) e listado"
 
+    step "profiles import-swanctl (a partir de um swanctl.conf que funciona)"
+    sed -e "s|@GATEWAY@|$gw_ip|" -e "s|@IFACE@|ipsc0|" -e "s|@IF_ID@|1|" \
+        -e "s|@REMOTE_TS@|192.0.2.0/24|" -e "s|@UPDOWN_EXTRA@||" \
+        "$repo_root/tests/engine/initiator.conf.in" >"$workdir/swanctl.conf"
+    "$cli" profiles import-swanctl "$workdir/swanctl.conf" --id via-swanctl \
+        --domain '~ipsec-client.test' --use-received-dns >"$workdir/import.txt" ||
+        fail "import-swanctl falhou"
+    if "$cli" profiles show via-swanctl | grep -qE "$TEST_SECRETS_RE|usuario\.teste"; then
+        fail "segredo ou usuário XAuth copiado para o perfil"
+    fi
+    ok "perfil 'via-swanctl' gerado sem segredos nem usuário XAuth"
+
     step "connect com senha errada → mensagem clara, nada de pé"
     local out rc=0
     out=$(printf 'psk=ipsec-client-test-psk\nxauth-user=usuario.teste\nxauth-password=errada\n' |
@@ -108,13 +120,13 @@ main() {
     ip link show ipsc0 >/dev/null 2>&1 && fail "ipsc0 sobrou após a falha"
     ok "\"usuário ou senha XAuth incorretos\", sem identidade exposta, host limpo"
 
-    step "connect --detach"
+    step "connect --detach (perfil importado do swanctl.conf)"
     out=$(printf 'psk=ipsec-client-test-psk\nxauth-user=usuario.teste\nxauth-password=senha-de-teste\n' |
-        "$cli" connect gateway-teste --detach --credentials-stdin 2>&1) || {
+        "$cli" connect via-swanctl --detach --credentials-stdin 2>&1) || {
         printf '%s\n' "$out"
         fail "connect falhou"
     }
-    [[ $out == *"Conectado: gateway-teste"* ]] || fail "saída do connect inesperada"
+    [[ $out == *"Conectado: via-swanctl"* ]] || fail "saída do connect inesperada"
     if grep -qE "$TEST_SECRETS_RE|usuario\.teste" <<<"$out"; then
         fail "segredo ou identidade na saída do connect"
     fi

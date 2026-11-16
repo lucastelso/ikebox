@@ -31,7 +31,7 @@ nova traz primeiro o que é testável sem GUI:
 | 11 | `feat/ui-editor-perfis` | criar/editar/duplicar/excluir; abas Geral/Fase 1/Auth/Fase 2/DNS-Rede/Avançado; import/export | vitest | ⏳ |
 | 12 | `feat/diagnostico` | tela de diagnóstico + `doctor` | — | ⏳ |
 | 13 | `feat/tray` | ícone na bandeja (no GNOME exige a extensão AppIndicator; sem ela, some sem erro) | — | ⏳ |
-| 14 | `feat/import-swanctl` | importar um `swanctl.conf` existente para perfil, sem os segredos | testes do parser | ⏳ |
+| 14 | `feat/import-swanctl` | importar um `swanctl.conf` existente para perfil, sem os segredos | testes do parser + E2E do CLI conectando com o perfil importado | ✅ (adiantado) |
 | 15 | `chore/release` | ícone, pacotes rpm/deb/AppImage, CHANGELOG (git-cliff), tag `v0.1.0` | instala e conecta | ⏳ |
 
 ## Depois da v0.1.0 (ideias)

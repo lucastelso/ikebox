@@ -54,3 +54,6 @@ commits.
   `--credentials-stdin`), `status` (sai com 3 se desconectado), `logs`
   (mascarados) e `disconnect`. Guia em `docs/cli.md`. Teste ponta a ponta:
   `npm run test:cli`.
+- `profiles import-swanctl`: gera o perfil a partir de um `swanctl.conf`
+  existente, pulando a seção `secrets` sem lê-la e sem copiar o usuário XAuth.
+  O DNS vem por `--dns`/`--domain`.

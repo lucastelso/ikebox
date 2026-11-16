@@ -72,9 +72,25 @@ tentativa de colocar a `"psk"` no arquivo, não passa despercebido.
 
 ## Montando um perfil a partir de um `swanctl.conf`
 
-Se você já tem um `swanctl.conf` funcionando, cada chave tem um equivalente.
-A importação automática está no roadmap (`feat/import-swanctl`); até lá, a
-tabela abaixo serve de guia.
+Se você já tem um `swanctl.conf` funcionando, o CLI gera o perfil sozinho:
+
+```bash
+ipsec-client-cli profiles import-swanctl caminho/do/swanctl.conf \
+    --id minha-vpn --name "Minha VPN" \
+    --dns 192.0.2.53 --domain '~corp.example.com'
+```
+
+- A seção `secrets` é **pulada sem ser lida**, e o `xauth_id` (usuário) não é
+  copiado. As credenciais vão depois, com `secrets set`.
+- O DNS não existe no `swanctl.conf`. Informe-o com `--dns`/`--domain`, ou use
+  `--use-received-dns` se o gateway enviar.
+- Chaves sem equivalente (ex.: `updown`) geram aviso, e `include` não é
+  seguido.
+- `--output arquivo.json` grava o perfil num arquivo (0600) em vez de
+  salvá-lo na lista. Serve para revisar ou passar adiante.
+
+A correspondência usada pela importação, que também serve para montar o
+perfil à mão:
 
 | `swanctl.conf` | Perfil |
 |---|---|
@@ -99,7 +115,7 @@ tabela abaixo serve de guia.
 | DNS configurado à mão (ex.: `resolvectl dns`/`domain`) | `network.dns.servers` e `network.dns.domains` |
 
 Coloque o arquivo em `presets.local/`, que nunca vai para o git, e importe-o
-pelo app ou pelo CLI (`ipsec-client-cli profiles import`, no roadmap).
+com `ipsec-client-cli profiles import <arquivo>`.
 
 ## Passando o perfil para um colega
 
