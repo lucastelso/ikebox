@@ -29,7 +29,7 @@ readonly REQUIRED=(
     VERSION
     install-native.sh
     engine.tar.gz
-    ipsec-client-helper
+    ipsec-client-helper.gz
     engine/entrypoint.sh
     engine/updown.sh
     engine/strongswan.d/zz-ipsec-client.conf
@@ -116,6 +116,8 @@ do_install() {
     install -m 0755 "$work/engine/entrypoint.sh" "$PREFIX/libexec/entrypoint.sh"
     install -m 0755 "$work/engine/updown.sh" "$PREFIX/libexec/updown"
     install -m 0755 "$work/install-native.sh" "$PREFIX/libexec/install-native.sh"
+    # O helper vem compactado (ver scripts/stage-network-component.sh).
+    gzip -d -c "$work/ipsec-client-helper.gz" >"$work/ipsec-client-helper"
     install -m 0755 "$work/ipsec-client-helper" "$PREFIX/bin/ipsec-client-helper"
     install -m 0644 "$work/VERSION" "$PREFIX/VERSION"
     install -m 0644 "$work/SHA256SUMS" "$PREFIX/SHA256SUMS"

@@ -34,13 +34,16 @@ const VERSION_FILE: &str = "VERSION";
 const ORIGIN_FILE: &str = "ORIGIN";
 const INSTALLER: &str = "install-native.sh";
 const HELPER: &str = "ipsec-client-helper";
+/// O helper vai compactado no pacote: o linuxdeploy (AppImage) reescreve o
+/// RPATH de todo ELF solto dentro do app, e o hash deixaria de bater.
+const HELPER_GZ: &str = "ipsec-client-helper.gz";
 
 /// Arquivos obrigatórios do pacote (a mesma lista do `install-native.sh`).
 pub const REQUIRED_FILES: [&str; 10] = [
     VERSION_FILE,
     INSTALLER,
     "engine.tar.gz",
-    HELPER,
+    HELPER_GZ,
     "engine/entrypoint.sh",
     "engine/updown.sh",
     "engine/strongswan.d/zz-ipsec-client.conf",
@@ -50,12 +53,7 @@ pub const REQUIRED_FILES: [&str; 10] = [
 ];
 
 /// Arquivos que ficam executáveis na cópia.
-const EXECUTABLES: [&str; 4] = [
-    INSTALLER,
-    HELPER,
-    "engine/entrypoint.sh",
-    "engine/updown.sh",
-];
+const EXECUTABLES: [&str; 3] = [INSTALLER, "engine/entrypoint.sh", "engine/updown.sh"];
 
 const PKEXEC_PATHS: [&str; 2] = ["/usr/bin/pkexec", "/bin/pkexec"];
 
@@ -747,7 +745,7 @@ mod tests {
         };
         assert_eq!(mode(""), 0o700, "diretório privado");
         assert_eq!(mode(INSTALLER), 0o755);
-        assert_eq!(mode(HELPER), 0o755);
+        assert_eq!(mode(HELPER_GZ), 0o644);
         assert_eq!(mode("engine.tar.gz"), 0o644);
         assert_eq!(staged.bundle().digest(), bundle.digest());
         drop(staged);
