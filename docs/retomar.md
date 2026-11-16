@@ -14,8 +14,13 @@
 - **Fase B concluída** (`spike/engine-nativo`): o strongSwan **6.1.0** compilado
   por nós funciona (ADRs 0013–0016). O build e o E2E rodam com
   `npm run test:native`.
-- **Próximo branch:** `chore/scaffold-gui` (fase C): Tauri 2.12 estável + React
-  19 + Vite + Tailwind 4 + shadcn/ui.
+- **Scaffold da GUI pronto** (`chore/scaffold-gui`): `npm run tauri dev` abre o
+  app.
+- **Próximo branch:** `feat/ui-conexao`:
+  - tela principal (perfil, botão Conectar/Desconectar, estado);
+  - credenciais com "lembrar";
+  - erros claros e log mascarado;
+  - comandos e eventos no `src-tauri`, delegando a `core::session`.
 - **Pendente com o mantenedor:** `git push origin --all` (o ambiente
   automatizado não tem as credenciais do GitHub) e conferir a primeira
   execução da CI.

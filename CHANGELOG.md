@@ -64,6 +64,12 @@ commits.
   6.1.0 (padrão), 6.0.7, 5.9.14 e 5.8.2 (`npm run test:native`). ADRs
   0013–0016.
 - E2E do engine: cenário 4, com PFS só modp768 (DH1) na fase 2.
+- Scaffold do app desktop:
+  - `src-tauri/`: Tauri 2.12, IPC tipado com tauri-specta (versão exata),
+    DTOs próprios, CSP estrita, capabilities mínimas, sem plugins de shell/fs;
+  - `src/`: React 19, TypeScript, Vite 8, Tailwind 4 com tokens claro/escuro e
+    componentes shadcn/ui;
+  - biome, vitest com mockIPC, logo e ícones.
 
 ### Alterado
 

@@ -671,3 +671,59 @@ exemplo passou a usar `curve25519`.
 
 **Pendente:** o push e a primeira execução da CI, que dependem do mantenedor,
 porque o ambiente automatizado não tem as credenciais do GitHub.
+
+### Passo 16: scaffold da GUI (`chore/scaffold-gui`)
+
+**Versões**, todas fixadas exatamente:
+
+- Tauri **2.12** estável (o crate `tauri` já tem 3.0-alpha, que foi evitado de
+  propósito);
+- `tauri-specta` 2.0.0-rc.29, com `specta` rc.28 e `specta-typescript` 0.0.15;
+- React 19.3, Vite 8, Tailwind 4.3, TypeScript 7, biome 2.6, vitest 5.
+
+O npm 11 bloqueia os scripts de instalação das dependências. Nenhuma das
+dependências novas precisa deles; só o lefthook tem um, e ele continua
+bloqueado.
+
+**`src-tauri/`:**
+
+- comandos finos sobre o `core` (ADR-0009);
+- **DTOs próprios** (`dto.rs`): o `core` não depende de specta, e só o que a UI
+  precisa atravessa para o webview;
+- um teste Rust (`bindings_are_up_to_date`) compara o `src/bindings.ts`
+  versionado com o gerado. Para regenerar: `UPDATE_BINDINGS=1 cargo test -p
+  ipsec-client-app bindings`.
+
+**Segurança:**
+
+- CSP estrita: `script-src 'self'`, sem conteúdo remoto. O `style-src`
+  aceita inline por causa dos estilos de posicionamento dos componentes
+  Radix;
+- `freezePrototype`;
+- capability só com `core:default`;
+- nenhum plugin de shell ou fs.
+
+**`src/`:**
+
+- tokens de cor do shadcn/ui em OKLCH, com tema claro e escuro seguindo o
+  sistema ou forçado por `data-theme`;
+- componentes `Button` e `Card`;
+- tela provisória que já usa o IPC tipado;
+- testes com `mockIPC`, imports explícitos do vitest e limpeza de DOM e mocks
+  entre testes.
+
+**Identidade provisória:** `assets/logo.svg` (escudo com fechadura nas cores do
+tema), de onde o `tauri icon` gera os ícones.
+
+**cargo-deny:** a árvore do Tauri trouxe dois avisos *unmaintained*, `paste`
+(via specta) e `proc-macro-error` (via glib-macros, da pilha GTK3 do Tauri 2).
+Os dois são **macros de compilação**, sem código no binário, e sem
+alternativa. Ficaram como exceções justificadas no `deny.toml`. Diferente do
+caso do zbus (passo 11), em que havia alternativa.
+
+**CI e hooks:**
+
+- o job Rust ganhou as bibliotecas do Tauri;
+- o job de verificações passou a rodar biome, tsc, vitest e build;
+- o pre-commit roda o biome nos arquivos web staged;
+- o `npm run check` cobre tudo.

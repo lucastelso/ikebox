@@ -7,6 +7,15 @@ all-features = true
 [advisories]
 version = 2
 yanked = "deny"
+# Exceções revisadas: só macros de compilação (não entram no binário), sem
+# vulnerabilidade conhecida e sem alternativa no ecossistema do Tauri 2.
+# Revisar a cada atualização do Tauri/specta.
+ignore = [
+    # paste: proc-macro usada pelo specta (IPC tipado, ADR-0009).
+    { id = "RUSTSEC-2024-0436", reason = "proc-macro de compilação via specta; sem código em tempo de execução" },
+    # proc-macro-error: via glib-macros 0.18 (GTK3 do Tauri 2 no Linux).
+    { id = "RUSTSEC-2024-0370", reason = "proc-macro de compilação via glib-macros (GTK3 do Tauri 2); sem alternativa até o GTK4" },
+]
 
 [licenses]
 version = 2
