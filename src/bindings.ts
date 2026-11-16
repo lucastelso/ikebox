@@ -41,6 +41,15 @@ export const commands = {
 	exportProfile: (profileId: string, options?: InvokeOptions) => typedError<string | null, UiError>(__TAURI_INVOKE("export_profile", { profileId }, options)),
 	/**  Exclui o perfil e, se pedido, as credenciais guardadas dele. */
 	deleteProfile: (profileId: string, forgetCredentials: boolean, options?: InvokeOptions) => typedError<null, UiError>(__TAURI_INVOKE("delete_profile", { profileId, forgetCredentials }, options)),
+	/**  Estado do componente de rede. */
+	componentStatus: (options?: InvokeOptions) => typedError<ComponentInfo, UiError>(__TAURI_INVOKE("component_status", undefined, options)),
+	/**
+	 *  Instala ou atualiza o componente de rede (o sistema pede a senha de
+	 *  administrador). Devolve o novo estado.
+	 */
+	installComponent: (options?: InvokeOptions) => typedError<ComponentInfo, UiError>(__TAURI_INVOKE("install_component", undefined, options)),
+	/**  Remove o componente de rede (o sistema pede a senha de administrador). */
+	uninstallComponent: (options?: InvokeOptions) => typedError<ComponentInfo, UiError>(__TAURI_INVOKE("uninstall_component", undefined, options)),
 };
 
 /** Events */
@@ -74,6 +83,39 @@ export type CheckLevel =
 "warn" | 
 /**  Impede a conexão. */
 "fail";
+
+/**  Componente de rede: o que está instalado e o que dá para fazer. */
+export type ComponentInfo = {
+	/**  Situação. */
+	state: ComponentState,
+	/**  Versão do IPsec Client que instalou o componente. */
+	installedVersion: string | null,
+	/**  strongSwan instalado. */
+	installedStrongswan: string | null,
+	/**  Versão do componente que vem com este app. */
+	bundledVersion: string | null,
+	/**  strongSwan que vem com este app. */
+	bundledStrongswan: string | null,
+	/**  Instalado por pacote do sistema (.rpm/.deb): o app não mexe. */
+	managedByPackage: boolean,
+	/**  O app pode instalar/atualizar daqui. */
+	canInstall: boolean,
+	/**  O app pode remover daqui. */
+	canUninstall: boolean,
+	/**  Motivo, quando há problema. */
+	problem: string | null,
+};
+
+/**  Situação do componente de rede. */
+export type ComponentState = 
+/**  Nada instalado. */
+"notInstalled" | 
+/**  Instalado e funcionando. */
+"ready" | 
+/**  Instalado, mas o app traz uma versão diferente. */
+"outdated" | 
+/**  Instalação com problema (helper não responde). */
+"broken";
 
 /**  Conexão ativa (sem identidades). */
 export type Connection = {
@@ -290,6 +332,12 @@ export type UiErrorKind =
 "keyring" | 
 /**  Engine/Docker. */
 "engine" | 
+/**  Falta instalar o componente de rede (a UI oferece instalar). */
+"componentMissing" | 
+/**  Instalação/remoção do componente de rede. */
+"component" | 
+/**  O usuário cancelou (ex.: fechou o pedido de senha). */
+"cancelled" | 
 /**  Outra operação em andamento. */
 "busy" | 
 /**  Outro erro. */

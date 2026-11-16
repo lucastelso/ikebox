@@ -10,6 +10,8 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select';
+import { SetupBanner } from '../component/SetupBanner';
+import { useComponent } from '../component/useComponent';
 import { ConnectButton } from './ConnectButton';
 import { CredentialsDialog } from './CredentialsDialog';
 import { ErrorBanner, isCredentialError } from './ErrorBanner';
@@ -27,6 +29,7 @@ interface DialogState {
 export function HomeScreen({ onImport }: { onImport?: () => void }) {
   const { list, error: listError, selected, select } = useProfiles();
   const { state, connect, disconnect, dismissError } = useConnection();
+  const component = useComponent();
   const [dialog, setDialog] = useState<DialogState | null>(null);
   const [localError, setLocalError] = useState<UiError | null>(null);
 
@@ -62,31 +65,48 @@ export function HomeScreen({ onImport }: { onImport?: () => void }) {
     dismissError();
   }
 
+  async function installComponent() {
+    if (await component.install()) dismiss();
+  }
+
+  const setup =
+    idle && component.info ? (
+      <SetupBanner
+        info={component.info}
+        busy={component.busy === 'install'}
+        onInstall={() => void installComponent()}
+      />
+    ) : null;
+
   if (list && list.profiles.length === 0) {
     return (
-      <Card className="w-full">
-        <CardHeader>
-          <CardTitle className="flex items-center gap-2">
-            <FileUp className="size-5 text-primary" aria-hidden />
-            Nenhum perfil ainda
-          </CardTitle>
-          <CardDescription>
-            Para conectar, importe o perfil (.json) que você recebeu da sua equipe, ou o
-            swanctl.conf de uma VPN que já funciona.
-          </CardDescription>
-        </CardHeader>
-        <CardContent>
-          <Button onClick={onImport}>
-            <FileUp />
-            Importar perfil
-          </Button>
-        </CardContent>
-      </Card>
+      <div className="flex w-full flex-col gap-4">
+        {setup}
+        <Card className="w-full">
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2">
+              <FileUp className="size-5 text-primary" aria-hidden />
+              Nenhum perfil ainda
+            </CardTitle>
+            <CardDescription>
+              Para conectar, importe o perfil (.json) que você recebeu da sua equipe, ou o
+              swanctl.conf de uma VPN que já funciona.
+            </CardDescription>
+          </CardHeader>
+          <CardContent>
+            <Button onClick={onImport}>
+              <FileUp />
+              Importar perfil
+            </Button>
+          </CardContent>
+        </Card>
+      </div>
     );
   }
 
   return (
     <div className="flex w-full flex-col items-center gap-6">
+      {setup}
       <div className="w-full">
         <Select
           value={selected?.id ?? ''}
@@ -133,6 +153,10 @@ export function HomeScreen({ onImport }: { onImport?: () => void }) {
           error={error}
           onDismiss={dismiss}
           onFixCredentials={isCredentialError(error) ? () => void startConnect(true) : undefined}
+          onInstallComponent={
+            component.info?.canInstall ? () => void installComponent() : undefined
+          }
+          installing={component.busy === 'install'}
         />
       )}
 

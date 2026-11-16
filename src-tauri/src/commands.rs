@@ -19,10 +19,10 @@ use crate::dto::{
 
 /// Impede duas operações de conexão ao mesmo tempo (ex.: clique duplo).
 #[derive(Debug, Default)]
-pub struct ConnectionLock(Mutex<()>);
+pub struct ConnectionLock(pub(crate) Mutex<()>);
 
 /// Roda trabalho bloqueante fora das threads do runtime.
-async fn blocking<T, F>(f: F) -> Result<T, UiError>
+pub(crate) async fn blocking<T, F>(f: F) -> Result<T, UiError>
 where
     T: Send + 'static,
     F: FnOnce() -> Result<T, UiError> + Send + 'static,
