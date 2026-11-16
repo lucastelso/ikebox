@@ -42,3 +42,6 @@ commits.
   `if_id` por perfil e store com gravação atômica e permissões privadas. Inclui
   os presets genéricos `presets/`, o guia `docs/perfis.md` (com a
   correspondência swanctl → perfil) e o ADR-0012.
+- `core::secrets`: credenciais em `SecretString`, chaveiro do sistema (Secret
+  Service via libdbus), armazenamento em memória, geração dos segredos do
+  `load-shared` e mascaramento de identidades em logs.

@@ -136,6 +136,16 @@ da `ipsc0`.
 | `ProfileStore` | `list`/`load`/`save` (atômico, 0600 em diretório 0700)/`delete`/`import` (limite de 1 MiB, recusa sobrescrever)/`export` |
 | `parse_profile` | Confere `schema_version` antes do resto, que é o ponto de entrada de migrações futuras |
 
+## Módulo `core::secrets` (Rust, ADR-0007)
+
+| Item | O que faz |
+|---|---|
+| `Credentials` | PSK, usuário e senha XAuth em `SecretString` (zerada no drop). `Debug` mostra só presença/ausência e o usuário mascarado. `missing(perfil)`, `load`/`save`/`forget` num `SecretStore`, `shared_secrets(perfil)` → `SharedSecret` para o `load-shared` (PSK com dono = `local_id`, XAuth com dono = usuário) |
+| `SecretStore` (trait) | `get`/`set`/`delete` por (perfil, campo) |
+| `KeyringStore` | Secret Service (GNOME Keyring/KWallet) via **libdbus** (`keyring-core` + `dbus-secret-service-keyring-store`, cripto em Rust). Serviço `ipsec-client`, chave `<perfil>:<campo>`, rótulo "IPsec Client: <perfil> (<campo>)". Chamadas bloqueantes: usar `spawn_blocking` |
+| `MemoryStore` | Só memória (testes e "não lembrar") |
+| `Redactor`/`mask` | Mascara identidades conhecidas em linhas de log: usuário XAuth e id do grupo, com e sem prefixo `keyid:`. Exemplo: `usuario.exemplo` → `us***lo` |
+
 ## Fluxo de conexão (`core::session`)
 
 1. **Preflight:**

@@ -17,9 +17,12 @@ docker-tests = []
 
 [dependencies]
 bollard = { version = "0.21.1", default-features = false, features = ["pipe"] }
+dbus-secret-service-keyring-store = { version = "1.0.1", features = ["crypto-rust"] }
 futures-util = "0.3.34"
 hex = "0.4.3"
+keyring-core = "1.0.1"
 rustix = { version = "1.1.6", features = ["process"] }
+secrecy = "0.10.3"
 serde = { version = "1.0.229", features = ["derive"] }
 serde_json = "1.0.154"
 sha2 = "0.11.1"
