@@ -173,6 +173,7 @@ da `ipsc0`.
 |---|---|
 | `src-tauri/src/commands.rs` | Comandos `async`, finos sobre o core. Disco e chaveiro vão para `spawn_blocking`, e o `ConnectionLock` impede dois `connect` simultâneos. As credenciais digitadas completam as guardadas e viram `SecretString` na hora |
 | `src-tauri/src/dto.rs` | Contrato com a UI: `ProfileSummary`, `CredentialsStatus` (só presença e usuário mascarado), `CredentialsInput` (segredos só entram, `Debug` redigido), `Connection`, `SessionUpdate` (evento) e `UiError` (tipo + mensagem + detalhes) |
+| `src-tauri/src/desktop.rs` | Bandeja (`tray-icon`), monitor de estado a cada 3 s com notificações nas transições (`transition_notice`, puro), notificações por `org.freedesktop.Notifications` via libdbus e instância única por socket em `$XDG_RUNTIME_DIR`. Sem zbus |
 | `src/bindings.ts` | Gerado pelo tauri-specta (modo `Result`: erros tipados). Um teste Rust garante que está em dia |
 | `src/features/connection/` | `connectionReducer` (fases, puro e testado), `useConnection` (eventos + comandos + status a cada 2 s), `useProfiles`, a `HomeScreen` e os componentes |
 

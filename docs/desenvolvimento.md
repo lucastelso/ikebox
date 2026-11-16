@@ -906,3 +906,34 @@ Pendências e ideias que saíram daqui:
     no `BUILDINFO`);
   - o build do engine passou a empacotar os textos de licença dos dois em
     `share/licenses/`.
+
+### Passo 22: bandeja, notificações e instância única (`feat/tray`)
+
+- **Problema:** os plugins oficiais de notificação e de instância única usam o
+  **zbus** no Linux (o primeiro via `notify-rust`), e não há opção de troca. O
+  cargo-deny barra o zbus 5 (passo 11).
+- **Solução sem dependência nova:**
+  - **notificações:** chamada direta a `org.freedesktop.Notifications.Notify`
+    pela libdbus (crate `dbus`, que já vinha pelo chaveiro). É *best effort*:
+    sem servidor de notificações, não faz nada;
+  - **instância única:** socket Unix `app.sock` em
+    `$XDG_RUNTIME_DIR/ipsec-client/`. A segunda execução manda `show` e sai, e
+    a primeira traz a janela para a frente. Um socket velho, de uma instância
+    morta, é substituído;
+  - **bandeja:** feature `tray-icon` do próprio Tauri (libappindicator,
+    carregada em tempo de execução). A criação fica protegida contra pânico,
+    então sem a biblioteca ou no GNOME sem a extensão AppIndicator o app segue
+    sem bandeja.
+- **Monitor de estado** (Rust, a cada 3 s): atualiza a dica, o status e o
+  "Desconectar" da bandeja, e notifica as **transições** (conectou, caiu e
+  reconectando, voltou, desconectou). A função `transition_notice` é pura e
+  testada, e a primeira leitura só sincroniza, sem notificar. Como lê o estado
+  do engine, funciona também para sessões abertas pelo CLI.
+- **"Sair do app"** não derruba a VPN, que é um processo independente (como no
+  CLI). A janela fechada pelo botão também encerra o app, sem esconder na
+  bandeja, porque no GNOME sem extensão a janela ficaria inacessível.
+- **Teste de fumaça:** com a instância A aberta, a B saiu em cerca de 300 ms com
+  código 0, e A seguiu aberta.
+- **A melhorar depois:** a UI e o monitor consultam o status separadamente (a
+  cada 2 s e a cada 3 s). Dá para unificar, com o Rust emitindo o status como
+  evento.
