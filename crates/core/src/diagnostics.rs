@@ -6,7 +6,7 @@
 use std::fs;
 use std::path::Path;
 
-use crate::engine::{DockerEngine, default_runtime_dir};
+use crate::engine::{DockerEngine, NativeEngine, default_runtime_dir};
 
 /// Resultado de uma verificação.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -194,18 +194,54 @@ async fn check_docker() -> Check {
     }
 }
 
+/// Componente de rede (engine embutido). Sem ele, o app usa o Docker.
+async fn check_engine() -> Vec<Check> {
+    const NAME: &str = "Componente de rede";
+    let native = NativeEngine::default();
+    if native.installed() {
+        let ping = tokio::task::spawn_blocking(move || native.ping()).await;
+        return vec![match ping {
+            Ok(Ok(version)) => Check::ok(
+                NAME,
+                format!("instalado (engine embutido, helper {version})"),
+            ),
+            Ok(Err(e)) => Check::bad(
+                NAME,
+                CheckStatus::Fail,
+                e.to_string(),
+                "reinstale o IPsec Client",
+            ),
+            Err(e) => Check::bad(
+                NAME,
+                CheckStatus::Fail,
+                e.to_string(),
+                "reinstale o IPsec Client",
+            ),
+        }];
+    }
+    vec![
+        Check::bad(
+            NAME,
+            CheckStatus::Warn,
+            "não instalado; usando o engine em Docker",
+            "instale o componente de rede para dispensar o Docker",
+        ),
+        check_runtime_dir(),
+        check_docker().await,
+    ]
+}
+
 /// Verificações que impedem ou limitam uma conexão (rodadas antes do
 /// `connect`). As portas não são verificadas aqui quando já há um engine
 /// nosso rodando (ele é que estaria usando as portas).
 pub async fn preflight(check_ports: bool) -> Vec<Check> {
-    let mut checks = vec![
-        check_not_root(),
-        check_runtime_dir(),
-        check_docker().await,
+    let mut checks = vec![check_not_root()];
+    checks.extend(check_engine().await);
+    checks.extend([
         check_xfrm_interface(),
         check_resolved(),
         check_dbus_socket(),
-    ];
+    ]);
     if check_ports {
         checks.push(check_ike_ports());
     }
@@ -224,21 +260,23 @@ pub async fn doctor() -> Vec<Check> {
             "instale/ative o GNOME Keyring ou o KWallet; sem ele, as credenciais são pedidas a cada conexão",
         ),
     });
-    let image = crate::engine::context::image_tag();
-    let present = match DockerEngine::connect() {
-        Ok(engine) => engine.image_present(&image).await.unwrap_or(false),
-        Err(_) => false,
-    };
-    checks.push(if present {
-        Check::ok("Imagem do engine", image)
-    } else {
-        Check::bad(
-            "Imagem do engine",
-            CheckStatus::Warn,
-            format!("{image} ainda não construída"),
-            "será construída na primeira conexão (~1 min, precisa de internet)",
-        )
-    });
+    if !NativeEngine::default().installed() {
+        let image = crate::engine::context::image_tag();
+        let present = match DockerEngine::connect() {
+            Ok(engine) => engine.image_present(&image).await.unwrap_or(false),
+            Err(_) => false,
+        };
+        checks.push(if present {
+            Check::ok("Imagem do engine", image)
+        } else {
+            Check::bad(
+                "Imagem do engine",
+                CheckStatus::Warn,
+                format!("{image} ainda não construída"),
+                "será construída na primeira conexão (~1 min, precisa de internet)",
+            )
+        });
+    }
     checks
 }
 

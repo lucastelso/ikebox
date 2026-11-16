@@ -53,6 +53,7 @@ configure_flags=(
     --prefix="$PREFIX"
     --sysconfdir="$PREFIX/etc"
     --libexecdir="$PREFIX/libexec"
+    --with-piddir=/run/ipsec-client-engine
     --disable-shared --enable-static --enable-monolithic
     --disable-defaults
     --enable-charon --enable-swanctl --enable-vici

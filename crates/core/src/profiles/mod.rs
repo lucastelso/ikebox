@@ -16,7 +16,7 @@ pub use model::{
     AuthMethod, AuthSettings, ChildAction, ChildSettings, CredentialKind, DnsSettings, IkeSettings,
     NetworkSettings, Profile, SCHEMA_VERSION,
 };
-pub use render::{ConnParams, UPDOWN_PATH};
+pub use render::{ConnParams, NATIVE_UPDOWN_PATH, UPDOWN_PATH};
 pub use store::{MAX_PROFILE_BYTES, ProfileList, ProfileStore, parse_profile, to_json};
 pub use swanctl::{SwanctlImport, SwanctlImportOptions, import_swanctl};
 pub use validate::{ValidationIssue, validate};
@@ -111,6 +111,7 @@ mod tests {
         let profile = legacy();
         let params = ConnParams {
             iface: "ipsc0",
+            updown: UPDOWN_PATH,
             if_id: profile.if_id(),
             xauth_user: Some("usuario.exemplo"),
         };
@@ -126,6 +127,7 @@ mod tests {
             .expect("preset IKEv2 válido");
         let params = ConnParams {
             iface: "ipsc0",
+            updown: UPDOWN_PATH,
             if_id: 7,
             xauth_user: None,
         };
@@ -158,6 +160,7 @@ mod tests {
         let profile = legacy();
         let params = ConnParams {
             iface: "ipsc0",
+            updown: UPDOWN_PATH,
             if_id: 1,
             xauth_user: None,
         };

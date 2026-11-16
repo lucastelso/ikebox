@@ -22,11 +22,13 @@ pub async fn establish<C: Charon>(
     credentials: &Credentials,
     iface: &str,
     if_id: u32,
+    updown: &str,
     timeout: Duration,
 ) -> Result<(), SessionError> {
     let secrets = credentials.shared_secrets(profile)?;
     let conn = profile.to_load_conn(&ConnParams {
         iface,
+        updown,
         if_id,
         xauth_user: credentials.xauth_user(),
     })?;
@@ -135,6 +137,7 @@ pub(crate) mod tests {
             &credentials(),
             "ipsc0",
             7,
+            crate::profiles::UPDOWN_PATH,
             Duration::from_secs(1),
         )
         .await
@@ -159,6 +162,7 @@ pub(crate) mod tests {
             &Credentials::new(),
             "ipsc0",
             7,
+            crate::profiles::UPDOWN_PATH,
             Duration::from_secs(1),
         )
         .await
@@ -179,6 +183,7 @@ pub(crate) mod tests {
             &credentials(),
             "ipsc0",
             7,
+            crate::profiles::UPDOWN_PATH,
             Duration::from_secs(1),
         )
         .await

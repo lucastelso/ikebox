@@ -45,6 +45,17 @@ em container descrito abaixo. A diferença é que o charon vem de
 `IPSEC_CLIENT_CHARON` e `IPSEC_CLIENT_STRONGSWAN_D`. Até a fase D, o engine
 em container continua sendo o backend em uso e o dos testes.
 
+### Componente de rede: `ipsec-client-helper` (ADR-0014)
+
+| Peça | O que faz |
+|---|---|
+| `crates/proto` | Protocolo JSON por linha (`ping`, `start`, `stop`, `status`, `logs`) e as **regras de validação compartilhadas** com o `core`. Campos desconhecidos são recusados, então o cliente não consegue passar caminhos nem comandos |
+| `crates/helper` | Root, ativado por socket (`/run/ipsec-client-helper.sock`, 0666). Faz `SO_PEERCRED` e consulta o polkit (`io.github.lucastelso.ipsecclient.connect`, `allow_active=yes`, sem interação). Cria `/run/ipsec-client/<uid>` (0750 root:gid) e sobe o engine com `systemd-run --unit=ipsec-client-engine` e sandbox. Espera o socket VICI e responde com o caminho dele. Recusa se o engine for de outro usuário |
+| Sandbox do engine | Capabilities `NET_ADMIN`, `NET_BIND_SERVICE`, `NET_RAW` e `CHOWN`; `NoNewPrivileges`, `ProtectSystem=strict`, `ProtectHome`, `PrivateTmp`, `ProtectKernelModules`, `RestrictAddressFamilies` (unix, inet, inet6, netlink), `MemoryDenyWriteExecute`; gravável só `RuntimeDirectory` e o diretório do socket do usuário |
+| `entrypoint.sh` (modo nativo) | `IPSEC_CLIENT_STATE_DIR`: a config de runtime vai para o diretório gravável e entra pelo `STRONGSWAN_CONF`, incluindo a base. `IPSEC_CLIENT_SOCKET_DIR`: socket por usuário |
+| `core::engine::Backend` | `Native` (helper) quando instalado, ou `Docker` como reserva. `IPSEC_CLIENT_BACKEND=native\|docker` força um deles. A sessão, o diagnóstico e o `logs` do CLI usam o `Backend` |
+| `packaging/` | Units `ipsec-client-helper.{socket,service}` (o helper também tem hardening), policy do polkit e `install-native.sh` (instala em `/opt/ipsec-client` e aplica o `restorecon` por causa do SELinux) |
+
 ## O engine (container)
 
 Os arquivos ficam em [`engine/`](../engine).

@@ -1,0 +1,13 @@
+# IPsec Client: socket do helper com privilégio (ADR-0014).
+# Qualquer usuário conecta; quem pode agir é decidido pelo helper
+# (SO_PEERCRED + polkit).
+[Unit]
+Description=IPsec Client - socket do componente de rede
+
+[Socket]
+ListenStream=/run/ipsec-client-helper.sock
+SocketMode=0666
+RemoveOnStop=yes
+
+[Install]
+WantedBy=sockets.target

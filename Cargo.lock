@@ -1942,6 +1942,7 @@ dependencies = [
  "futures-util",
  "hex",
  "insta",
+ "ipsec-client-proto",
  "keyring-core",
  "rustix",
  "secrecy",
@@ -1954,6 +1955,24 @@ dependencies = [
  "tokio",
  "tracing",
  "zeroize",
+]
+
+[[package]]
+name = "ipsec-client-helper"
+version = "0.0.0"
+dependencies = [
+ "dbus",
+ "ipsec-client-proto",
+ "rustix",
+ "serde_json",
+]
+
+[[package]]
+name = "ipsec-client-proto"
+version = "0.0.0"
+dependencies = [
+ "serde",
+ "serde_json",
 ]
 
 [[package]]

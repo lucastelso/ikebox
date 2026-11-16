@@ -103,10 +103,26 @@ commits.
   VPN continua). Notificações do sistema quando a VPN conecta, cai, reconecta
   ou desconecta, inclusive em sessões abertas pelo CLI. Instância única: abrir
   o app de novo traz a janela existente.
+- Componente de rede (engine embutido, sem Docker):
+  - `crates/helper`, o único componente root: ativação por socket do systemd,
+    identidade por `SO_PEERCRED`, autorização no polkit (sessão local ativa
+    sem senha) e charon via `systemd-run` com sandbox (só `NET_ADMIN`,
+    `NET_BIND_SERVICE`, `NET_RAW` e `CHOWN`; `ProtectSystem=strict`...);
+  - `crates/proto`, o protocolo compartilhado: o cliente só manda números
+    validados e o id do perfil, nunca caminhos, comandos ou segredos;
+  - `packaging/` com as units do systemd, a policy do polkit e o instalador;
+  - `scripts/test-native.sh` para a validação com root.
+
+  O `core` escolhe o engine embutido quando ele está instalado (`Backend`), e
+  o `entrypoint.sh` ganhou o modo nativo (raiz somente leitura, socket por
+  usuário).
 - Aba Sistema no app: diagnóstico do ambiente (o mesmo do `doctor`, com dicas
   de correção), tema claro/escuro/sistema (lembrado) e versão.
 
 ### Alterado
+
+- O MTU do perfil passou a ser aplicado à interface do engine (antes era sempre
+  1400).
 
 - `entrypoint.sh`: caminhos do charon configuráveis
   (`IPSEC_CLIENT_CHARON`/`IPSEC_CLIENT_STRONGSWAN_D`) e remoção das políticas

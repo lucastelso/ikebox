@@ -15,11 +15,18 @@
 #   IPSEC_CLIENT_LOG_LEVEL   nível de log do charon, 0..2     (padrão: 1)
 #   IPSEC_CLIENT_CHARON      caminho do charon   (padrão: o do pacote do Ubuntu)
 #   IPSEC_CLIENT_STRONGSWAN_D diretório strongswan.d (padrão: /etc/strongswan.d)
+#   IPSEC_CLIENT_SOCKET_DIR  diretório do socket VICI   (padrão: /run/ipsec-client)
+#   IPSEC_CLIENT_STATE_DIR   modo nativo (systemd, raiz somente leitura): diretório
+#                            gravável onde vai a config de runtime; o charon a lê
+#                            via STRONGSWAN_CONF, que inclui a config base
+#   IPSEC_CLIENT_STRONGSWAN_CONF  config base incluída no modo nativo
 
 set -euo pipefail
 
-readonly SOCKET_DIR=/run/ipsec-client
+readonly SOCKET_DIR=${IPSEC_CLIENT_SOCKET_DIR:-/run/ipsec-client}
 readonly SOCKET="$SOCKET_DIR/charon.vici"
+readonly STATE_DIR=${IPSEC_CLIENT_STATE_DIR:-}
+readonly BASE_CONF=${IPSEC_CLIENT_STRONGSWAN_CONF:-/etc/strongswan.conf}
 readonly CHARON=${IPSEC_CLIENT_CHARON:-/usr/lib/ipsec/charon}
 readonly RUNTIME_CONF=${IPSEC_CLIENT_STRONGSWAN_D:-/etc/strongswan.d}/zzz-ipsec-client-runtime.conf
 # Protocolo de rota usado pelo updown para marcar as rotas da sessão.
@@ -56,8 +63,16 @@ validate_env() {
         die "IPSEC_CLIENT_SOCKET_GID inválido"
     [[ $LOG_LEVEL =~ ^[0-2]$ ]] ||
         die "IPSEC_CLIENT_LOG_LEVEL deve ser 0, 1 ou 2"
+    local path
+    for path in "$SOCKET_DIR" ${STATE_DIR:+"$STATE_DIR"} "$BASE_CONF"; do
+        [[ $path =~ ^/[A-Za-z0-9/._-]+$ && $path != *..* ]] || die "caminho inválido: $path"
+    done
     [[ -d $SOCKET_DIR ]] ||
-        die "$SOCKET_DIR não está montado (bind do diretório do socket VICI)"
+        die "$SOCKET_DIR não existe (diretório do socket VICI)"
+    if [[ -n $STATE_DIR ]]; then
+        [[ -d $STATE_DIR ]] || die "$STATE_DIR não existe"
+        [[ -f $BASE_CONF ]] || die "config base $BASE_CONF não existe"
+    fi
     # Normaliza zeros à esquerda.
     IF_ID=$((10#$IF_ID))
     MTU=$((10#$MTU))
@@ -150,17 +165,29 @@ create_iface() {
 }
 
 write_runtime_conf() {
-    cat >"$RUNTIME_CONF" <<EOF
-# Gerado pelo entrypoint do ipsec-client. Não editar.
-charon {
+    local overrides
+    overrides="charon {
     install_virtual_ip_on = $IFACE
+    plugins {
+        vici {
+            socket = unix://$SOCKET
+        }
+    }
     filelog {
         stderr {
             default = $LOG_LEVEL
         }
     }
-}
-EOF
+}"
+    if [[ -n $STATE_DIR ]]; then
+        # Modo nativo: a raiz é somente leitura; a config de runtime inclui a
+        # base e sobrescreve o que depende da sessão.
+        printf '# Gerado pelo entrypoint do ipsec-client. Não editar.\ninclude %s\n%s\n' \
+            "$BASE_CONF" "$overrides" >"$STATE_DIR/strongswan.conf"
+        export STRONGSWAN_CONF="$STATE_DIR/strongswan.conf"
+    else
+        printf '# Gerado pelo entrypoint do ipsec-client. Não editar.\n%s\n' "$overrides" >"$RUNTIME_CONF"
+    fi
 }
 
 wait_for_socket() {
@@ -198,7 +225,7 @@ main() {
     cleanup
     create_iface
     write_runtime_conf
-    rm -f /var/run/charon.pid /run/charon.pid
+    rm -f /var/run/charon.pid /run/charon.pid 2>/dev/null || true
 
     "$CHARON" &
     charon_pid=$!

@@ -23,10 +23,7 @@ pub use establish::establish;
 pub use failure::{FailureKind, diagnose};
 
 use crate::diagnostics::{self, Check, CheckStatus};
-use crate::engine::{
-    BuildProgress, CONTAINER_NAME, DockerEngine, EngineError, EngineSpec, SOCKET_FILE, current_gid,
-    default_runtime_dir,
-};
+use crate::engine::{Backend, BuildProgress, EngineError, RunningEngine};
 use crate::profiles::{Profile, ProfileError};
 use crate::secrets::{Credentials, Redactor, SecretsError};
 use crate::vici::{Charon, CharonEvent, IkeSa, ViciClient, ViciError, ViciEvents};
@@ -213,12 +210,8 @@ pub async fn connect(
     // Falhas de credencial/perfil antes de mexer em qualquer coisa.
     credentials.shared_secrets(profile)?;
 
-    let engine = DockerEngine::connect()?;
-    if engine.is_running(CONTAINER_NAME).await? {
-        let active = engine
-            .running_profile(CONTAINER_NAME)
-            .await?
-            .unwrap_or_else(|| "desconhecido".to_owned());
+    let backend = Backend::detect()?;
+    if let Some(active) = backend.running_profile().await? {
         return Err(SessionError::AlreadyConnected(active));
     }
 
@@ -231,30 +224,29 @@ pub async fn connect(
         return Err(SessionError::Preflight(checks));
     }
 
-    send(
-        events.as_ref(),
-        SessionEvent::State(SessionState::Preparing("imagem do engine".into())),
-    );
-    engine
-        .ensure_image(|p| {
+    if matches!(backend, Backend::Docker(_)) {
+        send(
+            events.as_ref(),
+            SessionEvent::State(SessionState::Preparing("imagem do engine".into())),
+        );
+    }
+    backend
+        .prepare(|p| {
             if let BuildProgress::Step(line) = p {
                 send(events.as_ref(), SessionEvent::Build(line));
             }
         })
         .await?;
 
-    let mut spec = EngineSpec::new(default_runtime_dir()?, current_gid(), profile.if_id());
-    spec.privileged = options.privileged;
-    spec.profile_id = Some(profile.id.clone());
     send(
         events.as_ref(),
         SessionEvent::State(SessionState::Preparing("subindo o engine".into())),
     );
-    engine.start(&spec).await?;
+    let engine = backend.start(profile, options.privileged).await?;
 
-    let result = negotiate(&spec, profile, credentials, options, events).await;
+    let result = negotiate(&engine, profile, credentials, options, events).await;
     if result.is_err()
-        && let Err(e) = engine.stop(&spec.container_name).await
+        && let Err(e) = backend.stop().await
     {
         warn!("falha ao derrubar o engine após erro: {e}");
     }
@@ -262,13 +254,13 @@ pub async fn connect(
 }
 
 async fn negotiate(
-    spec: &EngineSpec,
+    engine: &RunningEngine,
     profile: &Profile,
     credentials: &Credentials,
     options: &ConnectOptions,
     events: Option<EventSink>,
 ) -> Result<ConnectionInfo, SessionError> {
-    let socket = spec.socket_path();
+    let socket = engine.socket.clone();
     let redactor = redactor_for(profile, credentials);
     let logs = Arc::new(Mutex::new(VecDeque::with_capacity(LOG_BUFFER)));
 
@@ -290,8 +282,9 @@ async fn negotiate(
         &mut charon,
         profile,
         credentials,
-        &spec.iface,
-        spec.if_id,
+        &engine.iface,
+        engine.if_id,
+        engine.updown,
         options.initiate_timeout,
     )
     .await;
@@ -362,21 +355,17 @@ async fn forward_events(
     }
 }
 
-fn engine_socket() -> Result<std::path::PathBuf, SessionError> {
-    Ok(default_runtime_dir()?.join(SOCKET_FILE))
-}
-
 /// Estado da conexão ativa, de qualquer processo (`None` = desconectado).
 ///
 /// # Errors
-/// Docker ou VICI inacessíveis.
+/// Engine (helper/Docker) ou VICI inacessíveis.
 pub async fn status() -> Result<Option<ConnectionInfo>, SessionError> {
-    let engine = DockerEngine::connect()?;
-    if !engine.is_running(CONTAINER_NAME).await? {
+    let backend = Backend::detect()?;
+    let Some(profile_id) = backend.running_profile().await? else {
         return Ok(None);
-    }
-    let profile_id = engine.running_profile(CONTAINER_NAME).await?;
-    let mut charon = ViciClient::connect(engine_socket()?).await?;
+    };
+    let profile_id = Some(profile_id);
+    let mut charon = ViciClient::connect(backend.socket_path()?).await?;
     let sas = charon.list_sas().await?;
     Ok(Some(match sas.first() {
         Some(sa) => ConnectionInfo::from_sa(profile_id, sa),
@@ -392,15 +381,11 @@ pub async fn status() -> Result<Option<ConnectionInfo>, SessionError> {
 /// Devolve `false` se não havia conexão.
 ///
 /// # Errors
-/// Docker inacessível.
+/// Engine (helper/Docker) inacessível.
 pub async fn disconnect() -> Result<bool, SessionError> {
-    let engine = DockerEngine::connect()?;
-    if !engine.is_running(CONTAINER_NAME).await? {
-        // Remove um container parado que tenha sobrado.
-        engine.stop(CONTAINER_NAME).await?;
-        return Ok(false);
-    }
-    if let Ok(socket) = engine_socket()
+    let backend = Backend::detect()?;
+    if backend.running_profile().await?.is_some()
+        && let Ok(socket) = backend.socket_path()
         && let Ok(mut charon) = ViciClient::connect(socket).await
         && let Ok(sas) = charon.list_sas().await
     {
@@ -410,8 +395,24 @@ pub async fn disconnect() -> Result<bool, SessionError> {
             }
         }
     }
-    engine.stop(CONTAINER_NAME).await?;
-    Ok(true)
+    // Também remove um container parado que tenha sobrado (Docker).
+    Ok(backend.stop().await?)
+}
+
+/// Últimas linhas do log do engine em uso (identidades ainda não mascaradas).
+///
+/// # Errors
+/// Engine inacessível.
+pub async fn engine_logs(tail: usize) -> Result<Vec<String>, SessionError> {
+    Ok(Backend::detect()?.logs(tail).await?)
+}
+
+/// Perfil do engine em execução, se houver.
+///
+/// # Errors
+/// Engine inacessível.
+pub async fn active_profile() -> Result<Option<String>, SessionError> {
+    Ok(Backend::detect()?.running_profile().await?)
 }
 
 #[cfg(test)]
