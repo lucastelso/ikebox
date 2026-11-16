@@ -727,3 +727,58 @@ caso do zbus (passo 11), em que havia alternativa.
 - o job de verificações passou a rodar biome, tsc, vitest e build;
 - o pre-commit roda o biome nos arquivos web staged;
 - o `npm run check` cobre tudo.
+
+### Passo 17: tela de conexão (`feat/ui-conexao`)
+
+**IPC (`src-tauri`):**
+
+- comandos `list_profiles`, `credentials_status`, `connect`, `disconnect`,
+  `status` e `forget_credentials`, mais o evento tipado `SessionUpdate`;
+- erros no modo `Result` do tauri-specta: o TypeScript recebe
+  `{status: "error", error: UiError}`, com tipo, mensagem e detalhes, em vez
+  de exceções sem tipo;
+- `disable_serde_phases()` deixa um tipo TypeScript por DTO. As versões
+  `_Serialize`/`_Deserialize` duplicadas eram idênticas nos nossos tipos.
+
+**Decisões de segurança e robustez:**
+
+- a UI nunca recebe segredos: `credentials_status` devolve só o que está
+  guardado e o usuário mascarado. `CredentialsInput` só entra e tem `Debug`
+  redigido;
+- os comandos são `async` (comandos síncronos do Tauri rodam na thread da UI),
+  e disco e chaveiro vão para `spawn_blocking`;
+- o `ConnectionLock` recusa um segundo `connect` em andamento, por exemplo
+  num clique duplo;
+- o `CredentialsDialog` apaga os valores digitados ao fechar e depois do
+  envio.
+
+**Ajustes de tipos:**
+
+- o specta mapeia `f64` para `number | null` (NaN vira `null` em JSON), e a UI
+  trata isso;
+- `Option<String>` virava campo obrigatório. Agora usa `#[specta(optional)]`,
+  porque "vazio" quer dizer "usar o guardado".
+
+**UI:**
+
+- seletor de perfil (lembrado entre execuções, com localStorage protegido por
+  try/catch);
+- botão central com anel de estado (cinza, âmbar pulsando, verde);
+- cartão com IP virtual, gateway, redes, tempo e tráfego;
+- o diálogo de credenciais pede **só o que falta** e marca "lembrar" quando há
+  chaveiro;
+- os erros mostram a causa provável, detalhes recolhíveis e "Informar
+  credenciais";
+- painel de log mascarado e copiável;
+- o status consultado a cada 2 s também **adota conexões abertas pelo CLI**.
+
+**Testes:** 12 no frontend, contando os do `connectionReducer` e da
+`HomeScreen` com `mockIPC`:
+
+- conectar com credenciais guardadas;
+- pedir só o que falta, com "lembrar";
+- erro de senha com a ação de correção;
+- tela vazia.
+
+O jsdom precisou de um stub de `ResizeObserver` por causa do Radix. O Rust
+ganhou testes dos DTOs e do `apply_input`.

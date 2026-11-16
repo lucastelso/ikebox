@@ -4,11 +4,33 @@
 
 import { invoke as __TAURI_INVOKE } from "@tauri-apps/api/core";
 import type { InvokeOptions } from "@tauri-apps/api/core";
+import * as __TAURI_EVENT from "@tauri-apps/api/event";
 
 /** Commands */
 export const commands = {
 	/**  Versão do app e do engine. */
 	appInfo: (options?: InvokeOptions) => __TAURI_INVOKE<AppInfo>("app_info", undefined, options),
+	/**  Perfis disponíveis. */
+	listProfiles: (options?: InvokeOptions) => typedError<ProfileList, UiError>(__TAURI_INVOKE("list_profiles", undefined, options)),
+	/**  O que o perfil exige e o que já está guardado (sem revelar valores). */
+	credentialsStatus: (profileId: string, options?: InvokeOptions) => typedError<CredentialsStatus, UiError>(__TAURI_INVOKE("credentials_status", { profileId }, options)),
+	/**
+	 *  Conecta o perfil. As credenciais digitadas completam (ou substituem) as
+	 *  guardadas; com `remember`, ficam no chaveiro. O progresso chega pelo
+	 *  evento [`SessionUpdate`].
+	 */
+	connect: (profileId: string, credentials: CredentialsInput, remember: boolean, options?: InvokeOptions) => typedError<Connection, UiError>(__TAURI_INVOKE("connect", { profileId, credentials, remember }, options)),
+	/**  Desconecta (avisa o gateway e derruba o engine). */
+	disconnect: (options?: InvokeOptions) => typedError<boolean, UiError>(__TAURI_INVOKE("disconnect", undefined, options)),
+	/**  Conexão ativa, se houver (funciona mesmo se ela foi aberta pelo CLI). */
+	status: (options?: InvokeOptions) => typedError<Connection | null, UiError>(__TAURI_INVOKE("status", undefined, options)),
+	/**  Apaga as credenciais guardadas do perfil. */
+	forgetCredentials: (profileId: string, options?: InvokeOptions) => typedError<null, UiError>(__TAURI_INVOKE("forget_credentials", { profileId }, options)),
+};
+
+/** Events */
+export const events = {
+	sessionUpdate: makeEvent<SessionUpdate, SessionUpdate>("session-update"),
 };
 
 /* Types */
@@ -19,3 +41,180 @@ export type AppInfo = {
 	/**  Imagem do engine usada nesta versão. */
 	engineImage: string,
 };
+
+/**  Arquivo de perfil que não pôde ser lido. */
+export type BrokenProfile = {
+	/**  Nome do arquivo. */
+	file: string,
+	/**  Motivo. */
+	error: string,
+};
+
+/**  Conexão ativa (sem identidades). */
+export type Connection = {
+	/**  Perfil conectado. */
+	profileId: string | null,
+	/**  Túnel estabelecido (senão: engine de pé negociando/reconectando). */
+	established: boolean,
+	/**  Gateway. */
+	gateway: string,
+	/**  IP virtual. */
+	vip: string | null,
+	/**  Redes acessíveis. */
+	remoteTs: string[],
+	/**  Segundos desde o estabelecimento. */
+	establishedSecs: number | null,
+	/**  Bytes recebidos. */
+	bytesIn: number | null,
+	/**  Bytes enviados. */
+	bytesOut: number | null,
+};
+
+/**  Campo de credencial. */
+export type CredentialField = 
+/**  PSK do grupo. */
+"psk" | 
+/**  Usuário XAuth. */
+"xauthUser" | 
+/**  Senha XAuth. */
+"xauthPassword";
+
+/**
+ *  Credenciais digitadas na UI (vazias = usar as guardadas). O `Debug` não
+ *  mostra os valores.
+ */
+export type CredentialsInput = {
+	/**  PSK do grupo. */
+	psk?: string | null,
+	/**  Usuário XAuth. */
+	xauthUser?: string | null,
+	/**  Senha XAuth. */
+	xauthPassword?: string | null,
+};
+
+/**  O que está guardado para um perfil (sem revelar valores). */
+export type CredentialsStatus = {
+	/**  Campos que o perfil exige. */
+	required: CredentialField[],
+	/**  Campos já guardados no chaveiro. */
+	stored: CredentialField[],
+	/**  Usuário XAuth guardado, mascarado (ex.: `us***lo`). */
+	maskedUser: string | null,
+	/**  O chaveiro do sistema está disponível ("lembrar" possível)? */
+	keyringAvailable: boolean,
+};
+
+/**  Lista de perfis. */
+export type ProfileList = {
+	/**  Perfis válidos, por nome. */
+	profiles: ProfileSummary[],
+	/**  Arquivos com problema. */
+	broken: BrokenProfile[],
+};
+
+/**  Resumo de um perfil para listas. */
+export type ProfileSummary = {
+	/**  Id do perfil. */
+	id: string,
+	/**  Nome exibido. */
+	name: string,
+	/**  Gateway. */
+	gateway: string,
+	/**  Usa XAuth (pede usuário e senha)? */
+	usesXauth: boolean,
+	/**  Redes acessadas pelo túnel. */
+	remoteTs: string[],
+};
+
+/**  Atualização da sessão, enviada como evento para a UI. */
+export type SessionUpdate = 
+/**  Preparando (etapa em texto). */
+{ kind: "preparing"; 
+/**  Etapa. */
+step: string } | 
+/**  Negociando com o gateway. */
+{ kind: "negotiating" } | 
+/**  Conectado. */
+{ kind: "connected"; 
+/**  Conexão. */
+connection: Connection } | 
+/**  Linha de log do charon (identidades mascaradas). */
+{ kind: "log"; 
+/**  Linha. */
+line: string } | 
+/**  Linha do build da imagem do engine (primeiro uso). */
+{ kind: "build"; 
+/**  Linha. */
+line: string } | 
+/**  O túnel caiu (pode reconectar sozinho). */
+{ kind: "tunnelDown" } | 
+/**  O túnel (re)subiu. */
+{ kind: "tunnelUp" } | 
+/**  O engine parou. */
+{ kind: "engineGone" };
+
+/**  Erro para a UI: mensagem em pt-BR e detalhes opcionais (sem segredos). */
+export type UiError = {
+	/**  Tipo. */
+	kind: UiErrorKind,
+	/**  Mensagem principal. */
+	message: string,
+	/**  Detalhes (ex.: verificações que falharam, mensagem do charon). */
+	details: string[],
+};
+
+/**  Tipo de erro, para a UI escolher a apresentação. */
+export type UiErrorKind = 
+/**  Já há uma conexão ativa. */
+"alreadyConnected" | 
+/**  O ambiente não permite conectar (detalhes com dicas). */
+"preflight" | 
+/**  A negociação falhou (mensagem = causa provável). */
+"negotiation" | 
+/**  Falta alguma credencial. */
+"missingCredentials" | 
+/**  Perfil inexistente ou inválido. */
+"profile" | 
+/**  Chaveiro do sistema. */
+"keyring" | 
+/**  Engine/Docker. */
+"engine" | 
+/**  Outra operação em andamento. */
+"busy" | 
+/**  Outro erro. */
+"other";
+
+/* Tauri Specta runtime */
+async function typedError<T, E>(result: Promise<T>): Promise<{ status: "ok"; data: T } | { status: "error"; error: E }> {
+    try {
+        return { status: "ok", data: await result };
+    } catch (e) {
+        if (e instanceof Error) throw e;
+        return { status: "error", error: e as any };
+    }
+}
+
+type EventEmit<T> = [T] extends [null] ? () => Promise<void> : (payload: T) => Promise<void>;
+
+type EventEmitTo<T> = [T] extends [null] ? (target: __TAURI_EVENT.EventTarget | string) => Promise<void> : (target: __TAURI_EVENT.EventTarget | string, payload: T) => Promise<void>;
+
+function makeEvent<TListen, TEmit = TListen>(name: string, serialize?: (payload: TEmit) => unknown, deserialize?: (payload: any) => TListen) {
+    const mapEvent = (cb: __TAURI_EVENT.EventCallback<TListen>) => (event: __TAURI_EVENT.Event<any>) => cb({ ...event, payload: deserialize ? deserialize(event.payload) : event.payload });
+    const mapPayload = (payload: TEmit) => serialize ? serialize(payload) : payload;
+
+    const base = {
+        listen: (cb: __TAURI_EVENT.EventCallback<TListen>) => __TAURI_EVENT.listen(name, mapEvent(cb)),
+        once: (cb: __TAURI_EVENT.EventCallback<TListen>) => __TAURI_EVENT.once(name, mapEvent(cb)),
+        emit: ((payload: TEmit) => __TAURI_EVENT.emit(name, mapPayload(payload)) as unknown) as EventEmit<TEmit>,
+        emitTo: ((to: __TAURI_EVENT.EventTarget | string, payload: TEmit) => __TAURI_EVENT.emitTo(to, name, mapPayload(payload)) as unknown) as EventEmitTo<TEmit>
+    };
+
+    const fn = (target: import("@tauri-apps/api/webview").Webview | import("@tauri-apps/api/window").Window) => ({
+        listen: (cb: __TAURI_EVENT.EventCallback<TListen>) => target.listen(name, mapEvent(cb)),
+        once: (cb: __TAURI_EVENT.EventCallback<TListen>) => target.once(name, mapEvent(cb)),
+        emit: ((payload: TEmit) => target.emit(name, mapPayload(payload)) as unknown) as EventEmit<TEmit>,
+        emitTo: ((to: __TAURI_EVENT.EventTarget | string, payload: TEmit) => target.emitTo(to, name, mapPayload(payload)) as unknown) as EventEmitTo<TEmit>
+    });
+
+    return Object.assign(fn, base);
+}

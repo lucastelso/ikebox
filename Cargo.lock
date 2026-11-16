@@ -1886,6 +1886,7 @@ name = "ipsec-client-app"
 version = "0.0.0"
 dependencies = [
  "ipsec-client-core",
+ "secrecy",
  "serde",
  "specta",
  "specta-typescript",
@@ -1893,6 +1894,7 @@ dependencies = [
  "tauri-build",
  "tauri-specta",
  "tempfile",
+ "tokio",
 ]
 
 [[package]]

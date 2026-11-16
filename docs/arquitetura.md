@@ -167,6 +167,15 @@ da `ipsc0`.
 | `session::status`/`disconnect` | Funcionam de qualquer processo (o perfil ativo vem da label do container) |
 | `SessionEvent` | Estado, log mascarado, progresso do build, queda e retorno do túnel, fim do engine |
 
+## App desktop (`src-tauri` + `src`)
+
+| Camada | O que faz |
+|---|---|
+| `src-tauri/src/commands.rs` | Comandos `async`, finos sobre o core. Disco e chaveiro vão para `spawn_blocking`, e o `ConnectionLock` impede dois `connect` simultâneos. As credenciais digitadas completam as guardadas e viram `SecretString` na hora |
+| `src-tauri/src/dto.rs` | Contrato com a UI: `ProfileSummary`, `CredentialsStatus` (só presença e usuário mascarado), `CredentialsInput` (segredos só entram, `Debug` redigido), `Connection`, `SessionUpdate` (evento) e `UiError` (tipo + mensagem + detalhes) |
+| `src/bindings.ts` | Gerado pelo tauri-specta (modo `Result`: erros tipados). Um teste Rust garante que está em dia |
+| `src/features/connection/` | `connectionReducer` (fases, puro e testado), `useConnection` (eventos + comandos + status a cada 2 s), `useProfiles`, a `HomeScreen` e os componentes |
+
 ## Fluxo de conexão (`core::session`)
 
 1. **Preflight:**
