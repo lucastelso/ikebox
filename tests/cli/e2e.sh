@@ -141,6 +141,14 @@ main() {
     if grep -qE "$TEST_SECRETS_RE" <<<"$out"; then fail "segredo nos logs"; fi
     ok "status com VIP, ping pelo túnel, logs sem segredos"
 
+    step "logs --anonimizar (para relatório de bug)"
+    out=$("$cli" logs -n 200 --anonimizar)
+    [[ $out == *"<gateway>"* ]] || fail "o gateway não virou <gateway>"
+    if grep -qF -e "$gw_ip" -e "198.51.100." -e "ipsec-client.test" -e "grupo-teste" <<<"$out"; then
+        fail "gateway, VIP, domínio ou grupo no log anonimizado"
+    fi
+    ok "gateway, VIP, domínio e grupo trocados por marcadores"
+
     step "disconnect"
     "$cli" disconnect | grep -q "Desconectado" || fail "disconnect"
     rc=0

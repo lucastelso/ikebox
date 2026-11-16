@@ -25,7 +25,7 @@ pub use failure::{FailureKind, diagnose};
 use crate::diagnostics::{self, Check, CheckStatus};
 use crate::engine::{Backend, BuildProgress, EngineError, RunningEngine};
 use crate::profiles::{Profile, ProfileError};
-use crate::secrets::{Credentials, Redactor, SecretsError};
+use crate::secrets::{Anonymizer, Credentials, Redactor, SecretsError};
 use crate::vici::{Charon, CharonEvent, IkeSa, ViciClient, ViciError, ViciEvents};
 
 /// Linhas de log guardadas para diagnóstico de falhas.
@@ -192,6 +192,17 @@ pub fn redactor_for(profile: &Profile, credentials: &Credentials) -> Redactor {
     identities.extend(credentials.xauth_user());
     identities.extend(profile.auth.local_id.as_deref());
     Redactor::new(identities)
+}
+
+/// Anonimizador para o log que sai do app (copiar, relatório de bug): além
+/// das identidades, o gateway, os DNS e os domínios do perfil e todo IP.
+#[must_use]
+pub fn anonymizer_for(profile: &Profile, xauth_user: Option<&str>) -> Anonymizer {
+    let mut identities: Vec<&str> = Vec::new();
+    identities.extend(xauth_user);
+    identities.extend(profile.auth.local_id.as_deref());
+    let dns = &profile.network.dns;
+    Anonymizer::new(identities, &profile.gateway, &dns.servers, &dns.domains)
 }
 
 /// Conecta o perfil. Devolve quando o túnel está ativo; os eventos seguintes

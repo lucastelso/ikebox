@@ -28,6 +28,13 @@ export const commands = {
 	status: (options?: InvokeOptions) => typedError<Connection | null, UiError>(__TAURI_INVOKE("status", undefined, options)),
 	/**  Apaga as credenciais guardadas do perfil. */
 	forgetCredentials: (profileId: string, options?: InvokeOptions) => typedError<null, UiError>(__TAURI_INVOKE("forget_credentials", { profileId }, options)),
+	/**
+	 *  Log pronto para copiar ou mandar num relatório de bug: além das
+	 *  identidades, o gateway, os DNS e os domínios do perfil e todo IP viram
+	 *  marcadores (`<gateway>`, `<ip-1>`, `<dominio-1>`). O texto copiado no app
+	 *  sempre passa por aqui.
+	 */
+	anonymizeLog: (profileId: string, lines: string[], options?: InvokeOptions) => typedError<string, UiError>(__TAURI_INVOKE("anonymize_log", { profileId, lines }, options)),
 	/**  Abre o diálogo nativo para escolher um perfil (.json) ou swanctl.conf. */
 	chooseImportFile: (options?: InvokeOptions) => typedError<ImportPreview | null, UiError>(__TAURI_INVOKE("choose_import_file", undefined, options)),
 	/**  Confirma a importação de uma prévia. */

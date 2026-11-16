@@ -92,6 +92,10 @@ enum Command {
         /// Quantas linhas finais mostrar.
         #[arg(short = 'n', long, default_value_t = 100)]
         lines: usize,
+        /// Troca também gateway, IPs, DNS e domínios por marcadores, para
+        /// mandar num relatório de bug.
+        #[arg(long)]
+        anonimizar: bool,
     },
 }
 
@@ -284,7 +288,11 @@ async fn run(cli: Cli) -> anyhow::Result<ExitCode> {
                 Ok(ExitCode::from(3))
             }
         },
-        Command::Logs { follow, lines } => logs(follow, lines).await,
+        Command::Logs {
+            follow,
+            lines,
+            anonimizar,
+        } => logs(follow, lines, anonimizar).await,
     }
 }
 
@@ -697,20 +705,30 @@ async fn connect(
     }
 }
 
-async fn logs(follow: bool, lines: usize) -> anyhow::Result<ExitCode> {
+async fn logs(follow: bool, lines: usize, anonimizar: bool) -> anyhow::Result<ExitCode> {
     let Some(profile_id) = session::active_profile().await? else {
         println!("Nenhuma conexão ativa.");
         return Ok(ExitCode::from(3));
     };
-    // Mascara as identidades do perfil ativo (id do grupo e usuário XAuth).
+    // Mascara as identidades do perfil ativo (id do grupo e usuário XAuth);
+    // com --anonimizar, também gateway, IPs, DNS e domínios.
     let mut identities: Vec<String> = Vec::new();
+    let mut anonymizer = None;
     if let Ok(profile) = store()?.load(&profile_id) {
         identities.extend(profile.auth.local_id.clone());
+        let mut xauth_user = None;
         if let Some(store) = keyring()
             && let Ok(creds) = Credentials::load(&store, &profile)
         {
-            identities.extend(creds.xauth_user().map(str::to_owned));
+            xauth_user = creds.xauth_user().map(str::to_owned);
+            identities.extend(xauth_user.clone());
         }
+        if anonimizar {
+            anonymizer = Some(session::anonymizer_for(&profile, xauth_user.as_deref()));
+        }
+    }
+    if anonimizar && anonymizer.is_none() {
+        anyhow::bail!("não consegui ler o perfil ativo ({profile_id}) para anonimizar o log");
     }
     let redactor = Redactor::new(identities.iter().map(String::as_str));
     let mut printed = 0usize;
@@ -721,8 +739,18 @@ async fn logs(follow: bool, lines: usize) -> anyhow::Result<ExitCode> {
         } else {
             printed.min(all.len())
         };
-        for line in &all[start..] {
-            println!("{}", redactor.redact(line));
+        // Anonimizado de uma vez: o mesmo endereço mantém o mesmo marcador
+        // em todo o log (e entre as rodadas do --follow).
+        let rendered: Vec<String> = match &anonymizer {
+            Some(a) => a
+                .anonymize(&all.join("\n"))
+                .split('\n')
+                .map(str::to_owned)
+                .collect(),
+            None => all.iter().map(|line| redactor.redact(line)).collect(),
+        };
+        for line in rendered.iter().skip(start) {
+            println!("{line}");
         }
         printed = all.len();
         if !follow || session::active_profile().await?.is_none() {

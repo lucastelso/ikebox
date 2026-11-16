@@ -56,7 +56,7 @@ e precisa de internet. Os seguintes conectam em poucos segundos.
 | `connect <id> --timeout N` | Tempo máximo da negociação (padrão 30 s) |
 | `connect <id> --privileged` | Modo privilegiado de reserva do container (evite; ver SECURITY.md) |
 | `status` | Mostra a conexão ativa: gateway, IP virtual, redes, tempo e tráfego. Sai com **3** se desconectado |
-| `logs [-f] [-n N]` | Log do engine, com o usuário XAuth e o id do grupo mascarados |
+| `logs [-f] [-n N] [--anonimizar]` | Log do engine, com o usuário XAuth e o id do grupo mascarados. Com `--anonimizar`, também gateway, IPs, DNS e domínios viram marcadores (`<gateway>`, `<ip-1>`, `<dominio-1>`): é o formato para mandar num relatório de bug |
 | `disconnect` | Avisa o gateway (`terminate`) e derruba o engine. Funciona de qualquer terminal |
 | `-v` / `-vv` | Mostra também o log do charon depois de conectar / mostra a depuração |
 

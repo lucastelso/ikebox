@@ -1409,3 +1409,40 @@ root tem todas as capabilities):
 **Próximo:** `feat/log-anonimizado` e `chore/higiene-privacidade`, depois a
 release v0.1.1. Quem tem a v0.1.0 precisa atualizar o app **e** clicar em
 "Atualizar" no componente de rede.
+
+### Passo 33: log anonimizado para compartilhar (`feat/log-anonimizado`)
+
+**Motivo (auditoria, passo 32):** o "Copiar" do painel de log levava o texto
+como aparece na tela, só com o usuário XAuth e o id do grupo mascarados.
+Gateway, IP virtual, redes internas, DNS e domínios da organização iam
+junto. O caminho mais provável para dados do trabalho vazarem no futuro é
+alguém colar esse log numa issue.
+
+**O que mudou:**
+
+- **`secrets::Anonymizer`** (Rust): além das identidades, troca por
+  marcadores estáveis no mesmo texto:
+  - o gateway (nome ou IP) por `<gateway>`;
+  - os DNS do perfil por `<dns-N>`;
+  - os domínios do perfil por `<dominio-N>`, sem diferenciar maiúsculas;
+  - **todo** IPv4/IPv6 por `<ip-N>`.
+
+  Ficam como estão `0.0.0.0`, loopback e broadcast, que ajudam a ler o log,
+  além de horas, versões, SPIs e propostas. `session::anonymizer_for` monta o
+  anonimizador a partir do perfil;
+- **app:** o botão virou "Copiar anonimizado". O texto passa pelo novo
+  comando `anonymize_log`, e um aviso pede para conferir antes de
+  compartilhar. Se a anonimização falhar, **nada** é copiado. O comando não
+  abre o chaveiro, porque as linhas da tela já vêm com o usuário mascarado;
+- **CLI:** `logs --anonimizar`. Anonimiza o log inteiro de uma vez, então o
+  mesmo endereço mantém o mesmo marcador, inclusive no `--follow`.
+
+**Testes:**
+
+- unitários com um log do charon de verdade (com dados RFC 5737 e
+  `example.com`): nada vaza, e os marcadores são consistentes. Os casos
+  `...IP`, `IP[porta]`, `IP/máscara` e `fe80::1` são trocados; propostas,
+  versões, horas, MAC e texto acentuado ficam intactos;
+- vitest do painel: copia o texto do Rust e, sem ele, não copia nada;
+- `tests/cli/e2e.sh`: o `logs --anonimizar` não contém o gateway, o VIP, o
+  domínio nem o grupo.

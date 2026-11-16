@@ -32,8 +32,9 @@
   - corrigida uma **escalada local para root** pelo VICI (ADR-0019,
     `fix/engine-updown-forcado`). Quem tem a v0.1.0 precisa atualizar o app
     e clicar em "Atualizar" no componente de rede;
-  - faltam `feat/log-anonimizado`, `chore/higiene-privacidade` e a release
-    v0.1.1.
+  - log anonimizado para copiar e para relatório de bug
+    (`feat/log-anonimizado`, passo 33);
+  - faltam `chore/higiene-privacidade` e a release v0.1.1.
   - Enquanto o componente instalado neste computador for o da v0.1.0, rode
     `test:docker` e `test:cli` com `IPSEC_CLIENT_BACKEND=docker`. O helper
     antigo recusa o pedido novo, e é para recusar mesmo.
@@ -46,7 +47,6 @@
 - **Em seguida:** `feat/ui-editor-perfis` (editar perfis na interface).
 - **Ideias anotadas:**
   - teste de longa duração (rekey em ~11 h);
-  - "copiar log anonimizado";
   - unificar a consulta de estado da UI e da bandeja;
   - opção de fechar a janela para a bandeja (hoje, fechar encerra o app, mas
     a VPN continua conectada).
