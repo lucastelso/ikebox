@@ -81,5 +81,7 @@ jobs:
       - name: Toolchain Rust
         run: rustup show active-toolchain || rustup toolchain install
       - uses: Swatinem/rust-cache@d1527c8f67ef9af357290475d4af4b0fab8f12e0 # v2.9.3
-      - name: Integração do core::engine com Docker
+      - name: Integração do núcleo Rust com Docker (engine, VICI, sessão)
         run: scripts/check-rust.sh --docker-tests
+      - name: Fluxo completo do CLI
+        run: tests/cli/e2e.sh

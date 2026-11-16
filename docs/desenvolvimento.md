@@ -488,3 +488,45 @@ para descartar flakiness.
   - idempotência.
 
   Leva cerca de 4 s.
+
+### Passo 12b: CLI (`feat/sessao-cli`, segunda parte)
+
+- **`ipsec-client-cli`** (clap, pt-BR):
+  - `doctor`;
+  - `profiles` (list/show/import/export/validate/delete/path);
+  - `secrets` (set/status/forget);
+  - `connect`;
+  - `status`;
+  - `logs`;
+  - `disconnect`.
+
+  Guia em `docs/cli.md`.
+- **Credenciais no `connect`:**
+  - primeiro o chaveiro; o que faltar é pedido no terminal, com as senhas
+    lidas do TTY sem eco (`rpassword`);
+  - `--remember` guarda no chaveiro;
+  - `--credentials-stdin` lê linhas `chave=valor` da entrada padrão, como o
+    `docker login --password-stdin`, para automação e para o E2E. Segredos por
+    argumento ou variável de ambiente foram descartados de propósito: aparecem
+    em `ps` e no histórico.
+- **Primeiro plano:** o progresso e o log aparecem durante a negociação; depois
+  de conectar, `Ctrl+C` desconecta, e quedas e retornos do túnel aparecem na
+  tela. `--detach` devolve o terminal, e o túnel é um container independente.
+- **Scripts:** o `status` sai com 3 quando está desconectado, e o `doctor` sai
+  com 1 quando algo impede a conexão.
+- **`logs`:** mascara o id do grupo e o usuário XAuth do perfil ativo. O perfil
+  vem da label do container, e o usuário, do chaveiro.
+- **`tests/cli/e2e.sh`** (`npm run test:cli`): o fluxo de um usuário real contra
+  o gateway de teste, com um `XDG_CONFIG_HOME` temporário e credenciais falsas
+  via stdin, sem tocar no chaveiro nem nos perfis do mantenedor:
+  1. doctor;
+  2. import, list e validate, com o perfil gravado em 0600;
+  3. senha errada → "usuário ou senha XAuth incorretos", sem identidade
+     exposta e com o host limpo;
+  4. connect `--detach`, com a saída sem segredos;
+  5. status com VIP;
+  6. ping;
+  7. logs sem segredos;
+  8. disconnect, com status = 3 e o host limpo.
+
+  O teste passou e entrou na CI.

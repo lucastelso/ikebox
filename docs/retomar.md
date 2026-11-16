@@ -6,18 +6,17 @@
 
 ## Onde estamos
 
-- **Último branch integrado:** `feat/segredos`. Credenciais em memória
-  zerada, chaveiro do sistema (Secret Service via libdbus) e mascaramento de
-  identidades. O teste de integração conecta com credenciais → `load-shared`.
-- **Próximo branch:** `feat/sessao-cli`:
-  - `core::session`: máquina de estados, preflight (Docker, portas 500/4500,
-    resolved, credenciais), eventos e erros com mensagens claras;
-  - CLI: `connect`, `disconnect`, `status`, `logs`, `secrets set`, `doctor`,
-    `profiles`;
-  - **E2E real** com a VPN do trabalho, a partir do perfil em `presets.local/`.
-- **Para o mantenedor:** montar o perfil do trabalho em `presets.local/`
-  seguindo `docs/perfis.md`. Antes do E2E real, ele vai rodar
-  `ipsec-client-cli secrets set <perfil>` no próprio terminal.
+- **Último branch integrado:** `feat/sessao-cli`. O `ipsec-client-cli` conecta
+  de ponta a ponta (`npm run test:cli`): doctor, profiles, secrets, connect,
+  status, logs e disconnect, com diagnóstico de falhas.
+- **Próximo branch:** `feat/import-swanctl`, adiantado no roadmap. Ele importa
+  um `swanctl.conf` existente para um perfil sem ler os segredos, o que
+  permite ao mantenedor gerar o perfil do trabalho sem digitar nada, e depois
+  passá-lo ao colega.
+- **E2E real (com o mantenedor):** importar o perfil, rodar
+  `ipsec-client-cli secrets set <perfil>`, depois `ipsec-client-cli connect
+  <perfil>`, e validar o RDP pelo Remmina. Antes, desconectar o script antigo,
+  porque as portas 500/4500 ficam ocupadas.
 - **Status por branch:** ver o [roadmap](roadmap.md).
 
 ## Preparar o ambiente (uma vez)

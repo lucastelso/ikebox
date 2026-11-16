@@ -4,8 +4,9 @@ Cliente de VPN IPsec para **Linux**, feito para VPNs **legadas**: IKEv1, modo
 agressivo, PSK de grupo + XAuth, grupos DH antigos. É o tipo de VPN corporativa
 que os clientes atuais do Linux já não conseguem conectar.
 
-> **Status: pré-alfa, em desenvolvimento ativo.** Ainda não há versão
-> instalável. O que já existe e o que vem a seguir estão no
+> **Status: pré-alfa, em desenvolvimento ativo.** A **linha de comando**
+> (`ipsec-client-cli`) já conecta de ponta a ponta. A interface gráfica vem a
+> seguir. O que já existe e o que vem a seguir estão no
 > [roadmap](docs/roadmap.md). Os passos já dados estão no
 > [diário de desenvolvimento](docs/desenvolvimento.md).
 
@@ -98,6 +99,20 @@ cada escolha está nos [ADRs](docs/adr/README.md).
 
   Tudo isso está explicado em [SECURITY.md](SECURITY.md).
 
+## Uso rápido (linha de comando)
+
+```bash
+cargo build --release -p ipsec-client-cli          # até haver pacotes prontos
+target/release/ipsec-client-cli doctor             # o ambiente está pronto?
+target/release/ipsec-client-cli profiles import presets.local/minha-vpn.json
+target/release/ipsec-client-cli secrets set minha-vpn
+target/release/ipsec-client-cli connect minha-vpn  # Ctrl+C desconecta
+```
+
+O perfil é um JSON sem credenciais: ver [docs/perfis.md](docs/perfis.md),
+que inclui a correspondência com um `swanctl.conf`. O guia completo do CLI
+está em [docs/cli.md](docs/cli.md).
+
 ## Requisitos (uso)
 
 - Linux x86_64 com kernel ≥ 4.19 e o módulo `xfrm_interface` (padrão nas
@@ -136,6 +151,8 @@ Também é preciso Node.js ≥ 22, Docker e o cargo-deny
 npm install                 # instala as ferramentas e os git hooks (lefthook)
 npm run check               # tudo o que precisa estar verde antes de um merge
 npm run test:engine         # teste ponta a ponta do engine com um gateway IPsec local
+npm run test:docker         # integração do núcleo Rust com o Docker real (engine, VICI, sessão)
+npm run test:cli            # fluxo completo do CLI contra o gateway de teste
 scripts/check-private.sh    # procura dados privados no conteúdo staged
 ```
 
@@ -162,7 +179,8 @@ tests/engine/    teste ponta a ponta do engine com gateway IPsec local
 scripts/         utilitários de desenvolvimento (guarda de dados privados, shellcheck)
 docs/            arquitetura, roadmap, diário de desenvolvimento, ADRs
 crates/core/     núcleo em Rust: perfis, segredos, engine, sessão, diagnóstico (em construção)
-crates/cli/      ipsec-client-cli (em construção)
+crates/cli/      ipsec-client-cli
+tests/cli/       teste ponta a ponta do CLI com gateway IPsec local
 src-tauri/ src/  (em breve) app desktop Tauri v2 + React
 presets/         exemplos genéricos de perfis (os seus vão em presets.local/, ignorado)
 ```
@@ -181,6 +199,7 @@ Os detalhes estão em [CONTRIBUTING.md](CONTRIBUTING.md).
 - **[Estado atual e como retomar](docs/retomar.md)**
 - [Arquitetura](docs/arquitetura.md)
 - [Perfis de conexão (formato, swanctl → perfil, compartilhar com colegas)](docs/perfis.md)
+- [Linha de comando (ipsec-client-cli)](docs/cli.md)
 - [Decisões de arquitetura (ADRs)](docs/adr/README.md)
 - [Roadmap](docs/roadmap.md)
 - [Diário de desenvolvimento](docs/desenvolvimento.md)
