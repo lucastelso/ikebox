@@ -1029,3 +1029,21 @@ Pendências e ideias que saíram daqui:
   `root:<gid do usuário>` 0660 **e** aceita conexão. Há um teste unitário com
   um socket real: 0770 não está pronto, 0660 no grupo certo está, outro grupo
   não está.
+
+### Passo 27: engine embutido validado com root
+
+O `scripts/test-native.sh` passou inteiro no computador do mantenedor
+(Fedora 45, SELinux enforcing), **sem Docker no caminho da VPN**: o Docker só
+roda o gateway de teste. O que ficou provado:
+
+- **instalação:** `install-native.sh` (units, policy do polkit, `restorecon`);
+- **polkit:** a sessão local ativa foi autorizada sem senha (`allow_active`);
+- **sandbox do systemd:** o strongSwan 6.1.0 subiu como unidade transitória
+  restrita (raiz somente leitura, só capabilities de rede) e a configuração de
+  runtime entrou pelo `STRONGSWAN_CONF`;
+- **fluxo completo do CLI pelo engine embutido:** senha errada com a mensagem
+  clara e o host limpo; conexão; status com VIP; ping pelo túnel; logs sem
+  segredos (via `journalctl` no helper); desconexão com o host limpo.
+
+Para isso foram necessárias duas correções (passos 25 e 26): o nome da função
+do instalador e a prontidão do socket.
