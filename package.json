@@ -25,6 +25,7 @@
     "build": "tsc && vite build",
     "bundle": "tauri build --config src-tauri/tauri.release.conf.json",
     "release:build": "scripts/build-release.sh",
+    "release:verify": "scripts/verify-release.sh",
     "tauri": "tauri",
     "lint:web": "biome check",
     "typecheck": "tsc",

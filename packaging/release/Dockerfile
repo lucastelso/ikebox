@@ -11,7 +11,7 @@ ARG NODE_VERSION=24.18.0
 
 ENV DEBIAN_FRONTEND=noninteractive
 RUN apt-get update && apt-get install -y --no-install-recommends \
-        build-essential ca-certificates curl file git pkg-config xz-utils \
+        build-essential ca-certificates cpio curl file git pkg-config rpm2cpio xz-utils \
         libwebkit2gtk-4.1-dev libayatana-appindicator3-dev librsvg2-dev \
         libxdo-dev libssl-dev libdbus-1-dev \
     && rm -rf /var/lib/apt/lists/*

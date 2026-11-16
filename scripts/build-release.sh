@@ -9,7 +9,7 @@
 # - O strongSwan embutido vem de native-engine/dist/ (compilado aqui, com o
 #   código-fonte conferido por SHA-256 + GPG, se ainda não existir).
 # - Saída: target/release-artifacts/<versão>/ com os três pacotes e o
-#   SHA256SUMS.
+#   SHA256SUMS, depois de conferidos por scripts/verify-release.sh.
 #
 # Ver docs/release.md para publicar no GitHub.
 
@@ -75,6 +75,8 @@ git archive --format=tar "$commit" |
                target/release/bundle/deb/*.deb \
                target/release/bundle/rpm/*.rpm /out/
             chown -R "$HOST_UID:$HOST_GID" /out
+            echo "==> conferindo os pacotes"
+            scripts/verify-release.sh /out
         '
 
 (cd "$out" && sha256sum -- *.AppImage *.deb *.rpm >SHA256SUMS)
