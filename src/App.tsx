@@ -1,17 +1,19 @@
-import { List, Power } from 'lucide-react';
+import { List, Power, Settings } from 'lucide-react';
 import { useCallback, useEffect, useState } from 'react';
 import { Toaster, toast } from 'sonner';
 import { commands, events, type ImportPreview } from './bindings';
 import { HomeScreen } from './features/connection/HomeScreen';
 import { ImportDialog } from './features/profiles/ImportDialog';
 import { ProfilesScreen } from './features/profiles/ProfilesScreen';
+import { SystemScreen } from './features/system/SystemScreen';
 import { cn } from './lib/utils';
 
-type View = 'connection' | 'profiles';
+type View = 'connection' | 'profiles' | 'system';
 
 const NAV: Array<{ view: View; label: string; icon: typeof Power }> = [
   { view: 'connection', label: 'Conexão', icon: Power },
   { view: 'profiles', label: 'Perfis', icon: List },
+  { view: 'system', label: 'Sistema', icon: Settings },
 ];
 
 /** Janela principal: navegação, telas e importação (botão ou arrastar arquivo). */
@@ -70,11 +72,13 @@ export function App() {
         </nav>
       </header>
       <main className="mx-auto flex w-full max-w-md flex-1 flex-col items-center gap-6 p-5">
-        {view === 'connection' ? (
+        {view === 'connection' && (
           <HomeScreen key={revision} onImport={() => setView('profiles')} />
-        ) : (
+        )}
+        {view === 'profiles' && (
           <ProfilesScreen key={revision} onImport={() => void chooseFile()} />
         )}
+        {view === 'system' && <SystemScreen />}
       </main>
       {preview && (
         <ImportDialog

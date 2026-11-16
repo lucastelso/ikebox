@@ -14,7 +14,7 @@ use tokio::sync::Mutex;
 
 use crate::dto::{
     AppInfo, BrokenProfile, Connection, CredentialField, CredentialsInput, CredentialsStatus,
-    ProfileList, ProfileSummary, SessionUpdate, UiError, UiErrorKind,
+    DiagnosticCheck, ProfileList, ProfileSummary, SessionUpdate, UiError, UiErrorKind,
 };
 
 /// Impede duas operações de conexão ao mesmo tempo (ex.: clique duplo).
@@ -49,6 +49,17 @@ pub fn app_info() -> AppInfo {
         version: ipsec_client_core::VERSION.to_owned(),
         engine_image: ipsec_client_core::engine::context::image_tag(),
     }
+}
+
+/// Diagnóstico do ambiente (o mesmo do `ipsec-client-cli doctor`).
+#[tauri::command]
+#[specta::specta]
+pub async fn run_diagnostics() -> Vec<DiagnosticCheck> {
+    ipsec_client_core::diagnostics::doctor()
+        .await
+        .iter()
+        .map(DiagnosticCheck::from)
+        .collect()
 }
 
 /// Perfis disponíveis.

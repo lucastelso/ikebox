@@ -541,3 +541,44 @@ impl From<&Profile> for ProfileDetails {
         }
     }
 }
+
+/// Resultado de uma verificação do ambiente.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Type)]
+#[serde(rename_all = "camelCase")]
+pub enum CheckLevel {
+    /// Tudo certo.
+    Ok,
+    /// Funciona com limitação.
+    Warn,
+    /// Impede a conexão.
+    Fail,
+}
+
+/// Uma verificação do diagnóstico (o `doctor` do CLI).
+#[derive(Debug, Clone, Serialize, Type)]
+#[serde(rename_all = "camelCase")]
+pub struct DiagnosticCheck {
+    /// O que foi verificado.
+    pub name: String,
+    /// Resultado.
+    pub level: CheckLevel,
+    /// Detalhe.
+    pub detail: String,
+    /// Como corrigir.
+    pub hint: Option<String>,
+}
+
+impl From<&ipsec_client_core::diagnostics::Check> for DiagnosticCheck {
+    fn from(c: &ipsec_client_core::diagnostics::Check) -> Self {
+        Self {
+            name: c.name.to_owned(),
+            level: match c.status {
+                CheckStatus::Ok => CheckLevel::Ok,
+                CheckStatus::Warn => CheckLevel::Warn,
+                CheckStatus::Fail => CheckLevel::Fail,
+            },
+            detail: c.detail.clone(),
+            hint: c.hint.clone(),
+        }
+    }
+}

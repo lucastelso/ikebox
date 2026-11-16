@@ -75,7 +75,7 @@ usuário: App (Tauri 2 + React) ou CLI
 | `feat/ui-conexao` | Tela principal (perfil, botão Conectar/Desconectar, estado com VIP, tempo e tráfego), credenciais com "lembrar", erros claros, log mascarado | ✅ |
 | `feat/ui-perfis` | Gerenciador de presets: importar JSON/swanctl.conf (diálogo nativo e arrastar e soltar), **exportar**, ver detalhes, excluir | ✅ |
 | `feat/ui-editor-perfis` | Criar/editar/duplicar perfis na interface, com abas e validação campo a campo vinda do Rust | ⏳ |
-| `feat/ui-diagnostico` | Tela do `doctor` com ações e configurações (tema, iniciar com o sistema, bandeja) | ⏳ |
+| `feat/ui-diagnostico` | Aba Sistema: diagnóstico (o `doctor` com dicas), tema claro/escuro/sistema, versão. "Iniciar com o sistema" e bandeja ficam no `feat/tray` | ✅ |
 | `feat/tray` | Bandeja, notificações, instância única | ⏳ |
 
 ### Fase D: engine embutido de verdade

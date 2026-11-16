@@ -92,6 +92,8 @@ commits.
 
   Navegação Conexão | Perfis e avisos (toasts). Os caminhos de arquivo ficam
   só no Rust: a UI recebe uma prévia com token.
+- Aba Sistema no app: diagnóstico do ambiente (o mesmo do `doctor`, com dicas
+  de correção), tema claro/escuro/sistema (lembrado) e versão.
 
 ### Alterado
 
