@@ -937,3 +937,68 @@ Pendências e ideias que saíram daqui:
 - **A melhorar depois:** a UI e o monitor consultam o status separadamente (a
   cada 2 s e a cada 3 s). Dá para unificar, com o Rust emitindo o status como
   evento.
+
+### Passo 23: segunda conexão real, com DPD
+
+- A sessão real repetida mostrou **DPD funcionando**: o charon mandou
+  `DPD request` e o FortiGate respondeu `DPD_ACK`. Os keep alives de NAT-T
+  também estão saindo. A bandeja foi confirmada pelo mantenedor.
+
+### Passo 24: helper com privilégio e backend nativo (`feat/helper`, fase D)
+
+**Desenho, com a segurança em primeiro lugar:**
+
+- **`crates/proto`** (só serde): protocolo JSON por linha e as regras de
+  validação, as mesmas do `entrypoint.sh`, **compartilhadas** pelo app e pelo
+  helper. `deny_unknown_fields`: um campo a mais, como um caminho ou comando
+  escondido, é recusado (há teste).
+- **`crates/helper`:** o único binário root, com dependências mínimas (serde,
+  rustix e dbus).
+  - Identidade por `SO_PEERCRED`, preenchido pelo kernel.
+  - Autorização no **polkit** (`CheckAuthorization` com
+    `unix-process{pid, start-time, uid}`, sem interação; a policy usa
+    `allow_active=yes`).
+  - O modo de teste troca o polkit por uma lista de uids, e só o root inicia o
+    helper assim.
+  - **O helper não executa nada que o cliente mande:** o cliente só envia
+    `if_id`, MTU, nível de log, o nome da interface (validado) e o id do perfil.
+    Caminhos, comando e sandbox são fixos no helper.
+  - O engine sobe com `systemd-run --unit=ipsec-client-engine`, com sandbox
+    (montagem testada como função pura) e o **`entrypoint.sh` reaproveitado**
+    como ExecStart.
+  - Prontidão pelo socket VICI. `stop` via `systemctl stop`, que é gracioso:
+    o entrypoint limpa o host. `logs` via `journalctl`.
+- **`unsafe`:** o workspace proíbe. O helper usa `deny` em vez de `forbid` para
+  **uma** exceção comentada: adotar o descritor 3 herdado da ativação por
+  socket do systemd.
+- **`entrypoint.sh` no modo nativo:**
+  - `ProtectSystem=strict` deixa a raiz somente leitura. A config de runtime
+    vai para o `RuntimeDirectory` e entra pelo `STRONGSWAN_CONF`, incluindo a
+    base;
+  - o socket fica por usuário (`/run/ipsec-client/<uid>`);
+  - o build do engine passou a usar `--with-piddir=/run/ipsec-client-engine`;
+  - o modo Docker continua igual (o E2E passou).
+- **`core`:**
+  - `NativeEngine` (cliente do helper, testado com um helper de mentira);
+  - `Backend` (nativo quando instalado, Docker como reserva, forçável por
+    `IPSEC_CLIENT_BACKEND`). A sessão, o diagnóstico e o `logs` do CLI passaram
+    a usá-lo;
+  - o `updown` tem caminhos diferentes em cada engine (`ConnParams.updown`).
+- **Bug encontrado no caminho:** o MTU do perfil era ignorado, e o engine
+  sempre usava 1400. Agora ele vem do perfil.
+- **Empacotamento (`packaging/`):**
+  - units do helper, com hardening próprio e `RuntimeDirectoryPreserve` para
+    não derrubar sessões quando o helper reinicia;
+  - policy do polkit;
+  - `install-native.sh`, que recusa um tarball com caminhos fora de
+    `opt/ipsec-client/engine`, instala em `/opt/ipsec-client` e aplica o
+    `restorecon`, porque o host do mantenedor tem SELinux enforcing.
+- **Verificação sem root:**
+  - testes unitários do proto, do helper (montagem do `systemd-run`, parse do
+    `systemctl show` e do `/proc/<pid>/stat`, autorizador) e do cliente;
+  - o helper se recusa a rodar sem root;
+  - `test:docker` e `test:cli` verdes, provando que o caminho Docker não
+    mudou.
+- **Pendente (precisa de root):** `scripts/test-native.sh`. Ele compila,
+  instala com `sudo` e roda o E2E do CLI com `IPSEC_CLIENT_BACKEND=native`,
+  validando de verdade o polkit, o sandbox do systemd e o SELinux.

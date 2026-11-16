@@ -1,6 +1,7 @@
 # ADR-0014: Helper com privilégio, autorizado uma vez (polkit + systemd)
 
-- **Status:** Aceito. A implementação é a fase D do roadmap.
+- **Status:** Aceito. Implementado em `crates/helper`, `crates/proto` e
+  `packaging/` (branch `feat/helper`); a validação com root está pendente.
 - **Data:** 2026-11-16
 
 ## Contexto

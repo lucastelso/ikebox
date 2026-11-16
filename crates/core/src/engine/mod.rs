@@ -4,13 +4,17 @@
 //! - [`EngineSpec`]: configuração de uma instância (pura, testável);
 //! - [`DockerEngine`]: build da imagem e ciclo de vida do container.
 
+mod backend;
 pub mod context;
 mod docker;
+mod native;
 mod spec;
 
 use std::path::PathBuf;
 
+pub use backend::{Backend, RunningEngine};
 pub use docker::{BuildProgress, DockerEngine, READY_LINE, READY_TIMEOUT, STOP_TIMEOUT_SECS};
+pub use native::NativeEngine;
 pub use spec::{
     CONTAINER_NAME, CONTAINER_SOCKET_DIR, DBUS_SYSTEM_SOCKET, DEFAULT_IFACE, DEFAULT_MTU,
     EngineSpec, HostSecurity, MANAGED_LABEL, PROFILE_LABEL, SOCKET_FILE,
@@ -43,6 +47,10 @@ pub enum EngineError {
         /// Últimas linhas do log do container (não contêm segredos).
         recent_logs: Vec<String>,
     },
+
+    /// Componente de rede (helper do engine embutido).
+    #[error("{0}")]
+    Helper(String),
 
     /// Problema no diretório do socket VICI.
     #[error("diretório de runtime: {0}")]

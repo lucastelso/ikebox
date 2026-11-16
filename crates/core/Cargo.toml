@@ -21,6 +21,7 @@ bollard = { version = "0.21.1", default-features = false, features = ["pipe"] }
 dbus-secret-service-keyring-store = { version = "1.0.1", features = ["crypto-rust"] }
 futures-util = "0.3.34"
 hex = "0.4.3"
+ipsec-client-proto = { version = "0.0.0", path = "../proto" }
 keyring-core = "1.0.1"
 rustix = { version = "1.1.6", features = ["process"] }
 secrecy = "0.10.3"

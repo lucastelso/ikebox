@@ -1,0 +1,34 @@
+[package]
+name = "ipsec-client-helper"
+description = "Helper com privilégio do ipsec-client: sobe e derruba o engine embutido (root, systemd)"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+publish.workspace = true
+license.workspace = true
+repository.workspace = true
+
+# Lints próprios: igual ao workspace, mas `unsafe_code = "deny"` (e não
+# "forbid") para permitir UMA exceção justificada: adotar o socket herdado na
+# ativação por socket do systemd (descritor 3).
+[lints.rust]
+unsafe_code = "deny"
+unused_must_use = "deny"
+missing_debug_implementations = "warn"
+
+[lints.clippy]
+all = { level = "warn", priority = -1 }
+unwrap_used = "warn"
+expect_used = "warn"
+dbg_macro = "warn"
+todo = "warn"
+
+[[bin]]
+name = "ipsec-client-helper"
+path = "src/main.rs"
+
+[dependencies]
+dbus = "0.9.12"
+ipsec-client-proto = { path = "../proto" }
+rustix = { version = "1.1.6", features = ["net", "process", "fs"] }
+serde_json = "1.0.154"

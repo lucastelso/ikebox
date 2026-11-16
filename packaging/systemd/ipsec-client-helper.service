@@ -1,0 +1,34 @@
+# IPsec Client: helper com privilégio (ADR-0014). Ativado pelo socket.
+# Ele só valida pedidos e chama systemd-run/systemctl/journalctl; o engine
+# roda numa unidade transitória com sandbox próprio (ver crates/helper).
+[Unit]
+Description=IPsec Client - componente de rede
+Requires=ipsec-client-helper.socket
+After=ipsec-client-helper.socket
+
+[Service]
+Type=simple
+ExecStart=/opt/ipsec-client/bin/ipsec-client-helper
+# /run/ipsec-client: diretórios dos sockets VICI por usuário (preservados
+# quando o helper reinicia, para não derrubar uma sessão ativa).
+RuntimeDirectory=ipsec-client
+RuntimeDirectoryMode=0755
+RuntimeDirectoryPreserve=yes
+CapabilityBoundingSet=CAP_CHOWN CAP_DAC_READ_SEARCH
+NoNewPrivileges=yes
+ProtectSystem=strict
+ProtectHome=yes
+PrivateTmp=yes
+PrivateDevices=yes
+ProtectKernelTunables=yes
+ProtectKernelModules=yes
+ProtectControlGroups=yes
+ProtectClock=yes
+ProtectHostname=yes
+RestrictNamespaces=yes
+RestrictRealtime=yes
+RestrictSUIDSGID=yes
+LockPersonality=yes
+MemoryDenyWriteExecute=yes
+SystemCallArchitectures=native
+RestrictAddressFamilies=AF_UNIX

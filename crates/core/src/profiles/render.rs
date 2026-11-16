@@ -8,14 +8,19 @@ use super::model::{AuthMethod, ChildAction, Profile};
 use super::validate::{is_identity, validate};
 use crate::vici::Message;
 
-/// Caminho do `updown` dentro da imagem do engine.
+/// Caminho do `updown` na imagem Docker do engine.
 pub const UPDOWN_PATH: &str = "/usr/local/libexec/ipsec-client/updown";
+/// Caminho do `updown` no engine embutido (instalado pelo componente de rede).
+pub const NATIVE_UPDOWN_PATH: &str = "/opt/ipsec-client/libexec/updown";
 
 /// Dados da sessão necessários para gerar a conexão.
 #[derive(Debug, Clone, Copy)]
 pub struct ConnParams<'a> {
     /// Interface XFRM do engine.
     pub iface: &'a str,
+    /// Caminho do `updown` no engine em uso ([`UPDOWN_PATH`] ou
+    /// [`NATIVE_UPDOWN_PATH`]).
+    pub updown: &'a str,
     /// `if_id` das SAs/políticas.
     pub if_id: u32,
     /// Usuário XAuth (obrigatório em `psk-xauth`). Não é segredo, mas é
@@ -44,9 +49,14 @@ impl Profile {
     /// # Errors
     /// [`ProfileError::Unsafe`] se algum valor não puder ir entre aspas simples
     /// (defesa extra; a validação já recusa esses valores).
-    pub fn updown_command(&self, iface: &str) -> Result<String, ProfileError> {
+    pub fn updown_command(&self, updown: &str, iface: &str) -> Result<String, ProfileError> {
         let dns = &self.network.dns;
-        let mut cmd = format!("{UPDOWN_PATH} --iface {}", shell_quote(iface)?);
+        if !updown.starts_with('/') || updown.chars().any(|c| c.is_whitespace() || c == '\'') {
+            return Err(ProfileError::Unsafe(
+                "caminho do updown inválido".to_owned(),
+            ));
+        }
+        let mut cmd = format!("{updown} --iface {}", shell_quote(iface)?);
         for server in &dns.servers {
             cmd.push_str(&format!(" --dns {}", shell_quote(&server.to_string())?));
         }
@@ -119,7 +129,7 @@ impl Profile {
             .kv("close_action", close_action(c.close_action))
             .kv("if_id_in", params.if_id.to_string())
             .kv("if_id_out", params.if_id.to_string())
-            .kv("updown", self.updown_command(params.iface)?);
+            .kv("updown", self.updown_command(params.updown, params.iface)?);
         if !c.local_ts.is_empty() {
             child = child.list("local_ts", &c.local_ts);
         }

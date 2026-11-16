@@ -40,6 +40,8 @@ exceptions = [
     { allow = ["GPL-3.0-or-later"], crate = "ipsec-client-core" },
     { allow = ["GPL-3.0-or-later"], crate = "ipsec-client-cli" },
     { allow = ["GPL-3.0-or-later"], crate = "ipsec-client-app" },
+    { allow = ["GPL-3.0-or-later"], crate = "ipsec-client-proto" },
+    { allow = ["GPL-3.0-or-later"], crate = "ipsec-client-helper" },
 ]
 
 [bans]

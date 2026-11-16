@@ -24,32 +24,14 @@
 - **Gerenciador de presets pronto** (`feat/ui-perfis`): importar JSON ou
   swanctl.conf (botão ou arrastar o arquivo para a janela), exportar, ver
   detalhes e excluir.
-- **Próximo: fase D, o engine embutido de verdade, sem Docker** (ADRs 0013 e
-  0014). Ordem sugerida:
-  1. `feat/helper` (`crates/helper`, roda como root):
-     - socket `/run/ipsec-client-helper.sock`, com ativação pelo systemd ou
-       bind próprio em modo de teste;
-     - protocolo JSON por linha: `start(EngineSpec)`, `stop`, `status`,
-       `logs`;
-     - uid do cliente por `SO_PEERCRED` (rustix) e autorização no polkit
-       (`CheckAuthorization` via libdbus, ação
-       `io.github.lucastelso.ipsecclient.connect`, `allow_active=yes`);
-     - `start` valida com o mesmo `EngineSpec::validate`. Depois roda o
-       charon embutido com
-       `systemd-run --unit=ipsec-client-engine` e hardening
-       (`CapabilityBoundingSet`, `ProtectSystem=strict`...), **reaproveitando
-       o `engine/entrypoint.sh` como ExecStart**, com
-       `IPSEC_CLIENT_CHARON`/`STRONGSWAN_D` apontando para o engine embutido;
-     - prontidão pelo socket VICI; `stop` = `systemctl stop`; `logs` =
-       `journalctl -u`.
-  2. `feat/backend-nativo`:
-     - trait (ou enum) `EngineBackend` no `core::engine`;
-     - `NativeBackend` fala com o helper; o Docker vira o backend de testes;
-     - a sessão escolhe o nativo quando o helper está instalado.
-  3. `feat/setup-appimage`: unit systemd (socket + service), policy polkit e
-     instalador via `pkexec` no primeiro uso.
-
-  **Os testes que exigem root vão precisar do mantenedor (`sudo`).**
+- **Fase D em andamento: helper e backend nativo prontos** (`feat/helper`). O
+  app usa o engine embutido quando o componente de rede está instalado, e o
+  Docker como reserva.
+  - **Validar com root (mantenedor):** `scripts/test-native.sh`. Ele compila,
+    instala com `sudo` e roda o E2E do CLI pelo engine embutido, testando o
+    polkit de verdade. Depois, a VPN real pelo app, já sem Docker.
+  - **Próximo:** `feat/setup-appimage` (o primeiro uso do AppImage instala o
+    componente via `pkexec`) e `chore/release` (AppImage + rpm/deb).
 - **Ainda na fase C:** `feat/ui-editor-perfis`, para editar perfis na
   interface.
 - **Pendente com o mantenedor:**

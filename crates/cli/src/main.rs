@@ -23,9 +23,7 @@ use std::time::Duration;
 
 use anyhow::{Context, bail};
 use clap::{Parser, Subcommand};
-use futures_util::StreamExt;
 use ipsec_client_core::diagnostics::{self, CheckStatus};
-use ipsec_client_core::engine::{CONTAINER_NAME, DockerEngine};
 use ipsec_client_core::profiles::{
     DnsSettings, Profile, ProfileError, ProfileStore, SwanctlImportOptions, import_swanctl,
     parse_profile,
@@ -609,8 +607,7 @@ async fn connect(
 }
 
 async fn logs(follow: bool, lines: usize) -> anyhow::Result<ExitCode> {
-    let engine = DockerEngine::connect()?;
-    let Some(profile_id) = engine.running_profile(CONTAINER_NAME).await? else {
+    let Some(profile_id) = session::active_profile().await? else {
         println!("Nenhuma conexão ativa.");
         return Ok(ExitCode::from(3));
     };
@@ -625,11 +622,23 @@ async fn logs(follow: bool, lines: usize) -> anyhow::Result<ExitCode> {
         }
     }
     let redactor = Redactor::new(identities.iter().map(String::as_str));
-    let mut stream = Box::pin(engine.log_lines(CONTAINER_NAME, lines, follow));
-    while let Some(line) = stream.next().await {
-        println!("{}", redactor.redact(&line?));
+    let mut printed = 0usize;
+    loop {
+        let all = session::engine_logs(lines.max(printed + 200)).await?;
+        let start = if printed == 0 {
+            all.len().saturating_sub(lines)
+        } else {
+            printed.min(all.len())
+        };
+        for line in &all[start..] {
+            println!("{}", redactor.redact(line));
+        }
+        printed = all.len();
+        if !follow || session::active_profile().await?.is_none() {
+            return Ok(ExitCode::SUCCESS);
+        }
+        tokio::time::sleep(Duration::from_secs(1)).await;
     }
-    Ok(ExitCode::SUCCESS)
 }
 
 #[cfg(test)]
