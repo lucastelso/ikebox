@@ -29,6 +29,7 @@ pub fn specta_builder() -> Builder<tauri::Wry> {
             commands::status,
             commands::forget_credentials,
             commands::anonymize_log,
+            commands::set_language,
             profiles_cmd::choose_import_file,
             profiles_cmd::confirm_import,
             profiles_cmd::profile_details,
@@ -46,6 +47,9 @@ pub fn specta_builder() -> Builder<tauri::Wry> {
 /// # Panics
 /// Se o Tauri não conseguir iniciar (ex.: sem display gráfico).
 pub fn run() {
+    // Rust messages (tray, notifications, errors) follow the session locale
+    // until the UI applies the user's choice (`set_language`).
+    ipsec_client_core::i18n::set_lang(ipsec_client_core::i18n::Lang::from_env());
     let builder = specta_builder();
     #[allow(clippy::expect_used)] // falha na inicialização: não há como seguir
     tauri::Builder::default()
@@ -65,7 +69,7 @@ pub fn run() {
         })
         .on_window_event(handle_drop)
         .run(tauri::generate_context!())
-        .expect("falha ao iniciar o IPsec Client");
+        .expect("failed to start IPsec Client");
 }
 
 /// Arquivo solto na janela: o Rust lê, monta a prévia e avisa a UI (o webview

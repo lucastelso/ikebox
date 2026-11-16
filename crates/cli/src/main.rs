@@ -35,11 +35,11 @@ use ipsec_client_core::secrets::{
 use ipsec_client_core::session::{self, ConnectOptions, SessionEvent, SessionState};
 use tokio::sync::mpsc;
 
-/// Cliente de VPN IPsec para Linux (VPNs legadas: IKEv1, PSK de grupo + XAuth).
+/// IPsec VPN client for Linux (legacy VPNs: IKEv1, group PSK + XAuth).
 #[derive(Debug, Parser)]
 #[command(name = "ipsec-client-cli", version = ipsec_client_core::VERSION)]
 struct Cli {
-    /// Mais detalhes (-v: log do charon também depois de conectar; -vv: depuração).
+    /// More detail (-v: charon log also after connecting; -vv: debugging).
     #[arg(short, long, action = clap::ArgAction::Count, global = true)]
     verbose: u8,
 
@@ -49,51 +49,51 @@ struct Cli {
 
 #[derive(Debug, Subcommand)]
 enum Command {
-    /// Verifica se o ambiente está pronto (componente de rede, kernel, DNS, portas, chaveiro).
+    /// Checks whether this computer is ready (network component, kernel, DNS, ports, keyring).
     Doctor,
-    /// Componente de rede (engine embutido): estado, instalação e remoção.
+    /// Network component (embedded engine): status, installation and removal.
     #[command(subcommand)]
     Component(ComponentCmd),
-    /// Gerencia perfis de conexão.
+    /// Manages connection profiles.
     #[command(subcommand)]
     Profiles(ProfilesCmd),
-    /// Gerencia as credenciais guardadas no chaveiro do sistema.
+    /// Manages the credentials stored in the system keyring.
     #[command(subcommand)]
     Secrets(SecretsCmd),
-    /// Conecta um perfil (em primeiro plano: Ctrl+C desconecta).
+    /// Connects a profile (in the foreground: Ctrl+C disconnects).
     Connect {
-        /// Id do perfil.
+        /// Profile id.
         profile: String,
-        /// Volta ao terminal depois de conectar (desconecte com `disconnect`).
+        /// Returns to the terminal after connecting (disconnect with `disconnect`).
         #[arg(long)]
         detach: bool,
-        /// Guarda no chaveiro as credenciais pedidas agora.
+        /// Stores the credentials asked now in the keyring.
         #[arg(long)]
         remember: bool,
-        /// Modo privilegiado de reserva do container (evite; ver SECURITY.md).
+        /// Fallback privileged container mode (avoid it; see SECURITY.md).
         #[arg(long)]
         privileged: bool,
-        /// Tempo máximo da negociação, em segundos.
+        /// Maximum negotiation time, in seconds.
         #[arg(long, default_value_t = 30)]
         timeout: u64,
-        /// Lê as credenciais da entrada padrão (linhas `chave=valor`), para automação.
+        /// Reads the credentials from standard input (`key=value` lines), for automation.
         #[arg(long)]
         credentials_stdin: bool,
     },
-    /// Desconecta (avisa o gateway e derruba o engine).
+    /// Disconnects (tells the gateway and stops the engine).
     Disconnect,
-    /// Mostra a conexão ativa (código de saída 3 se desconectado).
+    /// Shows the active connection (exit code 3 when disconnected).
     Status,
-    /// Mostra o log do engine (identidades mascaradas).
+    /// Shows the engine log (identities masked).
     Logs {
-        /// Continua acompanhando.
+        /// Keeps following.
         #[arg(short, long)]
         follow: bool,
-        /// Quantas linhas finais mostrar.
+        /// How many trailing lines to show.
         #[arg(short = 'n', long, default_value_t = 100)]
         lines: usize,
-        /// Troca também gateway, IPs, DNS e domínios por marcadores, para
-        /// mandar num relatório de bug.
+        /// Also replaces gateway, IPs, DNS and domains with placeholders, to
+        /// send in a bug report.
         #[arg(long)]
         anonimizar: bool,
     },
@@ -101,107 +101,107 @@ enum Command {
 
 #[derive(Debug, Subcommand)]
 enum ProfilesCmd {
-    /// Lista os perfis.
+    /// Lists the profiles.
     List,
-    /// Mostra um perfil (JSON).
+    /// Shows a profile (JSON).
     Show {
-        /// Id do perfil.
+        /// Profile id.
         profile: String,
     },
-    /// Importa um arquivo de perfil (JSON).
+    /// Imports a profile file (JSON).
     Import {
-        /// Arquivo.
+        /// File.
         file: PathBuf,
-        /// Substitui um perfil existente com o mesmo id.
+        /// Replaces an existing profile with the same id.
         #[arg(long)]
         force: bool,
     },
-    /// Exporta um perfil (sem credenciais) para compartilhar.
+    /// Exports a profile (without credentials) to share it.
     Export {
-        /// Id do perfil.
+        /// Profile id.
         profile: String,
-        /// Arquivo de destino.
+        /// Destination file.
         file: PathBuf,
     },
-    /// Remove um perfil (as credenciais ficam; use `secrets forget`).
+    /// Removes a profile (credentials stay; use `secrets forget`).
     Delete {
-        /// Id do perfil.
+        /// Profile id.
         profile: String,
     },
-    /// Cria um perfil a partir de um swanctl.conf existente (sem copiar segredos).
+    /// Creates a profile from an existing swanctl.conf (without copying secrets).
     ImportSwanctl {
-        /// O swanctl.conf (ou arquivo de conf.d) com a conexão.
+        /// The swanctl.conf (or conf.d file) with the connection.
         file: PathBuf,
-        /// Conexão a importar (padrão: a primeira).
+        /// Connection to import (default: the first one).
         #[arg(long)]
         conn: Option<String>,
-        /// Id do perfil (padrão: derivado do nome da conexão).
+        /// Profile id (default: derived from the connection name).
         #[arg(long)]
         id: Option<String>,
-        /// Nome exibido (padrão: o nome da conexão).
+        /// Display name (default: the connection name).
         #[arg(long)]
         name: Option<String>,
-        /// Servidor DNS da VPN (repetível; o swanctl.conf não tem essa informação).
+        /// VPN DNS server (repeatable; swanctl.conf does not have this information).
         #[arg(long = "dns")]
         dns: Vec<std::net::IpAddr>,
-        /// Domínio DNS da VPN (repetível): `~dominio` só roteia consultas.
+        /// VPN DNS domain (repeatable): `~domain` only routes queries.
         #[arg(long = "domain")]
         domains: Vec<String>,
-        /// Usa também os DNS enviados pelo gateway.
+        /// Also uses the DNS servers sent by the gateway.
         #[arg(long)]
         use_received_dns: bool,
-        /// Grava o perfil neste arquivo em vez de salvá-lo na lista de perfis.
+        /// Writes the profile to this file instead of saving it to the profile list.
         #[arg(long)]
         output: Option<PathBuf>,
-        /// Substitui um perfil existente com o mesmo id.
+        /// Replaces an existing profile with the same id.
         #[arg(long)]
         force: bool,
     },
-    /// Valida um arquivo de perfil sem importar.
+    /// Validates a profile file without importing it.
     Validate {
-        /// Arquivo.
+        /// File.
         file: PathBuf,
     },
-    /// Mostra o diretório dos perfis.
+    /// Shows the profiles directory.
     Path,
 }
 
 #[derive(Debug, Subcommand)]
 enum ComponentCmd {
-    /// Mostra o que está instalado (e se o pacote indicado é diferente).
+    /// Shows what is installed (and whether the given bundle is different).
     Status {
-        /// Pacote para comparar (diretório com SHA256SUMS).
+        /// Bundle to compare (directory with SHA256SUMS).
         #[arg(long)]
         bundle: Option<PathBuf>,
     },
-    /// Instala ou atualiza a partir de um pacote (pede a senha de administrador).
+    /// Installs or updates from a bundle (asks for the administrator password).
     Install {
-        /// Pacote (gerado por scripts/stage-network-component.sh).
+        /// Bundle (built by scripts/stage-network-component.sh).
         #[arg(long)]
         bundle: PathBuf,
     },
-    /// Remove o componente (pede a senha de administrador).
+    /// Removes the component (asks for the administrator password).
     Uninstall,
 }
 
 #[derive(Debug, Subcommand)]
 enum SecretsCmd {
-    /// Pede e guarda no chaveiro as credenciais do perfil.
+    /// Asks for the profile credentials and stores them in the keyring.
     Set {
-        /// Id do perfil.
+        /// Profile id.
         profile: String,
-        /// Lê as credenciais da entrada padrão (linhas `chave=valor`), sem perguntar.
+        /// Reads the credentials from standard input (`key=value` lines), without asking.
         #[arg(long)]
         credentials_stdin: bool,
     },
-    /// Mostra quais credenciais estão guardadas (sem revelar valores).
+    /// Shows which credentials are stored (without revealing values).
     Status {
-        /// Id do perfil.
+        /// Profile id.
         profile: String,
     },
-    /// Apaga do chaveiro as credenciais do perfil.
+    /// Deletes the profile credentials from the keyring.
     Forget {
-        /// Id do perfil.
+        /// Profile id.
         profile: String,
     },
 }
@@ -212,7 +212,7 @@ fn main() -> ExitCode {
     let runtime = match tokio::runtime::Runtime::new() {
         Ok(rt) => rt,
         Err(e) => {
-            eprintln!("erro: não foi possível iniciar o runtime: {e}");
+            eprintln!("error: could not start the runtime: {e}");
             return ExitCode::FAILURE;
         }
     };
@@ -272,9 +272,9 @@ async fn run(cli: Cli) -> anyhow::Result<ExitCode> {
         }
         Command::Disconnect => {
             if session::disconnect().await? {
-                println!("✔ Desconectado.");
+                println!("✔ Disconnected.");
             } else {
-                println!("Nenhuma conexão ativa.");
+                println!("No active connection.");
             }
             Ok(ExitCode::SUCCESS)
         }
@@ -284,7 +284,7 @@ async fn run(cli: Cli) -> anyhow::Result<ExitCode> {
                 Ok(ExitCode::SUCCESS)
             }
             None => {
-                println!("Desconectado.");
+                println!("Disconnected.");
                 Ok(ExitCode::from(3))
             }
         },
@@ -304,8 +304,8 @@ fn load_profile(id: &str) -> anyhow::Result<Profile> {
     match store()?.load(id) {
         Ok(p) => Ok(p),
         Err(ProfileError::NotFound(_)) => bail!(
-            "perfil '{id}' não encontrado; veja `ipsec-client-cli profiles list` ou importe com \
-             `ipsec-client-cli profiles import <arquivo>`"
+            "profile '{id}' not found; see `ipsec-client-cli profiles list` or import it with \
+             `ipsec-client-cli profiles import <file>`"
         ),
         Err(e) => Err(e.into()),
     }
@@ -325,7 +325,7 @@ fn keyring() -> Option<KeyringStore> {
 fn component(cmd: ComponentCmd) -> anyhow::Result<ExitCode> {
     use ipsec_client_core::component::{self as comp, Bundle, Origin, State};
     let open = |dir: &std::path::Path| {
-        Bundle::open(dir).with_context(|| format!("pacote em {}", dir.display()))
+        Bundle::open(dir).with_context(|| format!("bundle in {}", dir.display()))
     };
     let print_log = |log: &[String]| log.iter().for_each(|l| println!("  {l}"));
     match cmd {
@@ -333,22 +333,22 @@ fn component(cmd: ComponentCmd) -> anyhow::Result<ExitCode> {
             let bundle = bundle.as_deref().map(open).transpose()?;
             let status = comp::status(bundle.as_ref());
             let state = match status.state {
-                State::NotInstalled => "não instalado",
-                State::Ready => "instalado",
-                State::Outdated => "instalado, diferente do pacote (atualize)",
-                State::Broken => "com problema",
+                State::NotInstalled => "not installed",
+                State::Ready => "installed",
+                State::Outdated => "installed, different from the bundle (update it)",
+                State::Broken => "broken",
             };
-            println!("Componente de rede: {state}");
+            println!("Network component: {state}");
             if let Some(inst) = &status.installed {
                 println!(
-                    "  versão {} · strongSwan {} · origem {}",
+                    "  version {} · strongSwan {} · origin {}",
                     inst.version.app.as_deref().unwrap_or("?"),
                     inst.version.strongswan.as_deref().unwrap_or("?"),
                     inst.origin.as_str()
                 );
             }
             if let Some(problem) = &status.problem {
-                println!("  problema: {problem}");
+                println!("  problem: {problem}");
             }
             Ok(if status.state == State::NotInstalled {
                 ExitCode::from(3)
@@ -358,31 +358,31 @@ fn component(cmd: ComponentCmd) -> anyhow::Result<ExitCode> {
         }
         ComponentCmd::Install { bundle } => {
             let bundle = open(&bundle)?;
-            println!("… o sistema vai pedir a senha de administrador");
+            println!("… the system will ask for the administrator password");
             match comp::install(&bundle, Origin::App) {
                 Ok(log) => {
                     print_log(&log);
-                    println!("✔ Componente de rede instalado.");
+                    println!("✔ Network component installed.");
                     Ok(ExitCode::SUCCESS)
                 }
                 Err(comp::ComponentError::Failed { log }) => {
                     print_log(&log);
-                    bail!("o instalador do componente de rede falhou")
+                    bail!("the network component installer failed")
                 }
                 Err(e) => Err(e.into()),
             }
         }
         ComponentCmd::Uninstall => {
-            println!("… o sistema vai pedir a senha de administrador");
+            println!("… the system will ask for the administrator password");
             match comp::uninstall() {
                 Ok(log) => {
                     print_log(&log);
-                    println!("✔ Componente de rede removido.");
+                    println!("✔ Network component removed.");
                     Ok(ExitCode::SUCCESS)
                 }
                 Err(comp::ComponentError::Failed { log }) => {
                     print_log(&log);
-                    bail!("a remoção do componente de rede falhou")
+                    bail!("removing the network component failed")
                 }
                 Err(e) => Err(e.into()),
             }
@@ -396,10 +396,10 @@ async fn doctor() -> anyhow::Result<ExitCode> {
         println!("{}", output::check(c));
     }
     if checks.iter().any(|c| c.status == CheckStatus::Fail) {
-        println!("\n✘ Há problemas que impedem a conexão.");
+        println!("\n✘ There are problems that prevent connecting.");
         Ok(ExitCode::FAILURE)
     } else {
-        println!("\n✔ Pronto para conectar.");
+        println!("\n✔ Ready to connect.");
         Ok(ExitCode::SUCCESS)
     }
 }
@@ -411,7 +411,7 @@ fn profiles(cmd: ProfilesCmd) -> anyhow::Result<ExitCode> {
             let list = store.list()?;
             if list.profiles.is_empty() {
                 println!(
-                    "Nenhum perfil em {}. Importe um com `ipsec-client-cli profiles import <arquivo>`.",
+                    "No profiles in {}. Import one with `ipsec-client-cli profiles import <file>`.",
                     store.dir().display()
                 );
             }
@@ -419,7 +419,7 @@ fn profiles(cmd: ProfilesCmd) -> anyhow::Result<ExitCode> {
                 println!("{:<24} {:<40} {}", p.id, p.name, p.gateway);
             }
             for (path, error) in &list.broken {
-                eprintln!("⚠ ignorado {}: {error}", path.display());
+                eprintln!("⚠ ignored {}: {error}", path.display());
             }
         }
         ProfilesCmd::Show { profile } => {
@@ -430,22 +430,22 @@ fn profiles(cmd: ProfilesCmd) -> anyhow::Result<ExitCode> {
         }
         ProfilesCmd::Import { file, force } => {
             let p = store.import(&file, force)?;
-            println!("✔ Perfil '{}' ({}) importado.", p.id, p.name);
-            println!("  Próximo passo: ipsec-client-cli secrets set {}", p.id);
+            println!("✔ Profile '{}' ({}) imported.", p.id, p.name);
+            println!("  Next step: ipsec-client-cli secrets set {}", p.id);
         }
         ProfilesCmd::Export { profile, file } => {
             store.export(&profile, &file)?;
             println!(
-                "✔ Perfil exportado para {} (sem credenciais). Envie por um canal privado; \
-                 a PSK do grupo vai por outro canal.",
+                "✔ Profile exported to {} (without credentials). Send it over a private channel; \
+                 the group PSK goes over a different channel.",
                 file.display()
             );
         }
         ProfilesCmd::Delete { profile } => {
             store.delete(&profile)?;
-            println!("✔ Perfil '{profile}' removido.");
+            println!("✔ Profile '{profile}' removed.");
             println!(
-                "  As credenciais continuam no chaveiro: ipsec-client-cli secrets forget {profile}"
+                "  The credentials stay in the keyring: ipsec-client-cli secrets forget {profile}"
             );
         }
         ProfilesCmd::ImportSwanctl {
@@ -460,7 +460,7 @@ fn profiles(cmd: ProfilesCmd) -> anyhow::Result<ExitCode> {
             force,
         } => {
             let text = std::fs::read_to_string(&file)
-                .with_context(|| format!("não foi possível ler {}", file.display()))?;
+                .with_context(|| format!("could not read {}", file.display()))?;
             let options = SwanctlImportOptions {
                 connection: conn,
                 id,
@@ -477,45 +477,45 @@ fn profiles(cmd: ProfilesCmd) -> anyhow::Result<ExitCode> {
             for warning in &result.warnings {
                 println!("⚠ {warning}");
             }
-            println!("Perfil gerado (sem segredos):");
+            println!("Profile created (no secrets):");
             println!("  id:        {}", p.id);
-            println!("  nome:      {}", p.name);
+            println!("  name:      {}", p.name);
             println!("  gateway:   {}", p.gateway);
             println!(
                 "  IKE:       v{}{}",
                 p.ike.version,
-                if p.ike.aggressive { " agressivo" } else { "" }
+                if p.ike.aggressive { " aggressive" } else { "" }
             );
-            println!("  redes:     {}", p.child.remote_ts.join(", "));
+            println!("  networks:  {}", p.child.remote_ts.join(", "));
             if p.network.dns.servers.is_empty() && p.network.dns.domains.is_empty() {
-                println!("  DNS:       (nenhum; use --dns/--domain se a VPN tiver DNS interno)");
+                println!("  DNS:       (none; use --dns/--domain if the VPN has internal DNS)");
             }
             match output {
                 Some(path) => {
                     write_private(&path, &ipsec_client_core::profiles::to_json(p)?)?;
                     println!(
-                        "✔ Gravado em {} (0600). Importe com `profiles import`.",
+                        "✔ Written to {} (0600). Import it with `profiles import`.",
                         path.display()
                     );
                 }
                 None => {
                     if !force && store.load(&p.id).is_ok() {
                         bail!(
-                            "já existe um perfil '{}'; use --force para substituir",
+                            "a profile '{}' already exists; use --force to replace it",
                             p.id
                         );
                     }
                     store.save(p)?;
-                    println!("✔ Perfil '{}' salvo.", p.id);
-                    println!("  Próximo passo: ipsec-client-cli secrets set {}", p.id);
+                    println!("✔ Profile '{}' saved.", p.id);
+                    println!("  Next step: ipsec-client-cli secrets set {}", p.id);
                 }
             }
         }
         ProfilesCmd::Validate { file } => {
             let json = std::fs::read_to_string(&file)
-                .with_context(|| format!("não foi possível ler {}", file.display()))?;
+                .with_context(|| format!("could not read {}", file.display()))?;
             match parse_profile(&json) {
-                Ok(p) => println!("✔ Perfil '{}' válido.", p.id),
+                Ok(p) => println!("✔ Profile '{}' is valid.", p.id),
                 Err(ProfileError::Invalid(issues)) => {
                     for issue in issues {
                         println!("✘ {issue}");
@@ -540,7 +540,7 @@ fn write_private(path: &std::path::Path, content: &str) -> anyhow::Result<()> {
         .truncate(true)
         .mode(0o600)
         .open(path)
-        .with_context(|| format!("não foi possível gravar {}", path.display()))?;
+        .with_context(|| format!("could not write {}", path.display()))?;
     file.write_all(content.as_bytes())?;
     Ok(())
 }
@@ -558,13 +558,13 @@ fn secrets(cmd: SecretsCmd) -> anyhow::Result<ExitCode> {
                 prompt::read_stdin(&mut creds)?;
             } else {
                 println!(
-                    "Credenciais de '{}' (guardadas no chaveiro do sistema):",
+                    "Credentials for '{}' (stored in the system keyring):",
                     profile.name
                 );
                 prompt::ask(&mut creds, &profile.required_credentials(), true)?;
             }
             creds.save(&store, &profile)?;
-            println!("✔ Credenciais guardadas.");
+            println!("✔ Credentials stored.");
         }
         SecretsCmd::Status { profile } => {
             let profile = load_profile(&profile)?;
@@ -572,13 +572,10 @@ fn secrets(cmd: SecretsCmd) -> anyhow::Result<ExitCode> {
             for kind in profile.required_credentials() {
                 let value = store.get(&profile.id, kind)?;
                 let shown = match (&value, kind.is_secret()) {
-                    (None, _) => "ausente".to_owned(),
-                    (Some(_), true) => "guardada".to_owned(),
+                    (None, _) => "missing".to_owned(),
+                    (Some(_), true) => "stored".to_owned(),
                     (Some(v), false) => {
-                        format!(
-                            "guardado ({})",
-                            mask(secrecy::ExposeSecret::expose_secret(v))
-                        )
+                        format!("stored ({})", mask(secrecy::ExposeSecret::expose_secret(v)))
                     }
                 };
                 println!("{:<22} {shown}", describe(kind));
@@ -587,7 +584,10 @@ fn secrets(cmd: SecretsCmd) -> anyhow::Result<ExitCode> {
         SecretsCmd::Forget { profile } => {
             let profile = load_profile(&profile)?;
             Credentials::forget(&KeyringStore::new()?, &profile)?;
-            println!("✔ Credenciais de '{}' apagadas do chaveiro.", profile.id);
+            println!(
+                "✔ Credentials for '{}' deleted from the keyring.",
+                profile.id
+            );
         }
     }
     Ok(ExitCode::SUCCESS)
@@ -596,14 +596,16 @@ fn secrets(cmd: SecretsCmd) -> anyhow::Result<ExitCode> {
 fn print_event(event: &SessionEvent, show_logs: bool) {
     match event {
         SessionEvent::State(SessionState::Preparing(step)) => println!("… {step}"),
-        SessionEvent::State(SessionState::Negotiating) => println!("… negociando com o gateway"),
+        SessionEvent::State(SessionState::Negotiating) => {
+            println!("… negotiating with the gateway")
+        }
         SessionEvent::State(SessionState::Connected(_)) => {}
         SessionEvent::Build(line) if show_logs => println!("  [build] {line}"),
         SessionEvent::Log(line) if show_logs => println!("  {line}"),
         SessionEvent::TunnelDown => {
-            println!("⚠ O túnel caiu; o charon vai tentar reconectar conforme o perfil.")
+            println!("⚠ The tunnel dropped; charon will try to reconnect as the profile says.")
         }
-        SessionEvent::TunnelUp => println!("✔ Túnel (re)estabelecido."),
+        SessionEvent::TunnelUp => println!("✔ Tunnel (re)established."),
         _ => {}
     }
 }
@@ -638,30 +640,30 @@ async fn connect(
     let missing = creds.missing(&profile);
     if !missing.is_empty() && credentials_stdin {
         let names: Vec<_> = missing.iter().map(|k| describe(*k)).collect();
-        bail!("faltam credenciais na entrada: {}", names.join(", "));
+        bail!("missing credentials in the input: {}", names.join(", "));
     }
     if !missing.is_empty() {
         if !prompt::interactive() {
             bail!(
-                "faltam credenciais e não há terminal para pedi-las; rode antes \
-                 `ipsec-client-cli secrets set {}`",
+                "credentials are missing and there is no terminal to ask for them; run \
+                 `ipsec-client-cli secrets set {}` first",
                 profile.id
             );
         }
-        println!("Credenciais de '{}':", profile.name);
+        println!("Credentials for '{}':", profile.name);
         prompt::ask(&mut creds, &missing, false)?;
         if remember {
             match &keyring {
                 Some(store) => {
                     creds.save(store, &profile)?;
-                    println!("✔ Credenciais guardadas no chaveiro.");
+                    println!("✔ Credentials stored in the keyring.");
                 }
-                None => println!("⚠ Sem chaveiro: as credenciais não foram guardadas."),
+                None => println!("⚠ No keyring: the credentials were not stored."),
             }
         }
     }
 
-    println!("Conectando '{}' ({})…", profile.name, profile.gateway);
+    println!("Connecting '{}' ({})…", profile.name, profile.gateway);
     let (tx, mut rx) = mpsc::unbounded_channel();
     let connecting = session::connect(&profile, &creds, options, Some(tx));
     tokio::pin!(connecting);
@@ -670,9 +672,9 @@ async fn connect(
             result = &mut connecting => break result?,
             Some(event) = rx.recv() => print_event(&event, true),
             _ = tokio::signal::ctrl_c() => {
-                println!("\nCancelando…");
+                println!("\nCancelling…");
                 let _ = session::disconnect().await;
-                bail!("conexão cancelada");
+                bail!("connection cancelled");
             }
         }
     };
@@ -682,21 +684,21 @@ async fn connect(
     println!("✔ {}", output::connection(&info));
 
     if detach {
-        println!("\nConectado em segundo plano. Para desconectar: ipsec-client-cli disconnect");
+        println!("\nConnected in the background. To disconnect: ipsec-client-cli disconnect");
         return Ok(ExitCode::SUCCESS);
     }
-    println!("\nPressione Ctrl+C para desconectar.");
+    println!("\nPress Ctrl+C to disconnect.");
     loop {
         tokio::select! {
             _ = tokio::signal::ctrl_c() => {
-                println!("\nDesconectando…");
+                println!("\nDisconnecting…");
                 session::disconnect().await?;
-                println!("✔ Desconectado.");
+                println!("✔ Disconnected.");
                 return Ok(ExitCode::SUCCESS);
             }
             event = rx.recv() => match event {
                 Some(SessionEvent::EngineGone) | None => {
-                    println!("✘ O engine parou (desconectado por outro processo ou erro).");
+                    println!("✘ The engine stopped (disconnected by another process or an error).");
                     return Ok(ExitCode::FAILURE);
                 }
                 Some(event) => print_event(&event, verbose > 0),
@@ -707,7 +709,7 @@ async fn connect(
 
 async fn logs(follow: bool, lines: usize, anonimizar: bool) -> anyhow::Result<ExitCode> {
     let Some(profile_id) = session::active_profile().await? else {
-        println!("Nenhuma conexão ativa.");
+        println!("No active connection.");
         return Ok(ExitCode::from(3));
     };
     // Mascara as identidades do perfil ativo (id do grupo e usuário XAuth);
@@ -728,7 +730,7 @@ async fn logs(follow: bool, lines: usize, anonimizar: bool) -> anyhow::Result<Ex
         }
     }
     if anonimizar && anonymizer.is_none() {
-        anyhow::bail!("não consegui ler o perfil ativo ({profile_id}) para anonimizar o log");
+        anyhow::bail!("could not read the active profile ({profile_id}) to anonymize the log");
     }
     let redactor = Redactor::new(identities.iter().map(String::as_str));
     let mut printed = 0usize;

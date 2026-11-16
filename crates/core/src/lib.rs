@@ -15,6 +15,7 @@
 pub mod component;
 pub mod diagnostics;
 pub mod engine;
+pub mod i18n;
 pub mod profiles;
 pub mod secrets;
 pub mod session;

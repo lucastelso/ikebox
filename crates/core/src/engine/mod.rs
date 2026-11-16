@@ -20,55 +20,62 @@ pub use spec::{
     EngineSpec, HostSecurity, MANAGED_LABEL, PROFILE_LABEL, SOCKET_FILE,
 };
 
-/// Erros do engine. As mensagens são para o usuário final (pt-BR).
+/// Engine errors. Messages are for the end user (English or Portuguese, see
+/// [`crate::i18n`]).
 #[derive(Debug, thiserror::Error)]
 pub enum EngineError {
-    /// O daemon Docker não está acessível.
-    #[error(
-        "o Docker não está acessível ({0}). Verifique se o serviço está ativo \
+    /// The Docker daemon is not reachable.
+    #[error("{}", crate::trf!(
+        "Docker is not reachable ({}). Check that the service is running \
+         (systemctl status docker) and that your user is in the docker group \
+         (sudo usermod -aG docker $USER, then log out and back in)",
+        "o Docker não está acessível ({}). Verifique se o serviço está ativo \
          (systemctl status docker) e se o seu usuário está no grupo docker \
-         (sudo usermod -aG docker $USER, depois saia e entre na sessão)"
-    )]
+         (sudo usermod -aG docker $USER, depois saia e entre na sessão)",
+        .0
+    ))]
     DockerUnavailable(String),
 
-    /// Configuração inválida.
-    #[error("configuração inválida do engine: {0}")]
+    /// Invalid configuration.
+    #[error("{}", crate::trf!("invalid engine configuration: {}", "configuração inválida do engine: {}", .0))]
     InvalidSpec(String),
 
-    /// O build da imagem falhou.
-    #[error("falha ao construir a imagem do engine: {0}")]
+    /// The image build failed.
+    #[error("{}", crate::trf!("failed to build the engine image: {}", "falha ao construir a imagem do engine: {}", .0))]
     Build(String),
 
-    /// O engine não ficou pronto.
-    #[error("o engine não ficou pronto: {reason}")]
+    /// The engine did not become ready.
+    #[error("{}", crate::trf!("the engine did not become ready: {}", "o engine não ficou pronto: {}", .reason))]
     NotReady {
-        /// Motivo resumido.
+        /// Short reason.
         reason: String,
-        /// Últimas linhas do log do container (não contêm segredos).
+        /// Last lines of the container log (no secrets).
         recent_logs: Vec<String>,
     },
 
-    /// Componente de rede (helper do engine embutido).
+    /// Network component (helper of the embedded engine).
     #[error("{0}")]
     Helper(String),
 
-    /// O componente de rede instalado é anterior ao app e não entende o
-    /// pedido (ex.: o DNS que passou a ir pelo helper na 0.1.1).
-    #[error(
+    /// The installed network component is older than the app and does not
+    /// understand the request (e.g. the DNS that moved to the helper in 0.2.0).
+    #[error("{}", crate::tr!(
+        "the installed network component is from an older version. Update it \
+         (System tab, Network component, Update) and connect again",
         "o componente de rede instalado é de uma versão anterior. Atualize-o \
          (aba Sistema, Componente de rede, Atualizar) e conecte de novo"
-    )]
+    ))]
     HelperOutdated,
 
-    /// Problema no diretório do socket VICI.
-    #[error("diretório de runtime: {0}")]
+    /// Problem with the VICI socket directory.
+    #[error("{}", crate::trf!("runtime directory: {}", "diretório de runtime: {}", .0))]
     RuntimeDir(String),
 
-    /// Erro devolvido pela Docker API.
-    #[error("erro do Docker: {0}")]
+    /// Error returned by the Docker API.
+    #[error("{}", crate::trf!("Docker error: {}", "erro do Docker: {}", .0))]
     Docker(#[from] bollard::errors::Error),
 
-    /// Erro de E/S local.
+    /// Local I/O error.
     #[error(transparent)]
     Io(#[from] std::io::Error),
 }
@@ -83,7 +90,11 @@ pub fn default_runtime_dir() -> Result<PathBuf, EngineError> {
         .filter(|dir| dir.is_absolute())
         .ok_or_else(|| {
             EngineError::RuntimeDir(
-                "XDG_RUNTIME_DIR não definido (sessão sem systemd-logind?)".to_owned(),
+                crate::tr!(
+                    "XDG_RUNTIME_DIR is not set (session without systemd-logind?)",
+                    "XDG_RUNTIME_DIR não definido (sessão sem systemd-logind?)"
+                )
+                .to_owned(),
             )
         })
 }

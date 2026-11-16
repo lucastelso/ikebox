@@ -164,7 +164,13 @@ impl MemoryStore {
         &self,
     ) -> Result<std::sync::MutexGuard<'_, HashMap<String, SecretString>>, SecretsError> {
         self.map.lock().map_err(|_| {
-            SecretsError::Unavailable("armazenamento em memória corrompido".to_owned())
+            SecretsError::Unavailable(
+                crate::tr!(
+                    "in-memory store corrupted",
+                    "armazenamento em memória corrompido"
+                )
+                .to_owned(),
+            )
         })
     }
 }

@@ -12,6 +12,7 @@ use ipsec_client_core::engine::EngineError;
 use ipsec_client_core::profiles::{AuthMethod, CredentialKind, Profile, ProfileError};
 use ipsec_client_core::secrets::SecretsError;
 use ipsec_client_core::session::{ConnectionInfo, SessionError, SessionEvent, SessionState};
+use ipsec_client_core::{tr, trf};
 use serde::{Deserialize, Serialize};
 use specta::Type;
 
@@ -291,18 +292,25 @@ impl From<SessionError> for UiError {
         match e {
             SessionError::AlreadyConnected(profile) => Self::new(
                 UiErrorKind::AlreadyConnected,
-                format!("Já existe uma conexão ativa (perfil {profile}). Desconecte antes."),
+                trf!(
+                    "A connection is already active (profile {profile}). Disconnect first.",
+                    "Já existe uma conexão ativa (perfil {profile}). Desconecte antes."
+                ),
             ),
             SessionError::Preflight(checks) => Self {
                 kind: if checks
                     .iter()
-                    .any(|c| c.status == CheckStatus::Fail && c.name == COMPONENT_CHECK)
+                    .any(|c| c.status == CheckStatus::Fail && c.id == COMPONENT_CHECK)
                 {
                     UiErrorKind::ComponentMissing
                 } else {
                     UiErrorKind::Preflight
                 },
-                message: "O computador ainda não está pronto para conectar.".to_owned(),
+                message: tr!(
+                    "This computer is not ready to connect yet.",
+                    "O computador ainda não está pronto para conectar."
+                )
+                .to_owned(),
                 details: checks
                     .iter()
                     .filter(|c| c.status == CheckStatus::Fail)
@@ -349,7 +357,10 @@ impl From<EngineError> for UiError {
                 recent_logs,
             } => Self {
                 kind: UiErrorKind::Engine,
-                message: capitalize(&format!("o engine não ficou pronto: {reason}")),
+                message: capitalize(&trf!(
+                    "the engine did not become ready: {reason}",
+                    "o engine não ficou pronto: {reason}"
+                )),
                 details: recent_logs,
             },
             EngineError::HelperOutdated => Self::new(
@@ -364,12 +375,17 @@ impl From<EngineError> for UiError {
 impl From<ComponentError> for UiError {
     fn from(e: ComponentError) -> Self {
         match e {
-            ComponentError::Cancelled => {
-                Self::new(UiErrorKind::Cancelled, "Autorização cancelada.")
-            }
+            ComponentError::Cancelled => Self::new(
+                UiErrorKind::Cancelled,
+                tr!("Authorization cancelled.", "Autorização cancelada."),
+            ),
             ComponentError::Failed { log } => Self {
                 kind: UiErrorKind::Component,
-                message: "O instalador do componente de rede falhou.".to_owned(),
+                message: tr!(
+                    "The network component installer failed.",
+                    "O instalador do componente de rede falhou."
+                )
+                .to_owned(),
                 details: log,
             },
             other => Self::new(UiErrorKind::Component, capitalize(&other.to_string())),
@@ -477,7 +493,7 @@ mod tests {
             detail: "establishing CHILD_SA failed".into(),
         });
         assert_eq!(ui.kind, UiErrorKind::Negotiation);
-        assert_eq!(ui.message, "Usuário ou senha XAuth incorretos");
+        assert_eq!(ui.message, "Wrong XAuth username or password");
         assert_eq!(ui.details, ["charon: establishing CHILD_SA failed"]);
     }
 
@@ -485,35 +501,38 @@ mod tests {
     fn preflight_error_lists_failures_with_hints() {
         let ui = UiError::from(SessionError::Preflight(vec![
             Check {
+                id: "docker",
                 name: "Docker",
                 status: CheckStatus::Fail,
-                detail: "inacessível".into(),
+                detail: "unreachable".into(),
                 hint: Some("usermod".into()),
             },
             Check {
+                id: "resolved",
                 name: "resolved",
                 status: CheckStatus::Warn,
-                detail: "ausente".into(),
+                detail: "missing".into(),
                 hint: None,
             },
         ]));
         assert_eq!(ui.kind, UiErrorKind::Preflight);
-        assert_eq!(ui.details, ["Docker: inacessível → usermod"]);
+        assert_eq!(ui.details, ["Docker: unreachable → usermod"]);
     }
 
     #[test]
     fn missing_component_is_its_own_kind() {
         let ui = UiError::from(SessionError::Preflight(vec![Check {
-            name: COMPONENT_CHECK,
+            id: COMPONENT_CHECK,
+            name: "Network component",
             status: CheckStatus::Fail,
-            detail: "não instalado".into(),
-            hint: Some("instale".into()),
+            detail: "not installed".into(),
+            hint: Some("install it".into()),
         }]));
         assert_eq!(ui.kind, UiErrorKind::ComponentMissing);
         let cancelled = UiError::from(ComponentError::Cancelled);
         assert_eq!(cancelled.kind, UiErrorKind::Cancelled);
         let failed = UiError::from(ComponentError::Failed {
-            log: vec!["[componente de rede] erro: x".into()],
+            log: vec!["[network component] error: x".into()],
         });
         assert_eq!(failed.kind, UiErrorKind::Component);
         assert_eq!(failed.details.len(), 1);

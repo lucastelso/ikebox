@@ -47,8 +47,15 @@ async fn write_packet(
     // Buffer zerado no drop: pode conter PSK/senha (load-shared).
     let mut payload = Zeroizing::new(vec![kind]);
     if let Some(name) = name {
-        let len = u8::try_from(name.len())
-            .map_err(|_| ViciError::Protocol("nome de comando/evento longo demais".to_owned()))?;
+        let len = u8::try_from(name.len()).map_err(|_| {
+            ViciError::Protocol(
+                crate::tr!(
+                    "command/event name too long",
+                    "nome de comando/evento longo demais"
+                )
+                .to_owned(),
+            )
+        })?;
         payload.push(len);
         payload.extend_from_slice(name.as_bytes());
     }
@@ -95,19 +102,27 @@ fn parse_packet(payload: &[u8]) -> Result<Packet, ViciError> {
         EVENT_CONFIRM => Ok(Packet::EventConfirm),
         EVENT_UNKNOWN => Ok(Packet::UnknownEvent),
         EVENT => {
-            let (&name_len, rest) = rest
-                .split_first()
-                .ok_or_else(|| ViciError::Protocol("evento VICI sem nome".to_owned()))?;
+            let (&name_len, rest) = rest.split_first().ok_or_else(|| {
+                ViciError::Protocol(
+                    crate::tr!("VICI event without a name", "evento VICI sem nome").to_owned(),
+                )
+            })?;
             let name_len = usize::from(name_len);
             if rest.len() < name_len {
-                return Err(ViciError::Protocol("nome de evento truncado".to_owned()));
+                return Err(ViciError::Protocol(
+                    crate::tr!("truncated event name", "nome de evento truncado").to_owned(),
+                ));
             }
             let (name, body) = rest.split_at(name_len);
-            let name = String::from_utf8(name.to_vec())
-                .map_err(|_| ViciError::Protocol("nome de evento não é UTF-8".to_owned()))?;
+            let name = String::from_utf8(name.to_vec()).map_err(|_| {
+                ViciError::Protocol(
+                    crate::tr!("event name is not UTF-8", "nome de evento não é UTF-8").to_owned(),
+                )
+            })?;
             Ok(Packet::Event(name, Message::decode(body)?))
         }
-        other => Err(ViciError::Protocol(format!(
+        other => Err(ViciError::Protocol(crate::trf!(
+            "unexpected VICI packet type: {other}",
             "tipo de pacote VICI inesperado: {other}"
         ))),
     }
@@ -197,7 +212,8 @@ impl ViciClient {
                 // Um evento atrasado do fluxo anterior pode chegar antes da confirmação.
                 Packet::Event(..) => {}
                 other => {
-                    return Err(ViciError::Protocol(format!(
+                    return Err(ViciError::Protocol(crate::trf!(
+                        "unexpected event confirmation: {other:?}",
                         "confirmação de evento inesperada: {other:?}"
                     )));
                 }
@@ -225,7 +241,8 @@ impl ViciEvents {
                 Packet::EventConfirm => {}
                 Packet::UnknownEvent => return Err(ViciError::UnknownEvent((*event).to_owned())),
                 other => {
-                    return Err(ViciError::Protocol(format!(
+                    return Err(ViciError::Protocol(crate::trf!(
+                        "unexpected event confirmation: {other:?}",
                         "confirmação de evento inesperada: {other:?}"
                     )));
                 }

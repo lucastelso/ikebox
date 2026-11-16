@@ -119,9 +119,14 @@ fn parse(text: &str, warnings: &mut Vec<String>) -> Result<Section, ProfileError
         }
         if line == "}" {
             if stack.len() == 1 {
-                return Err(err(format!("linha {lineno}: '}}' sem seção aberta")));
+                return Err(err(crate::trf!(
+                    "line {lineno}: '}}' without an open section",
+                    "linha {lineno}: '}}' sem seção aberta"
+                )));
             }
-            let (name, section) = stack.pop().ok_or_else(|| err("pilha vazia"))?;
+            let (name, section) = stack
+                .pop()
+                .ok_or_else(|| err(crate::tr!("empty stack", "pilha vazia")))?;
             if let Some((_, parent)) = stack.last_mut() {
                 parent.entries.push((name, Node::Section(section)));
             }
@@ -129,7 +134,10 @@ fn parse(text: &str, warnings: &mut Vec<String>) -> Result<Section, ProfileError
         }
         if let Some(name) = line.strip_suffix('{').map(str::trim) {
             if !is_name(name) {
-                return Err(err(format!("linha {lineno}: nome de seção inválido")));
+                return Err(err(crate::trf!(
+                    "line {lineno}: invalid section name",
+                    "linha {lineno}: nome de seção inválido"
+                )));
             }
             if name == "secrets" && stack.len() == 1 {
                 skip_depth = 1;
@@ -141,22 +149,28 @@ fn parse(text: &str, warnings: &mut Vec<String>) -> Result<Section, ProfileError
         if let Some(rest) = line.strip_prefix("include")
             && rest.starts_with(char::is_whitespace)
         {
-            warnings.push(format!(
+            warnings.push(crate::trf!(
+                "line {lineno}: 'include' is not followed; import the included file directly",
                 "linha {lineno}: 'include' não é seguido; importe o arquivo incluído diretamente"
             ));
             continue;
         }
         let Some((key, value)) = line.split_once('=') else {
-            return Err(err(format!(
+            return Err(err(crate::trf!(
+                "line {lineno}: expected 'key = value', 'name {{' or '}}'",
                 "linha {lineno}: esperava 'chave = valor', 'nome {{' ou '}}'"
             )));
         };
         let key = key.trim();
         if !is_name(key) {
-            return Err(err(format!("linha {lineno}: chave inválida")));
+            return Err(err(crate::trf!(
+                "line {lineno}: invalid key",
+                "linha {lineno}: chave inválida"
+            )));
         }
         if key == "secret" {
-            return Err(err(format!(
+            return Err(err(crate::trf!(
+                "line {lineno}: secret outside the 'secrets' section; the file was not imported",
                 "linha {lineno}: segredo fora da seção 'secrets'; o arquivo não foi importado"
             )));
         }
@@ -166,12 +180,15 @@ fn parse(text: &str, warnings: &mut Vec<String>) -> Result<Section, ProfileError
         }
     }
     if stack.len() != 1 || skip_depth > 0 {
-        return Err(err("seção sem '}' de fechamento"));
+        return Err(err(crate::tr!(
+            "section without a closing '}'",
+            "seção sem '}' de fechamento"
+        )));
     }
     stack
         .pop()
         .map(|(_, root)| root)
-        .ok_or_else(|| err("arquivo vazio"))
+        .ok_or_else(|| err(crate::tr!("empty file", "arquivo vazio")))
 }
 
 fn list(value: &str) -> Vec<String> {
@@ -206,7 +223,10 @@ fn action(value: Option<&str>, field: &str, warnings: &mut Vec<String>) -> Child
         Some("trap" | "route" | "hold") => ChildAction::Trap,
         Some("start" | "restart") => ChildAction::Restart,
         Some(other) => {
-            warnings.push(format!("{field} = {other} não reconhecido; usando 'none'"));
+            warnings.push(crate::trf!(
+                "{field} = {other} not recognized; using 'none'",
+                "{field} = {other} não reconhecido; usando 'none'"
+            ));
             ChildAction::None
         }
     }
@@ -243,22 +263,34 @@ pub fn import_swanctl(
 ) -> Result<SwanctlImport, ProfileError> {
     let mut warnings = Vec::new();
     let root = parse(text, &mut warnings)?;
-    let connections = root
-        .section("connections")
-        .ok_or_else(|| err("não há seção 'connections'"))?;
+    let connections = root.section("connections").ok_or_else(|| {
+        err(crate::tr!(
+            "there is no 'connections' section",
+            "não há seção 'connections'"
+        ))
+    })?;
     let all: Vec<(&str, &Section)> = connections.sections().collect();
     let (conn_name, conn) = match &options.connection {
         Some(wanted) => all
             .iter()
             .find(|(name, _)| name == wanted)
             .copied()
-            .ok_or_else(|| err(format!("conexão '{wanted}' não encontrada")))?,
+            .ok_or_else(|| {
+                err(crate::trf!(
+                    "connection '{wanted}' not found",
+                    "conexão '{wanted}' não encontrada"
+                ))
+            })?,
         None => {
-            let first = *all
-                .first()
-                .ok_or_else(|| err("nenhuma conexão em 'connections'"))?;
+            let first = *all.first().ok_or_else(|| {
+                err(crate::tr!(
+                    "no connection in 'connections'",
+                    "nenhuma conexão em 'connections'"
+                ))
+            })?;
             if all.len() > 1 {
-                warnings.push(format!(
+                warnings.push(crate::trf!(
+                    "the file has {} connections; importing '{}' (pick another one with the connection option)",
                     "o arquivo tem {} conexões; importando '{}' (escolha outra com a opção de conexão)",
                     all.len(),
                     first.0
@@ -272,15 +304,31 @@ pub fn import_swanctl(
         .value("remote_addrs")
         .map(list)
         .and_then(|addrs| addrs.into_iter().next())
-        .ok_or_else(|| err("a conexão não tem remote_addrs (gateway)"))?;
+        .ok_or_else(|| {
+            err(crate::tr!(
+                "the connection has no remote_addrs (gateway)",
+                "a conexão não tem remote_addrs (gateway)"
+            ))
+        })?;
     let version = match conn.value("version") {
         Some("1" | "ikev1") => 1,
         Some("2" | "ikev2") | None => 2,
         Some("0") => {
-            warnings.push("version = 0 (qualquer): usando IKEv2".to_owned());
+            warnings.push(
+                crate::tr!(
+                    "version = 0 (any): using IKEv2",
+                    "version = 0 (qualquer): usando IKEv2"
+                )
+                .to_owned(),
+            );
             2
         }
-        Some(other) => return Err(err(format!("version = {other} não suportada"))),
+        Some(other) => {
+            return Err(err(crate::trf!(
+                "version = {other} is not supported",
+                "version = {other} não suportada"
+            )));
+        }
     };
 
     // Rodadas de autenticação.
@@ -294,14 +342,16 @@ pub fn import_swanctl(
                 "psk" => local_id = round.value("id").map(str::to_owned),
                 a if a.starts_with("xauth") => method = AuthMethod::PskXauth,
                 other => {
-                    return Err(err(format!(
+                    return Err(err(crate::trf!(
+                        "local authentication '{other}' is not supported yet (only psk and xauth)",
                         "autenticação local '{other}' ainda não suportada (só psk e xauth)"
                     )));
                 }
             }
         } else if name.starts_with("remote") {
             if auth != "psk" {
-                return Err(err(format!(
+                return Err(err(crate::trf!(
+                    "gateway authentication '{auth}' is not supported yet (only psk)",
                     "autenticação do gateway '{auth}' ainda não suportada (só psk)"
                 )));
             }
@@ -309,20 +359,32 @@ pub fn import_swanctl(
         }
     }
     if local_id.is_none() {
-        warnings
-            .push("a rodada PSK não tem 'id'; a PSK valerá para qualquer identidade".to_owned());
+        warnings.push(
+            crate::tr!(
+                "the PSK round has no 'id'; the PSK will apply to any identity",
+                "a rodada PSK não tem 'id'; a PSK valerá para qualquer identidade"
+            )
+            .to_owned(),
+        );
     }
 
     // Fase 2.
-    let children = conn
-        .section("children")
-        .ok_or_else(|| err("a conexão não tem 'children'"))?;
+    let children = conn.section("children").ok_or_else(|| {
+        err(crate::tr!(
+            "the connection has no 'children'",
+            "a conexão não tem 'children'"
+        ))
+    })?;
     let child_list: Vec<_> = children.sections().collect();
-    let (child_name, child) = *child_list
-        .first()
-        .ok_or_else(|| err("nenhum child em 'children'"))?;
+    let (child_name, child) = *child_list.first().ok_or_else(|| {
+        err(crate::tr!(
+            "no child in 'children'",
+            "nenhum child em 'children'"
+        ))
+    })?;
     if child_list.len() > 1 {
-        warnings.push(format!(
+        warnings.push(crate::trf!(
+            "there are {} children; importing only '{child_name}'",
             "há {} children; importando só '{child_name}'",
             child_list.len()
         ));
@@ -366,7 +428,10 @@ pub fn import_swanctl(
     ];
     for key in conn.keys() {
         if !known_conn.contains(&key) && !key.starts_with("local") && !key.starts_with("remote") {
-            warnings.push(format!("'{key}' da conexão foi ignorado"));
+            warnings.push(crate::trf!(
+                "connection setting '{key}' was ignored",
+                "'{key}' da conexão foi ignorado"
+            ));
         }
     }
     let known_child = [
@@ -385,11 +450,20 @@ pub fn import_swanctl(
     ];
     for key in child.keys() {
         if !known_child.contains(&key) {
-            warnings.push(format!("'{key}' do child foi ignorado"));
+            warnings.push(crate::trf!(
+                "child setting '{key}' was ignored",
+                "'{key}' do child foi ignorado"
+            ));
         }
     }
     if child.value("updown").is_some() {
-        warnings.push("'updown' foi ignorado (o app usa o próprio)".to_owned());
+        warnings.push(
+            crate::tr!(
+                "'updown' was ignored (the app uses its own)",
+                "'updown' foi ignorado (o app usa o próprio)"
+            )
+            .to_owned(),
+        );
     }
 
     let vips = conn.value("vips").map(list).unwrap_or_default();
@@ -573,7 +647,7 @@ secrets {
         let text = "connections {\n vpn {\n  remote_addrs = 192.0.2.1\n  secret = x\n }\n}\n";
         assert!(matches!(
             import_swanctl(text, &SwanctlImportOptions::default()),
-            Err(ProfileError::Swanctl(m)) if m.contains("segredo")
+            Err(ProfileError::Swanctl(m)) if m.contains("secret outside")
         ));
     }
 

@@ -9,6 +9,7 @@ use std::path::PathBuf;
 
 use ipsec_client_core::component::{self, BUNDLE_RESOURCE, Bundle, Origin};
 use ipsec_client_core::session;
+use ipsec_client_core::{tr, trf};
 use tauri::{AppHandle, Manager};
 
 use crate::commands::{ConnectionLock, blocking};
@@ -30,7 +31,7 @@ fn bundle_dir(app: &AppHandle) -> Option<PathBuf> {
 fn bundle(app: &AppHandle) -> Option<Bundle> {
     let dir = bundle_dir(app)?;
     Bundle::open(&dir)
-        .inspect_err(|e| tracing::warn!("pacote do componente ignorado: {e}"))
+        .inspect_err(|e| tracing::warn!("component bundle ignored: {e}"))
         .ok()
 }
 
@@ -47,7 +48,10 @@ async fn ensure_disconnected() -> Result<(), UiError> {
     if let Ok(Some(profile)) = session::active_profile().await {
         return Err(UiError::new(
             UiErrorKind::Busy,
-            format!("Desconecte a VPN (perfil {profile}) antes de mexer no componente de rede."),
+            trf!(
+                "Disconnect the VPN (profile {profile}) before changing the network component.",
+                "Desconecte a VPN (perfil {profile}) antes de mexer no componente de rede."
+            ),
         ));
     }
     Ok(())
@@ -71,7 +75,10 @@ pub async fn install_component(
     let Ok(_guard) = lock.0.try_lock() else {
         return Err(UiError::new(
             UiErrorKind::Busy,
-            "Aguarde a operação em andamento terminar.",
+            tr!(
+                "Wait for the current operation to finish.",
+                "Aguarde a operação em andamento terminar."
+            ),
         ));
     };
     ensure_disconnected().await?;
@@ -79,11 +86,14 @@ pub async fn install_component(
         let bundle = bundle(&app).ok_or_else(|| {
             UiError::new(
                 UiErrorKind::Component,
-                "Esta versão do app não traz o componente de rede (build de desenvolvimento).",
+                tr!(
+                    "This build of the app does not include the network component (development build).",
+                    "Esta versão do app não traz o componente de rede (build de desenvolvimento)."
+                ),
             )
         })?;
         let log = component::install(&bundle, Origin::App)?;
-        tracing::info!("componente de rede instalado: {}", log.join(" | "));
+        tracing::info!("network component installed: {}", log.join(" | "));
         Ok(current(Some(&bundle)))
     })
     .await
@@ -99,13 +109,16 @@ pub async fn uninstall_component(
     let Ok(_guard) = lock.0.try_lock() else {
         return Err(UiError::new(
             UiErrorKind::Busy,
-            "Aguarde a operação em andamento terminar.",
+            tr!(
+                "Wait for the current operation to finish.",
+                "Aguarde a operação em andamento terminar."
+            ),
         ));
     };
     ensure_disconnected().await?;
     blocking(move || {
         let log = component::uninstall()?;
-        tracing::info!("componente de rede removido: {}", log.join(" | "));
+        tracing::info!("network component removed: {}", log.join(" | "));
         Ok(current(bundle(&app).as_ref()))
     })
     .await

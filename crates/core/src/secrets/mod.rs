@@ -16,32 +16,39 @@ pub use store::{KEYRING_SERVICE, KeyringStore, MemoryStore, SecretStore, keyring
 
 use crate::profiles::CredentialKind;
 
-/// Erros de credenciais. As mensagens são para o usuário final (pt-BR).
+/// Credential errors. Messages are for the end user (see [`crate::i18n`]).
 #[derive(Debug, thiserror::Error)]
 pub enum SecretsError {
-    /// Sem Secret Service (ex.: sessão sem GNOME Keyring/KWallet).
-    #[error(
-        "o chaveiro do sistema não está disponível ({0}); as credenciais \
-         serão pedidas a cada conexão"
-    )]
+    /// No Secret Service (e.g. a session without GNOME Keyring/KWallet).
+    #[error("{}", crate::trf!(
+        "the system keyring is not available ({}); credentials will be asked \
+         on every connection",
+        "o chaveiro do sistema não está disponível ({}); as credenciais \
+         serão pedidas a cada conexão",
+        .0
+    ))]
     Unavailable(String),
-    /// Chaveiro bloqueado ou acesso negado.
-    #[error("o chaveiro do sistema está bloqueado ou negou acesso ({0})")]
+    /// Keyring locked or access denied.
+    #[error("{}", crate::trf!(
+        "the system keyring is locked or denied access ({})",
+        "o chaveiro do sistema está bloqueado ou negou acesso ({})",
+        .0
+    ))]
     Locked(String),
-    /// Credencial exigida que não foi informada.
-    #[error("credencial não informada: {}", describe(*.0))]
+    /// A required credential was not provided.
+    #[error("{}", crate::trf!("credential not provided: {}", "credencial não informada: {}", describe(*.0)))]
     Missing(CredentialKind),
-    /// Id de perfil inválido para chave do chaveiro.
-    #[error("id de perfil inválido: {0}")]
+    /// Profile id not valid as a keyring key.
+    #[error("{}", crate::trf!("invalid profile id: {}", "id de perfil inválido: {}", .0))]
     InvalidProfile(String),
 }
 
-/// Nome da credencial para o usuário.
+/// Name of the credential for the user.
 #[must_use]
 pub fn describe(kind: CredentialKind) -> &'static str {
     match kind {
-        CredentialKind::Psk => "PSK (chave do grupo)",
-        CredentialKind::XauthUser => "usuário XAuth",
-        CredentialKind::XauthPassword => "senha XAuth",
+        CredentialKind::Psk => crate::tr!("PSK (group key)", "PSK (chave do grupo)"),
+        CredentialKind::XauthUser => crate::tr!("XAuth username", "usuário XAuth"),
+        CredentialKind::XauthPassword => crate::tr!("XAuth password", "senha XAuth"),
     }
 }

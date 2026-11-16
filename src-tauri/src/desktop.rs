@@ -12,6 +12,7 @@ use std::path::PathBuf;
 use std::time::Duration;
 
 use ipsec_client_core::session::{self, ConnectionInfo};
+use ipsec_client_core::{tr, trf};
 use tauri::menu::{Menu, MenuItem, PredefinedMenuItem};
 use tauri::tray::{MouseButton, MouseButtonState, TrayIconBuilder, TrayIconEvent};
 use tauri::{AppHandle, Manager};
@@ -65,12 +66,17 @@ impl TrayState {
     pub fn label(&self) -> String {
         match self {
             Self::Unknown => "IPsec Client".to_owned(),
-            Self::Disconnected => "Desconectado".to_owned(),
+            Self::Disconnected => tr!("Disconnected", "Desconectado").to_owned(),
             Self::Connected { profile, vip } => match vip {
-                Some(vip) => format!("Conectado: {profile} ({vip})"),
-                None => format!("Conectado: {profile}"),
+                Some(vip) => trf!(
+                    "Connected: {profile} ({vip})",
+                    "Conectado: {profile} ({vip})"
+                ),
+                None => trf!("Connected: {profile}", "Conectado: {profile}"),
             },
-            Self::Reconnecting { profile } => format!("Reconectando: {profile}…"),
+            Self::Reconnecting { profile } => {
+                trf!("Reconnecting: {profile}…", "Reconectando: {profile}…")
+            }
         }
     }
 
@@ -88,22 +94,26 @@ pub fn transition_notice(previous: &TrayState, next: &TrayState) -> Option<(Stri
         (S::Unknown, _) | (_, S::Unknown) => None,
         (a, b) if a == b => None,
         (S::Disconnected, S::Connected { profile, vip }) => Some((
-            "VPN conectada".to_owned(),
+            tr!("VPN connected", "VPN conectada").to_owned(),
             match vip {
                 Some(vip) => format!("{profile} · IP {vip}"),
                 None => profile.clone(),
             },
         )),
         (S::Connected { .. }, S::Reconnecting { profile }) => Some((
-            "Conexão caiu".to_owned(),
-            format!("{profile}: tentando reconectar…"),
+            tr!("Connection dropped", "Conexão caiu").to_owned(),
+            trf!(
+                "{profile}: trying to reconnect…",
+                "{profile}: tentando reconectar…"
+            ),
         )),
-        (S::Reconnecting { .. }, S::Connected { profile, .. }) => {
-            Some(("VPN reconectada".to_owned(), profile.clone()))
-        }
+        (S::Reconnecting { .. }, S::Connected { profile, .. }) => Some((
+            tr!("VPN reconnected", "VPN reconectada").to_owned(),
+            profile.clone(),
+        )),
         (S::Connected { .. } | S::Reconnecting { .. }, S::Disconnected) => Some((
-            "VPN desconectada".to_owned(),
-            "A conexão foi encerrada.".to_owned(),
+            tr!("VPN disconnected", "VPN desconectada").to_owned(),
+            tr!("The connection was closed.", "A conexão foi encerrada.").to_owned(),
         )),
         _ => None,
     }
@@ -140,7 +150,7 @@ pub fn notify(summary: &str, body: &str) {
             Ok(())
         })();
         if let Err(e) = result {
-            tracing::debug!("notificação não enviada: {e}");
+            tracing::debug!("notification not sent: {e}");
         }
     });
 }
@@ -189,14 +199,28 @@ pub fn show_main_window(app: &AppHandle) {
 struct TrayHandles {
     tray: tauri::tray::TrayIcon,
     status: MenuItem<tauri::Wry>,
+    show: MenuItem<tauri::Wry>,
     disconnect: MenuItem<tauri::Wry>,
+    quit: MenuItem<tauri::Wry>,
+}
+
+impl TrayHandles {
+    /// Fixed menu texts in the current language (they change when the user
+    /// picks another language in the app).
+    fn set_menu_texts(&self) {
+        let _ = self
+            .show
+            .set_text(tr!("Open IPsec Client", "Abrir o IPsec Client"));
+        let _ = self.disconnect.set_text(tr!("Disconnect", "Desconectar"));
+        let _ = self.quit.set_text(tr!("Quit", "Sair do app"));
+    }
 }
 
 fn build_tray(app: &AppHandle) -> tauri::Result<TrayHandles> {
     let status = MenuItem::with_id(app, "status", "IPsec Client", false, None::<&str>)?;
-    let show = MenuItem::with_id(app, "show", "Abrir o IPsec Client", true, None::<&str>)?;
-    let disconnect = MenuItem::with_id(app, "disconnect", "Desconectar", false, None::<&str>)?;
-    let quit = MenuItem::with_id(app, "quit", "Sair do app", true, None::<&str>)?;
+    let show = MenuItem::with_id(app, "show", "", true, None::<&str>)?;
+    let disconnect = MenuItem::with_id(app, "disconnect", "", false, None::<&str>)?;
+    let quit = MenuItem::with_id(app, "quit", "", true, None::<&str>)?;
     let menu = Menu::with_items(
         app,
         &[
@@ -236,11 +260,15 @@ fn build_tray(app: &AppHandle) -> tauri::Result<TrayHandles> {
         builder = builder.icon(icon.clone());
     }
     let tray = builder.build(app)?;
-    Ok(TrayHandles {
+    let handles = TrayHandles {
         tray,
         status,
+        show,
         disconnect,
-    })
+        quit,
+    };
+    handles.set_menu_texts();
+    Ok(handles)
 }
 
 /// Cria a bandeja (se o ambiente suportar) e inicia o monitor de estado, que
@@ -253,11 +281,15 @@ pub fn start(app: &AppHandle) {
         .ok()
         .and_then(Result::ok);
     if tray.is_none() {
-        tracing::info!("bandeja indisponível neste ambiente");
+        tracing::info!("tray not available in this environment");
     }
     tauri::async_runtime::spawn(async move {
         let mut previous = TrayState::Unknown;
+        let mut lang = ipsec_client_core::i18n::lang();
         loop {
+            let current_lang = ipsec_client_core::i18n::lang();
+            let lang_changed = current_lang != lang;
+            lang = current_lang;
             let next = match session::status().await {
                 Ok(status) => TrayState::from_status(status.as_ref()),
                 Err(_) => TrayState::Unknown,
@@ -265,7 +297,12 @@ pub fn start(app: &AppHandle) {
             if let Some((summary, body)) = transition_notice(&previous, &next) {
                 notify(&summary, &body);
             }
-            if next != previous
+            if let Some(handles) = &tray
+                && lang_changed
+            {
+                handles.set_menu_texts();
+            }
+            if (next != previous || lang_changed)
                 && let Some(handles) = &tray
             {
                 let label = next.label();
@@ -300,19 +337,19 @@ mod tests {
         };
         assert_eq!(
             transition_notice(&down, &connected()),
-            Some(("VPN conectada".into(), "trabalho · IP 198.51.100.10".into()))
+            Some(("VPN connected".into(), "trabalho · IP 198.51.100.10".into()))
         );
         assert_eq!(
             transition_notice(&connected(), &re).map(|n| n.0),
-            Some("Conexão caiu".into())
+            Some("Connection dropped".into())
         );
         assert_eq!(
             transition_notice(&re, &connected()).map(|n| n.0),
-            Some("VPN reconectada".into())
+            Some("VPN reconnected".into())
         );
         assert_eq!(
             transition_notice(&connected(), &down).map(|n| n.0),
-            Some("VPN desconectada".into())
+            Some("VPN disconnected".into())
         );
     }
 
@@ -341,7 +378,7 @@ mod tests {
                 profile: "vpn".into()
             }
         );
-        assert_eq!(connected().label(), "Conectado: trabalho (198.51.100.10)");
+        assert_eq!(connected().label(), "Connected: trabalho (198.51.100.10)");
         assert!(connected().is_active());
         assert!(!TrayState::Disconnected.is_active());
     }

@@ -298,7 +298,10 @@ fn check(command: &str, response: &Message) -> Result<(), ViciError> {
         command: command.to_owned(),
         message: response
             .get_str("errmsg")
-            .unwrap_or("falha sem mensagem")
+            .unwrap_or(crate::tr!(
+                "failure without a message",
+                "falha sem mensagem"
+            ))
             .to_owned(),
     })
 }
@@ -416,7 +419,7 @@ mod tests {
             &Message::new().kv("success", "no").kv("errmsg", "timeout"),
         )
         .expect_err("falha");
-        assert_eq!(err.to_string(), "o charon recusou 'initiate': timeout");
+        assert_eq!(err.to_string(), "charon rejected 'initiate': timeout");
     }
 
     #[test]

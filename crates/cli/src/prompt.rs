@@ -29,11 +29,11 @@ fn parse_credentials(input: impl BufRead, credentials: &mut Credentials) -> anyh
             continue;
         }
         let Some((key, value)) = line.split_once('=') else {
-            bail!("linha {} da entrada: use chave=valor", n + 1);
+            bail!("input line {}: use key=value", n + 1);
         };
         let Some(kind) = kinds.iter().find(|k| k.key() == key.trim()) else {
             bail!(
-                "linha {} da entrada: chave desconhecida (use psk, xauth-user ou xauth-password)",
+                "input line {}: unknown key (use psk, xauth-user or xauth-password)",
                 n + 1
             );
         };
@@ -49,9 +49,9 @@ pub fn interactive() -> bool {
 
 fn label(kind: CredentialKind) -> &'static str {
     match kind {
-        CredentialKind::Psk => "PSK do grupo",
-        CredentialKind::XauthUser => "Usuário XAuth (ex.: matrícula)",
-        CredentialKind::XauthPassword => "Senha XAuth",
+        CredentialKind::Psk => "Group PSK",
+        CredentialKind::XauthUser => "XAuth username (e.g. employee id)",
+        CredentialKind::XauthPassword => "XAuth password",
     }
 }
 
@@ -65,20 +65,20 @@ pub fn ask(
     if !interactive() {
         let names: Vec<_> = kinds.iter().map(|k| describe(*k)).collect();
         bail!(
-            "faltam credenciais ({}) e não há terminal para pedi-las",
+            "credentials are missing ({}) and there is no terminal to ask for them",
             names.join(", ")
         );
     }
     for &kind in kinds {
         let has_current = credentials.get(kind).is_some();
         let hint = if keep_existing && has_current {
-            " [Enter mantém o atual]"
+            " [Enter keeps the current one]"
         } else {
             ""
         };
         let prompt = format!("{}{hint}: ", label(kind));
         let value = if kind.is_secret() {
-            rpassword::prompt_password(&prompt).context("falha ao ler do terminal")?
+            rpassword::prompt_password(&prompt).context("failed to read from the terminal")?
         } else {
             let mut stderr = std::io::stderr();
             write!(stderr, "{prompt}")?;
@@ -91,7 +91,7 @@ pub fn ask(
             if keep_existing && has_current {
                 continue;
             }
-            bail!("{} não pode ficar vazio(a)", describe(kind));
+            bail!("{} cannot be empty", describe(kind));
         }
         credentials.set(kind, SecretString::from(value));
     }

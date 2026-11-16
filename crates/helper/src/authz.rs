@@ -70,16 +70,16 @@ impl Authorizer {
                 if uids.contains(&peer.uid) {
                     Ok(())
                 } else {
-                    Err("não autorizado".to_owned())
+                    Err("not authorized".to_owned())
                 }
             }
             Self::Polkit => match polkit_check(peer) {
                 Ok(true) => Ok(()),
                 Ok(false) => Err(
-                    "não autorizado: só o usuário da sessão local ativa pode controlar a VPN"
+                    "not authorized: only the user of the active local session can control the VPN"
                         .to_owned(),
                 ),
-                Err(e) => Err(format!("não foi possível consultar o polkit: {e}")),
+                Err(e) => Err(format!("could not query polkit: {e}")),
             },
         }
     }
@@ -89,7 +89,7 @@ fn polkit_check(peer: &Peer) -> Result<bool, dbus::Error> {
     use dbus::arg::{PropMap, Variant};
 
     let start =
-        start_time(peer.pid).ok_or_else(|| dbus::Error::new_failed("processo cliente sumiu"))?;
+        start_time(peer.pid).ok_or_else(|| dbus::Error::new_failed("client process is gone"))?;
     let mut subject_details = PropMap::new();
     subject_details.insert("pid".to_owned(), Variant(Box::new(peer.pid)));
     subject_details.insert("start-time".to_owned(), Variant(Box::new(start)));

@@ -113,30 +113,45 @@ impl EngineSpec {
     pub fn validate(&self) -> Result<(), EngineError> {
         let invalid = |msg: &str| Err(EngineError::InvalidSpec(msg.to_owned()));
         if !is_valid_iface(&self.iface) {
-            return invalid("nome de interface inválido (use ^[a-z][a-z0-9_-]{0,14}$)");
+            return invalid(crate::tr!(
+                "invalid interface name (use ^[a-z][a-z0-9_-]{0,14}$)",
+                "nome de interface inválido (use ^[a-z][a-z0-9_-]{0,14}$)"
+            ));
         }
         if self.if_id == 0 {
-            return invalid("if_id não pode ser 0");
+            return invalid(crate::tr!("if_id cannot be 0", "if_id não pode ser 0"));
         }
         if !(576..=9000).contains(&self.mtu) {
-            return invalid("MTU fora de 576..=9000");
+            return invalid(crate::tr!(
+                "MTU outside 576..=9000",
+                "MTU fora de 576..=9000"
+            ));
         }
         if self.socket_gid > 2_147_483_647 {
-            return invalid("gid do socket inválido");
+            return invalid(crate::tr!("invalid socket gid", "gid do socket inválido"));
         }
         if self.log_level > 2 {
-            return invalid("nível de log acima de 2 pode expor material sensível");
+            return invalid(crate::tr!(
+                "log level above 2 may expose sensitive material",
+                "nível de log acima de 2 pode expor material sensível"
+            ));
         }
         if !is_valid_container_name(&self.container_name) {
-            return invalid("nome de container inválido");
+            return invalid(crate::tr!(
+                "invalid container name",
+                "nome de container inválido"
+            ));
         }
         if !self.runtime_dir.is_absolute() {
-            return invalid("o diretório de runtime precisa ser absoluto");
+            return invalid(crate::tr!(
+                "the runtime directory must be absolute",
+                "o diretório de runtime precisa ser absoluto"
+            ));
         }
         if let Some(id) = &self.profile_id
             && !crate::profiles::is_valid_id(id)
         {
-            return invalid("id de perfil inválido");
+            return invalid(crate::tr!("invalid profile id", "id de perfil inválido"));
         }
         Ok(())
     }

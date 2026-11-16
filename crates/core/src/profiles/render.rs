@@ -53,7 +53,7 @@ impl Profile {
         let dns = &self.network.dns;
         if !updown.starts_with('/') || updown.chars().any(|c| c.is_whitespace() || c == '\'') {
             return Err(ProfileError::Unsafe(
-                "caminho do updown inválido".to_owned(),
+                crate::tr!("invalid updown path", "caminho do updown inválido").to_owned(),
             ));
         }
         let mut cmd = format!("{updown} --iface {}", shell_quote(iface)?);
@@ -105,10 +105,9 @@ impl Profile {
         }
         conn = conn.section("local-1", local);
         if self.auth.method == AuthMethod::PskXauth {
-            let user = params
-                .xauth_user
-                .filter(|u| is_identity(u))
-                .ok_or(ProfileError::MissingCredential("usuário XAuth"))?;
+            let user = params.xauth_user.filter(|u| is_identity(u)).ok_or(
+                ProfileError::MissingCredential(crate::tr!("XAuth user", "usuário XAuth")),
+            )?;
             conn = conn.section(
                 "local-2",
                 Message::new().kv("auth", "xauth").kv("xauth_id", user),
@@ -167,7 +166,11 @@ fn close_action(a: ChildAction) -> &'static str {
 fn shell_quote(value: &str) -> Result<String, ProfileError> {
     if value.is_empty() || value.contains('\'') || value.chars().any(char::is_control) {
         return Err(ProfileError::Unsafe(
-            "valor impróprio para o comando do updown".to_owned(),
+            crate::tr!(
+                "value not allowed in the updown command",
+                "valor impróprio para o comando do updown"
+            )
+            .to_owned(),
         ));
     }
     Ok(format!("'{value}'"))

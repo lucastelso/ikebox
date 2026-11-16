@@ -95,7 +95,7 @@ impl DockerEngine {
             progress(BuildProgress::UpToDate);
             return Ok(tag);
         }
-        info!(%tag, "construindo a imagem do engine");
+        info!(%tag, "building the engine image");
         let labels = HashMap::from([(context::HASH_LABEL, context::content_hash())]);
         let options = BuildImageOptionsBuilder::default()
             .t(&tag)
@@ -110,11 +110,9 @@ impl DockerEngine {
         while let Some(item) = stream.next().await {
             let info = item.map_err(|e| EngineError::Build(e.to_string()))?;
             if let Some(detail) = info.error_detail {
-                return Err(EngineError::Build(
-                    detail
-                        .message
-                        .unwrap_or_else(|| "erro desconhecido".to_owned()),
-                ));
+                return Err(EngineError::Build(detail.message.unwrap_or_else(|| {
+                    crate::tr!("unknown error", "erro desconhecido").to_owned()
+                })));
             }
             if let Some(raw) = info.stream.as_deref() {
                 let line = strip_ansi(raw);
@@ -126,7 +124,11 @@ impl DockerEngine {
         }
         if !self.image_present(&tag).await? {
             return Err(EngineError::Build(
-                "a imagem não apareceu após o build".to_owned(),
+                crate::tr!(
+                    "the image did not appear after the build",
+                    "a imagem não apareceu após o build"
+                )
+                .to_owned(),
             ));
         }
         Ok(tag)
@@ -153,7 +155,7 @@ impl DockerEngine {
         self.docker
             .start_container(&spec.container_name, None::<StartContainerOptions>)
             .await?;
-        info!(container = %spec.container_name, iface = %spec.iface, "engine iniciado");
+        info!(container = %spec.container_name, iface = %spec.iface, "engine started");
         self.wait_ready(spec).await
     }
 
@@ -166,7 +168,7 @@ impl DockerEngine {
             .t(STOP_TIMEOUT_SECS)
             .build();
         match self.docker.stop_container(name, Some(options)).await {
-            Ok(()) => debug!(name, "engine parado"),
+            Ok(()) => debug!(name, "engine stopped"),
             Err(e) if is_not_found(&e) || is_not_modified(&e) => {}
             Err(e) => return Err(e.into()),
         }
@@ -288,19 +290,31 @@ impl DockerEngine {
                     .await
                     .map_err(|e| {
                         not_ready(
-                            &format!("o socket VICI não aceita conexão: {e}"),
+                            &crate::trf!(
+                                "the VICI socket does not accept connections: {e}",
+                                "o socket VICI não aceita conexão: {e}"
+                            ),
                             recent.clone(),
                         )
                     })?;
-                info!("engine pronto");
+                info!("engine ready");
                 Ok(())
             }
             Ok(Ok(false)) => Err(not_ready(
-                "o engine terminou durante a inicialização",
+                crate::tr!(
+                    "the engine exited during startup",
+                    "o engine terminou durante a inicialização"
+                ),
                 recent,
             )),
             Ok(Err(e)) => Err(e),
-            Err(_) => Err(not_ready("tempo esgotado esperando o engine", recent)),
+            Err(_) => Err(not_ready(
+                crate::tr!(
+                    "timed out waiting for the engine",
+                    "tempo esgotado esperando o engine"
+                ),
+                recent,
+            )),
         }
     }
 }
@@ -314,13 +328,15 @@ fn prepare_runtime_dir(dir: &Path) -> Result<(), EngineError> {
     }
     let meta = std::fs::symlink_metadata(dir)?;
     if !meta.file_type().is_dir() {
-        return Err(EngineError::RuntimeDir(format!(
+        return Err(EngineError::RuntimeDir(crate::trf!(
+            "{} is not a directory",
             "{} não é um diretório",
             dir.display()
         )));
     }
     if meta.uid() != rustix::process::getuid().as_raw() {
-        return Err(EngineError::RuntimeDir(format!(
+        return Err(EngineError::RuntimeDir(crate::trf!(
+            "{} belongs to another user",
             "{} pertence a outro usuário",
             dir.display()
         )));
@@ -335,7 +351,7 @@ fn prepare_runtime_dir(dir: &Path) -> Result<(), EngineError> {
 fn remove_stale_socket(path: &Path) -> Result<(), EngineError> {
     match std::fs::remove_file(path) {
         Ok(()) => {
-            debug!(path = %path.display(), "socket velho removido");
+            debug!(path = %path.display(), "stale socket removed");
             Ok(())
         }
         Err(e) if e.kind() == std::io::ErrorKind::NotFound => Ok(()),
