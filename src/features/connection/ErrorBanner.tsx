@@ -45,14 +45,19 @@ export function ErrorBanner({
               </ul>
             </details>
           )}
-          {onInstallComponent && error.kind === 'componentMissing' && (
-            <div>
-              <Button size="sm" onClick={onInstallComponent} disabled={installing}>
-                {installing && <LoaderCircle className="animate-spin" />}
-                {installing ? 'Instalando…' : 'Instalar componente de rede'}
-              </Button>
-            </div>
-          )}
+          {onInstallComponent &&
+            (error.kind === 'componentMissing' || error.kind === 'componentOutdated') && (
+              <div>
+                <Button size="sm" onClick={onInstallComponent} disabled={installing}>
+                  {installing && <LoaderCircle className="animate-spin" />}
+                  {installing
+                    ? 'Instalando…'
+                    : error.kind === 'componentOutdated'
+                      ? 'Atualizar componente de rede'
+                      : 'Instalar componente de rede'}
+                </Button>
+              </div>
+            )}
           {onFixCredentials && isCredentialError(error) && (
             <div>
               <Button size="sm" variant="outline" onClick={onFixCredentials}>

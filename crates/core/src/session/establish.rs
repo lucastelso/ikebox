@@ -22,7 +22,7 @@ pub async fn establish<C: Charon>(
     credentials: &Credentials,
     iface: &str,
     if_id: u32,
-    updown: &str,
+    updown: Option<&str>,
     timeout: Duration,
 ) -> Result<(), SessionError> {
     let secrets = credentials.shared_secrets(profile)?;
@@ -137,7 +137,7 @@ pub(crate) mod tests {
             &credentials(),
             "ipsc0",
             7,
-            crate::profiles::UPDOWN_PATH,
+            Some(crate::profiles::UPDOWN_PATH),
             Duration::from_secs(1),
         )
         .await
@@ -162,7 +162,7 @@ pub(crate) mod tests {
             &Credentials::new(),
             "ipsc0",
             7,
-            crate::profiles::UPDOWN_PATH,
+            Some(crate::profiles::UPDOWN_PATH),
             Duration::from_secs(1),
         )
         .await
@@ -183,7 +183,7 @@ pub(crate) mod tests {
             &credentials(),
             "ipsc0",
             7,
-            crate::profiles::UPDOWN_PATH,
+            Some(crate::profiles::UPDOWN_PATH),
             Duration::from_secs(1),
         )
         .await

@@ -177,4 +177,21 @@ describe('HomeScreen', () => {
     await userEvent.click(screen.getByRole('button', { name: 'Instalar componente de rede' }));
     await waitFor(() => expect(screen.queryByRole('alert')).not.toBeInTheDocument());
   });
+
+  it('componente antigo (helper recusou o pedido) oferece atualizar', async () => {
+    mockBackend({
+      component: { ...missingComponent, state: 'ready', installedVersion: '0.1.0' },
+      connectError: {
+        kind: 'componentOutdated',
+        message: 'O componente de rede instalado é de uma versão anterior.',
+        details: [],
+      },
+    });
+    render(<HomeScreen />);
+    await userEvent.click(await screen.findByRole('button', { name: 'Conectar' }));
+    const alert = await screen.findByRole('alert');
+    expect(alert).toHaveTextContent('versão anterior');
+    await userEvent.click(screen.getByRole('button', { name: 'Atualizar componente de rede' }));
+    await waitFor(() => expect(screen.queryByRole('alert')).not.toBeInTheDocument());
+  });
 });

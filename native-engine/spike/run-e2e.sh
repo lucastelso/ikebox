@@ -22,5 +22,7 @@ image="ipsec-client-native-spike:$version"
 docker build -q -t "$image" "$ctx" >/dev/null
 echo "imagem de teste: $image"
 
+# O engine embutido tem o patch do IPsec Client: updown e if_id forçados
+# (cenário 5 do E2E).
 IPSEC_CLIENT_E2E_ENGINE_IMAGE="$image" IPSEC_CLIENT_E2E_EXPECT_VERSION="$version" \
-    "$repo_root/tests/engine/e2e.sh"
+    IPSEC_CLIENT_E2E_FORCED=1 "$repo_root/tests/engine/e2e.sh"

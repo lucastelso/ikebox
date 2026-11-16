@@ -66,6 +66,10 @@ impl NativeEngine {
             .read_line(&mut reply)
             .map_err(unavailable)?;
         match decode::<Response>(&reply).map_err(|e| EngineError::Helper(e.to_string()))? {
+            // Um helper antigo recusa campos que ele não conhece.
+            Response::Error { message } if message.contains("unknown field") => {
+                Err(EngineError::HelperOutdated)
+            }
             Response::Error { message } => Err(EngineError::Helper(message)),
             other => Ok(other),
         }
@@ -186,6 +190,7 @@ mod tests {
             mtu: 1400,
             log_level: 1,
             profile_id: "p".into(),
+            dns: ipsec_client_proto::DnsParams::default(),
         };
         assert!(matches!(
             engine.start(&bad),

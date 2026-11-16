@@ -13,9 +13,10 @@ vulnerabilidades.
 | Ativo | Proteção |
 |---|---|
 | PSK, usuário e senha XAuth | Ficam em memória (`secrecy`/`zeroize`) ou no chaveiro do sistema. Vão do app direto ao charon pelo socket VICI; o componente de rede (root) nunca as recebe. Nunca vão para disco, env, argumentos ou logs (ADR-0007) |
-| Socket de controle VICI | Socket Unix `0660`, dono root e grupo do usuário, em `/run/ipsec-client/<uid>` (`0750`). Só o dono da sessão fala com o charon (ADRs 0003 e 0014) |
-| Componente de rede (root) | API mínima por socket: aceita só números validados e o id do perfil, nunca caminhos, comandos ou segredos. Cada pedido é autorizado pelo polkit (`allow_active`: só a sessão local ativa) e o uid vem do kernel (`SO_PEERCRED`) (ADR-0014) |
-| Host durante a conexão | O charon roda como serviço transitório do systemd com sandbox: sistema somente leitura, só as capabilities de rede, sem novos privilégios (ADR-0014) |
+| Socket de controle VICI | Socket Unix `0600`, dono = uid da sessão, em `/run/ipsec-client/<uid>` (`0711`, do root). Só o dono da sessão fala com o charon (ADRs 0003, 0014 e 0019) |
+| Comandos executados como root | Quem fala VICI **não escolhe** o `updown` nem o `if_id`: o charon embutido tem um patch que os força para os valores definidos pelo root, e os argumentos do `updown` vão num arquivo, nunca por um shell (ADR-0019) |
+| Componente de rede (root) | API mínima por socket: aceita só números, o id do perfil e o DNS, validados, nunca caminhos, comandos ou segredos. Cada pedido é autorizado pelo polkit (`allow_active`: só a sessão local ativa) e o uid vem do kernel (`SO_PEERCRED`). Parar a VPN e ler o log só para o dono da sessão; conexões atendidas em paralelo, com limite (ADRs 0014 e 0019) |
+| Host durante a conexão | O charon roda como serviço transitório do systemd com sandbox: sistema somente leitura, `/proc/sys` e `/sys` somente leitura, sem dispositivos reais, sem ver outros processos, filtro de syscalls, só as capabilities de rede e sem novos privilégios (ADRs 0014 e 0019) |
 | Instalação do componente | O instalador confere o `SHA256SUMS` numa cópia só do root e recusa links e caminhos fora do lugar; a remoção só executa o instalador que pertence ao root (ADR-0018) |
 | Rede do host | Rotas, VIP e DNS só na interface dedicada `ipsc0`, sem flush global de XFRM e sem tocar na interface física (ADR-0004) |
 | Dados da organização do usuário | Nunca entram no repositório; há um guarda automático (ADR-0010) |
@@ -26,9 +27,13 @@ vulnerabilidades.
    (XFRM, rotas, portas 500/4500). O código com root fica num binário pequeno,
    testado, que só sobe o strongSwan com sandbox. Depois de instalado,
    qualquer usuário na sessão local ativa conecta sem senha, como no
-   NetworkManager.
-2. **O strongSwan é compilado por nós.** O código-fonte é verificado por
-   SHA-256 e pela assinatura GPG dos autores (ADR-0016). As correções de
+   NetworkManager. O charon ainda roda como root dentro do sandbox. O próximo
+   passo é rodá-lo com um usuário próprio e só as capabilities de rede
+   (ADR-0019).
+2. **O strongSwan é compilado por nós, com um patch nosso.** O código-fonte
+   é verificado por SHA-256 e pela assinatura GPG dos autores (ADR-0016). O
+   único patch, pequeno e de segurança (ADR-0019), é aplicado depois dessa
+   conferência. As correções de
    segurança chegam quando o projeto publica uma versão nova, e não pelo
    gerenciador de pacotes da distribuição. O daemon fica exposto (UDP
    500/4500) **só enquanto a VPN está conectada**.
@@ -50,8 +55,10 @@ vulnerabilidades.
 
 ### Fora do escopo
 
-- Proteger o usuário de um host já comprometido (root local) ou de um
-  programa malicioso rodando como o próprio usuário.
+- Proteger os dados do usuário de um host já comprometido (root local) ou de
+  um programa malicioso rodando como o próprio usuário. **Em escopo:** o
+  componente de rede não pode servir de degrau desse programa para o root
+  (ADR-0019).
 - Kill switch / bloqueio de vazamento fora do túnel. O app faz split tunnel por
   padrão.
 

@@ -26,13 +26,24 @@
   gerados por `npm run release:build -- v0.1.0` num container Ubuntu 22.04,
   conferidos e prontos em `target/release-artifacts/0.1.0/`. A publicação é
   manual, pelo [guia de release](release.md).
-- **Próximo:** `chore/release`, para automatizar na CI:
+- **Auditoria de segurança e privacidade (passo 32, rumo à v0.1.1):**
+  - varredura de vazamento limpa: nenhum dado do trabalho no código, no
+    histórico nem nos pacotes da v0.1.0;
+  - corrigida uma **escalada local para root** pelo VICI (ADR-0019,
+    `fix/engine-updown-forcado`). Quem tem a v0.1.0 precisa atualizar o app
+    e clicar em "Atualizar" no componente de rede;
+  - faltam `feat/log-anonimizado`, `chore/higiene-privacidade` e a release
+    v0.1.1.
+  - Enquanto o componente instalado neste computador for o da v0.1.0, rode
+    `test:docker` e `test:cli` com `IPSEC_CLIENT_BACKEND=docker`. O helper
+    antigo recusa o pedido novo, e é para recusar mesmo.
+- **Depois:** `chore/release`, para automatizar na CI:
   - gerar e anexar os pacotes à release ao criar a tag (o mesmo
     `scripts/build-release.sh`);
   - pós-instalação do rpm/deb instalando o componente (`--origin package`);
   - `SHA256SUMS` assinado;
   - aceite numa VM limpa.
-- **Depois:** `feat/ui-editor-perfis` (editar perfis na interface).
+- **Em seguida:** `feat/ui-editor-perfis` (editar perfis na interface).
 - **Ideias anotadas:**
   - teste de longa duração (rekey em ~11 h);
   - "copiar log anonimizado";
@@ -60,7 +71,8 @@ npm run check          # dados privados + shellcheck + fmt/clippy/testes/cargo-d
 npm run test:engine    # E2E do engine com gateway IPsec local (~10 s)
 npm run test:docker    # integração do núcleo Rust com o Docker real
 npm run test:cli       # fluxo completo do CLI
-npm run test:native    # strongSwan compilado (engine embutido) + E2E
+npm run test:native    # strongSwan compilado (engine embutido) + E2E (inclui o ataque do ADR-0019)
+npm run test:systemd   # engine embutido com systemd de verdade (container privilegiado)
 npm run test:packaging # instalador do componente de rede, como root num container
 ```
 

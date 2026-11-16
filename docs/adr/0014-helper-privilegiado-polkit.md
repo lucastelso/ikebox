@@ -2,7 +2,9 @@
 
 - **Status:** Aceito. Implementado em `crates/helper`, `crates/proto` e
   `packaging/` (branch `feat/helper`) e validado com root (passo 27). A
-  instalação pelo app está detalhada no ADR-0018.
+  instalação pelo app está detalhada no ADR-0018. O ADR-0019 (v0.1.1) fecha
+  uma escalada de privilégio pelo VICI (`updown` escolhido pelo cliente),
+  troca o socket para `0600` do uid e restringe `stop`/`logs` ao dono.
 - **Data:** 2026-11-16
 
 ## Contexto
@@ -23,7 +25,7 @@ NetworkManager.
     validada pelo mesmo `EngineSpec::validate` do core), `stop`, `status` e
     `cleanup`;
   - nunca recebe segredos: os segredos vão do app direto ao charon, pelo
-    socket VICI 0660 do usuário.
+    socket VICI do usuário (`0600` desde o ADR-0019).
 - **Autorização** a cada pedido:
   - uid do cliente via `SO_PEERCRED`;
   - checagem no polkit da ação `io.github.lucastelso.ipsecclient.connect` com

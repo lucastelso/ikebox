@@ -16,7 +16,7 @@ pub use model::{
     AuthMethod, AuthSettings, ChildAction, ChildSettings, CredentialKind, DnsSettings, IkeSettings,
     NetworkSettings, Profile, SCHEMA_VERSION,
 };
-pub use render::{ConnParams, NATIVE_UPDOWN_PATH, UPDOWN_PATH};
+pub use render::{ConnParams, UPDOWN_PATH};
 pub use store::{MAX_PROFILE_BYTES, ProfileList, ProfileStore, parse_profile, to_json};
 pub use swanctl::{SwanctlImport, SwanctlImportOptions, import_swanctl};
 pub use validate::{ValidationIssue, validate};
@@ -111,7 +111,7 @@ mod tests {
         let profile = legacy();
         let params = ConnParams {
             iface: "ipsc0",
-            updown: UPDOWN_PATH,
+            updown: Some(UPDOWN_PATH),
             if_id: profile.if_id(),
             xauth_user: Some("usuario.exemplo"),
         };
@@ -122,12 +122,29 @@ mod tests {
     }
 
     #[test]
+    fn native_engine_load_conn_has_no_updown() {
+        // No engine embutido, o comando do updown é do root (ADR-0019).
+        let profile = legacy();
+        let params = ConnParams {
+            iface: "ipsc0",
+            updown: None,
+            if_id: profile.if_id(),
+            xauth_user: Some("usuario.exemplo"),
+        };
+        let msg = profile.to_load_conn(&params).expect("load-conn");
+        let mut text = String::new();
+        render(&msg, 0, &mut text);
+        assert!(!text.contains("updown"), "{text}");
+        assert!(text.contains(&format!("if_id_in = {}", profile.if_id())));
+    }
+
+    #[test]
     fn ikev2_preset_renders_expected_load_conn() {
         let profile = parse_profile(include_str!("../../../../presets/exemplo-ikev2-psk.json"))
             .expect("preset IKEv2 válido");
         let params = ConnParams {
             iface: "ipsc0",
-            updown: UPDOWN_PATH,
+            updown: Some(UPDOWN_PATH),
             if_id: 7,
             xauth_user: None,
         };
@@ -160,7 +177,7 @@ mod tests {
         let profile = legacy();
         let params = ConnParams {
             iface: "ipsc0",
-            updown: UPDOWN_PATH,
+            updown: Some(UPDOWN_PATH),
             if_id: 1,
             xauth_user: None,
         };

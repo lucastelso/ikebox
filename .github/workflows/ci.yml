@@ -99,8 +99,15 @@ jobs:
           persist-credentials: false
       - name: Módulo xfrm_interface
         run: sudo modprobe xfrm_interface
-      - name: Build (SHA-256 + GPG) e E2E com 4 cenários
+      - name: Build (SHA-256 + GPG + patches) e E2E com 5 cenários (inclui o ataque do ADR-0019)
         run: npm run test:native
+      - name: Dependências de sistema (libdbus para o CLI)
+        run: sudo apt-get update && sudo apt-get install -y libdbus-1-dev pkg-config
+      - name: Toolchain Rust
+        run: rustup show active-toolchain || rustup toolchain install
+      - uses: Swatinem/rust-cache@d1527c8f67ef9af357290475d4af4b0fab8f12e0 # v2.9.3
+      - name: Com systemd de verdade (instalador, helper, sandbox, dois usuários e o ataque)
+        run: npm run test:systemd
 
   packaging:
     name: Instalador do componente de rede (container)

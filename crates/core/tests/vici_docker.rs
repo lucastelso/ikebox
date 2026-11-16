@@ -101,7 +101,7 @@ async fn scenario(spec: EngineSpec, gateway_ip: String) {
     let load_conn = profile
         .to_load_conn(&ConnParams {
             iface: IFACE,
-            updown: ipsec_client_core::profiles::UPDOWN_PATH,
+            updown: Some(ipsec_client_core::profiles::UPDOWN_PATH),
             if_id: IF_ID,
             xauth_user: Some(TEST_XAUTH_USER),
         })

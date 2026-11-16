@@ -8,19 +8,19 @@ use super::model::{AuthMethod, ChildAction, Profile};
 use super::validate::{is_identity, validate};
 use crate::vici::Message;
 
-/// Caminho do `updown` na imagem Docker do engine.
+/// Caminho do `updown` na imagem Docker do engine. No engine embutido, o
+/// comando do `updown` é fixado pelo root e o que vier pelo VICI é ignorado
+/// (ADR-0019): lá, o `load-conn` vai sem `updown`.
 pub const UPDOWN_PATH: &str = "/usr/local/libexec/ipsec-client/updown";
-/// Caminho do `updown` no engine embutido (instalado pelo componente de rede).
-pub const NATIVE_UPDOWN_PATH: &str = "/opt/ipsec-client/libexec/updown";
 
 /// Dados da sessão necessários para gerar a conexão.
 #[derive(Debug, Clone, Copy)]
 pub struct ConnParams<'a> {
     /// Interface XFRM do engine.
     pub iface: &'a str,
-    /// Caminho do `updown` no engine em uso ([`UPDOWN_PATH`] ou
-    /// [`NATIVE_UPDOWN_PATH`]).
-    pub updown: &'a str,
+    /// Caminho do `updown` a mandar no `load-conn` ([`UPDOWN_PATH`] no
+    /// engine Docker; `None` no embutido, onde o root o define).
+    pub updown: Option<&'a str>,
     /// `if_id` das SAs/políticas.
     pub if_id: u32,
     /// Usuário XAuth (obrigatório em `psk-xauth`). Não é segredo, mas é
@@ -128,8 +128,10 @@ impl Profile {
             .kv("dpd_action", dpd_action(c.dpd_action))
             .kv("close_action", close_action(c.close_action))
             .kv("if_id_in", params.if_id.to_string())
-            .kv("if_id_out", params.if_id.to_string())
-            .kv("updown", self.updown_command(params.updown, params.iface)?);
+            .kv("if_id_out", params.if_id.to_string());
+        if let Some(updown) = params.updown {
+            child = child.kv("updown", self.updown_command(updown, params.iface)?);
+        }
         if !c.local_ts.is_empty() {
             child = child.list("local_ts", &c.local_ts);
         }

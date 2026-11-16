@@ -14,6 +14,9 @@
 #     o engine morre sem limpar e o próximo engine remove os restos.
 #   cenário 3, túnel completo (0.0.0.0/0) em rede isolada.
 #   cenário 4, PFS só com modp768 (DH1) na fase 2.
+#   cenário 5 (só no engine embutido, IPSEC_CLIENT_E2E_FORCED=1): um cliente
+#     VICI malicioso tenta escolher o updown (que roda como root) e o if_id;
+#     o charon com o patch do IPsec Client ignora os dois (ADR-0019).
 #
 # Altera o host só temporariamente: cria a interface ipsct0 (nome e if_id
 # próprios do teste, para não colidir com uma sessão real), rotas para
@@ -33,6 +36,9 @@ here="$repo_root/tests/engine"
 readonly IMAGE=${IPSEC_CLIENT_E2E_IMAGE:-ipsec-client-engine:e2e}
 readonly ENGINE_IMAGE=${IPSEC_CLIENT_E2E_ENGINE_IMAGE:-$IMAGE}
 readonly EXPECT_VERSION=${IPSEC_CLIENT_E2E_EXPECT_VERSION:-5.8.2}
+# 1 = engine embutido: updown/if_id forçados pelo root e socket do uid (0600).
+readonly FORCED=${IPSEC_CLIENT_E2E_FORCED:-0}
+readonly UPDOWN=/usr/local/libexec/ipsec-client/updown
 readonly NET=ipsec-client-e2e
 readonly GW=ipsec-client-e2e-gateway
 readonly ENGINE=ipsec-client-e2e-engine
@@ -102,6 +108,19 @@ start_engine() {
     # Um socket velho (de um engine morto com SIGKILL) não indica prontidão:
     # remove antes e espera o entrypoint anunciar "pronto".
     rm -f "$rundir/charon.vici"
+    local env_args
+    if ((FORCED)); then
+        # Como o helper sobe o engine embutido: o DNS vem do root, não do VICI.
+        env_args=(
+            -e IPSEC_CLIENT_SOCKET_UID="$(id -u)"
+            -e IPSEC_CLIENT_UPDOWN="$UPDOWN"
+            -e IPSEC_CLIENT_DNS_SERVERS=192.0.2.54
+            -e IPSEC_CLIENT_DNS_DOMAINS="~ipsec-client.test"
+            -e IPSEC_CLIENT_DNS_FLAGS=use-received
+        )
+    else
+        env_args=(-e IPSEC_CLIENT_SOCKET_GID="$(id -g)")
+    fi
     docker run -d --name "$ENGINE" \
         "${net_args[@]}" \
         --cap-add NET_ADMIN \
@@ -110,7 +129,7 @@ start_engine() {
         -v "$confdir:/test:ro" \
         -e IPSEC_CLIENT_IFACE="$IFACE" \
         -e IPSEC_CLIENT_IF_ID="$IF_ID" \
-        -e IPSEC_CLIENT_SOCKET_GID="$(id -g)" \
+        "${env_args[@]}" \
         "$ENGINE_IMAGE" >/dev/null
 
     local sock="$rundir/charon.vici" _
@@ -187,6 +206,12 @@ main() {
         " --dns '192.0.2.54' --domain '~ipsec-client.test' --use-received-dns"
     render_conf initiator-full.conf 0.0.0.0/0 ""
     render_conf initiator-modp768.conf 203.0.113.0/24 ""
+    # Cliente malicioso: tenta rodar um comando como root pelo updown e tirar
+    # as SAs da interface da sessão com outro if_id.
+    render_conf initiator-evil.conf 192.0.2.0/24 ""
+    sed -i -e "s|updown = .*|updown = /bin/touch /run/ipsec-client/PWNED|" \
+        -e "s|if_id_in = .*|if_id_in = 999|" -e "s|if_id_out = .*|if_id_out = 999|" \
+        "$confdir/initiator-evil.conf"
     # No IKEv1, a fase 2 só leva um grupo DH (o da primeira proposta): para
     # oferecer modp768, ele precisa vir primeiro.
     sed -i 's/esp_proposals = .*/esp_proposals = aes256-sha1-modp768/' "$confdir/initiator-modp768.conf"
@@ -201,9 +226,15 @@ main() {
     [[ $link == *xfrm* && $link == *"if_id $HEX_ID"* ]] || fail "$IFACE não é XFRM com if_id $HEX_ID"
     ok "$IFACE: interface XFRM, if_id $HEX_ID, MTU 1400"
 
-    [[ $(stat -c '%a %g' "$rundir/charon.vici") == "660 $(id -g)" ]] ||
-        fail "socket VICI sem 0660/gid do usuário"
-    ok "socket VICI 0660, grupo $(id -g)"
+    if ((FORCED)); then
+        [[ $(stat -c '%a %u' "$rundir/charon.vici") == "600 $(id -u)" ]] ||
+            fail "socket VICI sem 0600/uid do usuário"
+        ok "socket VICI 0600, dono $(id -u)"
+    else
+        [[ $(stat -c '%a %g' "$rundir/charon.vici") == "660 $(id -g)" ]] ||
+            fail "socket VICI sem 0660/gid do usuário"
+        ok "socket VICI 0660, grupo $(id -g)"
+    fi
 
     local version
     version=$(python3 -I "$here/vici_version.py" "$rundir/charon.vici") ||
@@ -340,6 +371,31 @@ main() {
     docker exec "$ENGINE" ping -c 2 -W 2 -q 203.0.113.1 >/dev/null || fail "ping com PFS modp768 falhou"
     ok "fase 2 com PFS MODP_768 negociada e ping 203.0.113.1 pelo túnel"
     docker stop -t 10 "$ENGINE" >/dev/null
+
+    # ------------------------------------------------------------------ 5 --
+    if ((FORCED)); then
+        step "Cenário 5: cliente VICI malicioso (updown e if_id próprios)"
+        docker rm "$ENGINE" >/dev/null
+        start_engine
+        connect_tunnel initiator-evil.conf
+        [[ ! -e "$rundir/PWNED" ]] || fail "o charon executou o updown do cliente (como root)"
+        docker logs "$ENGINE" 2>&1 | grep -q "ignoring updown command supplied by client" ||
+            fail "o charon não registrou que ignorou o updown do cliente"
+        ok "updown do cliente ignorado: nenhum comando dele rodou"
+        route=$(ip -4 route show dev "$IFACE" proto "$RT_PROTO")
+        [[ $route == *"192.0.2.0/24"* ]] || fail "o updown forçado não instalou a rota: '$route'"
+        [[ $(resolvectl domain "$IFACE") == *"~ipsec-client.test"* ]] ||
+            fail "o updown forçado não aplicou o DNS do root"
+        ok "o updown forçado rodou: rota 192.0.2.0/24 e DNS ~ipsec-client.test"
+        states=$(count_xfrm state)
+        local evil
+        evil=$(host_ip -o xfrm state | grep -c "if_id 0x3e7" || true)
+        ((states >= 2 && evil == 0)) || fail "if_id do cliente usado ($states SAs com $HEX_ID, $evil com 0x3e7)"
+        ok "SAs com o if_id forçado $HEX_ID (nenhuma com o 999 do cliente)"
+        docker stop -t 10 "$ENGINE" >/dev/null
+        ip link show "$IFACE" >/dev/null 2>&1 && fail "a $IFACE sobrou"
+        ok "limpeza ok"
+    fi
 
     step "Resultado"
     ok "todos os cenários passaram"

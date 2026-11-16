@@ -1,0 +1,76 @@
+IPsec Client: o cliente VICI não escolhe o updown nem o if_id (ADR-0019).
+
+O charon do engine embutido roda como root e executa o "updown" de cada
+CHILD_SA via /bin/sh -c. Sem este patch, quem fala VICI (o usuário da sessão)
+escolhe esse comando: escalada de privilégio local. Com
+charon.plugins.vici.force_updown e force_if_id definidos (o entrypoint do
+engine os escreve na config de runtime, só do root), o charon ignora os
+valores do cliente. Sem essas opções, o comportamento é o do upstream.
+
+Aplica-se às versões 6.x do strongSwan (testado na 6.1.0).
+
+--- a/src/libcharon/plugins/vici/vici_config.c
++++ b/src/libcharon/plugins/vici/vici_config.c
+@@ -2210,6 +2210,43 @@
+ 	}
+ }
+ 
++/**
++ * IPsec Client: settings forced by the embedded engine (ADR-0019).
++ *
++ * Whoever talks VICI must not choose the updown command (executed by charon
++ * as root via /bin/sh -c) nor the XFRM interface ID of SAs and policies.
++ * When charon.plugins.vici.force_updown / force_if_id are set, they replace
++ * whatever the client sent. Without them, upstream behavior is unchanged.
++ */
++static uint32_t forced_if_id(void)
++{
++	return lib->settings->get_int(lib->settings,
++								  "%s.plugins.vici.force_if_id", 0, lib->ns);
++}
++
++static void force_child_settings(child_cfg_create_t *cfg)
++{
++	char *updown;
++	uint32_t if_id;
++
++	updown = lib->settings->get_str(lib->settings,
++									"%s.plugins.vici.force_updown", NULL, lib->ns);
++	if (updown && *updown)
++	{
++		if (cfg->updown && !streq(cfg->updown, updown))
++		{
++			DBG1(DBG_CFG, "vici: ignoring updown command supplied by client");
++		}
++		free(cfg->updown);
++		cfg->updown = strdup(updown);
++	}
++	if_id = forced_if_id();
++	if (if_id)
++	{
++		cfg->if_id_in = cfg->if_id_out = if_id;
++	}
++}
++
+ CALLBACK(children_sn, bool,
+ 	peer_data_t *peer, vici_message_t *message, vici_parse_context_t *ctx,
+ 	char *name)
+@@ -2250,6 +2287,7 @@
+ 		free_child_data(&child);
+ 		return FALSE;
+ 	}
++	force_child_settings(&child.cfg);
+ 
+ 	if (child.local_ts->get_count(child.local_ts) == 0)
+ 	{
+@@ -2832,6 +2870,10 @@
+ 		free_peer_data(&peer);
+ 		return FALSE;
+ 	}
++	if (forced_if_id())
++	{
++		peer.if_id_in = peer.if_id_out = forced_if_id();
++	}
+ 
+ 	if (peer.local->get_count(peer.local) == 0)
+ 	{

@@ -38,8 +38,15 @@ fi
 
 strongswan=$(git show "$commit:native-engine/versions.txt" | grep -vE '^\s*(#|$)' | head -n 1 | awk '{print $1}')
 engine="native-engine/dist/ipsec-client-engine-$strongswan-x86_64.tar.gz"
-if [[ ! -f $engine ]]; then
-    step "compilando o strongSwan $strongswan (uma vez)"
+# Patches de segurança do commit (ADR-0019), no formato do BUILDINFO.
+expected_patches=$(git ls-tree --name-only "$commit" native-engine/patches/ | grep '\.patch$' | sort |
+    while read -r path; do
+        printf '%s:%s\n' "$(basename "$path")" "$(git show "$commit:$path" | sha256sum | cut -c1-64)"
+    done | paste -sd ' ')
+engine_patches=""
+[[ -f $engine ]] && engine_patches=$(tar -xzOf "$engine" opt/ipsec-client/engine/BUILDINFO | sed -n 's/^patches=//p')
+if [[ ! -f $engine || $engine_patches != "$expected_patches" ]]; then
+    step "compilando o strongSwan $strongswan (com os patches do commit)"
     native-engine/build.sh "$strongswan"
 fi
 
