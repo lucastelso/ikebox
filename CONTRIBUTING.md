@@ -76,6 +76,7 @@ isso no lado Rust.
 | `npm run lint:sh` | shellcheck em todos os scripts. Se o shellcheck não estiver instalado, usa a imagem Docker oficial |
 | `npm run test:engine` | Teste ponta a ponta do engine com um gateway IPsec local. Precisa de Docker e das portas UDP 500/4500 livres |
 | `scripts/check-private.sh --history` | Varre todo o histórico. Rode antes de publicar |
+| `scripts/check-private.sh --artifacts <dir>` | Varre os pacotes de release por dentro (padrões privados, caminho da home, hostname). Roda sozinho no fim do `npm run release:build` |
 
 ## Estilo
 

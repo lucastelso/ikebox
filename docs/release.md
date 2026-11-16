@@ -49,7 +49,21 @@ se:
 - o componente de rede dentro de algum deles não bater com o próprio
   `SHA256SUMS`. O app recusaria instalar, e isso já aconteceu: o linuxdeploy
   reescreve executáveis dentro do AppImage;
-- o AppImage exigir uma glibc mais nova que a do Ubuntu 22.04.
+- o AppImage exigir uma glibc mais nova que a do Ubuntu 22.04;
+- o strongSwan embutido não tiver os patches de segurança do commit
+  (ADR-0019).
+
+Depois, ainda no seu computador, roda `scripts/check-private.sh --artifacts`.
+Ele extrai os três pacotes, inclusive o strongSwan e o helper compactados
+dentro deles, e procura neles:
+
+- os seus padrões privados (`.git/info/private-patterns`);
+- o caminho da sua home;
+- o nome do computador.
+
+Mostra só o arquivo, nunca o trecho. Nas bibliotecas do Ubuntu que o AppImage
+traz, procura só a home e o hostname: padrões curtos casam por acaso dentro
+delas (as mesmas ocorrências existem nas bibliotecas originais).
 
 A saída fica em `target/release-artifacts/X.Y.Z/`:
 
@@ -67,6 +81,7 @@ metadados:
 
 ```bash
 npm run release:verify -- target/release-artifacts/X.Y.Z
+scripts/check-private.sh --artifacts target/release-artifacts/X.Y.Z
 cd target/release-artifacts/X.Y.Z
 sha256sum -c SHA256SUMS
 rpm -qip ipsec-client-*.rpm | grep -E '^(Name|Version)'
