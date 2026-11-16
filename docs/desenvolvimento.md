@@ -441,3 +441,92 @@ para descartar flakiness.
   `Credentials::shared_secrets`, e confere que os logs, depois do `Redactor`,
   não trazem nem o usuário XAuth nem o id do grupo. O charon, por si só,
   registra os dois, e o teste confirma isso também.
+
+### Passo 12a: sessão no core (`feat/sessao-cli`, primeira parte)
+
+- **Assinaturas de falha reais.** Cada falha típica foi provocada de propósito
+  contra o gateway de teste, com `swanctl`, e as linhas do charon 5.8.2 foram
+  capturadas:
+
+  | Falha provocada | Linha capturada |
+  |---|---|
+  | PSK errada | `calculated HASH does not match HASH payload` |
+  | Senha errada | `XAuth authentication of '…' (myself) failed` |
+  | Proposta IKE errada | `received NO_PROPOSAL_CHOSEN` antes do IKE_SA |
+  | Proposta ESP errada | o mesmo aviso, depois do IKE_SA estabelecido |
+  | Gateway inexistente | `retransmit N of request` + `not established after` |
+
+  Essas linhas viraram os testes de `session::diagnose`.
+- **`core::diagnostics`:**
+  - root;
+  - `XDG_RUNTIME_DIR`;
+  - Docker;
+  - `xfrm_interface` (por `/sys/module` ou `/lib/modules`);
+  - systemd-resolved;
+  - D-Bus do sistema;
+  - portas 500/4500, por parse de `/proc/net/udp*`, sem root.
+
+  O `doctor` acrescenta o chaveiro e a imagem.
+- **`core::session`:**
+  - `establish`, genérica sobre `Charon` e testada com um mock: carrega os
+    segredos antes da conexão e, se faltar credencial, não toca no charon;
+  - `connect` (preflight → imagem → engine → eventos → negociação), que
+    derruba o engine em qualquer falha;
+  - `status` e `disconnect`, que funcionam de qualquer processo, porque o
+    container leva a label do perfil;
+  - eventos de estado, log mascarado, queda e retorno do túnel.
+- Um detalhe de concorrência: os logs chegam por outra conexão VICI. Antes de
+  diagnosticar uma falha, a sessão espera 300 ms para os últimos chegarem.
+- **Integração `session_docker.rs`:**
+  - senha errada → `XauthCredentials`, sem identidade no detalhe e sem nada de
+    pé depois;
+  - conexão com eventos;
+  - ping;
+  - segunda conexão recusada (`AlreadyConnected`);
+  - `status`;
+  - `disconnect`;
+  - idempotência.
+
+  Leva cerca de 4 s.
+
+### Passo 12b: CLI (`feat/sessao-cli`, segunda parte)
+
+- **`ipsec-client-cli`** (clap, pt-BR):
+  - `doctor`;
+  - `profiles` (list/show/import/export/validate/delete/path);
+  - `secrets` (set/status/forget);
+  - `connect`;
+  - `status`;
+  - `logs`;
+  - `disconnect`.
+
+  Guia em `docs/cli.md`.
+- **Credenciais no `connect`:**
+  - primeiro o chaveiro; o que faltar é pedido no terminal, com as senhas
+    lidas do TTY sem eco (`rpassword`);
+  - `--remember` guarda no chaveiro;
+  - `--credentials-stdin` lê linhas `chave=valor` da entrada padrão, como o
+    `docker login --password-stdin`, para automação e para o E2E. Segredos por
+    argumento ou variável de ambiente foram descartados de propósito: aparecem
+    em `ps` e no histórico.
+- **Primeiro plano:** o progresso e o log aparecem durante a negociação; depois
+  de conectar, `Ctrl+C` desconecta, e quedas e retornos do túnel aparecem na
+  tela. `--detach` devolve o terminal, e o túnel é um container independente.
+- **Scripts:** o `status` sai com 3 quando está desconectado, e o `doctor` sai
+  com 1 quando algo impede a conexão.
+- **`logs`:** mascara o id do grupo e o usuário XAuth do perfil ativo. O perfil
+  vem da label do container, e o usuário, do chaveiro.
+- **`tests/cli/e2e.sh`** (`npm run test:cli`): o fluxo de um usuário real contra
+  o gateway de teste, com um `XDG_CONFIG_HOME` temporário e credenciais falsas
+  via stdin, sem tocar no chaveiro nem nos perfis do mantenedor:
+  1. doctor;
+  2. import, list e validate, com o perfil gravado em 0600;
+  3. senha errada → "usuário ou senha XAuth incorretos", sem identidade
+     exposta e com o host limpo;
+  4. connect `--detach`, com a saída sem segredos;
+  5. status com VIP;
+  6. ping;
+  7. logs sem segredos;
+  8. disconnect, com status = 3 e o host limpo.
+
+  O teste passou e entrou na CI.

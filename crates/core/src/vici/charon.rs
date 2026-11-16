@@ -128,6 +128,8 @@ pub struct IkeSa {
     pub remote_host: String,
     /// IPs virtuais recebidos.
     pub local_vips: Vec<String>,
+    /// Segundos desde o estabelecimento.
+    pub established_secs: Option<u64>,
     /// CHILD_SAs.
     pub children: Vec<ChildSa>,
 }
@@ -153,6 +155,7 @@ impl IkeSa {
                 .into_iter()
                 .map(str::to_owned)
                 .collect(),
+            established_secs: msg.get_str("established").and_then(|v| v.parse().ok()),
             children,
         }
     }
@@ -430,12 +433,14 @@ mod tests {
             .kv("uniqueid", "1")
             .kv("state", "ESTABLISHED")
             .kv("remote-host", "203.0.113.1")
+            .kv("established", "42")
             .kv("remote-xauth-id", "usuario.teste")
             .list("local-vips", ["198.51.100.10"])
             .section("child-sas", Message::new().section("rede-1", child));
         let ike = IkeSa::from_message("teste", &sa);
         assert_eq!(ike.state, "ESTABLISHED");
         assert_eq!(ike.local_vips, ["198.51.100.10"]);
+        assert_eq!(ike.established_secs, Some(42));
         assert_eq!(ike.children.len(), 1);
         assert_eq!(ike.children[0].bytes_in, 120);
         assert_eq!(ike.children[0].install_time, Some(5));

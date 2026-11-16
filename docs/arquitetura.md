@@ -146,6 +146,17 @@ da `ipsc0`.
 | `MemoryStore` | Só memória (testes e "não lembrar") |
 | `Redactor`/`mask` | Mascara identidades conhecidas em linhas de log: usuário XAuth e id do grupo, com e sem prefixo `keyid:`. Exemplo: `usuario.exemplo` → `us***lo` |
 
+## Módulos `core::diagnostics` e `core::session` (Rust)
+
+| Item | O que faz |
+|---|---|
+| `diagnostics::preflight`/`doctor` | Verificações sem root: usuário, runtime dir, Docker, `xfrm_interface`, resolved, D-Bus, portas 500/4500 (por `/proc/net/udp*`), chaveiro e imagem. Cada item vem com dica de correção |
+| `session::connect` | Credenciais → conexão já ativa? → preflight → imagem → engine (com a label do perfil) → eventos VICI → `establish` → `list-sas`. Em qualquer falha, derruba o engine |
+| `session::establish` | Genérica sobre `Charon`: segredos antes da conexão, depois `load-conn` e `initiate` |
+| `session::diagnose` | Causa provável da falha, a partir de linhas reais do charon 5.8.2 |
+| `session::status`/`disconnect` | Funcionam de qualquer processo (o perfil ativo vem da label do container) |
+| `SessionEvent` | Estado, log mascarado, progresso do build, queda e retorno do túnel, fim do engine |
+
 ## Fluxo de conexão (`core::session`)
 
 1. **Preflight:**

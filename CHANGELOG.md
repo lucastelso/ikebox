@@ -45,3 +45,12 @@ commits.
 - `core::secrets`: credenciais em `SecretString`, chaveiro do sistema (Secret
   Service via libdbus), armazenamento em memória, geração dos segredos do
   `load-shared` e mascaramento de identidades em logs.
+- `core::diagnostics` e `core::session`: preflight sem root, conexão com
+  eventos, `status`/`disconnect` de qualquer processo e diagnóstico das causas
+  de falha (PSK/grupo, XAuth, propostas IKE/ESP, redes, gateway inacessível).
+- `ipsec-client-cli`: `doctor`, `profiles`
+  (list/show/import/export/validate/delete/path), `secrets` (set/status/forget,
+  chaveiro), `connect` (primeiro plano com Ctrl+C, `--detach`, `--remember`,
+  `--credentials-stdin`), `status` (sai com 3 se desconectado), `logs`
+  (mascarados) e `disconnect`. Guia em `docs/cli.md`. Teste ponta a ponta:
+  `npm run test:cli`.

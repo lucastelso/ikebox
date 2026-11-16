@@ -194,6 +194,59 @@ impl DockerEngine {
         }
     }
 
+    /// Id do perfil do engine em execução (label do container), se houver.
+    ///
+    /// # Errors
+    /// Erros do Docker que não sejam "não existe".
+    pub async fn running_profile(&self, name: &str) -> Result<Option<String>, EngineError> {
+        match self
+            .docker
+            .inspect_container(name, None::<InspectContainerOptions>)
+            .await
+        {
+            Ok(info) => {
+                let running = info.state.as_ref().and_then(|s| s.running).unwrap_or(false);
+                Ok(running
+                    .then(|| info.config.and_then(|c| c.labels))
+                    .flatten()
+                    .and_then(|mut labels| labels.remove(super::PROFILE_LABEL)))
+            }
+            Err(e) if is_not_found(&e) => Ok(None),
+            Err(e) => Err(e.into()),
+        }
+    }
+
+    /// Linhas de log do container (as últimas `tail`; com `follow`, continua
+    /// até o container parar). Os logs do engine não contêm segredos, mas
+    /// contêm identidades: mascarar antes de exibir.
+    pub fn log_lines(
+        &self,
+        name: &str,
+        tail: usize,
+        follow: bool,
+    ) -> impl futures_util::Stream<Item = Result<String, EngineError>> + '_ {
+        let options = LogsOptionsBuilder::default()
+            .follow(follow)
+            .stdout(true)
+            .stderr(true)
+            .tail(&tail.to_string())
+            .build();
+        self.docker
+            .logs(name, Some(options))
+            .map(|chunk| {
+                chunk
+                    .map(|c| String::from_utf8_lossy(&c.into_bytes()).into_owned())
+                    .map_err(EngineError::from)
+            })
+            .flat_map(|chunk| {
+                let lines: Vec<Result<String, EngineError>> = match chunk {
+                    Ok(text) => text.lines().map(|l| Ok(l.trim_end().to_owned())).collect(),
+                    Err(e) => vec![Err(e)],
+                };
+                futures_util::stream::iter(lines)
+            })
+    }
+
     async fn wait_ready(&self, spec: &EngineSpec) -> Result<(), EngineError> {
         let options = LogsOptionsBuilder::default()
             .follow(true)
