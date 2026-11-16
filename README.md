@@ -101,6 +101,9 @@ cada escolha está nos [ADRs](docs/adr/README.md).
 
 ## Uso rápido (linha de comando)
 
+> Recebeu um perfil de um colega? Siga o **[guia rápido](docs/guia-rapido.md)**.
+
+
 ```bash
 cargo build --release -p ipsec-client-cli          # até haver pacotes prontos
 target/release/ipsec-client-cli doctor             # o ambiente está pronto?

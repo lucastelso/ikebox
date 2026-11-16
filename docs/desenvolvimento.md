@@ -562,3 +562,16 @@ para descartar flakiness.
 - **E2E do CLI:** importa o `swanctl.conf` do gateway de teste (que tem
   `secrets` com credenciais falsas), confere que o perfil não tem segredos nem
   o usuário, e **conecta com esse perfil**, com ping pelo túnel. Passou.
+
+### Passo 14: primeiro uso real e guia rápido
+
+- O mantenedor instalou o CLI e importou o perfil do trabalho com
+  `profiles import-swanctl`, passando o DNS e o domínio do script antigo. Depois
+  guardou as credenciais com `secrets set`, sem nenhum valor passar pelo
+  repositório.
+- Dois tropeços viraram documentação:
+  - `cargo: command not found` (falta o `~/.cargo/env` no shell);
+  - os marcadores `COLE_O_...` copiados literalmente.
+- Novo `docs/guia-rapido.md`: passo a passo simples para um colega que
+  recebeu o perfil exportado (instalar, importar, `secrets set`, `connect`,
+  tabela de erros).
