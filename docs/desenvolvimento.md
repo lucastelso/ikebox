@@ -1013,3 +1013,19 @@ Pendências e ideias que saíram daqui:
   `systemctl` substituído por um stub. O teste cobre a extração do engine, a
   cópia dos scripts e do helper, as permissões, as units, a policy, as
   chamadas ao systemctl e a desinstalação.
+
+### Passo 26: segunda rodada do teste com root e a corrida no socket
+
+- **Progresso confirmado no computador do mantenedor:** o componente de rede
+  instalou (unit, socket e SELinux), o **polkit autorizou** a sessão local e o
+  **engine embutido subiu sob o systemd**, com sandbox.
+- **Falha:** o app levou `Permission denied` ao conectar no socket VICI. Era
+  uma **corrida no helper**: ele considerava o engine pronto assim que o
+  *próprio root* conectava no socket. Isso acontece antes de o
+  `entrypoint.sh` fazer o `chgrp` + `chmod 0660` que entrega o socket ao grupo
+  do usuário. No modo Docker não acontecia, porque lá a prontidão é a linha
+  `[engine] pronto`, escrita depois do `chgrp`.
+- **Correção:** o helper só responde `Started` quando o socket já está como
+  `root:<gid do usuário>` 0660 **e** aceita conexão. Há um teste unitário com
+  um socket real: 0770 não está pronto, 0660 no grupo certo está, outro grupo
+  não está.

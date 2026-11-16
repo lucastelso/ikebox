@@ -1,6 +1,6 @@
 //! Operações do helper sobre o engine: iniciar, parar, estado e log.
 
-use std::os::unix::fs::{DirBuilderExt, PermissionsExt};
+use std::os::unix::fs::{DirBuilderExt, MetadataExt, PermissionsExt};
 use std::os::unix::net::UnixStream;
 use std::path::{Path, PathBuf};
 use std::time::{Duration, Instant};
@@ -77,7 +77,7 @@ fn start(params: &StartParams, peer: &Peer, paths: &Paths) -> Result<Response, S
     if !ok {
         return Err(format!("falha ao iniciar o engine: {}", err.trim()));
     }
-    wait_ready(peer.uid)
+    wait_ready(peer.uid, peer.gid)
 }
 
 /// `/run/ipsec-client` (0755 root) e `/run/ipsec-client/<uid>` (0750
@@ -116,11 +116,19 @@ fn ensure_dir(dir: &Path, mode: u32) -> std::io::Result<()> {
     std::fs::set_permissions(dir, std::fs::Permissions::from_mode(mode))
 }
 
-fn wait_ready(uid: u32) -> Result<Response, String> {
+/// O socket só está pronto para o usuário depois que o entrypoint o entrega
+/// ao grupo dele (`root:<gid>`, 0660). O root conecta antes disso, então
+/// "conectou" sozinho não basta: o app levaria EACCES (bug do passo 26).
+fn socket_handed_over(socket: &str, gid: u32) -> bool {
+    std::fs::symlink_metadata(socket)
+        .is_ok_and(|m| m.gid() == gid && m.permissions().mode() & 0o777 == 0o660)
+}
+
+fn wait_ready(uid: u32, gid: u32) -> Result<Response, String> {
     let socket = vici_socket(uid);
     let started = Instant::now();
     while started.elapsed() < READY_TIMEOUT {
-        if UnixStream::connect(&socket).is_ok() {
+        if socket_handed_over(&socket, gid) && UnixStream::connect(&socket).is_ok() {
             return Ok(Response::Started { socket });
         }
         if started.elapsed() > Duration::from_secs(1) && !engine_status().running {
@@ -133,4 +141,28 @@ fn wait_ready(uid: u32) -> Result<Response, String> {
     }
     let _ = stop_engine();
     Err("o engine não ficou pronto a tempo".to_owned())
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use std::os::unix::net::UnixListener;
+
+    #[test]
+    fn socket_is_ready_only_after_handover() {
+        let dir = tempfile::tempdir().expect("tempdir");
+        let path = dir.path().join("charon.vici");
+        let _listener = UnixListener::bind(&path).expect("bind");
+        let socket = path.to_string_lossy().into_owned();
+        let gid = rustix::process::getgid().as_raw();
+        std::fs::set_permissions(&path, std::fs::Permissions::from_mode(0o770)).expect("chmod");
+        assert!(
+            !socket_handed_over(&socket, gid),
+            "0770 ainda não foi entregue"
+        );
+        std::fs::set_permissions(&path, std::fs::Permissions::from_mode(0o660)).expect("chmod");
+        assert!(socket_handed_over(&socket, gid));
+        assert!(!socket_handed_over(&socket, gid + 1), "outro grupo");
+        assert!(!socket_handed_over("/nao/existe", gid));
+    }
 }
