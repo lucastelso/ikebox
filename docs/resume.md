@@ -14,7 +14,8 @@
   2. network component installed by the app itself, with the administrator
      password (`pkexec`, origin `app`);
   3. connection through the embedded strongSwan 6.1.0, **without Docker**.
-- **Version 0.2.0 (in preparation):**
+- **Version 0.2.0 (2026-11-16), published and installed on the maintainer's
+  computer:**
   - **security audit** (steps 32–35): no work data in the code, the history
     or the packages; a **local escalation to root** through VICI fixed
     (ADR-0019); "Copy anonymized"; private data scan inside release packages;
@@ -35,18 +36,20 @@
   - component installation by the app (ADR-0018);
   - `.rpm`/`.deb`/AppImage packages, with the
     [installation guide](installation.md).
-- **Next:** `chore/release`, to automate in CI:
-  - build the packages and attach them to the release when the tag is created
-    (the same `scripts/build-release.sh`);
-  - rpm/deb post-install installing the component (`--origin package`);
-  - signed `SHA256SUMS`;
-  - acceptance on a clean VM.
-- **After that:** `feat/ui-editor-perfis` (edit profiles in the interface) and
-  running charon without root (ADR-0019).
+- **Now: the post-0.2.0 program**, one phase per session
+  ([roadmap](roadmap.md#post-020-program-decided-on-2026-11-16)): audit I
+  (credentials, private data, supply chain) → audit II (privilege boundaries)
+  → compatibility → optimization and base images → interface → IPsec modes.
+  **Current phase: 1.** Each phase ends by updating this line.
+- **Still open from before:** `chore/release` (CI builds the packages on the
+  tag, rpm/deb post-install with `--origin package`, signed `SHA256SUMS`,
+  acceptance on a clean VM); running charon without root (ADR-0019).
 - **Pending with the maintainer:**
-  1. push the rewritten history and the tags (`git push --force`), check CI;
-  2. publish the release and update their machine and the colleague's;
-  3. before making the repository public: scan the history
+  1. delete the old `v0.1.1` tag on GitHub
+     (`git push origin :refs/tags/v0.1.1`): it still points to the history
+     from before the email rewrite;
+  2. before making the repository public: ask GitHub Support to purge the old
+     commits (still reachable by hash) and scan the history
      (`scripts/check-private.sh --history` + gitleaks).
 
 ## Set up the environment (once)
