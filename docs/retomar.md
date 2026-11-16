@@ -6,25 +6,13 @@
 
 ## Onde estamos
 
-- **Último branch integrado:** `feat/import-swanctl`, adiantado. O CLI gera o
-  perfil a partir de um `swanctl.conf` sem ler a seção `secrets`.
-- **Próximo passo (com o mantenedor): E2E real com a VPN do trabalho.**
-
-  ```bash
-  cargo build --release -p ipsec-client-cli
-  install -Dm755 target/release/ipsec-client-cli ~/.local/bin/ipsec-client-cli
-  ipsec-client-cli doctor
-  ipsec-client-cli profiles import-swanctl <seu swanctl.conf> --id trabalho \
-      --name "VPN do trabalho" --dns <DNS interno> --domain '~<domínio interno>'
-  ipsec-client-cli secrets set trabalho      # PSK, usuário e senha → chaveiro
-  # derrube o script antigo antes (as portas 500/4500 ficam ocupadas)
-  ipsec-client-cli connect trabalho          # depois, testar o RDP pelo Remmina
-  ```
-
-  Para o colega: `ipsec-client-cli profiles export trabalho trabalho.json`,
-  enviado por um canal privado, com a PSK do grupo indo por outro canal.
-- **Próximo branch de código:** `chore/scaffold-gui` (Tauri v2 + React).
-- **Status por branch:** ver o [roadmap](roadmap.md).
+- **Direção atual (2026-11-16):** um app desktop "baixe e rode" (AppImage),
+  sem Docker para o usuário. O plano completo, com as fases A a E, está no
+  [roadmap](roadmap.md).
+- **Base pronta:** o núcleo Rust e o `ipsec-client-cli` funcionam de ponta a
+  ponta. O mantenedor já importou o perfil do trabalho.
+- **Fase em andamento:** A (push e CI) e depois B, a prova do engine embutido
+  em `spike/engine-nativo`.
 
 ## Preparar o ambiente (uma vez)
 

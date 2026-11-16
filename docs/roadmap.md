@@ -4,44 +4,101 @@ Cada linha é um branch, criado a partir de `main` e integrado com
 `merge --no-ff`, com o `npm run check` verde. Os branches ficam guardados como
 histórico.
 
-## Ordem atual
+## Objetivo final
 
-A ordem original previa o scaffold do Tauri logo no início. Ela foi
-**reordenada**, porque o Rust e as bibliotecas de sistema do Tauri ainda não
-estavam instalados (ver o [diário](desenvolvimento.md), 2026-11-15). A ordem
-nova traz primeiro o que é testável sem GUI:
+Um **app desktop para Linux que substitui o FortiClient**: bonito, simples e
+seguro, distribuído como **AppImage** (baixe e rode) e como rpm/deb. Requisitos:
 
-1. o **engine** (container), que é a parte de maior risco técnico;
-2. o **núcleo em Rust + CLI**, que já substitui o script manual;
-3. a **GUI**.
+- o usuário **não instala nada além do app**: nem Docker, nem Node/npm, nem
+  Rust;
+- npm e Rust existem só na máquina de quem desenvolve e na CI. O Tauri compila
+  o frontend para dentro do binário.
 
-| # | Branch | Entrega | Critério de aceite | Status |
-|---|---|---|---|---|
-| 0 | `main` | README, ADRs 0001–0010, roadmap, diário, guarda de dados privados | commit inicial | ✅ |
-| 1 | `chore/tooling` | `package.json` raiz, lefthook (pre-commit/commit-msg/pre-push), commitlint, shellcheck, `npm run check`, CI inicial | hooks ativos; `npm run check` verde | ✅ |
-| 2 | `feat/engine-imagem` | `engine/`: Dockerfile fixado, entrypoint, updown, config do strongSwan; teste E2E com gateway IPsec local | `npm run test:engine` verde: túnel sobe, `ipsc0` com MTU 1400, VIP, rotas, DNS, ping pelo túnel; teardown limpa tudo | ✅ |
-| 3 | `chore/scaffold-rust` | workspace Cargo, `rust-toolchain.toml`, `deny.toml`, crates `core` e `cli`, CI Rust | `cargo fmt/clippy/test/deny` verdes | ✅ |
-| 4 | `feat/engine-rust` | `core::engine`: contexto embutido com hash, build e ciclo do container via bollard | integração: sobe e derruba o engine pelo Rust | ✅ |
-| 5 | `feat/vici` | cliente VICI atrás da trait `Charon` + tipos das mensagens | integração com charon real (`version`, `load-conn`/`list-conns`/`unload-conn`); superado: túnel completo só pelo cliente Rust | ✅ |
-| 6 | `feat/perfis` | modelo, validação, presets, import/export, geração do `load-conn` e do `updown` | snapshots (insta) de um perfil genérico IKEv1 agressivo + XAuth; túnel real a partir de perfil JSON | ✅ |
-| 7 | `feat/segredos` | keyring + memória (`secrecy`) + redação | testes com backend mock + chaveiro real (opcional) | ✅ |
-| 8 | `feat/sessao-cli` | máquina de estados, preflight, eventos, erros; CLI `connect/disconnect/status/logs/secrets/doctor/profiles` | mocks + E2E com gateway local (`npm run test:cli`) + **E2E real** (local, com o perfil do usuário) | ✅ (E2E real: pendente, com o mantenedor) |
-| 9 | `chore/scaffold-gui` | Tauri v2 + React 19/TS/Vite + Tailwind v4 + shadcn/ui, biome, vitest | `npm run tauri dev` abre a janela | ⏳ |
-| 10 | `feat/ui-conexoes` | lista de perfis, conectar/desconectar, credenciais (com "lembrar"), status, logs ao vivo | vitest + mockIPC; teste manual | ⏳ |
-| 11 | `feat/ui-editor-perfis` | criar/editar/duplicar/excluir; abas Geral/Fase 1/Auth/Fase 2/DNS-Rede/Avançado; import/export | vitest | ⏳ |
-| 12 | `feat/diagnostico` | tela de diagnóstico + `doctor` | — | ⏳ |
-| 13 | `feat/tray` | ícone na bandeja (no GNOME exige a extensão AppIndicator; sem ela, some sem erro) | — | ⏳ |
-| 14 | `feat/import-swanctl` | importar um `swanctl.conf` existente para perfil, sem os segredos | testes do parser + E2E do CLI conectando com o perfil importado | ✅ (adiantado) |
-| 15 | `chore/release` | ícone, pacotes rpm/deb/AppImage, CHANGELOG (git-cliff), tag `v0.1.0` | instala e conecta | ⏳ |
+### Decisões de 2026-11-16 (mantenedor)
+
+| Tema | Decisão |
+|---|---|
+| Engine | **Embutido no app**: strongSwan compilado por nós, sem Docker para o usuário. O Docker fica só nos testes |
+| Privilégio | Autorizado **uma vez na instalação**, com a senha de administrador. Depois conecta sem senha, como o NetworkManager |
+| strongSwan | A versão **mais nova que funcionar** (6.x → 5.9.14), com a 5.8.2 como reserva |
+| Ordem | **Prova do engine → GUI → engine embutido → release** |
+| Formatos | AppImage + rpm + deb. **Flatpak não**: o sandbox impede netlink/XFRM e serviços com privilégio |
+
+## Arquitetura-alvo
+
+```
+usuário: App (Tauri 2 + React) ou CLI
+  └── crates/core (profiles · secrets · session · vici · diagnostics)
+       └── EngineBackend (trait)
+            ├── NativeBackend ──(socket Unix + polkit)──► ipsec-client-helper (root, systemd)
+            │                                               └── charon embutido (systemd-run com sandbox)
+            └── DockerBackend (atual; só testes/dev)
+```
+
+## Feito (base: núcleo + CLI)
+
+| # | Branch | Entrega | Status |
+|---|---|---|---|
+| 0 | `main` | README, ADRs 0001–0010, roadmap, diário, guarda de dados privados | ✅ |
+| 1 | `chore/tooling` | lefthook, commitlint, shellcheck, `npm run check`, CI inicial | ✅ |
+| 2 | `feat/engine-imagem` | Engine em container + E2E com gateway IPsec local | ✅ |
+| 3 | `chore/scaffold-rust` | Workspace Cargo, toolchain, `cargo-deny`, CI Rust | ✅ |
+| 4 | `feat/engine-rust` | `core::engine`: imagem embutida e ciclo do container | ✅ |
+| 5 | `feat/vici` | Cliente VICI próprio (ADR-0011) | ✅ |
+| 6 | `feat/perfis` | Perfis JSON, validação, geração do `load-conn` (ADR-0012) | ✅ |
+| 7 | `feat/segredos` | Credenciais, chaveiro (libdbus), mascaramento | ✅ |
+| 8 | `feat/sessao-cli` | Sessão, diagnóstico de falhas, `ipsec-client-cli` | ✅ |
+| 14 | `feat/import-swanctl` | Importar `swanctl.conf` sem ler os segredos | ✅ |
+| — | `docs/guia-rapido` | Guia para quem recebe um perfil exportado | ✅ |
+
+## Próximas fases
+
+### Fase A: fechar a base
+
+| Entrega | Aceite | Status |
+|---|---|---|
+| Push de `main` e dos branches; primeira execução da CI no GitHub | CI verde (ou correções em `fix/ci`) | ⏳ |
+| Validação real do mantenedor (`connect trabalho` + Remmina) | registrada no diário | ⏳ |
+
+### Fase B: prova do engine embutido (decide o caminho)
+
+| Branch | Entrega | Aceite | Status |
+|---|---|---|---|
+| `spike/engine-nativo` | `native-engine/`: compila o strongSwan num container com glibc antiga, monolítico, com plugins próprios (gmp estático, sem OpenSSL) e tarball verificado. Testa 6.x → 5.9.14 → 5.8.2 | Contra o gateway de teste, com o charon no host: IKEv1 agressivo + PSK + XAuth + modp1024/768, `ipsc0` com `if_id`, VICI pelo usuário, updown, ping. Medir tamanho e dependências | ⏳ |
+| (mesmo) | ADRs 0013 (engine embutido), 0014 (helper + polkit), 0015 (distribuição sem Flatpak), 0016 (versão do strongSwan) | aceitos | ⏳ |
+
+### Fase C: interface gráfica
+
+| Branch | Entrega | Status |
+|---|---|---|
+| `chore/scaffold-gui` | Tauri 2.12 (estável) + React 19 + Vite + Tailwind 4 + shadcn/ui, biome, vitest, tauri-specta com versão exata, capabilities mínimas, CSP estrita | ⏳ |
+| `feat/ui-conexao` | Tela principal (perfil, botão Conectar/Desconectar, estado com VIP, tempo e tráfego), credenciais com "lembrar", erros claros, log mascarado | ⏳ |
+| `feat/ui-perfis` | Gerenciador de presets: importar JSON/swanctl.conf (arrastar e soltar), **exportar**, editor com validação campo a campo, duplicar, excluir | ⏳ |
+| `feat/ui-diagnostico` | Tela do `doctor` com ações e configurações (tema, iniciar com o sistema, bandeja) | ⏳ |
+| `feat/tray` | Bandeja, notificações, instância única | ⏳ |
+
+### Fase D: engine embutido de verdade
+
+| Branch | Entrega | Status |
+|---|---|---|
+| `feat/engine-nativo-build` | Build reproduzível do strongSwan na CI | ⏳ |
+| `feat/helper` | `crates/helper` (root): socket systemd, `SO_PEERCRED` + polkit, charon via `systemd-run` com hardening | ⏳ |
+| `feat/backend-nativo` | Trait `EngineBackend`, com `NativeBackend` (padrão) e `DockerBackend` (testes) | ⏳ |
+| `feat/setup-appimage` | Primeiro uso do AppImage: instala o componente de rede com a senha de administrador, uma vez | ⏳ |
+
+### Fase E: distribuição
+
+| Branch | Entrega | Status |
+|---|---|---|
+| `chore/release` | AppImage + rpm + deb na CI, checksums assinados, GitHub Releases, tag `v0.1.0`. Aceite: numa VM limpa, só com o AppImage, conecta com um perfil exportado | ⏳ |
+| `feat/updater` (opcional) | Atualização automática assinada | ⏳ |
+
+**Antes de tornar público:** licença, reescrita do e-mail dos commits, varredura
+completa do histórico (`check-private.sh --history` + gitleaks).
 
 ## Depois da v0.1.0 (ideias)
 
 - Várias conexões simultâneas. O `if_id` por perfil já prevê isso.
-- Imagem do engine publicada e assinada no GHCR, para evitar o build local.
-- Avaliar Podman.
 - Restringir as portas 500/4500 ao IP do gateway durante a sessão.
 - Internacionalização (en-US).
-- Remover também as *políticas* XFRM órfãs depois de um `SIGKILL` do engine. O
-  iproute2 5.5 do Ubuntu 20.04 não consegue; as opções são embutir um `ip`
-  moderno na imagem ou mandar o netlink direto. Hoje elas são inertes e somem
-  no reboot (ver arquitetura, "Contrato do engine").
+- Autenticação por certificado e EAP (schema 2 do perfil).
