@@ -7,6 +7,14 @@
 //! showing a log, the app replaces those identities with masked versions
 //! ([`Redactor`]).
 //!
+//! The masking does not depend on knowing the identity. The known ones (from
+//! the profile and the credentials) are replaced wherever they show up, and
+//! then every identity is masked **by the shape of the charon line**: quoted
+//! (`'%Y'`), in brackets after an address (`%H[%Y]`) and in the configuration
+//! dump of log level 2 (`xauth_id = %Y`). Without that, the XAuth username
+//! went out unmasked whenever the process reading the log did not have the
+//! credentials (audit of 0.2.0).
+//!
 //! The log also shows the gateway address, the virtual IP, the internal
 //! networks and the organization's domains. That is useful on screen, but must
 //! not go into a bug report. **Copied** text goes through the [`Anonymizer`],
@@ -70,9 +78,15 @@ impl Redactor {
         Self { needles }
     }
 
-    /// Texto com as identidades mascaradas.
+    /// Text with the identities masked: the known ones wherever they are, and
+    /// any other identity by the shape of the charon line.
     #[must_use]
     pub fn redact(&self, text: &str) -> String {
+        mask_structural(&self.redact_known(text))
+    }
+
+    /// Replaces only the known identities.
+    fn redact_known(&self, text: &str) -> String {
         let mut out = text.to_owned();
         for (needle, masked) in &self.needles {
             if out.contains(needle.as_str()) {
@@ -81,6 +95,195 @@ impl Redactor {
         }
         out
     }
+}
+
+/// Words that come right before a quoted value that is **not** an identity
+/// in charon messages (`plugin 'gmp'`, `config 'name'`). Any other quoted
+/// value is treated as an identity: when in doubt, mask.
+const QUOTED_NON_IDENTITY: &[&str] = &[
+    "plugin",
+    "plugins",
+    "config",
+    "configs",
+    "interface",
+    "file",
+    "script",
+    "type",
+    "policy",
+    "label",
+    "flag",
+    "pool",
+    "settings",
+    "section",
+    "sa",
+];
+
+/// Identity lines of the configuration dump (log level 2, `vici_config.c`).
+const IDENTITY_DUMPS: &[&str] = &[
+    " id = ",
+    " xauth_id = ",
+    " eap_id = ",
+    " aaa_id = ",
+    " ca_id = ",
+    " ppk_id = ",
+    " cert = ",
+    " cacert = ",
+    " group = ",
+    " mediation_peer = ",
+];
+
+/// Longest quoted value treated as an identity (a certificate DN fits).
+const MAX_QUOTED: usize = 256;
+
+/// Values that stay as they are: already masked, a marker of the anonymizer
+/// (`<gateway>`) or an IP address (shown like the other addresses, and
+/// replaced by the anonymizer).
+fn keeps_as_is(value: &str) -> bool {
+    value.is_empty()
+        || value.contains("***")
+        || value.parse::<IpAddr>().is_ok()
+        || (value.len() > 2
+            && value.starts_with('<')
+            && value.ends_with('>')
+            && !value[1..value.len() - 1].contains(['<', '>']))
+}
+
+fn mask_unless_kept(value: &str) -> String {
+    if keeps_as_is(value) {
+        value.to_owned()
+    } else {
+        mask(value)
+    }
+}
+
+/// Masks identities by the shape of the charon line, known or not.
+fn mask_structural(text: &str) -> String {
+    let mut out = String::with_capacity(text.len());
+    for line in text.split_inclusive('\n') {
+        let (body, eol) = match line.strip_suffix('\n') {
+            Some(body) => (body, "\n"),
+            None => (line, ""),
+        };
+        out.push_str(&mask_delimited(&mask_identity_dump(body)));
+        out.push_str(eol);
+    }
+    out
+}
+
+/// `   xauth_id = user` → `   xauth_id = us***er` (the value goes to the end
+/// of the line).
+fn mask_identity_dump(line: &str) -> String {
+    for pattern in IDENTITY_DUMPS {
+        if let Some(pos) = line.find(pattern) {
+            let start = pos + pattern.len();
+            let value = line[start..].trim_end();
+            return format!(
+                "{}{}{}",
+                &line[..start],
+                mask_unless_kept(value),
+                &line[start + value.len()..]
+            );
+        }
+    }
+    line.to_owned()
+}
+
+/// Masks `'identity'`, `"identity"` and `address[identity]`.
+fn mask_delimited(line: &str) -> String {
+    let mut out = String::with_capacity(line.len());
+    let mut rest = line;
+    while let Some(c) = rest.chars().next() {
+        let at = line.len() - rest.len();
+        let found = match c {
+            '\'' | '"' => quoted_value(line, at, c),
+            '[' => bracket_identity(line, at),
+            _ => None,
+        };
+        if let Some((close, value)) = found {
+            let closing = if c == '[' { ']' } else { c };
+            out.push(c);
+            out.push_str(&value);
+            out.push(closing);
+            rest = &line[close + closing.len_utf8()..];
+        } else {
+            out.push(c);
+            rest = &rest[c.len_utf8()..];
+        }
+    }
+    out
+}
+
+/// A quoted value starting at `open`: the position of the closing quote and
+/// the value to show (masked, unless it is not an identity). `None` when the
+/// quote is an apostrophe (`doesn't`) or has no closing pair.
+fn quoted_value(line: &str, open: usize, quote: char) -> Option<(usize, String)> {
+    let before = &line[..open];
+    if before
+        .chars()
+        .next_back()
+        .is_some_and(char::is_alphanumeric)
+    {
+        return None;
+    }
+    let inner = &line[open + quote.len_utf8()..];
+    let (len, content) = inner.match_indices(quote).find_map(|(len, _)| {
+        let content = &inner[..len];
+        let after = inner[len + quote.len_utf8()..].chars().next();
+        (!content.is_empty()
+            && len <= MAX_QUOTED
+            && !content.starts_with(char::is_whitespace)
+            && !content.ends_with(char::is_whitespace)
+            && !after.is_some_and(char::is_alphanumeric))
+        .then_some((len, content))
+    })?;
+    let word: String = before
+        .trim_end_matches(' ')
+        .chars()
+        .rev()
+        .take_while(|c| c.is_alphabetic())
+        .collect::<Vec<_>>()
+        .into_iter()
+        .rev()
+        .collect::<String>()
+        .to_lowercase();
+    let value = if QUOTED_NON_IDENTITY.contains(&word.as_str()) {
+        content.to_owned()
+    } else {
+        mask_unless_kept(content)
+    };
+    Some((open + quote.len_utf8() + len, value))
+}
+
+/// `address[identity]` (`%H[%Y]`): the position of the `]` and the identity
+/// masked. `None` when the bracket does not follow an address (`05[IKE]`,
+/// `name[1]`) or holds a number (`address[500]` is a port).
+fn bracket_identity(line: &str, open: usize) -> Option<(usize, String)> {
+    let before = &line[..open];
+    let start = before
+        .char_indices()
+        .rev()
+        .take_while(|(_, c)| is_ip_char(*c))
+        .last()
+        .map(|(i, _)| i)?;
+    let host = &before[start..];
+    let is_address = host.parse::<IpAddr>().is_ok()
+        || host
+            .trim_start_matches(['.', ':'])
+            .parse::<IpAddr>()
+            .is_ok();
+    if !is_address {
+        return None;
+    }
+    let inner = &line[open + 1..];
+    let len = inner.find(']')?;
+    let content = &inner[..len];
+    if content.is_empty()
+        || content.contains(char::is_whitespace)
+        || content.chars().all(|c| c.is_ascii_digit())
+    {
+        return None;
+    }
+    Some((open + 1 + len, mask_unless_kept(content)))
 }
 
 /// Anonimiza um log para compartilhar: identidades mascaradas, gateway,
@@ -142,11 +345,14 @@ impl Anonymizer {
     /// Texto anonimizado.
     #[must_use]
     pub fn anonymize(&self, text: &str) -> String {
-        let mut out = self.redactor.redact(text);
+        // Known values first (identities, gateway and domains), then every
+        // other identity by the shape of the line, and the addresses last
+        // (the shapes need the addresses still in place).
+        let mut out = self.redactor.redact_known(text);
         for (name, marker) in &self.names {
             out = replace_ascii_ci(&out, name, marker);
         }
-        replace_ips(&out, &self.known_ips)
+        replace_ips(&mask_structural(&out), &self.known_ips)
     }
 }
 
@@ -341,6 +547,96 @@ rota 0.0.0.0/1 via ipsc0; fe80::1 e 2001:db8::7 vistos; versão 6.1.0; hora 15:3
         ] {
             assert_eq!(a.anonymize(text), text);
         }
+    }
+
+    /// The reader of the log may not have the credentials (CLI without the
+    /// keyring, app reopened with the VPN up): the identities are masked by
+    /// the shape of the line, with no known identity at all.
+    #[test]
+    fn masks_identities_it_does_not_know() {
+        let r = Redactor::default();
+        for (line, expected) in [
+            (
+                "09[IKE] XAuth authentication of 'usuario.exemplo' (myself) successful",
+                "09[IKE] XAuth authentication of 'us***lo' (myself) successful",
+            ),
+            (
+                "05[CFG] no XAuth secret found for 'grupo-exemplo' - 'usuario.exemplo'",
+                "05[CFG] no XAuth secret found for 'gr***lo' - 'us***lo'",
+            ),
+            (
+                "09[IKE] IKE_SA gw[1] established between 198.51.100.7[grupo-exemplo]...203.0.113.5[vpn.example.com]",
+                "09[IKE] IKE_SA gw[1] established between 198.51.100.7[gr***lo]...203.0.113.5[vp***om]",
+            ),
+            (
+                "05[CFG]    xauth_id = usuario.exemplo",
+                "05[CFG]    xauth_id = us***lo",
+            ),
+            (
+                "05[CFG]    id = keyid:grupo-exemplo",
+                "05[CFG]    id = ke***lo",
+            ),
+            (
+                "06[CFG]   using certificate \"C=BR, O=Exemplo, CN=vpn.example.com\"",
+                "06[CFG]   using certificate \"C=***om\"",
+            ),
+            (
+                "2001:db8::7[usuario.exemplo] is the peer",
+                "2001:db8::7[us***lo] is the peer",
+            ),
+        ] {
+            assert_eq!(r.redact(line), expected);
+            assert_eq!(r.redact(expected), expected, "idempotent: {line}");
+        }
+    }
+
+    #[test]
+    fn structural_masking_leaves_the_rest_readable() {
+        let r = Redactor::default();
+        for line in [
+            // Thread and group prefix, SA names with their number, ports.
+            "15:30:14 05[IKE] <gw|1> initiating Aggressive Mode IKE_SA gw[1] to 203.0.113.5",
+            "13[NET] sending packet: from 198.51.100.7[500] to 203.0.113.5[4500] (364 bytes)",
+            "07[IKE] CHILD_SA rede{1} established with SPIs ce662fe9_i c7e6d166_o",
+            // Quoted values that are not identities.
+            "00[LIB] plugin 'gmp': failed to load",
+            "05[CFG] added vici connection: config 'gateway-teste'",
+            "05[KNL] interface 'ipsc0' not found",
+            // Apostrophes and addresses as identities.
+            "09[IKE] peer didn't accept the proposal, it doesn't match",
+            "09[IKE] authentication of '203.0.113.5' with pre-shared key successful",
+            "09[IKE] established between 198.51.100.7[198.51.100.7]...203.0.113.5[203.0.113.5]",
+            // Our own lines.
+            "updown: DNS on ipsc0: servers [192.0.2.53] domains [~corp.example.com]",
+        ] {
+            assert_eq!(r.redact(line), line);
+        }
+    }
+
+    #[test]
+    fn anonymizes_identities_it_does_not_know() {
+        // Gateway by address, identity by name: neither the username nor the
+        // gateway identity are in the profile.
+        let a = Anonymizer::new([], "203.0.113.5", &[], &[]);
+        let out = a.anonymize(
+            "XAuth authentication of 'usuario.exemplo' (myself) successful\n\
+             IKE_SA gw[1] established between 198.51.100.7[grupo-exemplo]...203.0.113.5[vpn.interno.example]\n\
+             authentication of '203.0.113.5' with pre-shared key successful",
+        );
+        for leaked in [
+            "usuario.exemplo",
+            "grupo-exemplo",
+            "vpn.interno.example",
+            "203.0.113.5",
+            "198.51.100.7",
+        ] {
+            assert!(!out.contains(leaked), "leaked {leaked}:\n{out}");
+        }
+        assert!(
+            out.contains("<ip-1>[gr***lo]...<gateway>[vp***le]"),
+            "{out}"
+        );
+        assert!(out.contains("authentication of '<gateway>'"), "{out}");
     }
 
     #[test]
