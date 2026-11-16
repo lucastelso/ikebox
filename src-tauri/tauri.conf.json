@@ -36,8 +36,8 @@
       "rpm"
     ],
     "category": "Utility",
-    "shortDescription": "Cliente de VPN IPsec para Linux",
-    "longDescription": "Conecta a VPNs IPsec, inclusive as legadas (IKEv1, PSK de grupo + XAuth), sem configurar nada no sistema.",
+    "shortDescription": "IPsec VPN client for Linux",
+    "longDescription": "Connects to IPsec VPNs, including legacy ones (IKEv1, group PSK + XAuth), without configuring anything in the system.",
     "icon": [
       "icons/32x32.png",
       "icons/64x64.png",

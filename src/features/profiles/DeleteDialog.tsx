@@ -11,6 +11,7 @@ import {
   DialogTitle,
 } from '@/components/ui/dialog';
 import { Label } from '@/components/ui/label';
+import { useT } from '@/i18n';
 
 /** Confirma a exclusão de um perfil (e, opcionalmente, das credenciais). */
 export function DeleteDialog({
@@ -22,27 +23,26 @@ export function DeleteDialog({
   onCancel: () => void;
   onConfirm: (forgetCredentials: boolean) => void;
 }) {
+  const t = useT().profiles;
   const id = useId();
   const [forget, setForget] = useState(true);
   return (
     <Dialog open onOpenChange={(open) => !open && onCancel()}>
       <DialogContent>
         <DialogHeader>
-          <DialogTitle>Excluir perfil?</DialogTitle>
-          <DialogDescription>
-            "{profile.name}" será removido deste computador. Você pode importá-lo de novo depois.
-          </DialogDescription>
+          <DialogTitle>{t.deleteTitle}</DialogTitle>
+          <DialogDescription>{t.deleteBody(profile.name)}</DialogDescription>
         </DialogHeader>
         <div className="flex items-center gap-2">
           <Checkbox id={id} checked={forget} onCheckedChange={(c) => setForget(c === true)} />
-          <Label htmlFor={id}>Apagar também as credenciais guardadas</Label>
+          <Label htmlFor={id}>{t.deleteCredentials}</Label>
         </div>
         <DialogFooter>
           <Button variant="ghost" onClick={onCancel}>
-            Cancelar
+            {t.cancel}
           </Button>
           <Button variant="destructive" onClick={() => onConfirm(forget)}>
-            Excluir
+            {t.confirmDelete}
           </Button>
         </DialogFooter>
       </DialogContent>

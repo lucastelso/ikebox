@@ -1,19 +1,19 @@
 #!/usr/bin/env bash
-# Teste do instalador do componente de rede (packaging/install-native.sh).
+# Test of the network component installer (packaging/install-native.sh).
 #
-# Monta um pacote de verdade com scripts/stage-network-component.sh, mas com
-# engine e helper FALSOS (rápido, sem compilar nada), e roda o instalador como
-# root num container Ubuntu descartável com um systemctl de mentira. Nada é
-# instalado no computador de quem roda o teste.
+# Builds a real bundle with scripts/stage-network-component.sh, but with a FAKE
+# engine and helper (fast, nothing to compile), and runs the installer as root
+# in a throwaway Ubuntu container with a fake systemctl. Nothing is installed
+# on the computer running the test.
 #
-# Cenários: instalar, reinstalar com outra origem, remover, e recusar pacote
-# adulterado, com link simbólico, incompleto, com tarball fora de
-# /opt/ipsec-client/engine e execução sem root.
+# Scenarios: install, reinstall with another origin, remove, and refuse a
+# tampered bundle, a symlink, an incomplete bundle, a tarball outside
+# /opt/ipsec-client/engine and running without root.
 
 set -euo pipefail
 
 repo=$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)
-# Mesma base fixada do builder do engine.
+# Same pinned base as the engine builder.
 readonly IMAGE=ubuntu:22.04@sha256:9abcaffc92a5279fff3a6a41635c0800ea33e528425fb389658806476e7defde
 
 step() { printf '\n\033[1;36m==> %s\033[0m\n' "$*"; }
@@ -23,20 +23,20 @@ fail() {
     exit 1
 }
 
-# --- Dentro do container (root) ----------------------------------------------
+# --- Inside the container (root) ---------------------------------------------
 
-# Roda o instalador e exige falha com a mensagem indicada.
+# Runs the installer and requires a failure with the given message.
 expect_refusal() {
     local why=$1 pattern=$2 bundle=$3 out
     if out=$(bash "$bundle/install-native.sh" install --bundle "$bundle" --origin app 2>&1); then
-        fail "$why: o instalador aceitou"
+        fail "$why: the installer accepted it"
     fi
-    grep -q -- "$pattern" <<<"$out" || fail "$why: mensagem inesperada: $out"
-    [[ ! -e /opt/ipsec-client ]] || fail "$why: instalou mesmo assim"
-    ok "$why: recusado"
+    grep -q -- "$pattern" <<<"$out" || fail "$why: unexpected message: $out"
+    [[ ! -e /opt/ipsec-client ]] || fail "$why: installed anyway"
+    ok "$why: refused"
 }
 
-# Cópia gravável do pacote, para adulterar.
+# Writable copy of the bundle, to tamper with.
 copy_bundle() {
     local dest
     dest=$(mktemp -d)
@@ -45,13 +45,13 @@ copy_bundle() {
 }
 
 resum() {
-    # shellcheck disable=SC2094 # o find exclui o próprio SHA256SUMS
+    # shellcheck disable=SC2094 # find excludes SHA256SUMS itself
     (cd "$1" && find . -type f ! -name SHA256SUMS -printf '%P\n' | LC_ALL=C sort |
         xargs -d '\n' sha256sum >SHA256SUMS)
 }
 
 inside() {
-    # systemctl de mentira: registra as chamadas.
+    # Fake systemctl: records the calls.
     cat >/usr/local/bin/systemctl <<'STUB'
 #!/bin/sh
 echo "$*" >>/tmp/systemctl.log
@@ -59,52 +59,52 @@ STUB
     chmod 0755 /usr/local/bin/systemctl
     mkdir -p /etc/systemd/system /usr/share/polkit-1/actions
 
-    step "instalar (origem app)"
+    step "install (origin app)"
     bash /bundle/install-native.sh install --bundle /bundle --origin app
     local p=/opt/ipsec-client
     [[ -x $p/bin/ipsec-client-helper && -x $p/libexec/entrypoint.sh && -x $p/libexec/updown ]] ||
-        fail "binários/scripts ausentes"
-    [[ -x $p/libexec/install-native.sh ]] || fail "instalador não copiado"
-    [[ -f $p/engine/etc/strongswan.d/zz-ipsec-client.conf ]] || fail "configuração ausente"
-    [[ $(cat "$p/ORIGIN") == app ]] || fail "ORIGIN errado"
-    cmp -s /bundle/SHA256SUMS "$p/SHA256SUMS" || fail "SHA256SUMS não registrado"
-    cmp -s /bundle/VERSION "$p/VERSION" || fail "VERSION não registrado"
-    [[ $(stat -c %U "$p/bin/ipsec-client-helper") == root ]] || fail "dono errado"
-    [[ -z $(find "$p" -perm /022 -print -quit) ]] || fail "arquivo gravável por outros"
-    [[ -f /etc/systemd/system/ipsec-client-helper.socket ]] || fail "unit ausente"
+        fail "binaries/scripts missing"
+    [[ -x $p/libexec/install-native.sh ]] || fail "installer not copied"
+    [[ -f $p/engine/etc/strongswan.d/zz-ipsec-client.conf ]] || fail "configuration missing"
+    [[ $(cat "$p/ORIGIN") == app ]] || fail "wrong ORIGIN"
+    cmp -s /bundle/SHA256SUMS "$p/SHA256SUMS" || fail "SHA256SUMS not recorded"
+    cmp -s /bundle/VERSION "$p/VERSION" || fail "VERSION not recorded"
+    [[ $(stat -c %U "$p/bin/ipsec-client-helper") == root ]] || fail "wrong owner"
+    [[ -z $(find "$p" -perm /022 -print -quit) ]] || fail "file writable by others"
+    [[ -f /etc/systemd/system/ipsec-client-helper.socket ]] || fail "unit missing"
     [[ -f /usr/share/polkit-1/actions/io.github.lucastelso.ipsecclient.policy ]] ||
-        fail "policy ausente"
+        fail "policy missing"
     grep -q "enable --now ipsec-client-helper.socket" /tmp/systemctl.log ||
-        fail "socket não habilitado"
-    ok "arquivos, donos, permissões, units, policy e registro da versão"
+        fail "socket not enabled"
+    ok "files, owners, permissions, units, policy and version record"
 
-    step "reinstalar (origem manual)"
+    step "reinstall (origin manual)"
     bash /bundle/install-native.sh install --bundle /bundle --origin manual >/dev/null
-    [[ $(cat "$p/ORIGIN") == manual ]] || fail "ORIGIN não atualizado"
-    ok "reinstalação substitui a anterior"
+    [[ $(cat "$p/ORIGIN") == manual ]] || fail "ORIGIN not updated"
+    ok "reinstalling replaces the previous one"
 
-    step "remover (pelo instalador copiado)"
+    step "remove (with the copied installer)"
     bash "$p/libexec/install-native.sh" uninstall >/dev/null
     [[ ! -e $p && ! -e /etc/systemd/system/ipsec-client-helper.socket ]] ||
-        fail "sobrou algo"
+        fail "something was left behind"
     [[ ! -e /usr/share/polkit-1/actions/io.github.lucastelso.ipsecclient.policy ]] ||
-        fail "policy não removida"
-    ok "removido por completo"
+        fail "policy not removed"
+    ok "completely removed"
 
-    step "pacotes recusados"
+    step "refused bundles"
     local b
     b=$(copy_bundle)
     echo "# adulterado" >>"$b/engine/updown.sh"
-    expect_refusal "arquivo adulterado" "não confere" "$b"
+    expect_refusal "tampered file" "does not match" "$b"
 
     b=$(copy_bundle)
     ln -sf /etc/shadow "$b/packaging/polkit/io.github.lucastelso.ipsecclient.policy"
-    expect_refusal "link simbólico" "links" "$b"
+    expect_refusal "symlink" "links" "$b"
 
     b=$(copy_bundle)
     rm "$b/packaging/systemd/ipsec-client-helper.service"
     resum "$b"
-    expect_refusal "pacote incompleto" "falta packaging/systemd/ipsec-client-helper.service" "$b"
+    expect_refusal "incomplete bundle" "missing packaging/systemd/ipsec-client-helper.service" "$b"
 
     b=$(copy_bundle)
     local evil
@@ -113,35 +113,35 @@ STUB
     echo x >"$evil/etc/cron.d/evil"
     tar -czf "$b/engine.tar.gz" -C "$evil" opt etc
     resum "$b"
-    expect_refusal "tarball fora do engine" "caminhos inesperados" "$b"
+    expect_refusal "tarball outside the engine" "unexpected paths" "$b"
 
     if bash /bundle/install-native.sh install --bundle /bundle --origin root >/dev/null 2>&1; then
-        fail "origem inválida aceita"
+        fail "invalid origin accepted"
     fi
-    [[ ! -e /opt/ipsec-client ]] || fail "origem inválida: instalou mesmo assim"
-    ok "origem inválida: recusada"
+    [[ ! -e /opt/ipsec-client ]] || fail "invalid origin: installed anyway"
+    ok "invalid origin: refused"
 
     if setpriv --reuid=65534 --regid=65534 --clear-groups \
         bash /bundle/install-native.sh install --bundle /bundle >/dev/null 2>&1; then
-        fail "rodou sem root"
+        fail "ran without root"
     fi
-    ok "sem root: recusado"
+    ok "without root: refused"
 }
 
-# --- No host -----------------------------------------------------------------
+# --- On the host ---------------------------------------------------------------
 
 main() {
-    command -v docker >/dev/null || fail "Docker é necessário para este teste"
+    command -v docker >/dev/null || fail "Docker is required for this test"
     local work
     work=$(mktemp -d)
-    # shellcheck disable=SC2064 # caminho fixado agora
+    # shellcheck disable=SC2064 # path fixed now
     trap "rm -rf '$work'" EXIT
 
-    step "montando um pacote com engine e helper falsos"
+    step "building a bundle with a fake engine and helper"
     mkdir -p "$work/root/opt/ipsec-client/engine/etc/strongswan.d" \
         "$work/root/opt/ipsec-client/engine/libexec/ipsec"
-    # O BUILDINFO declara os patches deste commit, como um engine compilado de
-    # verdade: sem isso, o script de produção recusa o engine (ADR-0019).
+    # BUILDINFO declares the patches of this commit, like a really compiled
+    # engine: without it, the production script refuses the engine (ADR-0019).
     local patches=() patch_file
     for patch_file in "$repo"/native-engine/patches/*.patch; do
         patches+=("$(basename "$patch_file"):$(sha256sum "$patch_file" | cut -c1-64)")
@@ -155,13 +155,13 @@ main() {
     chmod 0755 "$work/helper"
     "$repo/scripts/stage-network-component.sh" --out "$work/bundle" \
         --engine "$work/engine.tar.gz" --helper "$work/helper" >/dev/null
-    ok "pacote montado pelo script de produção"
+    ok "bundle built by the production script"
 
     docker run --rm --network none \
         -v "$work/bundle:/bundle:ro" \
         -v "$repo/tests/packaging/install-test.sh:/test.sh:ro" \
         "$IMAGE" bash /test.sh --inside
-    printf '\n\033[1;32m✔ instalador do componente de rede OK\033[0m\n'
+    printf '\n\033[1;32m✔ network component installer OK\033[0m\n'
 }
 
 if [[ ${1:-} == --inside ]]; then

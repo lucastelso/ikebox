@@ -3,11 +3,13 @@ import { useCallback, useEffect, useState } from 'react';
 import { toast } from 'sonner';
 import { commands, type ProfileList, type ProfileSummary } from '@/bindings';
 import { Button } from '@/components/ui/button';
+import { useT } from '@/i18n';
 import { DeleteDialog } from './DeleteDialog';
 import { ProfileCard } from './ProfileCard';
 
 /** Gerenciador de presets: importar, exportar, ver e excluir perfis. */
 export function ProfilesScreen({ onImport }: { onImport: () => void }) {
+  const t = useT();
   const [list, setList] = useState<ProfileList | null>(null);
   const [toDelete, setToDelete] = useState<ProfileSummary | null>(null);
 
@@ -25,8 +27,8 @@ export function ProfilesScreen({ onImport }: { onImport: () => void }) {
     const result = await commands.exportProfile(profile.id);
     if (result.status === 'error') toast.error(result.error.message);
     else if (result.data)
-      toast.success(`Exportado: ${result.data}`, {
-        description: 'O arquivo não tem credenciais. Mande a PSK do grupo por outro canal.',
+      toast.success(t.profiles.exported(result.data), {
+        description: t.profiles.exportedHint,
       });
   }
 
@@ -35,7 +37,7 @@ export function ProfilesScreen({ onImport }: { onImport: () => void }) {
     const result = await commands.deleteProfile(toDelete.id, forget);
     setToDelete(null);
     if (result.status === 'ok') {
-      toast.success('Perfil excluído');
+      toast.success(t.profiles.deleted);
       await reload();
     } else toast.error(result.error.message);
   }
@@ -43,20 +45,17 @@ export function ProfilesScreen({ onImport }: { onImport: () => void }) {
   return (
     <div className="flex w-full flex-col gap-4">
       <div className="flex items-center justify-between gap-2">
-        <h2 className="text-lg font-semibold">Perfis</h2>
+        <h2 className="text-lg font-semibold">{t.profiles.title}</h2>
         <Button onClick={onImport}>
           <FileUp />
-          Importar
+          {t.profiles.import}
         </Button>
       </div>
-      <p className="text-xs text-muted-foreground">
-        Importe um perfil (.json) recebido da sua equipe ou o swanctl.conf de uma VPN que já
-        funciona. Você também pode arrastar o arquivo para a janela.
-      </p>
+      <p className="text-xs text-muted-foreground">{t.profiles.intro}</p>
 
       {list?.profiles.length === 0 && (
         <p className="rounded-lg border border-dashed p-6 text-center text-sm text-muted-foreground">
-          Nenhum perfil ainda.
+          {t.profiles.none}
         </p>
       )}
 
@@ -73,7 +72,7 @@ export function ProfilesScreen({ onImport }: { onImport: () => void }) {
         <div className="rounded-lg bg-warning/10 p-3 text-xs">
           <p className="flex items-center gap-1 font-medium">
             <TriangleAlert className="size-3.5 text-warning" aria-hidden />
-            Arquivos ignorados
+            {t.profiles.ignored}
           </p>
           <ul className="mt-1 list-disc pl-5" data-selectable>
             {list.broken.map((b) => (

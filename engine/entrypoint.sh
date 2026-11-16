@@ -60,7 +60,7 @@ charon_pid=""
 
 log() { printf '[engine] %s\n' "$*" >&2; }
 die() {
-    log "erro: $*"
+    log "error: $*"
     exit 1
 }
 
@@ -72,32 +72,32 @@ uint_in_range() {
 
 validate_env() {
     [[ $IFACE =~ ^[a-z][a-z0-9_-]{0,14}$ ]] ||
-        die "IPSEC_CLIENT_IFACE inválido (use ^[a-z][a-z0-9_-]{0,14}\$)"
+        die "invalid IPSEC_CLIENT_IFACE (use ^[a-z][a-z0-9_-]{0,14}\$)"
     uint_in_range "$IF_ID" 1 4294967295 ||
-        die "IPSEC_CLIENT_IF_ID inválido (inteiro 1-4294967295)"
+        die "invalid IPSEC_CLIENT_IF_ID (integer 1-4294967295)"
     uint_in_range "$MTU" 576 9000 ||
-        die "IPSEC_CLIENT_MTU inválido (inteiro 576-9000)"
+        die "invalid IPSEC_CLIENT_MTU (integer 576-9000)"
     if [[ -n $SOCKET_UID ]]; then
-        uint_in_range "$SOCKET_UID" 0 2147483647 || die "IPSEC_CLIENT_SOCKET_UID inválido"
+        uint_in_range "$SOCKET_UID" 0 2147483647 || die "invalid IPSEC_CLIENT_SOCKET_UID"
         SOCKET_UID=$((10#$SOCKET_UID))
     else
-        uint_in_range "$SOCKET_GID" 0 2147483647 || die "IPSEC_CLIENT_SOCKET_GID inválido"
+        uint_in_range "$SOCKET_GID" 0 2147483647 || die "invalid IPSEC_CLIENT_SOCKET_GID"
         SOCKET_GID=$((10#$SOCKET_GID))
     fi
     [[ $LOG_LEVEL =~ ^[0-2]$ ]] ||
-        die "IPSEC_CLIENT_LOG_LEVEL deve ser 0, 1 ou 2"
+        die "IPSEC_CLIENT_LOG_LEVEL must be 0, 1 or 2"
     local path
     for path in "$SOCKET_DIR" ${STATE_DIR:+"$STATE_DIR"} "$BASE_CONF" "$ARGS_DIR" ${UPDOWN:+"$UPDOWN"}; do
-        [[ $path =~ ^/[A-Za-z0-9/._-]+$ && $path != *..* ]] || die "caminho inválido: $path"
+        [[ $path =~ ^/[A-Za-z0-9/._-]+$ && $path != *..* ]] || die "invalid path: $path"
     done
     [[ -d $SOCKET_DIR ]] ||
-        die "$SOCKET_DIR não existe (diretório do socket VICI)"
+        die "$SOCKET_DIR does not exist (VICI socket directory)"
     if [[ -n $STATE_DIR ]]; then
-        [[ -d $STATE_DIR ]] || die "$STATE_DIR não existe"
-        [[ -f $BASE_CONF ]] || die "config base $BASE_CONF não existe"
+        [[ -d $STATE_DIR ]] || die "$STATE_DIR does not exist"
+        [[ -f $BASE_CONF ]] || die "base config $BASE_CONF does not exist"
     fi
     if [[ -n $UPDOWN ]]; then
-        [[ -f $UPDOWN && -x $UPDOWN ]] || die "updown não encontrado: $UPDOWN"
+        [[ -f $UPDOWN && -x $UPDOWN ]] || die "updown not found: $UPDOWN"
         validate_dns_env
     fi
     # Normaliza zeros à esquerda.
@@ -113,21 +113,21 @@ validate_dns_env() {
     local -a list
     IFS=, read -r -a list <<<"$DNS_SERVERS"
     for item in "${list[@]}"; do
-        [[ $item =~ ^[0-9A-Fa-f:.]{2,45}$ ]] || die "IPSEC_CLIENT_DNS_SERVERS inválido"
+        [[ $item =~ ^[0-9A-Fa-f:.]{2,45}$ ]] || die "invalid IPSEC_CLIENT_DNS_SERVERS"
         n=$((n + 1))
     done
-    ((n <= 8)) || die "mais de 8 servidores DNS"
+    ((n <= 8)) || die "more than 8 DNS servers"
     n=0
     IFS=, read -r -a list <<<"$DNS_DOMAINS"
     for item in "${list[@]}"; do
         [[ $item == "~." || $item =~ ^~?[A-Za-z0-9][A-Za-z0-9.-]{0,252}$ ]] ||
-            die "IPSEC_CLIENT_DNS_DOMAINS inválido"
+            die "invalid IPSEC_CLIENT_DNS_DOMAINS"
         n=$((n + 1))
     done
-    ((n <= 16)) || die "mais de 16 domínios DNS"
+    ((n <= 16)) || die "more than 16 DNS domains"
     IFS=, read -r -a list <<<"$DNS_FLAGS"
     for item in "${list[@]}"; do
-        [[ $item == use-received || $item == default-route ]] || die "IPSEC_CLIENT_DNS_FLAGS inválido"
+        [[ $item == use-received || $item == default-route ]] || die "invalid IPSEC_CLIENT_DNS_FLAGS"
     done
 }
 
@@ -205,7 +205,7 @@ flush_stale_xfrm() {
     stale_policies=$(ip -o xfrm policy 2>/dev/null |
         grep -ciE "if_id ${hex_id}([^0-9a-f]|$)" || true)
     if ((stale_policies > 0)); then
-        log "aviso: $stale_policies política(s) XFRM órfã(s) com if_id $hex_id (inertes; somem no reboot)"
+        log "warning: $stale_policies orphan XFRM policies with if_id $hex_id (inert; gone after a reboot)"
     fi
 }
 
@@ -230,12 +230,12 @@ create_iface() {
         # Kernels/iproute2 mais antigos exigem um dispositivo subjacente.
         local dev
         dev=$(ip -4 route show default | awk '{ for (i = 1; i < NF; i++) if ($i == "dev") { print $(i + 1); exit } }')
-        [[ -n $dev ]] || die "não foi possível criar $IFACE (o módulo xfrm_interface está disponível?)"
+        [[ -n $dev ]] || die "could not create $IFACE (is the xfrm_interface module available?)"
         ip link add "$IFACE" type xfrm dev "$dev" if_id "$IF_ID" ||
-            die "não foi possível criar $IFACE"
+            die "could not create $IFACE"
     fi
     ip link set "$IFACE" mtu "$MTU" up
-    log "interface $IFACE criada (if_id $IF_ID, MTU $MTU)"
+    log "interface $IFACE created (if_id $IF_ID, MTU $MTU)"
 }
 
 write_runtime_conf() {
@@ -276,24 +276,24 @@ wait_for_socket() {
     local _
     for _ in $(seq 1 100); do
         [[ -S $SOCKET ]] && return 0
-        kill -0 "$charon_pid" 2>/dev/null || die "o charon terminou antes de abrir o socket VICI"
+        kill -0 "$charon_pid" 2>/dev/null || die "charon exited before opening the VICI socket"
         sleep 0.1
     done
-    die "o socket VICI não apareceu em 10 s"
+    die "the VICI socket did not show up within 10 s"
 }
 
 # Chamada pelo trap de TERM/INT (docker stop).
 # shellcheck disable=SC2329
 shutdown() {
     trap - TERM INT
-    log "encerrando..."
+    log "shutting down..."
     if [[ -n $charon_pid ]] && kill -0 "$charon_pid" 2>/dev/null; then
         # O charon encerra as SAs (envia DELETE ao gateway) e remove o VIP.
         kill -TERM "$charon_pid" 2>/dev/null || true
         wait "$charon_pid" 2>/dev/null || true
     fi
     cleanup
-    log "limpeza concluída"
+    log "cleanup done"
     exit 0
 }
 
@@ -303,7 +303,7 @@ main() {
 
     local version
     version=$("$CHARON" --version 2>/dev/null | grep -oE '[0-9]+\.[0-9]+\.[0-9]+' | head -n 1 || true)
-    log "preparando (strongSwan ${version:-?})"
+    log "preparing (strongSwan ${version:-?})"
     cleanup
     create_iface
     write_runtime_conf
@@ -319,17 +319,17 @@ main() {
         # engine embutido) não pode mais mudar a permissão.
         chmod 0600 "$SOCKET"
         chown "$SOCKET_UID:0" "$SOCKET"
-        log "pronto: socket VICI liberado para o uid $SOCKET_UID"
+        log "ready: VICI socket handed over to uid $SOCKET_UID"
     else
         chgrp "$SOCKET_GID" "$SOCKET"
         chmod 0660 "$SOCKET"
-        log "pronto: socket VICI liberado para o gid $SOCKET_GID"
+        log "ready: VICI socket handed over to gid $SOCKET_GID"
     fi
 
     local status=0
     wait "$charon_pid" || status=$?
     # Só chega aqui se o charon morrer sozinho (o SIGTERM sai pelo trap).
-    log "o charon terminou inesperadamente (status $status)"
+    log "charon exited unexpectedly (status $status)"
     charon_pid=""
     cleanup
     exit "$status"

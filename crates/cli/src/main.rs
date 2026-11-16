@@ -95,7 +95,7 @@ enum Command {
         /// Also replaces gateway, IPs, DNS and domains with placeholders, to
         /// send in a bug report.
         #[arg(long)]
-        anonimizar: bool,
+        anonymize: bool,
     },
 }
 
@@ -291,8 +291,8 @@ async fn run(cli: Cli) -> anyhow::Result<ExitCode> {
         Command::Logs {
             follow,
             lines,
-            anonimizar,
-        } => logs(follow, lines, anonimizar).await,
+            anonymize,
+        } => logs(follow, lines, anonymize).await,
     }
 }
 
@@ -707,13 +707,13 @@ async fn connect(
     }
 }
 
-async fn logs(follow: bool, lines: usize, anonimizar: bool) -> anyhow::Result<ExitCode> {
+async fn logs(follow: bool, lines: usize, anonymize: bool) -> anyhow::Result<ExitCode> {
     let Some(profile_id) = session::active_profile().await? else {
         println!("No active connection.");
         return Ok(ExitCode::from(3));
     };
     // Mascara as identidades do perfil ativo (id do grupo e usuário XAuth);
-    // com --anonimizar, também gateway, IPs, DNS e domínios.
+    // com --anonymize, também gateway, IPs, DNS e domínios.
     let mut identities: Vec<String> = Vec::new();
     let mut anonymizer = None;
     if let Ok(profile) = store()?.load(&profile_id) {
@@ -725,11 +725,11 @@ async fn logs(follow: bool, lines: usize, anonimizar: bool) -> anyhow::Result<Ex
             xauth_user = creds.xauth_user().map(str::to_owned);
             identities.extend(xauth_user.clone());
         }
-        if anonimizar {
+        if anonymize {
             anonymizer = Some(session::anonymizer_for(&profile, xauth_user.as_deref()));
         }
     }
-    if anonimizar && anonymizer.is_none() {
+    if anonymize && anonymizer.is_none() {
         anyhow::bail!("could not read the active profile ({profile_id}) to anonymize the log");
     }
     let redactor = Redactor::new(identities.iter().map(String::as_str));

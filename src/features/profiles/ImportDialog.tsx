@@ -13,6 +13,7 @@ import {
 } from '@/components/ui/dialog';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
+import { useT } from '@/i18n';
 
 function splitList(value: string): string[] {
   return value
@@ -31,6 +32,7 @@ export function ImportDialog({
   onClose: () => void;
   onImported: (profile: ProfileSummary) => void;
 }) {
+  const t = useT().importDialog;
   const id = useId();
   const [profileId, setProfileId] = useState(preview.suggestedId);
   const [name, setName] = useState(preview.suggestedName);
@@ -77,10 +79,10 @@ export function ImportDialog({
               ) : (
                 <FileJson className="size-5 text-primary" aria-hidden />
               )}
-              Importar perfil
+              {t.title}
             </DialogTitle>
             <DialogDescription>
-              {preview.fileName} · {swanctl ? 'swanctl.conf' : 'perfil do IPsec Client'}
+              {preview.fileName} · {swanctl ? 'swanctl.conf' : t.jsonKind}
             </DialogDescription>
           </DialogHeader>
 
@@ -92,63 +94,55 @@ export function ImportDialog({
             <>
               <div className="grid gap-1 rounded-lg bg-muted p-3 text-sm" data-selectable>
                 <p>
-                  <span className="text-muted-foreground">Gateway: </span>
+                  <span className="text-muted-foreground">{t.gateway}</span>
                   <span className="font-mono">{preview.gateway}</span>
                 </p>
                 <p>
-                  <span className="text-muted-foreground">Redes: </span>
+                  <span className="text-muted-foreground">{t.networks}</span>
                   <span className="font-mono">{preview.remoteTs.join(', ')}</span>
                 </p>
-                {swanctl && (
-                  <p className="text-xs text-muted-foreground">
-                    Os segredos do arquivo não são lidos: você informa as credenciais ao conectar.
-                  </p>
-                )}
+                {swanctl && <p className="text-xs text-muted-foreground">{t.noSecrets}</p>}
               </div>
 
               <div className="grid gap-4">
                 <div className="grid gap-2">
-                  <Label htmlFor={`${id}-name`}>Nome</Label>
+                  <Label htmlFor={`${id}-name`}>{t.name}</Label>
                   <Input id={`${id}-name`} value={name} onChange={(e) => setName(e.target.value)} />
                 </div>
                 <div className="grid gap-2">
-                  <Label htmlFor={`${id}-id`}>Identificador</Label>
+                  <Label htmlFor={`${id}-id`}>{t.id}</Label>
                   <Input
                     id={`${id}-id`}
                     value={profileId}
                     onChange={(e) => setProfileId(e.target.value.toLowerCase())}
                     spellCheck={false}
                   />
-                  <p className="text-xs text-muted-foreground">
-                    Letras minúsculas, números e hífen.
-                  </p>
+                  <p className="text-xs text-muted-foreground">{t.idHint}</p>
                 </div>
 
                 {swanctl && (
                   <fieldset className="grid gap-3 rounded-lg border p-3">
-                    <legend className="px-1 text-sm font-medium">DNS da VPN (opcional)</legend>
+                    <legend className="px-1 text-sm font-medium">{t.dnsLegend}</legend>
                     <div className="grid gap-2">
-                      <Label htmlFor={`${id}-dns`}>Servidores DNS</Label>
+                      <Label htmlFor={`${id}-dns`}>{t.dnsServers}</Label>
                       <Input
                         id={`${id}-dns`}
-                        placeholder="ex.: 192.0.2.53"
+                        placeholder={t.dnsServersPlaceholder}
                         value={dnsServers}
                         onChange={(e) => setDnsServers(e.target.value)}
                         spellCheck={false}
                       />
                     </div>
                     <div className="grid gap-2">
-                      <Label htmlFor={`${id}-domains`}>Domínios internos</Label>
+                      <Label htmlFor={`${id}-domains`}>{t.domains}</Label>
                       <Input
                         id={`${id}-domains`}
-                        placeholder="ex.: ~corp.example.com"
+                        placeholder={t.domainsPlaceholder}
                         value={dnsDomains}
                         onChange={(e) => setDnsDomains(e.target.value)}
                         spellCheck={false}
                       />
-                      <p className="text-xs text-muted-foreground">
-                        Com "~" na frente, só os nomes desse domínio usam o DNS da VPN.
-                      </p>
+                      <p className="text-xs text-muted-foreground">{t.domainsHint}</p>
                     </div>
                     <div className="flex items-center gap-2">
                       <Checkbox
@@ -156,9 +150,7 @@ export function ImportDialog({
                         checked={useReceived}
                         onCheckedChange={(c) => setUseReceived(c === true)}
                       />
-                      <Label htmlFor={`${id}-received`}>
-                        Usar também o DNS enviado pelo gateway
-                      </Label>
+                      <Label htmlFor={`${id}-received`}>{t.useReceived}</Label>
                     </div>
                   </fieldset>
                 )}
@@ -167,7 +159,7 @@ export function ImportDialog({
                   <details className="text-xs text-muted-foreground">
                     <summary className="flex cursor-pointer items-center gap-1">
                       <TriangleAlert className="size-3.5 text-warning" aria-hidden />
-                      {preview.warnings.length} aviso(s) da conversão
+                      {t.warnings(preview.warnings.length)}
                     </summary>
                     <ul className="mt-2 list-disc pl-5" data-selectable>
                       {preview.warnings.map((w) => (
@@ -185,8 +177,7 @@ export function ImportDialog({
                       onCheckedChange={(c) => setOverwrite(c === true)}
                     />
                     <Label htmlFor={`${id}-overwrite`} className="leading-snug">
-                      Já existe um perfil "{preview.suggestedId}". Substituir? (ou mude o
-                      identificador)
+                      {t.overwrite(preview.suggestedId)}
                     </Label>
                   </div>
                 )}
@@ -202,11 +193,11 @@ export function ImportDialog({
 
           <DialogFooter>
             <Button type="button" variant="ghost" onClick={onClose}>
-              Cancelar
+              {t.cancel}
             </Button>
             {!preview.error && (
               <Button type="submit" disabled={saving || !profileId || (conflict && !overwrite)}>
-                Importar
+                {t.import}
               </Button>
             )}
           </DialogFooter>

@@ -1,20 +1,20 @@
-# Engine do ipsec-client: strongSwan 5.8.2 (Ubuntu 20.04) isolado num container.
-# Ver docs/adr/0001-engine-docker-strongswan-5.8.2.md e docs/arquitetura.md.
+# ipsec-client engine: strongSwan 5.8.2 (Ubuntu 20.04) isolated in a container.
+# See docs/adr/0001-engine-docker-strongswan-5.8.2.md and docs/architecture.md.
 #
-# O container roda com --network host e só NET_ADMIN. O charon instala SAs e
-# políticas XFRM no kernel do host, ligadas à interface dedicada criada pelo
-# entrypoint.
+# The container runs with --network host and NET_ADMIN only. charon installs
+# XFRM SAs and policies in the host kernel, bound to the dedicated interface
+# created by the entrypoint.
 
-# ubuntu:20.04 fixado por digest: o build falha em vez de mudar em silêncio.
+# ubuntu:20.04 pinned by digest: the build fails instead of silently changing.
 FROM ubuntu:20.04@sha256:8feb4d8ca5354def3d8fce243717141ce31e2c428701f6682bd2fafe15388214
 
 ARG STRONGSWAN_VERSION=5.8.2-1ubuntu3.6
 
 ENV DEBIAN_FRONTEND=noninteractive
 
-# Mesma lista de pacotes do fluxo manual validado (com recommends), com o
-# strongSwan fixado na versão validada. O systemd entra só pelo resolvectl
-# (DNS no systemd-resolved do host via D-Bus), sem recommends.
+# Same package list as the validated manual flow (with recommends), with
+# strongSwan pinned to the validated version. systemd comes in only for
+# resolvectl (DNS in the host systemd-resolved via D-Bus), without recommends.
 RUN set -eux; \
     apt-get update; \
     apt-get install -y \

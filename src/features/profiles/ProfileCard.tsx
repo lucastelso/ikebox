@@ -3,6 +3,7 @@ import { useState } from 'react';
 import { commands, type ProfileDetails, type ProfileSummary } from '@/bindings';
 import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
+import { useT } from '@/i18n';
 import { cn } from '@/lib/utils';
 
 function Row({ label, value }: { label: string; value: string | undefined }) {
@@ -25,6 +26,7 @@ export function ProfileCard({
   onExport: () => void;
   onDelete: () => void;
 }) {
+  const t = useT().profiles;
   const [open, setOpen] = useState(false);
   const [details, setDetails] = useState<ProfileDetails | null>(null);
 
@@ -58,20 +60,10 @@ export function ProfileCard({
             <span className="block truncate text-xs text-muted-foreground">{profile.gateway}</span>
           </span>
         </button>
-        <Button
-          size="icon"
-          variant="ghost"
-          onClick={onExport}
-          aria-label={`Exportar ${profile.name}`}
-        >
+        <Button size="icon" variant="ghost" onClick={onExport} aria-label={t.export(profile.name)}>
           <Download />
         </Button>
-        <Button
-          size="icon"
-          variant="ghost"
-          onClick={onDelete}
-          aria-label={`Excluir ${profile.name}`}
-        >
+        <Button size="icon" variant="ghost" onClick={onDelete} aria-label={t.delete(profile.name)}>
           <Trash2 className="text-destructive" />
         </Button>
       </div>
@@ -82,18 +74,18 @@ export function ProfileCard({
         >
           {details ? (
             <>
-              <Row label="Identificador" value={details.summary.id} />
-              <Row label="Protocolo" value={details.ike} />
-              <Row label="Autenticação" value={details.auth} />
-              <Row label="Id do grupo" value={details.localId ?? undefined} />
-              <Row label="Redes" value={details.summary.remoteTs.join(', ')} />
-              <Row label="Fase 1" value={details.ikeProposals.join(', ')} />
-              <Row label="Fase 2" value={details.espProposals.join(', ')} />
-              <Row label="DNS" value={details.dnsServers.join(', ')} />
-              <Row label="Domínios" value={details.dnsDomains.join(', ')} />
+              <Row label={t.field.id} value={details.summary.id} />
+              <Row label={t.field.protocol} value={details.ike} />
+              <Row label={t.field.auth} value={details.auth} />
+              <Row label={t.field.groupId} value={details.localId ?? undefined} />
+              <Row label={t.field.networks} value={details.summary.remoteTs.join(', ')} />
+              <Row label={t.field.phase1} value={details.ikeProposals.join(', ')} />
+              <Row label={t.field.phase2} value={details.espProposals.join(', ')} />
+              <Row label={t.field.dns} value={details.dnsServers.join(', ')} />
+              <Row label={t.field.domains} value={details.dnsDomains.join(', ')} />
             </>
           ) : (
-            <dd className="col-span-2 text-muted-foreground">Carregando…</dd>
+            <dd className="col-span-2 text-muted-foreground">{t.loading}</dd>
           )}
         </dl>
       )}

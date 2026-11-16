@@ -14,7 +14,7 @@ concurrency:
 
 jobs:
   check:
-    name: Verificações (npm run check)
+    name: Checks (npm run check)
     runs-on: ubuntu-24.04
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
@@ -26,7 +26,7 @@ jobs:
           node-version: 22
           cache: npm
       - run: npm ci
-      - name: Mensagens de commit (PR)
+      - name: Commit messages (PR)
         if: github.event_name == 'pull_request'
         run: >-
           npx --no -- commitlint
@@ -37,13 +37,13 @@ jobs:
         run: npm run lint:web && npm run typecheck && npm run test:web && npm run build
 
   rust:
-    name: Rust (fmt, clippy, testes, cargo-deny)
+    name: Rust (fmt, clippy, tests, cargo-deny)
     runs-on: ubuntu-24.04
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           persist-credentials: false
-      - name: Dependências de sistema (Tauri + libdbus)
+      - name: System dependencies (Tauri + libdbus)
         run: >-
           sudo apt-get update && sudo apt-get install -y libdbus-1-dev pkg-config
           libwebkit2gtk-4.1-dev libayatana-appindicator3-dev librsvg2-dev libxdo-dev libssl-dev
@@ -56,65 +56,65 @@ jobs:
       - uses: EmbarkStudios/cargo-deny-action@3c6349835b2b7b196a839186cb8b78e02f7b5f25 # v2.1.1
 
   secrets:
-    name: Scanner de segredos (gitleaks)
+    name: Secret scanner (gitleaks)
     runs-on: ubuntu-24.04
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           fetch-depth: 0
           persist-credentials: false
-      - name: gitleaks (histórico completo)
+      - name: gitleaks (full history)
         run: >-
           docker run --rm --network none -v "$PWD:/repo:ro"
           zricethezav/gitleaks:v8.30.1@sha256:c00b6bd0aeb3071cbcb79009cb16a60dd9e0a7c60e2be9ab65d25e6bc8abbb7f
           git /repo --redact --no-banner -v
 
   engine-e2e:
-    name: Engine (teste ponta a ponta com gateway local)
+    name: Engine (end-to-end test with a local gateway)
     runs-on: ubuntu-24.04
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           persist-credentials: false
-      - name: Módulo xfrm_interface
+      - name: xfrm_interface module
         run: sudo modprobe xfrm_interface && lsmod | grep -E '^(xfrm_interface|esp4)'
       - name: e2e (shell)
         run: tests/engine/e2e.sh
-      - name: Dependências de sistema (libdbus para o chaveiro)
+      - name: System dependencies (libdbus for the keyring)
         run: sudo apt-get update && sudo apt-get install -y libdbus-1-dev pkg-config
       - name: Toolchain Rust
         run: rustup show active-toolchain || rustup toolchain install
       - uses: Swatinem/rust-cache@d1527c8f67ef9af357290475d4af4b0fab8f12e0 # v2.9.3
-      - name: Integração do núcleo Rust com Docker (engine, VICI, sessão)
+      - name: Rust core integration with Docker (engine, VICI, session)
         run: scripts/check-rust.sh --docker-tests
-      - name: Fluxo completo do CLI
+      - name: Full CLI flow
         run: tests/cli/e2e.sh
 
   native-engine:
-    name: Engine embutido (strongSwan compilado + E2E)
+    name: Embedded engine (compiled strongSwan + E2E)
     runs-on: ubuntu-24.04
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           persist-credentials: false
-      - name: Módulo xfrm_interface
+      - name: xfrm_interface module
         run: sudo modprobe xfrm_interface
-      - name: Build (SHA-256 + GPG + patches) e E2E com 5 cenários (inclui o ataque do ADR-0019)
+      - name: Build (SHA-256 + GPG + patches) and E2E with 5 scenarios (includes the ADR-0019 attack)
         run: npm run test:native
-      - name: Dependências de sistema (libdbus para o CLI)
+      - name: System dependencies (libdbus for the CLI)
         run: sudo apt-get update && sudo apt-get install -y libdbus-1-dev pkg-config
       - name: Toolchain Rust
         run: rustup show active-toolchain || rustup toolchain install
       - uses: Swatinem/rust-cache@d1527c8f67ef9af357290475d4af4b0fab8f12e0 # v2.9.3
-      - name: Com systemd de verdade (instalador, helper, sandbox, dois usuários e o ataque)
+      - name: With real systemd (installer, helper, sandbox, two users and the attack)
         run: npm run test:systemd
 
   packaging:
-    name: Instalador do componente de rede (container)
+    name: Network component installer (container)
     runs-on: ubuntu-24.04
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           persist-credentials: false
-      - name: Instalar, atualizar, remover e recusar pacotes adulterados
+      - name: Install, update, remove and refuse tampered bundles
         run: npm run test:packaging

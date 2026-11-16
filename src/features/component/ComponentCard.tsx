@@ -19,22 +19,15 @@ import {
   DialogHeader,
   DialogTitle,
 } from '@/components/ui/dialog';
+import { useT } from '@/i18n';
 import { cn } from '@/lib/utils';
 import { type ComponentAction, installLabel } from './useComponent';
 
-const DESCRIPTION: Record<ComponentState, string> = {
-  notInstalled:
-    'Cria o túnel da VPN no sistema. É instalado uma vez, com a senha de administrador; depois, conectar não pede senha.',
-  ready: 'Instalado e funcionando.',
-  outdated: 'Este app traz uma versão diferente do componente.',
-  broken: 'Instalado, mas não está respondendo.',
-};
-
-const BADGE: Record<ComponentState, { icon: typeof CircleCheck; tone: string; label: string }> = {
-  notInstalled: { icon: CircleDashed, tone: 'text-muted-foreground', label: 'Não instalado' },
-  ready: { icon: CircleCheck, tone: 'text-success', label: 'Instalado' },
-  outdated: { icon: CircleArrowUp, tone: 'text-warning', label: 'Atualização disponível' },
-  broken: { icon: CircleX, tone: 'text-destructive', label: 'Com problema' },
+const BADGE: Record<ComponentState, { icon: typeof CircleCheck; tone: string }> = {
+  notInstalled: { icon: CircleDashed, tone: 'text-muted-foreground' },
+  ready: { icon: CircleCheck, tone: 'text-success' },
+  outdated: { icon: CircleArrowUp, tone: 'text-warning' },
+  broken: { icon: CircleX, tone: 'text-destructive' },
 };
 
 function versions(app: string | null, strongswan: string | null): string {
@@ -53,6 +46,7 @@ export function ComponentCard({
   onInstall: () => void;
   onUninstall: () => void;
 }) {
+  const t = useT().component;
   const [confirming, setConfirming] = useState(false);
   const badge = info ? BADGE[info.state] : null;
   const showInstall = info?.canInstall && info.state !== 'ready';
@@ -63,14 +57,14 @@ export function ComponentCard({
         <div className="grid gap-1.5">
           <CardTitle className="flex items-center gap-2">
             <ShieldCheck className="size-5 text-primary" aria-hidden />
-            Componente de rede
+            {t.title}
           </CardTitle>
-          <CardDescription>{info ? DESCRIPTION[info.state] : 'Verificando…'}</CardDescription>
+          <CardDescription>{info ? t.description[info.state] : t.checking}</CardDescription>
         </div>
         {badge && (
           <span className={cn('flex shrink-0 items-center gap-1 text-xs font-medium', badge.tone)}>
             <badge.icon className="size-4" aria-hidden />
-            {badge.label}
+            {info && t.badge[info.state]}
           </span>
         )}
       </CardHeader>
@@ -79,13 +73,13 @@ export function ComponentCard({
           <dl className="grid grid-cols-[auto_1fr] gap-x-3 gap-y-1 text-xs" data-selectable>
             {info.state !== 'notInstalled' && (
               <>
-                <dt className="text-muted-foreground">Instalado</dt>
+                <dt className="text-muted-foreground">{t.installed}</dt>
                 <dd>{versions(info.installedVersion, info.installedStrongswan)}</dd>
               </>
             )}
             {info.bundledVersion && (
               <>
-                <dt className="text-muted-foreground">Neste app</dt>
+                <dt className="text-muted-foreground">{t.bundled}</dt>
                 <dd>{versions(info.bundledVersion, info.bundledStrongswan)}</dd>
               </>
             )}
@@ -96,22 +90,17 @@ export function ComponentCard({
             </p>
           )}
           {info.managedByPackage && (
-            <p className="text-xs text-muted-foreground">
-              Instalado pelo pacote do sistema (.rpm/.deb): atualize ou remova pelo gerenciador de
-              pacotes.
-            </p>
+            <p className="text-xs text-muted-foreground">{t.managedByPackage}</p>
           )}
           {!info.bundledVersion && info.state === 'notInstalled' && (
-            <p className="text-xs text-muted-foreground">
-              Esta versão do app não traz o componente (build de desenvolvimento).
-            </p>
+            <p className="text-xs text-muted-foreground">{t.devBuild}</p>
           )}
           {(showInstall || info.canUninstall) && (
             <div className="flex flex-wrap items-center gap-2">
               {showInstall && (
                 <Button size="sm" onClick={onInstall} disabled={busy !== null}>
                   {busy === 'install' && <LoaderCircle className="animate-spin" />}
-                  {busy === 'install' ? 'Instalando…' : installLabel(info)}
+                  {busy === 'install' ? t.installing : installLabel(info, t)}
                 </Button>
               )}
               {info.canUninstall && (
@@ -122,31 +111,24 @@ export function ComponentCard({
                   disabled={busy !== null}
                 >
                   {busy === 'uninstall' ? <LoaderCircle className="animate-spin" /> : <Trash2 />}
-                  {busy === 'uninstall' ? 'Removendo…' : 'Remover'}
+                  {busy === 'uninstall' ? t.removing : t.remove}
                 </Button>
               )}
             </div>
           )}
-          {showInstall && (
-            <p className="text-xs text-muted-foreground">
-              O sistema vai pedir a senha de administrador.
-            </p>
-          )}
+          {showInstall && <p className="text-xs text-muted-foreground">{t.passwordHint}</p>}
         </CardContent>
       )}
       {confirming && (
         <Dialog open onOpenChange={(open) => !open && setConfirming(false)}>
           <DialogContent>
             <DialogHeader>
-              <DialogTitle>Remover o componente de rede?</DialogTitle>
-              <DialogDescription>
-                Sem ele, o IPsec Client não consegue conectar. Seus perfis e credenciais continuam
-                guardados. O sistema vai pedir a senha de administrador.
-              </DialogDescription>
+              <DialogTitle>{t.removeTitle}</DialogTitle>
+              <DialogDescription>{t.removeBody}</DialogDescription>
             </DialogHeader>
             <DialogFooter>
               <Button variant="ghost" onClick={() => setConfirming(false)}>
-                Cancelar
+                {t.cancel}
               </Button>
               <Button
                 variant="destructive"
@@ -155,7 +137,7 @@ export function ComponentCard({
                   onUninstall();
                 }}
               >
-                Remover
+                {t.remove}
               </Button>
             </DialogFooter>
           </DialogContent>

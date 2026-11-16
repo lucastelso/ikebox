@@ -1,6 +1,6 @@
 [package]
 name = "ipsec-client-cli"
-description = "Linha de comando do ipsec-client"
+description = "ipsec-client command line"
 version.workspace = true
 edition.workspace = true
 rust-version.workspace = true

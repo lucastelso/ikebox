@@ -26,7 +26,7 @@ die() {
     exit 2
 }
 
-repo_root=$(git rev-parse --show-toplevel 2>/dev/null) || die "não é um repositório git"
+repo_root=$(git rev-parse --show-toplevel 2>/dev/null) || die "not a git repository"
 cd "$repo_root"
 
 patterns_file=${IPSEC_CLIENT_PRIVATE_PATTERNS:-$(git rev-parse --git-path info/private-patterns)}
@@ -45,15 +45,15 @@ fi
 if [[ ! -s "$clean_patterns" && $mode != --artifacts ]]; then
     # A CI não tem (nem deve ter) os padrões privados: sai em silêncio.
     if [[ -z "${CI:-}" ]]; then
-        printf 'check-private: aviso: nenhum padrão em %s (veja CONTRIBUTING.md)\n' \
+        printf 'check-private: warning: no patterns in %s (see CONTRIBUTING.md)\n' \
             "$patterns_file" >&2
     fi
     exit 0
 fi
 
 fail() {
-    printf '\ncheck-private: DADO PRIVADO ENCONTRADO (%s).\n' "$1" >&2
-    printf 'Troque por um valor genérico (ex.: 192.0.2.0/24, vpn.example.com).\n' >&2
+    printf '\ncheck-private: PRIVATE DATA FOUND (%s).\n' "$1" >&2
+    printf 'Replace it with a generic value (e.g. 192.0.2.0/24, vpn.example.com).\n' >&2
     exit 1
 }
 
@@ -69,7 +69,7 @@ scan() {
         fail "$label"
         ;;
     1) ;;
-    *) die "git grep falhou (padrão inválido em $patterns_file?)" ;;
+    *) die "git grep failed (invalid pattern in $patterns_file?)" ;;
     esac
 }
 
@@ -82,23 +82,23 @@ extract_package() {
     *.deb)
         (cd "$dest" && ar x "$pkg" && for data in control.tar.* data.tar.*; do
             tar -xf "$data" && rm -f "$data"
-        done) || die "não consegui extrair $pkg"
+        done) || die "could not extract $pkg"
         ;;
     *.rpm)
         # O rpm2cpio do Ubuntu 22.04 sai com 1 mesmo extraindo tudo.
         (cd "$dest" && { rpm2cpio "$pkg" || true; } | cpio -idm --quiet) ||
-            die "não consegui extrair $pkg"
+            die "could not extract $pkg"
         ;;
     *.AppImage)
-        (cd "$dest" && "$pkg" --appimage-extract >/dev/null) || die "não consegui extrair $pkg"
+        (cd "$dest" && "$pkg" --appimage-extract >/dev/null) || die "could not extract $pkg"
         ;;
     esac
     while IFS= read -r -d '' nested; do
         mkdir -p "$nested.d"
-        tar -xzf "$nested" -C "$nested.d" || die "não consegui extrair $nested"
+        tar -xzf "$nested" -C "$nested.d" || die "could not extract $nested"
     done < <(find "$dest" -type f -name '*.tar.gz' -print0)
     while IFS= read -r -d '' nested; do
-        gzip -dc "$nested" >"${nested%.gz}.descompactado" || die "não consegui descompactar $nested"
+        gzip -dc "$nested" >"${nested%.gz}.decompressed" || die "could not decompress $nested"
     done < <(find "$dest" -type f -name '*.gz' ! -name '*.tar.gz' -print0)
 }
 
@@ -111,7 +111,9 @@ scan_patterns() {
     local file
     while IFS= read -r -d '' file; do
         if [[ $(head -c 4 "$file" | od -An -tx1 | tr -d ' \n') == 7f454c46 ]]; then
-            strings -a -n 4 "$file" | grep -q -i -E -f "$clean_patterns" && printf '%s\n' "$file"
+            # Process substitution: only grep decides. A pipe under pipefail
+            # would turn a match into SIGPIPE on strings and hide the file.
+            grep -q -i -E -f "$clean_patterns" < <(strings -a -n 4 "$file") && printf '%s\n' "$file"
         else
             grep -q -a -i -E -f "$clean_patterns" "$file" && printf '%s\n' "$file"
         fi
@@ -121,15 +123,15 @@ scan_patterns() {
 
 case "$mode" in
 --staged)
-    scan "conteúdo staged" 1,2 --cached -- .
+    scan "staged content" 1,2 --cached -- .
     ;;
 --tracked)
-    scan "arquivos rastreados" 1,2 -- .
+    scan "tracked files" 1,2 -- .
     ;;
 --history)
     mapfile -t revs < <(git rev-list --all 2>/dev/null || true)
     ((${#revs[@]} > 0)) || exit 0
-    scan "histórico do git" 1-3 "${revs[@]}" -- .
+    scan "git history" 1-3 "${revs[@]}" -- .
     bad_commits=()
     for rev in "${revs[@]}"; do
         msg=$(git log -1 --format=%B "$rev")
@@ -138,24 +140,24 @@ case "$mode" in
         fi
     done
     if ((${#bad_commits[@]} > 0)); then
-        printf '  - mensagem do commit %s\n' "${bad_commits[@]}" >&2
-        fail "mensagens de commit"
+        printf '  - commit message %s\n' "${bad_commits[@]}" >&2
+        fail "commit messages"
     fi
     ;;
 --message)
     msg_file=${2:-}
-    [[ -f "$msg_file" ]] || die "uso: $0 --message <arquivo>"
+    [[ -f "$msg_file" ]] || die "usage: $0 --message <file>"
     # Ignora as linhas de comentário que o git coloca no editor.
     msg=$(grep -v '^#' "$msg_file" || true)
     if grep -q -i -E -f "$clean_patterns" <<<"$msg"; then
-        fail "mensagem de commit"
+        fail "commit message"
     fi
     ;;
 --artifacts)
-    dir=$(cd "${2:?uso: $0 --artifacts <diretório com os pacotes>}" && pwd)
+    dir=$(cd "${2:?usage: $0 --artifacts <directory with the packages>}" && pwd)
     shopt -s nullglob
     packages=("$dir"/*.AppImage "$dir"/*.deb "$dir"/*.rpm)
-    ((${#packages[@]} > 0)) || die "nenhum pacote em $dir"
+    ((${#packages[@]} > 0)) || die "no packages in $dir"
     # Além dos padrões privados: o caminho da home e o nome desta máquina
     # (nomes genéricos ficam de fora, para não dar falso positivo).
     fixed=("/home/$(id -un)")
@@ -191,19 +193,19 @@ case "$mode" in
             printf '%s\n' "${hits[@]#"$work"/}" | sort -u | sed 's/^/  - /' >&2
             found+=("$(basename "$pkg")")
         else
-            printf '  ✔ %s: sem dados privados\n' "$(basename "$pkg")"
+            printf '  ✔ %s: no private data\n' "$(basename "$pkg")"
         fi
     done
     if [[ ! -s $clean_patterns ]] && [[ -z ${CI:-} ]]; then
-        printf 'check-private: aviso: sem padrões em %s; só o caminho da home e o hostname foram procurados\n' \
+        printf 'check-private: warning: no patterns in %s; only the home path and the hostname were searched\n' \
             "$patterns_file" >&2
     fi
-    ((${#found[@]} == 0)) || fail "dentro dos pacotes: ${found[*]}"
+    ((${#found[@]} == 0)) || fail "inside the packages: ${found[*]}"
     ;;
 -h | --help)
     sed -n '2,20p' "$0"
     ;;
 *)
-    die "opção desconhecida: $mode (use --help)"
+    die "unknown option: $mode (use --help)"
     ;;
 esac

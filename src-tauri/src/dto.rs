@@ -677,13 +677,17 @@ pub struct ProfileDetails {
 impl From<&Profile> for ProfileDetails {
     fn from(p: &Profile) -> Self {
         let ike = match (p.ike.version, p.ike.aggressive) {
-            (1, true) => "IKEv1 (modo agressivo)".to_owned(),
-            (1, false) => "IKEv1 (modo principal)".to_owned(),
+            (1, true) => tr!("IKEv1 (aggressive mode)", "IKEv1 (modo agressivo)").to_owned(),
+            (1, false) => tr!("IKEv1 (main mode)", "IKEv1 (modo principal)").to_owned(),
             (v, _) => format!("IKEv{v}"),
         };
         let auth = match p.auth.method {
             AuthMethod::Psk => "PSK".to_owned(),
-            AuthMethod::PskXauth => "PSK do grupo + usuário e senha (XAuth)".to_owned(),
+            AuthMethod::PskXauth => tr!(
+                "group PSK + username and password (XAuth)",
+                "PSK do grupo + usuário e senha (XAuth)"
+            )
+            .to_owned(),
         };
         Self {
             summary: ProfileSummary::from(p),

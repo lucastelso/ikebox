@@ -1,7 +1,7 @@
-"""Manda um pedido (JSON) ao ipsec-client-helper e imprime a resposta.
+"""Sends a request (JSON) to ipsec-client-helper and prints the reply.
 
-Uso: python3 -I helper_client.py '<json>' [--hold SEGUNDOS]
-Com --hold, só abre a conexão e fica parado (cliente lento/malicioso).
+Usage: python3 -I helper_client.py '<json>' [--hold SECONDS]
+With --hold, it only opens the connection and stays idle (slow/malicious client).
 """
 
 import json

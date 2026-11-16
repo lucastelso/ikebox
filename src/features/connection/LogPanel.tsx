@@ -1,6 +1,7 @@
 import { Check, Copy, ScrollText } from 'lucide-react';
 import { useEffect, useRef, useState } from 'react';
 import { Button } from '@/components/ui/button';
+import { useT } from '@/i18n';
 
 /**
  * Log do charon (identidades já mascaradas pelo Rust), recolhível e copiável.
@@ -15,6 +16,7 @@ export function LogPanel({
   /** Devolve o texto anonimizado, ou `null` se não deu (nada é copiado). */
   anonymize: (lines: string[]) => Promise<string | null>;
 }) {
+  const t = useT().log;
   const [copied, setCopied] = useState(false);
   const [copyFailed, setCopyFailed] = useState(false);
   const endRef = useRef<HTMLSpanElement>(null);
@@ -44,16 +46,12 @@ export function LogPanel({
     <details className="group w-full rounded-xl border bg-card">
       <summary className="flex cursor-pointer select-none items-center gap-2 px-4 py-3 text-sm font-medium">
         <ScrollText className="size-4 text-muted-foreground" aria-hidden />
-        Log da conexão
-        <span className="text-xs font-normal text-muted-foreground">({lines.length} linhas)</span>
+        {t.title}
+        <span className="text-xs font-normal text-muted-foreground">{t.lines(lines.length)}</span>
       </summary>
       <div className="border-t">
         <div className="flex items-center justify-between gap-2 px-4 pt-2">
-          <p className="text-xs text-muted-foreground">
-            {copyFailed
-              ? 'Não foi possível anonimizar o log; nada foi copiado.'
-              : 'Ao copiar, gateway, IPs e domínios viram marcadores. Confira antes de compartilhar.'}
-          </p>
+          <p className="text-xs text-muted-foreground">{copyFailed ? t.copyFailed : t.copyHint}</p>
           <Button
             size="sm"
             variant="ghost"
@@ -62,14 +60,14 @@ export function LogPanel({
             disabled={lines.length === 0}
           >
             {copied ? <Check /> : <Copy />}
-            {copied ? 'Copiado' : 'Copiar anonimizado'}
+            {copied ? t.copied : t.copy}
           </Button>
         </div>
         <pre
           className="max-h-56 overflow-auto whitespace-pre-wrap break-words px-4 pb-4 font-mono text-xs leading-relaxed text-muted-foreground"
           data-selectable
         >
-          {lines.length === 0 ? 'Sem registros ainda.' : lines.join('\n')}
+          {lines.length === 0 ? t.empty : lines.join('\n')}
           <span ref={endRef} />
         </pre>
       </div>

@@ -1,7 +1,7 @@
-# Builder do engine embutido: compila o strongSwan a partir do código-fonte.
+# Embedded engine builder: compiles strongSwan from source.
 #
-# Ubuntu 22.04 (glibc 2.35): mesma base usada para o AppImage do Tauri; o
-# binário roda em distribuições com glibc igual ou mais nova.
+# Ubuntu 22.04 (glibc 2.35): the same base used for the Tauri AppImage; the
+# binary runs on distributions with the same or a newer glibc.
 FROM ubuntu:22.04@sha256:9abcaffc92a5279fff3a6a41635c0800ea33e528425fb389658806476e7defde
 
 ENV DEBIAN_FRONTEND=noninteractive

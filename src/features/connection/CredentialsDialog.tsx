@@ -13,34 +13,31 @@ import {
 } from '@/components/ui/dialog';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
+import { useT } from '@/i18n';
+import type { Messages } from '@/i18n/messages';
 
-const FIELDS: Record<
+function fieldSpecs(
+  t: Messages['credentials'],
+): Record<
   CredentialField,
   { label: string; secret: boolean; key: keyof CredentialsInput; placeholder: string }
-> = {
-  psk: {
-    label: 'PSK do grupo',
-    secret: true,
-    key: 'psk',
-    placeholder: 'chave compartilhada do grupo',
-  },
-  xauthUser: {
-    label: 'Usuário',
-    secret: false,
-    key: 'xauthUser',
-    placeholder: 'ex.: sua matrícula',
-  },
-  xauthPassword: {
-    label: 'Senha',
-    secret: true,
-    key: 'xauthPassword',
-    placeholder: 'sua senha da VPN',
-  },
-};
+> {
+  return {
+    psk: { label: t.psk, secret: true, key: 'psk', placeholder: t.pskPlaceholder },
+    xauthUser: { label: t.user, secret: false, key: 'xauthUser', placeholder: t.userPlaceholder },
+    xauthPassword: {
+      label: t.password,
+      secret: true,
+      key: 'xauthPassword',
+      placeholder: t.passwordPlaceholder,
+    },
+  };
+}
 
 const ORDER: CredentialField[] = ['xauthUser', 'xauthPassword', 'psk'];
 
 function SecretInput({ id, ...props }: React.ComponentProps<typeof Input>) {
+  const t = useT().credentials;
   const [visible, setVisible] = useState(false);
   return (
     <div className="relative">
@@ -48,7 +45,7 @@ function SecretInput({ id, ...props }: React.ComponentProps<typeof Input>) {
       <button
         type="button"
         onClick={() => setVisible((v) => !v)}
-        aria-label={visible ? 'Ocultar' : 'Mostrar'}
+        aria-label={visible ? t.hide : t.show}
         className="absolute inset-y-0 right-0 flex w-10 items-center justify-center text-muted-foreground hover:text-foreground"
       >
         {visible ? <EyeOff className="size-4" /> : <Eye className="size-4" />}
@@ -76,6 +73,8 @@ export function CredentialsDialog({
   keyringAvailable: boolean;
   onSubmit: (input: CredentialsInput, remember: boolean) => void;
 }) {
+  const t = useT().credentials;
+  const FIELDS = fieldSpecs(t);
   const baseId = useId();
   const [values, setValues] = useState<CredentialsInput>({});
   const [remember, setRemember] = useState(keyringAvailable);
@@ -103,7 +102,7 @@ export function CredentialsDialog({
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2">
               <KeyRound className="size-5 text-primary" aria-hidden />
-              Credenciais
+              {t.title}
             </DialogTitle>
             <DialogDescription>{profileName}</DialogDescription>
           </DialogHeader>
@@ -139,21 +138,17 @@ export function CredentialsDialog({
               onCheckedChange={(c) => setRemember(c === true)}
             />
             <div className="grid gap-1">
-              <Label htmlFor={`${baseId}-remember`}>Lembrar no chaveiro do sistema</Label>
-              {!keyringAvailable && (
-                <p className="text-xs text-muted-foreground">
-                  Chaveiro indisponível: as credenciais serão pedidas a cada conexão.
-                </p>
-              )}
+              <Label htmlFor={`${baseId}-remember`}>{t.remember}</Label>
+              {!keyringAvailable && <p className="text-xs text-muted-foreground">{t.noKeyring}</p>}
             </div>
           </div>
 
           <DialogFooter>
             <Button type="button" variant="ghost" onClick={() => onOpenChange(false)}>
-              Cancelar
+              {t.cancel}
             </Button>
             <Button type="submit" disabled={!complete}>
-              Conectar
+              {t.connect}
             </Button>
           </DialogFooter>
         </form>

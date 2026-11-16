@@ -30,7 +30,7 @@ readonly RT_PROTO=241
 
 log() { printf 'ipsec-client-updown: %s\n' "$*"; }
 die() {
-    log "erro: $*"
+    log "error: $*"
     exit 1
 }
 
@@ -61,10 +61,10 @@ is_domain() {
 
 # --- argumentos -------------------------------------------------------------
 if [[ ${1:-} == --args-file ]]; then
-    (($# == 2)) || die "--args-file exige só o caminho do arquivo"
+    (($# == 2)) || die "--args-file takes only the file path"
     args_file=$2
-    [[ -f $args_file && ! -L $args_file ]] || die "arquivo de argumentos inválido"
-    [[ $(stat -c '%u' -- "$args_file") == 0 ]] || die "arquivo de argumentos não pertence ao root"
+    [[ -f $args_file && ! -L $args_file ]] || die "invalid arguments file"
+    [[ $(stat -c '%u' -- "$args_file") == 0 ]] || die "the arguments file is not owned by root"
     mapfile -t file_args <"$args_file"
     set -- "${file_args[@]}"
 fi
@@ -78,15 +78,15 @@ dns_default_route=0
 while (($# > 0)); do
     case $1 in
     --iface | --dns | --domain)
-        (($# >= 2)) || die "$1 exige um valor"
+        (($# >= 2)) || die "$1 requires a value"
         case $1 in
         --iface) iface=$2 ;;
         --dns)
-            is_ip "$2" || die "--dns inválido: $2"
+            is_ip "$2" || die "invalid --dns: $2"
             static_dns+=("$2")
             ;;
         --domain)
-            is_domain "$2" || die "--domain inválido: $2"
+            is_domain "$2" || die "invalid --domain: $2"
             domains+=("$2")
             ;;
         esac
@@ -100,11 +100,11 @@ while (($# > 0)); do
         dns_default_route=1
         shift
         ;;
-    *) die "argumento desconhecido: $1" ;;
+    *) die "unknown argument: $1" ;;
     esac
 done
 
-[[ $iface =~ ^[a-z][a-z0-9_-]{0,14}$ ]] || die "--iface ausente ou inválido"
+[[ $iface =~ ^[a-z][a-z0-9_-]{0,14}$ ]] || die "missing or invalid --iface"
 
 # --- ambiente do charon -----------------------------------------------------
 verb=${PLUTO_VERB:-}
@@ -123,7 +123,7 @@ else
     host_prefix=32
 fi
 if [[ -n $src ]] && ! is_ip "$src"; then
-    die "PLUTO_MY_SOURCEIP inválido: $src"
+    die "invalid PLUTO_MY_SOURCEIP: $src"
 fi
 
 src_args=()
@@ -136,7 +136,7 @@ is_full_tunnel() { [[ $peer_client == "0.0.0.0/0" || $peer_client == "::/0" ]]; 
 # No túnel completo, o próprio gateway precisa continuar alcançável pelo
 # caminho original. Sem isso, o tráfego IKE/ESP entraria no túnel (loop).
 add_gateway_host_route() {
-    is_ip "$peer" || die "PLUTO_PEER inválido: $peer"
+    is_ip "$peer" || die "invalid PLUTO_PEER: $peer"
     if [[ -n $(ip "$family" route show "$peer/$host_prefix" proto "$RT_PROTO") ]]; then
         return 0 # já existe (rekey/reconexão)
     fi
@@ -144,18 +144,18 @@ add_gateway_host_route() {
     route=$(ip "$family" route get "$peer" 2>/dev/null | head -n 1)
     via=$(awk '{ for (i = 1; i < NF; i++) if ($i == "via") { print $(i + 1); exit } }' <<<"$route")
     dev=$(awk '{ for (i = 1; i < NF; i++) if ($i == "dev") { print $(i + 1); exit } }' <<<"$route")
-    [[ -n $dev && $dev != "$iface" ]] || die "não achei o caminho original até o gateway"
+    [[ -n $dev && $dev != "$iface" ]] || die "could not find the original path to the gateway"
     local args=("$peer/$host_prefix")
     [[ -n $via ]] && args+=(via "$via")
     args+=(dev "$dev" proto "$RT_PROTO")
     ip "$family" route replace "${args[@]}"
-    log "rota de host para o gateway $peer via ${via:-link} dev $dev"
+    log "host route to the gateway $peer via ${via:-link} dev $dev"
 }
 
 route_up() {
-    is_cidr "$peer_client" || die "PLUTO_PEER_CLIENT inválido: $peer_client"
+    is_cidr "$peer_client" || die "invalid PLUTO_PEER_CLIENT: $peer_client"
     if [[ ${peer_client%/*} == "$peer" ]]; then
-        log "TS remoto é o próprio gateway ($peer_client): rota ignorada"
+        log "the remote TS is the gateway itself ($peer_client): route skipped"
         return 0
     fi
     if is_full_tunnel; then
@@ -164,10 +164,10 @@ route_up() {
         for r in "${full_tunnel_routes[@]}"; do
             ip "$family" route replace "$r" dev "$iface" "${src_args[@]}" proto "$RT_PROTO"
         done
-        log "túnel completo: rotas ${full_tunnel_routes[*]} via $iface"
+        log "full tunnel: routes ${full_tunnel_routes[*]} via $iface"
     else
         ip "$family" route replace "$peer_client" dev "$iface" "${src_args[@]}" proto "$RT_PROTO"
-        log "rota $peer_client via $iface${src:+ (src $src)}"
+        log "route $peer_client via $iface${src:+ (src $src)}"
     fi
 }
 
@@ -184,7 +184,7 @@ route_down() {
     else
         ip "$family" route del "$peer_client" dev "$iface" proto "$RT_PROTO" 2>/dev/null || true
     fi
-    log "rota $peer_client removida"
+    log "route $peer_client removed"
 }
 
 # --- DNS --------------------------------------------------------------------
@@ -199,7 +199,7 @@ dns_up() {
                 if is_ip "$value"; then
                     servers+=("$value")
                 else
-                    log "aviso: DNS recebido inválido ignorado"
+                    log "warning: invalid received DNS ignored"
                 fi
             done
         done
@@ -211,10 +211,10 @@ dns_up() {
 
     # Falha de DNS não derruba o túnel: só registra.
     if ((${#servers[@]} > 0)); then
-        resolvectl dns "$iface" "${servers[@]}" || log "aviso: falha ao configurar servidores DNS"
+        resolvectl dns "$iface" "${servers[@]}" || log "warning: failed to set the DNS servers"
     fi
     if ((${#domains[@]} > 0)); then
-        resolvectl domain "$iface" "${domains[@]}" || log "aviso: falha ao configurar domínios DNS"
+        resolvectl domain "$iface" "${domains[@]}" || log "warning: failed to set the DNS domains"
     fi
     if ((dns_default_route)); then
         resolvectl default-route "$iface" yes || true
@@ -222,7 +222,7 @@ dns_up() {
         resolvectl default-route "$iface" no || true
     fi
     resolvectl flush-caches || true
-    log "DNS em $iface: servidores [${servers[*]}] domínios [${domains[*]}]"
+    log "DNS on $iface: servers [${servers[*]}] domains [${domains[*]}]"
 }
 
 dns_down() {
@@ -230,7 +230,7 @@ dns_down() {
     if [[ -z "$(ip -4 route show dev "$iface" proto "$RT_PROTO" 2>/dev/null)$(ip -6 route show dev "$iface" proto "$RT_PROTO" 2>/dev/null)" ]]; then
         resolvectl revert "$iface" 2>/dev/null || true
         resolvectl flush-caches 2>/dev/null || true
-        log "DNS de $iface revertido"
+        log "DNS of $iface reverted"
     fi
 }
 
@@ -245,9 +245,9 @@ down-client | down-client-v6)
     dns_down
     ;;
 up-host | up-host-v6 | down-host | down-host-v6)
-    log "túnel host-a-host ($verb): nada a fazer"
+    log "host-to-host tunnel ($verb): nothing to do"
     ;;
 *)
-    log "verbo ignorado: ${verb:-<vazio>}"
+    log "verb ignored: ${verb:-<empty>}"
     ;;
 esac

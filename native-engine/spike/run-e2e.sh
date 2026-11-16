@@ -20,7 +20,7 @@ cp "$repo_root/engine/strongswan.d/zz-ipsec-client.conf" "$ctx/"
 
 image="ipsec-client-native-spike:$version"
 docker build -q -t "$image" "$ctx" >/dev/null
-echo "imagem de teste: $image"
+echo "test image: $image"
 
 # O engine embutido tem o patch do IPsec Client: updown e if_id forçados
 # (cenário 5 do E2E).

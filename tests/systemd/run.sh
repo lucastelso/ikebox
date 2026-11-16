@@ -1,21 +1,21 @@
 #!/usr/bin/env bash
-# Teste do engine embutido com systemd de verdade, sem tocar no computador de
-# quem roda (substitui o sudo do scripts/test-native.sh na verificação de
-# segurança):
+# Test of the embedded engine with real systemd, without touching the computer
+# that runs it (replaces the sudo of scripts/test-native.sh for the security
+# checks):
 #
-#   1. sobe o gateway IPsec de teste e um "computador" Fedora 45 com systemd
-#      (container privilegiado, rede própria);
-#   2. instala o componente de rede com o instalador real (packaging/);
-#   3. como o usuário alice, conecta pelo ipsec-client-cli (engine embutido,
-#      DNS do perfil indo pelo helper) e confere túnel, DNS e o sandbox da
-#      unidade do engine (systemd-run);
-#   4. como bob, tenta parar a VPN de alice, ler o log e ver o perfil;
-#   5. como alice, faz o ataque do ADR-0019: um cliente VICI escolhe o updown
-#      (rodaria como root) e o if_id. O charon tem que ignorar os dois.
+#   1. starts the test IPsec gateway and a Fedora 45 "computer" with systemd
+#      (privileged container, its own network);
+#   2. installs the network component with the real installer (packaging/);
+#   3. as user alice, connects with ipsec-client-cli (embedded engine, the
+#      profile DNS going through the helper) and checks the tunnel, the DNS and
+#      the sandbox of the engine unit (systemd-run);
+#   4. as bob, tries to stop alice's VPN, read its log and see the profile;
+#   5. as alice, runs the ADR-0019 attack: a VICI client picks the updown
+#      (it would run as root) and the if_id. charon must ignore both.
 #
-# Requisitos: Docker (o container precisa de --privileged para o systemd e o
-# XFRM no namespace de rede dele), o engine compilado com o patch
-# (native-engine/build.sh) e cargo.
+# Requirements: Docker (the container needs --privileged for systemd and XFRM
+# in its network namespace), the engine compiled with the patch
+# (native-engine/build.sh) and cargo.
 
 set -euo pipefail
 
@@ -39,7 +39,7 @@ cleanup() {
     local rc=$?
     set +e
     if ((rc != 0)) && docker ps -q --filter "name=^$HOST$" | grep -q .; then
-        printf '\n--- journal do engine e do helper ---\n'
+        printf '\n--- engine and helper journal ---\n'
         docker exec "$HOST" journalctl -u ipsec-client-engine -u ipsec-client-helper \
             --no-pager -n 80 2>/dev/null
     fi
@@ -50,35 +50,35 @@ cleanup() {
 }
 
 main() {
-    step "Pré-requisitos"
+    step "Prerequisites"
     if [[ -f "$HOME/.cargo/env" ]]; then
         # shellcheck source=/dev/null
         . "$HOME/.cargo/env"
     fi
-    docker info >/dev/null 2>&1 || fail "Docker inacessível"
+    docker info >/dev/null 2>&1 || fail "Docker is not reachable"
     local strongswan engine
     strongswan=$(grep -vE '^\s*(#|$)' "$repo/native-engine/versions.txt" | head -n 1 | awk '{print $1}')
     engine="$repo/native-engine/dist/ipsec-client-engine-$strongswan-x86_64.tar.gz"
-    [[ -f $engine ]] || fail "engine ausente: rode native-engine/build.sh $strongswan"
-    tar -xzOf "$engine" opt/ipsec-client/engine/BUILDINFO | grep -q '^patches=.*0001-vici-forced-updown' ||
-        fail "o engine em $engine não tem o patch do ADR-0019: recompile (native-engine/build.sh)"
+    [[ -f $engine ]] || fail "engine missing: run native-engine/build.sh $strongswan"
+    grep -q '^patches=.*0001-vici-forced-updown' < <(tar -xzOf "$engine" opt/ipsec-client/engine/BUILDINFO) ||
+        fail "the engine in $engine lacks the ADR-0019 patch: rebuild it (native-engine/build.sh)"
     docker rm -f "$HOST" "$GW" >/dev/null 2>&1 || true
     docker network rm "$NET" >/dev/null 2>&1 || true
     trap cleanup EXIT
     work=$(mktemp -d "${XDG_RUNTIME_DIR:-/tmp}/ipsec-client-systemd.XXXXXX")
     chmod 0755 "$work"
-    ok "engine com o patch: $(basename "$engine")"
+    ok "engine with the patch: $(basename "$engine")"
 
-    step "Componente de rede e CLI"
+    step "Network component and CLI"
     "$repo/scripts/stage-network-component.sh" --out "$work/bundle" --engine "$engine" >/dev/null
     cargo build -q --release --locked -p ipsec-client-cli --manifest-path "$repo/Cargo.toml"
     install -m 0755 "$repo/target/release/ipsec-client-cli" "$work/ipsec-client-cli"
     install -m 0644 "$here/helper_client.py" "$repo/tests/engine/initiator.conf.in" \
         "$repo/crates/core/tests/fixtures/perfil-gateway-teste.json" "$work/"
     install -m 0755 "$here/inside.sh" "$work/"
-    ok "pacote do componente e ipsec-client-cli prontos"
+    ok "component bundle and ipsec-client-cli ready"
 
-    step "Gateway de teste e computador com systemd"
+    step "Test gateway and computer with systemd"
     docker build -q -t "$GW_IMAGE" "$repo/engine" >/dev/null
     docker build -q -t "$HOST_IMAGE" "$here" >/dev/null
     docker network create "$NET" >/dev/null
@@ -87,11 +87,11 @@ main() {
         -v "$repo/tests/engine/gateway:/test:ro" --entrypoint /test/gateway.sh "$GW_IMAGE" >/dev/null
     local _ gw_ip
     for _ in $(seq 1 150); do
-        docker logs "$GW" 2>&1 | grep -q '\[gateway-teste\] pronto' && break
+        grep -q '\[test-gateway\] ready' < <(docker logs "$GW" 2>&1) && break
         sleep 0.1
     done
     gw_ip=$(docker inspect -f '{{range .NetworkSettings.Networks}}{{.IPAddress}}{{end}}' "$GW")
-    [[ $gw_ip =~ ^[0-9]+(\.[0-9]+){3}$ ]] || fail "o gateway de teste não subiu"
+    [[ $gw_ip =~ ^[0-9]+(\.[0-9]+){3}$ ]] || fail "the test gateway did not start"
     docker run -d --name "$HOST" --hostname teste --network "$NET" --privileged \
         --cgroupns=private --security-opt label=disable \
         --tmpfs /run --tmpfs /run/lock --tmpfs /tmp \
@@ -102,8 +102,8 @@ main() {
         [[ $state == running || $state == degraded ]] && break
         sleep 0.2
     done
-    [[ $state == running || $state == degraded ]] || fail "o systemd do container não subiu ($state)"
-    ok "gateway em $gw_ip; systemd do container: $state"
+    [[ $state == running || $state == degraded ]] || fail "the container systemd did not start ($state)"
+    ok "gateway at $gw_ip; container systemd: $state"
 
     docker exec "$HOST" bash /test/inside.sh "$gw_ip"
 }

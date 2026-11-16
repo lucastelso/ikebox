@@ -31,4 +31,4 @@ for entry in "${entries[@]}"; do
         "$BUILDER" "$version" "$path" "$sha256"
     built=$((built + 1))
 done
-((built > 0)) || { echo "versão '$wanted' não está em versions.txt" >&2; exit 1; }
+((built > 0)) || { echo "version '$wanted' is not in versions.txt" >&2; exit 1; }

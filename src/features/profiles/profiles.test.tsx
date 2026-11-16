@@ -25,7 +25,7 @@ function mockCalls() {
 }
 
 describe('ImportDialog', () => {
-  it('importa um swanctl.conf com o DNS informado', async () => {
+  it('imports a swanctl.conf with the given DNS', async () => {
     const calls = mockCalls();
     mockIPC((cmd, args) => {
       calls.push({ cmd, args });
@@ -43,16 +43,16 @@ describe('ImportDialog', () => {
     const onImported = vi.fn();
     render(<ImportDialog preview={swanctlPreview} onClose={() => {}} onImported={onImported} />);
 
-    expect(screen.getByText(/segredos do arquivo não são lidos/)).toBeInTheDocument();
-    const id = screen.getByLabelText('Identificador');
+    expect(screen.getByText(/Secrets in the file are not read/)).toBeInTheDocument();
+    const id = screen.getByLabelText('Identifier');
     await userEvent.clear(id);
     await userEvent.type(id, 'trabalho');
-    const name = screen.getByLabelText('Nome');
+    const name = screen.getByLabelText('Name');
     await userEvent.clear(name);
     await userEvent.type(name, 'VPN do trabalho');
-    await userEvent.type(screen.getByLabelText('Servidores DNS'), '192.0.2.53');
-    await userEvent.type(screen.getByLabelText('Domínios internos'), '~corp.example.com');
-    await userEvent.click(screen.getByRole('button', { name: 'Importar' }));
+    await userEvent.type(screen.getByLabelText('DNS servers'), '192.0.2.53');
+    await userEvent.type(screen.getByLabelText('Internal domains'), '~corp.example.com');
+    await userEvent.click(screen.getByRole('button', { name: 'Import' }));
 
     await waitFor(() => expect(onImported).toHaveBeenCalled());
     expect(calls).toContainEqual({
@@ -71,7 +71,7 @@ describe('ImportDialog', () => {
     });
   });
 
-  it('exige confirmar a substituição quando o id já existe', async () => {
+  it('asks to confirm the replacement when the id already exists', async () => {
     mockIPC(() => null);
     render(
       <ImportDialog
@@ -80,24 +80,24 @@ describe('ImportDialog', () => {
         onImported={() => {}}
       />,
     );
-    const importButton = screen.getByRole('button', { name: 'Importar' });
+    const importButton = screen.getByRole('button', { name: 'Import' });
     expect(importButton).toBeDisabled();
-    await userEvent.click(screen.getByLabelText(/Substituir/));
+    await userEvent.click(screen.getByLabelText(/Replace it/));
     expect(importButton).toBeEnabled();
-    expect(screen.queryByLabelText('Servidores DNS')).not.toBeInTheDocument();
+    expect(screen.queryByLabelText('DNS servers')).not.toBeInTheDocument();
   });
 
-  it('mostra o problema de um arquivo inválido sem permitir importar', () => {
+  it('shows the problem with an invalid file without allowing the import', () => {
     mockIPC(() => null);
     render(
       <ImportDialog
-        preview={{ ...swanctlPreview, error: 'Perfil com JSON inválido' }}
+        preview={{ ...swanctlPreview, error: 'Profile with invalid JSON' }}
         onClose={() => {}}
         onImported={() => {}}
       />,
     );
-    expect(screen.getByRole('alert')).toHaveTextContent('Perfil com JSON inválido');
-    expect(screen.queryByRole('button', { name: 'Importar' })).not.toBeInTheDocument();
+    expect(screen.getByRole('alert')).toHaveTextContent('Profile with invalid JSON');
+    expect(screen.queryByRole('button', { name: 'Import' })).not.toBeInTheDocument();
   });
 });
 
@@ -115,7 +115,7 @@ describe('ProfilesScreen', () => {
     broken: [{ file: 'quebrado.json', error: 'JSON inválido' }],
   };
 
-  it('lista, exporta e exclui perfis (com as credenciais)', async () => {
+  it('lists, exports and deletes profiles (with their credentials)', async () => {
     const calls = mockCalls();
     let current = list;
     mockIPC((cmd, args) => {
@@ -133,12 +133,12 @@ describe('ProfilesScreen', () => {
     expect(await screen.findByText('VPN do trabalho')).toBeInTheDocument();
     expect(screen.getByText(/quebrado.json/)).toBeInTheDocument();
 
-    await userEvent.click(screen.getByRole('button', { name: 'Exportar VPN do trabalho' }));
+    await userEvent.click(screen.getByRole('button', { name: 'Export VPN do trabalho' }));
     expect(calls).toContainEqual({ cmd: 'export_profile', args: { profileId: 'trabalho' } });
 
-    await userEvent.click(screen.getByRole('button', { name: 'Excluir VPN do trabalho' }));
-    await userEvent.click(await screen.findByRole('button', { name: 'Excluir' }));
-    expect(await screen.findByText('Nenhum perfil ainda.')).toBeInTheDocument();
+    await userEvent.click(screen.getByRole('button', { name: 'Delete VPN do trabalho' }));
+    await userEvent.click(await screen.findByRole('button', { name: 'Delete' }));
+    expect(await screen.findByText('No profiles yet.')).toBeInTheDocument();
     expect(calls).toContainEqual({
       cmd: 'delete_profile',
       args: { profileId: 'trabalho', forgetCredentials: true },

@@ -1,23 +1,23 @@
 #!/usr/bin/env bash
-# Gateway IPsec de TESTE (responder). Roda na mesma imagem do engine, numa rede
-# Docker isolada, e imita uma VPN legada: IKEv1 agressivo, PSK de grupo +
-# XAuth, modp1024/modp768.
+# TEST IPsec gateway (responder). Runs in the same image as the engine, on an
+# isolated Docker network, and mimics a legacy VPN: IKEv1 aggressive, group PSK
+# + XAuth, modp1024/modp768.
 #
-# Redes protegidas (RFC 5737): 192.0.2.0/24 (o gateway responde em 192.0.2.1)
-# e 203.0.113.0/24 (child só com PFS modp768; responde em 203.0.113.1).
-# Nenhum dado real: credenciais falsas em swanctl.conf.
+# Protected networks (RFC 5737): 192.0.2.0/24 (the gateway answers on
+# 192.0.2.1) and 203.0.113.0/24 (child with modp768 PFS only; answers on
+# 203.0.113.1). No real data: fake credentials in swanctl.conf.
 
 set -euo pipefail
 
-log() { printf '[gateway-teste] %s\n' "$*" >&2; }
+log() { printf '[test-gateway] %s\n' "$*" >&2; }
 
-# Rede "interna" atrás do gateway.
+# "Internal" network behind the gateway.
 ip link add dum0 type dummy
 ip addr add 192.0.2.1/24 dev dum0
 ip addr add 203.0.113.1/24 dev dum0
 ip link set dum0 up
 
-# Overrides só do gateway de teste (o responder precisa aceitar aggressive+PSK).
+# Overrides for the test gateway only (the responder must accept aggressive+PSK).
 cat >/etc/strongswan.d/zzz-gateway-teste.conf <<'EOF'
 charon {
     i_dont_care_about_security_and_use_aggressive_mode_psk = yes
@@ -38,11 +38,11 @@ for _ in $(seq 1 100); do
     sleep 0.1
 done
 [[ -S /var/run/charon.vici ]] || {
-    log "socket VICI não apareceu"
+    log "the VICI socket did not show up"
     exit 1
 }
 
 swanctl --load-all --file /test/swanctl.conf
-log "pronto"
+log "ready"
 
 wait "$charon_pid" || true

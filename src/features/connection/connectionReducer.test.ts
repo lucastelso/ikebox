@@ -29,7 +29,7 @@ function run(...actions: Parameters<typeof connectionReducer>[1][]): ConnectionS
 }
 
 describe('connectionReducer', () => {
-  it('percorre o fluxo de conexão pelos eventos', () => {
+  it('walks the connection flow through the events', () => {
     const s = run(
       { type: 'connectStarted' },
       { type: 'sessionUpdate', update: { kind: 'preparing', step: 'subindo o engine' } },
@@ -42,14 +42,14 @@ describe('connectionReducer', () => {
     expect(s.logs).toEqual(['IKE_SA established']);
   });
 
-  it('guarda o erro e volta a desconectado', () => {
+  it('keeps the error and goes back to disconnected', () => {
     const s = run({ type: 'connectStarted' }, { type: 'connectFailed', error });
     expect(s.phase).toBe('idle');
     expect(s.error).toEqual(error);
     expect(run({ type: 'connectFailed', error }, { type: 'dismissError' }).error).toBeNull();
   });
 
-  it('reconecta quando o túnel cai e volta', () => {
+  it('reconnects when the tunnel drops and comes back', () => {
     const connected = run({ type: 'connectSucceeded', connection: conn });
     const down = connectionReducer(connected, {
       type: 'sessionUpdate',
@@ -61,7 +61,7 @@ describe('connectionReducer', () => {
     ).toBe('connected');
   });
 
-  it('o status periódico adota conexões abertas fora do app e não atrapalha operações', () => {
+  it('periodic status adopts connections opened outside the app without disturbing operations', () => {
     expect(run({ type: 'statusPolled', connection: conn }).phase).toBe('connected');
     const busy = run({ type: 'connectStarted' }, { type: 'statusPolled', connection: null });
     expect(busy.phase).toBe('preparing');
@@ -74,7 +74,7 @@ describe('connectionReducer', () => {
     expect(noTunnel.phase).toBe('reconnecting');
   });
 
-  it('desconexão e engine encerrado', () => {
+  it('disconnection and stopped engine', () => {
     const s = run(
       { type: 'connectSucceeded', connection: conn },
       { type: 'disconnectStarted' },
@@ -89,7 +89,7 @@ describe('connectionReducer', () => {
     expect(gone.phase).toBe('idle');
   });
 
-  it('limita o log e marca o build da imagem', () => {
+  it('caps the log and flags the image build', () => {
     let s = initialState;
     for (let i = 0; i < MAX_LOG_LINES + 5; i++) {
       s = connectionReducer(s, { type: 'sessionUpdate', update: { kind: 'log', line: `l${i}` } });

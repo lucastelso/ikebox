@@ -24,14 +24,14 @@ fi
 
 bundle="$repo/target/network-component"
 
-echo "==> 1/3 montando o pacote do componente de rede"
+echo "==> 1/3 building the network component bundle"
 scripts/stage-network-component.sh --out "$bundle"
 
-echo "==> 2/3 instalando o componente de rede (sudo)"
+echo "==> 2/3 installing the network component (sudo)"
 sudo "$bundle/install-native.sh" install --bundle "$bundle" --origin manual
 
-echo "==> 3/3 E2E do CLI com o engine embutido"
+echo "==> 3/3 CLI E2E with the embedded engine"
 IPSEC_CLIENT_BACKEND=native tests/cli/e2e.sh
 echo
-echo "✔ engine embutido validado. Ele fica instalado e passa a ser o padrão do app."
+echo "✔ embedded engine validated. It stays installed and becomes the app default."
 echo "  Para voltar ao Docker: sudo /opt/ipsec-client/libexec/install-native.sh uninstall"

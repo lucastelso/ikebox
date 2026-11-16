@@ -1,6 +1,6 @@
 [package]
 name = "ipsec-client-core"
-description = "Núcleo do ipsec-client: perfis, segredos, engine, sessão e diagnóstico"
+description = "ipsec-client core: profiles, secrets, engine, session and diagnostics"
 version.workspace = true
 edition.workspace = true
 rust-version.workspace = true

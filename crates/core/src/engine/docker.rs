@@ -4,7 +4,7 @@
 //! - o container é sempre recriado (ADR-0002); um engine anterior é parado com
 //!   `docker stop` (gracioso, para o entrypoint limpar o host) e removido;
 //! - o socket velho é apagado antes de criar o container, e a prontidão é a
-//!   linha `[engine] pronto` no log **e** o socket aceitando conexão.
+//!   linha `[engine] ready` no log **e** o socket aceitando conexão.
 
 use std::collections::{HashMap, VecDeque};
 use std::os::unix::fs::{DirBuilderExt, MetadataExt, PermissionsExt};
@@ -24,7 +24,7 @@ use tracing::{debug, info};
 use super::{EngineError, EngineSpec, context};
 
 /// Linha que o entrypoint escreve quando o socket VICI está liberado.
-pub const READY_LINE: &str = "[engine] pronto";
+pub const READY_LINE: &str = "[engine] ready";
 /// Tempo máximo para o engine ficar pronto.
 pub const READY_TIMEOUT: Duration = Duration::from_secs(20);
 /// Tempo do `docker stop` antes do SIGKILL (o entrypoint precisa limpar).

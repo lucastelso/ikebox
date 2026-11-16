@@ -23,13 +23,13 @@ fail() {
     exit 1
 }
 
-dir=$(cd "${1:?uso: verify-release.sh <diretório com os pacotes>}" && pwd)
+dir=$(cd "${1:?usage: verify-release.sh <directory with the packages>}" && pwd)
 shopt -s nullglob
 appimages=("$dir"/*.AppImage)
 debs=("$dir"/*.deb)
 rpms=("$dir"/*.rpm)
 ((${#appimages[@]} == 1 && ${#debs[@]} == 1 && ${#rpms[@]} == 1)) ||
-    fail "esperava um AppImage, um deb e um rpm em $dir"
+    fail "expected one AppImage, one deb and one rpm in $dir"
 
 work=$(mktemp -d)
 # shellcheck disable=SC2064 # caminho fixado agora
@@ -42,36 +42,36 @@ for patch_file in "$repo"/native-engine/patches/*.patch; do
     [[ -f $patch_file ]] || continue
     expected_patches+=("$(basename "$patch_file"):$(sha256sum "$patch_file" | cut -c1-64)")
 done
-((${#expected_patches[@]} > 0)) || fail "nenhum patch em native-engine/patches"
+((${#expected_patches[@]} > 0)) || fail "no patch in native-engine/patches"
 
 component_ok() {
     local name=$2 net="$1/usr/lib/ipsec-client/network" patches
-    [[ -f $net/SHA256SUMS ]] || fail "$name: componente de rede ausente"
+    [[ -f $net/SHA256SUMS ]] || fail "$name: network component missing"
     (cd "$net" && sha256sum --check --strict --quiet SHA256SUMS) ||
-        fail "$name: o componente de rede não bate com o SHA256SUMS"
+        fail "$name: the network component does not match its SHA256SUMS"
     patches=$(tar -xzOf "$net/engine.tar.gz" opt/ipsec-client/engine/BUILDINFO | sed -n 's/^patches=//p')
     [[ $patches == "${expected_patches[*]}" ]] ||
-        fail "$name: o strongSwan embutido não tem os patches de segurança (ADR-0019)"
-    ok "$name: componente de rede íntegro ($(grep -h '^version=' "$net/VERSION"), strongSwan com os patches)"
+        fail "$name: the embedded strongSwan lacks the security patches (ADR-0019)"
+    ok "$name: network component intact ($(grep -h '^version=' "$net/VERSION"), strongSwan with the patches)"
 }
 
 mkdir "$work/appimage" "$work/deb" "$work/rpm"
 (cd "$work/appimage" && "${appimages[0]}" --appimage-extract >/dev/null) ||
-    fail "AppImage: não consegui extrair o pacote"
+    fail "AppImage: could not extract the package"
 component_ok "$work/appimage/squashfs-root" "AppImage"
 glibc=$(objdump -T "$work/appimage/squashfs-root/usr/bin/ipsec-client" |
     grep -oE 'GLIBC_[0-9.]+' | sed 's/GLIBC_//' | sort -Vu | tail -n 1)
 printf '%s\n%s\n' "$glibc" "$MAX_GLIBC" | sort -VC ||
-    fail "AppImage: exige glibc $glibc (o limite é $MAX_GLIBC, do Ubuntu 22.04)"
-ok "AppImage: exige glibc $glibc (limite $MAX_GLIBC)"
+    fail "AppImage: requires glibc $glibc (the limit is $MAX_GLIBC, from Ubuntu 22.04)"
+ok "AppImage: requires glibc $glibc (limit $MAX_GLIBC)"
 
 (cd "$work/deb" && ar x "${debs[0]}" && tar -xf data.tar.*) ||
-    fail "deb: não consegui extrair o pacote"
+    fail "deb: could not extract the package"
 component_ok "$work/deb" "deb"
 
 # O rpm2cpio do Ubuntu 22.04 extrai os pacotes do Tauri por inteiro, mas sai
 # com 1. Quem decide é a conferência do componente logo abaixo: uma extração
 # incompleta falha nela.
 (cd "$work/rpm" && { rpm2cpio "${rpms[0]}" || true; } | cpio -idm --quiet) ||
-    fail "rpm: não consegui extrair o pacote"
+    fail "rpm: could not extract the package"
 component_ok "$work/rpm" "rpm"

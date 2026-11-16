@@ -10,6 +10,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select';
+import { useT } from '@/i18n';
 import { SetupBanner } from '../component/SetupBanner';
 import { useComponent } from '../component/useComponent';
 import { ConnectButton } from './ConnectButton';
@@ -27,6 +28,7 @@ interface DialogState {
 
 /** Tela principal: perfil, botão de conexão, estado, erros e log. */
 export function HomeScreen({ onImport }: { onImport?: () => void }) {
+  const t = useT();
   const { list, error: listError, selected, select } = useProfiles();
   const { state, connect, disconnect, dismissError } = useConnection();
   const component = useComponent();
@@ -94,17 +96,14 @@ export function HomeScreen({ onImport }: { onImport?: () => void }) {
           <CardHeader>
             <CardTitle className="flex items-center gap-2">
               <FileUp className="size-5 text-primary" aria-hidden />
-              Nenhum perfil ainda
+              {t.home.noProfilesTitle}
             </CardTitle>
-            <CardDescription>
-              Para conectar, importe o perfil (.json) que você recebeu da sua equipe, ou o
-              swanctl.conf de uma VPN que já funciona.
-            </CardDescription>
+            <CardDescription>{t.home.noProfilesBody}</CardDescription>
           </CardHeader>
           <CardContent>
             <Button onClick={onImport}>
               <FileUp />
-              Importar perfil
+              {t.home.importProfile}
             </Button>
           </CardContent>
         </Card>
@@ -121,10 +120,10 @@ export function HomeScreen({ onImport }: { onImport?: () => void }) {
           onValueChange={select}
           disabled={!idle || !list || list.profiles.length === 0}
         >
-          <SelectTrigger aria-label="Perfil de conexão">
+          <SelectTrigger aria-label={t.home.profileSelect}>
             <span className="flex min-w-0 items-center gap-2">
               <Network className="size-4 shrink-0 text-muted-foreground" aria-hidden />
-              <SelectValue placeholder="Escolha um perfil" />
+              <SelectValue placeholder={t.home.chooseProfile} />
             </span>
           </SelectTrigger>
           <SelectContent>
@@ -137,7 +136,7 @@ export function HomeScreen({ onImport }: { onImport?: () => void }) {
         </Select>
         {!idle && activeProfile && activeProfile !== selected?.id && (
           <p className="mt-2 text-xs text-muted-foreground">
-            Conexão ativa: perfil {activeProfile}
+            {t.home.activeProfile(activeProfile)}
           </p>
         )}
       </div>

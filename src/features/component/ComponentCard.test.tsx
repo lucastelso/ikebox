@@ -38,7 +38,7 @@ function Harness() {
   );
 }
 
-/** Simula o Rust: estado inicial e respostas de instalar/remover. */
+/** Fakes Rust: initial state and install/remove replies. */
 function mockComponent(initial: ComponentInfo, installError?: UiError) {
   const calls: string[] = [];
   let info = initial;
@@ -62,37 +62,39 @@ function mockComponent(initial: ComponentInfo, installError?: UiError) {
 }
 
 describe('ComponentCard', () => {
-  it('instala e passa a mostrar a versão instalada', async () => {
+  it('installs and then shows the installed version', async () => {
     const calls = mockComponent(base);
     render(<Harness />);
-    expect(await screen.findByText('Não instalado')).toBeInTheDocument();
-    expect(screen.getByText('O sistema vai pedir a senha de administrador.')).toBeInTheDocument();
-    await userEvent.click(screen.getByRole('button', { name: 'Instalar' }));
-    expect(await screen.findByText('Instalado e funcionando.')).toBeInTheDocument();
+    expect(await screen.findByText('Not installed')).toBeInTheDocument();
+    expect(
+      screen.getByText('The system will ask for the administrator password.'),
+    ).toBeInTheDocument();
+    await userEvent.click(screen.getByRole('button', { name: 'Install' }));
+    expect(await screen.findByText('Installed and working.')).toBeInTheDocument();
     expect(screen.getAllByText('IPsec Client 0.1.0 · strongSwan 6.1.0')).toHaveLength(2);
     expect(calls).toContain('install_component');
   });
 
-  it('remove só depois de confirmar', async () => {
+  it('removes only after confirmation', async () => {
     const calls = mockComponent(ready);
     render(<Harness />);
-    await userEvent.click(await screen.findByRole('button', { name: 'Remover' }));
-    expect(await screen.findByRole('dialog')).toHaveTextContent('Remover o componente de rede?');
+    await userEvent.click(await screen.findByRole('button', { name: 'Remove' }));
+    expect(await screen.findByRole('dialog')).toHaveTextContent('Remove the network component?');
     expect(calls).not.toContain('uninstall_component');
-    await userEvent.click(screen.getByRole('button', { name: 'Remover' }));
+    await userEvent.click(screen.getByRole('button', { name: 'Remove' }));
     await waitFor(() => expect(calls).toContain('uninstall_component'));
-    expect(await screen.findByText('Não instalado')).toBeInTheDocument();
+    expect(await screen.findByText('Not installed')).toBeInTheDocument();
   });
 
-  it('cancelar a senha mantém o estado', async () => {
-    mockComponent(base, { kind: 'cancelled', message: 'Autorização cancelada.', details: [] });
+  it('cancelling the password keeps the state', async () => {
+    mockComponent(base, { kind: 'cancelled', message: 'Authorization cancelled.', details: [] });
     render(<Harness />);
-    await userEvent.click(await screen.findByRole('button', { name: 'Instalar' }));
-    await waitFor(() => expect(screen.getByRole('button', { name: 'Instalar' })).toBeEnabled());
-    expect(screen.getByText('Não instalado')).toBeInTheDocument();
+    await userEvent.click(await screen.findByRole('button', { name: 'Install' }));
+    await waitFor(() => expect(screen.getByRole('button', { name: 'Install' })).toBeEnabled());
+    expect(screen.getByText('Not installed')).toBeInTheDocument();
   });
 
-  it('desatualizado oferece atualizar; instalado por pacote não oferece nada', async () => {
+  it('outdated offers to update; installed by a package offers nothing', async () => {
     const { rerender } = render(
       <ComponentCard
         info={{ ...ready, state: 'outdated', bundledVersion: '0.2.0' }}
@@ -101,7 +103,7 @@ describe('ComponentCard', () => {
         onUninstall={() => {}}
       />,
     );
-    expect(screen.getByRole('button', { name: 'Atualizar' })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Update' })).toBeInTheDocument();
     rerender(
       <ComponentCard
         info={{ ...ready, managedByPackage: true, canInstall: false, canUninstall: false }}
@@ -111,6 +113,6 @@ describe('ComponentCard', () => {
       />,
     );
     expect(screen.queryByRole('button')).not.toBeInTheDocument();
-    expect(screen.getByText(/pacote do sistema/)).toBeInTheDocument();
+    expect(screen.getByText(/system package/)).toBeInTheDocument();
   });
 });

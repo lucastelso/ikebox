@@ -1,9 +1,9 @@
-# Ambiente de build dos pacotes de release (AppImage, deb e rpm).
+# Build environment for the release packages (AppImage, deb and rpm).
 #
-# Ubuntu 22.04 (glibc 2.35), a mesma base do builder do engine: o AppImage
-# roda em distribuições com glibc igual ou mais nova, e o .deb declara as
-# bibliotecas com os nomes do Ubuntu/Debian (ex.: libayatana-appindicator3-1).
-# Usado por scripts/build-release.sh; a CI vai usar o mesmo caminho.
+# Ubuntu 22.04 (glibc 2.35), the same base as the engine builder: the AppImage
+# runs on distributions with the same or a newer glibc, and the .deb declares
+# the libraries with their Ubuntu/Debian names (e.g. libayatana-appindicator3-1).
+# Used by scripts/build-release.sh; CI will use the same path.
 FROM ubuntu:22.04@sha256:9abcaffc92a5279fff3a6a41635c0800ea33e528425fb389658806476e7defde
 
 ARG RUST_VERSION=1.100.0
@@ -38,7 +38,7 @@ RUN set -eu; \
     rm "$file"; \
     node --version
 
-# O linuxdeploy (usado pelo Tauri no AppImage) é um AppImage: sem FUSE no
-# container, ele se extrai e roda.
+# linuxdeploy (used by Tauri for the AppImage) is an AppImage itself: without
+# FUSE in the container, it extracts itself and runs.
 ENV APPIMAGE_EXTRACT_AND_RUN=1
 WORKDIR /build
