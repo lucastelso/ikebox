@@ -7,6 +7,52 @@ e o projeto adota o [Versionamento Semântico](https://semver.org/lang/pt-BR/).
 A partir da v0.1.0, este arquivo será gerado com git-cliff a partir dos
 commits.
 
+## [0.1.1] - 2026-11-16
+
+Versão de segurança, resultado de uma auditoria de segurança e privacidade.
+**Quem usa a 0.1.0 deve atualizar o app e depois clicar em "Atualizar" no
+componente de rede** (Sistema → Componente de rede). A correção está no
+componente, e só trocar o pacote não basta.
+
+### Segurança
+
+- **Escalada local de privilégio corrigida (ADR-0019).** No engine embutido,
+  o cliente VICI (o lado do usuário) escolhia o comando `updown`, que o
+  charon executa como root. Um programa rodando como o usuário da sessão
+  ativa conseguia executar comandos como root, sem senha. Não era explorável
+  pela rede nem pelo gateway.
+  - Um patch mínimo no strongSwan faz o charon ignorar o `updown` e o
+    `if_id` vindos do VICI e usar os definidos pelo root.
+  - Os argumentos do `updown` vão num arquivo, sem passar por shell, e o DNS
+    do perfil passa a ir pelo helper, validado.
+- Socket VICI `0600` do usuário (antes `0660` do grupo).
+- O helper só deixa o dono da sessão parar a VPN e ler o log dela, e atende
+  conexões em paralelo: um cliente parado não o trava mais.
+- Sandbox do engine mais fechado: sem dispositivos reais, `/proc/sys` e
+  `/sys` somente leitura, sem ver outros processos nem o log do kernel, e
+  filtro de syscalls.
+- Os builds recusam um strongSwan sem os patches de segurança do commit.
+
+### Privacidade
+
+- Auditoria de vazamento: nenhum dado da organização do mantenedor no
+  código, no histórico nem nos pacotes da 0.1.0.
+- **"Copiar anonimizado"** no app e `logs --anonimizar` no CLI: gateway,
+  IPs, DNS e domínios viram marcadores (`<gateway>`, `<ip-1>`,
+  `<dominio-1>`) no texto que sai do app.
+- `scripts/check-private.sh --artifacts` varre os pacotes de release por
+  dentro e roda no fim de todo build de release.
+- O servidor de desenvolvimento não serve arquivos privados deixados na
+  pasta do projeto.
+
+### Testes
+
+- `npm run test:native` ganhou o cenário do ataque. Ele passa com o patch e
+  falha com o engine da 0.1.0.
+- Novo `npm run test:systemd`: systemd de verdade em container, com o
+  instalador real, o sandbox aplicado, dois usuários e o ataque. Ele achou
+  dois bugs que o container comum escondia, já corrigidos.
+
 ## [0.1.0] - 2026-11-16
 
 Primeira versão funcional. Em 2026-11-16, o mantenedor a validou numa VPN
