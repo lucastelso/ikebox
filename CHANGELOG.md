@@ -7,7 +7,7 @@ e o projeto adota o [Versionamento Semântico](https://semver.org/lang/pt-BR/).
 A partir da v0.1.0, este arquivo será gerado com git-cliff a partir dos
 commits.
 
-## [0.1.0] - a publicar
+## [0.1.0] - 2026-11-16
 
 Primeira versão funcional. Em 2026-11-16, o mantenedor a validou numa VPN
 FortiGate real (IKEv1 agressivo + PSK de grupo + XAuth), pelo mesmo caminho
@@ -19,8 +19,8 @@ de um usuário final:
 - conexão pelo strongSwan 6.1.0 embutido, sem Docker, e acesso remoto (RDP)
   pela VPN.
 
-Os pacotes (AppImage, rpm e deb) e a tag `v0.1.0` serão publicados no GitHub
-Releases pelo `chore/release`.
+Os pacotes (AppImage, rpm e deb) são gerados por `scripts/build-release.sh`
+num container Ubuntu 22.04 e publicados no GitHub Releases.
 
 ### Licença
 
@@ -154,8 +154,20 @@ Releases pelo `chore/release`.
   categoria Rede, descrição em inglês e pt-BR e palavras-chave (a busca por
   "vpn" acha o app).
 
+- Pacotes de release: `scripts/build-release.sh` (`npm run release:build`)
+  gera AppImage, deb e rpm a partir de uma tag, num container Ubuntu 22.04
+  (`packaging/release/Dockerfile`, com Rust e Node conferidos por checksum),
+  e o `SHA256SUMS`. No fim, `scripts/verify-release.sh` confere o componente
+  de rede dentro dos três pacotes e a glibc exigida pelo AppImage. O guia
+  `docs/release.md` explica como publicar no GitHub, e
+  `docs/releases/v0.1.0.md` traz as notas da versão.
+
 ### Alterado
 
+- O helper vai compactado no pacote do componente (`ipsec-client-helper.gz`).
+  No AppImage, o linuxdeploy reescrevia o binário, o hash deixava de bater e
+  o app recusaria instalar o componente. O problema foi achado antes de
+  publicar.
 - Pacotes com o nome `ipsec-client` (antes, `i-psec-client`), recursos em
   `/usr/lib/ipsec-client` (sem espaço) e mantenedor "IPsec Client
   contributors".

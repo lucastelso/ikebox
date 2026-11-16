@@ -79,6 +79,12 @@ rodar direto de dentro do AppImage.
   dos pacotes rpm/deb (com `--origin package`).
 - `tests/packaging/install-test.sh` testa o instalador como root num container
   descartável, inclusive pacotes adulterados, e roda na CI.
+- **O helper vai compactado no pacote** (`ipsec-client-helper.gz`). Ao montar
+  o AppImage, o linuxdeploy reescreve o RPATH de todo executável ELF que
+  encontra dentro do app, e o hash do helper deixava de bater: o app
+  recusaria instalar. O problema foi achado ao conferir o primeiro AppImage
+  de release. Desde então, `scripts/verify-release.sh` confere o componente
+  dentro dos três pacotes ao fim de todo build de release.
 - **Risco residual:** um programa malicioso rodando como o próprio usuário
   poderia trocar a cópia do pacote entre a conferência feita pelo app e a
   leitura pelo root. Esse programa já tem acesso a tudo do usuário, e nenhum

@@ -22,9 +22,11 @@ precisa de Docker, Rust, Node nem terminal para usar.
 | Ubuntu, Debian, Linux Mint, Pop!_OS | **.deb** | `ipsec-client_0.1.0_amd64.deb` |
 | Outras (Arch, etc.) | **.AppImage** | `ipsec-client_0.1.0_amd64.AppImage` |
 
-Os arquivos ficam na página **Releases** do repositório no GitHub, a partir
-da primeira versão publicada. Até lá, quem tem o código gera o pacote
-(seção 6) e o repassa.
+Os arquivos ficam na página [Releases](https://github.com/lucastelso/ipsec-client/releases) do repositório no GitHub,
+junto com o `SHA256SUMS`, que serve para conferir o download
+(`sha256sum -c SHA256SUMS --ignore-missing`). Enquanto o repositório for
+privado, só quem tem acesso a ele consegue baixar: peça acesso, ou receba os
+arquivos de quem te passou o perfil.
 
 > Prefira o **.rpm** ou o **.deb** quando houver para a sua distribuição: o
 > app entra no menu sozinho, e as atualizações passam pelo gerenciador de
@@ -158,8 +160,9 @@ sudo /opt/ipsec-client/libexec/install-native.sh uninstall
 
 ## 6. Gerar o pacote a partir do código
 
-Para quem tem o código e quer gerar o `.rpm`/`.deb` (enquanto não há versão
-publicada, ou para testar uma mudança).
+Para quem tem o código e quer gerar o `.rpm`/`.deb` para testar uma
+mudança. Os pacotes de uma versão, para publicar, são gerados de outro jeito:
+veja [como gerar e publicar uma versão](release.md).
 
 1. Instale os pré-requisitos de desenvolvimento do
    [README](../README.md#pré-requisitos), uma vez. O Docker é usado só para
