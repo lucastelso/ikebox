@@ -1209,3 +1209,36 @@ a `libayatana-appindicator3-1`.
 **Achado de comportamento** (documentado no manual): fechar a janela encerra
 o app, mas não desconecta a VPN, porque o engine é um serviço do sistema. Ao
 reabrir, o app mostra a conexão ativa.
+
+### Passo 30: validação na VPN real e versão 0.1.0
+
+**Validação do mantenedor (2026-11-16), pelo caminho de um usuário final:**
+
+1. instalou o `ipsec-client-0.0.0-1.x86_64.rpm` com `dnf install` e abriu o
+   **IPsec Client** pelo menu de aplicativos;
+2. o app mostrou **"Atualização do componente de rede"**, porque a instalação
+   feita pelo `test-native.sh` não tinha registro de versão. Ele clicou em
+   **Atualizar agora** e digitou a senha de administrador. É o `pkexec` real;
+3. conectou na **VPN do trabalho** (FortiGate, IKEv1 agressivo + PSK de grupo
+   + XAuth) pelo strongSwan 6.1.0 embutido, **sem Docker**, e acessou a
+   máquina do trabalho pelo Remmina.
+
+**Conferido no sistema depois do teste** (só metadados, sem logs da VPN):
+
+- `rpm -q ipsec-client` = `ipsec-client-0.0.0-1.x86_64`;
+- `/opt/ipsec-client/ORIGIN` = `app`;
+- o `SHA256SUMS` instalado é idêntico ao do pacote do app.
+
+Com isso ficam validados de ponta a ponta o engine embutido na VPN real (que
+faltava desde o passo 27), a instalação e a atualização do componente pelo
+app (passo 28) e a instalação como app (passo 29).
+
+**Versão 0.1.0:** a versão sai de 0.0.0 para **0.1.0** no workspace Rust
+(todos os crates), no `tauri.conf.json` e no `package.json`. É a primeira
+versão funcional. O CHANGELOG ganhou a seção `[0.1.0] - a publicar`. A tag
+`v0.1.0` e os pacotes no GitHub Releases ficam para o `chore/release`, como
+no plano. Assim, a tag aponta para o commit que a CI empacota.
+
+Efeito esperado ao instalar o `.rpm` 0.1.0 por cima do 0.0.0: o app vai
+mostrar "Atualização do componente de rede", porque o `VERSION` do pacote
+muda. É o fluxo de atualização funcionando.

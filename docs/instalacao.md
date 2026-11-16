@@ -23,8 +23,8 @@ precisa de Docker, Rust, Node nem terminal para usar.
 | Outras (Arch, etc.) | **.AppImage** | `ipsec-client_0.1.0_amd64.AppImage` |
 
 Os arquivos ficam na página **Releases** do repositório no GitHub, a partir
-da primeira versão publicada (v0.1.0). Até lá, quem tem o código gera o
-pacote (seção 6) e o repassa.
+da primeira versão publicada. Até lá, quem tem o código gera o pacote
+(seção 6) e o repassa.
 
 > Prefira o **.rpm** ou o **.deb** quando houver para a sua distribuição: o
 > app entra no menu sozinho, e as atualizações passam pelo gerenciador de

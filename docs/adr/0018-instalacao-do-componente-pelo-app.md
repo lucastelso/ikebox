@@ -1,6 +1,7 @@
 # ADR-0018: O app instala o componente de rede (pacote embutido + pkexec)
 
-- **Status:** Aceito. Implementado no branch `feat/setup-appimage`.
+- **Status:** Aceito. Implementado no branch `feat/setup-appimage` e validado
+  pelo mantenedor com o pedido de senha real (passo 30).
 - **Data:** 2026-11-16
 
 ## Contexto
