@@ -224,4 +224,8 @@ git push -u origin --all && git push --tags
 
 ## Licença
 
-A definir antes de o repositório se tornar público.
+[GPL-3.0-or-later](LICENSE). Qualquer versão redistribuída precisa manter o
+código aberto, que é o que se espera de uma ferramenta de segurança. O motivo
+da escolha está no [ADR-0017](docs/adr/0017-licenca-gpl-3.md). O strongSwan e
+o GMP, embutidos no engine, têm licenças próprias: ver
+[THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md).

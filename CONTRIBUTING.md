@@ -43,6 +43,13 @@ Os hooks rodam `scripts/check-private.sh` automaticamente:
 > em texto puro. A proteção para segredos é arquitetural: eles nunca são
 > escritos em arquivos do projeto.
 
+## Licença das contribuições
+
+O projeto é GPL-3.0-or-later (ADR-0017). Ao contribuir, você concorda que a
+sua contribuição é licenciada nos mesmos termos (*inbound = outbound*).
+Dependências novas precisam ter licença compatível, e o `cargo deny` verifica
+isso no lado Rust.
+
 ## Fluxo de trabalho
 
 1. Crie o branch a partir de `main`, com o nome `tipo/descricao`. Exemplos:

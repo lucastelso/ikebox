@@ -3,6 +3,7 @@
   "version": "0.0.0",
   "private": true,
   "description": "Cliente de VPN IPsec para Linux, focado em VPNs legadas (IKEv1, PSK de grupo + XAuth)",
+  "license": "GPL-3.0-or-later",
   "type": "module",
   "engines": {
     "node": ">=22"

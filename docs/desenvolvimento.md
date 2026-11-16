@@ -851,3 +851,58 @@ O Rust testa a detecção de tipo, o token de uso único e a validação do DNS.
   tema passou a usar `<input type="radio">` de verdade, visualmente oculto,
   com foco visível no rótulo.
 - 18 testes no frontend.
+
+### Passo 20: primeira conexão real pelo app
+
+O mantenedor rodou o app (`npm run tauri dev`, ainda com o engine em Docker)
+contra a VPN do trabalho, um FortiGate com IKEv1 agressivo e PSK de grupo +
+XAuth. Resultado, lido no painel de log do app:
+
+- **fase 1:** estabelecida. O gateway escolheu a **segunda** proposta da lista
+  (AES-128/SHA1/modp1024);
+- **XAuth:** autenticado. O usuário e o id do grupo aparecem **mascarados** no
+  log, o que confirma o `Redactor` em uso real (um id curto vira `***`);
+- **IP virtual:** recebido e instalado na interface dedicada;
+- **fase 2:** AES-256/SHA1 com **PFS modp1024**. Isso confirma o achado do
+  passo 15: no IKEv1, só o grupo da primeira proposta é oferecido, então o
+  modp768 nunca chega a ser negociado;
+- a rota e o DNS split foram para a interface dedicada;
+- **desconexão:** DELETE da fase 2 e da fase 1 enviados ao gateway, rota
+  removida e DNS revertido.
+
+O gateway também mandou o aviso `RESPONDER-LIFETIME` (notify 24576), que é
+informativo.
+
+Pendências e ideias que saíram daqui:
+
+- um teste de longa duração (horas, com RDP), passando por rekey e DPD;
+- o log copiado ainda mostra gateway, DNS e domínios internos. Ideia
+  registrada no roadmap: um "copiar log anonimizado" para relatórios de bug.
+
+### Passo 21: licença (GPL-3.0-or-later, ADR-0017)
+
+- **Fatos levantados:**
+  - o strongSwan é GPL-2.0-or-later, com exceção para bibliotecas LGPL e
+    OpenSSL;
+  - o GMP, estático no charon, é LGPLv3/GPLv2;
+  - todas as dependências Rust e do frontend que vão no app são permissivas e
+    compatíveis com a GPLv3;
+  - o app conversa com o charon por socket, então não é obra combinada com o
+    strongSwan.
+- **Escolha:** GPL-3.0-or-later. Para uma ferramenta de segurança que
+  substitui um cliente proprietário, garante que derivados redistribuídos
+  continuem abertos e auditáveis, e é da mesma família do strongSwan embutido.
+  A alternativa permissiva (MIT/Apache-2.0) ficou registrada no ADR.
+- **Aplicação:**
+  - `LICENSE` com o texto oficial;
+  - SPDX nos `Cargo.toml`, no `package.json` e nos metadados dos pacotes do
+    Tauri;
+  - `deny.toml` com exceções só para os nossos crates. As dependências
+    continuam na lista permissiva;
+  - contribuições *inbound = outbound* (CONTRIBUTING.md).
+- **Conformidade do que é distribuído:**
+  - `THIRD_PARTY_NOTICES.md` aponta o código-fonte exato do strongSwan
+    (tarball + SHA-256 + GPG) e do GMP (pacote do Ubuntu 22.04, com a versão
+    no `BUILDINFO`);
+  - o build do engine passou a empacotar os textos de licença dos dois em
+    `share/licenses/`.

@@ -58,7 +58,7 @@ usuário: App (Tauri 2 + React) ou CLI
 | Entrega | Aceite | Status |
 |---|---|---|
 | Push de `main` e dos branches; primeira execução da CI no GitHub | CI verde (ou correções em `fix/ci`) | ⏳ com o mantenedor (o ambiente automatizado não tem credenciais do GitHub) |
-| Validação real do mantenedor (`connect trabalho` + Remmina) | registrada no diário | ⏳ |
+| Validação real do mantenedor (`connect trabalho` + Remmina) | registrada no diário | ✅ pelo app (passo 20); falta o teste de longa duração |
 
 ### Fase B: prova do engine embutido (decide o caminho)
 
@@ -94,8 +94,9 @@ usuário: App (Tauri 2 + React) ou CLI
 | `chore/release` | AppImage + rpm + deb na CI, checksums assinados, GitHub Releases, tag `v0.1.0`. Aceite: numa VM limpa, só com o AppImage, conecta com um perfil exportado | ⏳ |
 | `feat/updater` (opcional) | Atualização automática assinada | ⏳ |
 
-**Antes de tornar público:** licença, reescrita do e-mail dos commits, varredura
-completa do histórico (`check-private.sh --history` + gitleaks).
+**Antes de tornar público:** reescrita do e-mail dos commits e varredura completa
+do histórico (`check-private.sh --history` + gitleaks). A licença já está
+definida (GPL-3.0-or-later, ADR-0017).
 
 ## Depois da v0.1.0 (ideias)
 
@@ -103,3 +104,4 @@ completa do histórico (`check-private.sh --history` + gitleaks).
 - Restringir as portas 500/4500 ao IP do gateway durante a sessão.
 - Internacionalização (en-US).
 - Autenticação por certificado e EAP (schema 2 do perfil).
+- "Copiar log anonimizado": mascarar também gateway, DNS, domínios e redes internas para relatórios de bug.

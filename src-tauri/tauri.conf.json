@@ -30,7 +30,11 @@
   },
   "bundle": {
     "active": true,
-    "targets": ["appimage", "deb", "rpm"],
+    "targets": [
+      "appimage",
+      "deb",
+      "rpm"
+    ],
     "category": "Network",
     "shortDescription": "Cliente de VPN IPsec para Linux",
     "longDescription": "Conecta a VPNs IPsec, inclusive as legadas (IKEv1, PSK de grupo + XAuth), sem configurar nada no sistema.",
@@ -40,6 +44,9 @@
       "icons/128x128.png",
       "icons/128x128@2x.png",
       "icons/icon.png"
-    ]
+    ],
+    "license": "GPL-3.0-or-later",
+    "licenseFile": "../LICENSE",
+    "copyright": "IPsec Client contributors"
   }
 }

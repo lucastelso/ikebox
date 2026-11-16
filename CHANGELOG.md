@@ -9,6 +9,13 @@ commits.
 
 ## [Não lançado]
 
+### Licença
+
+- O projeto passa a ser **GPL-3.0-or-later** (ADR-0017). `THIRD_PARTY_NOTICES.md`
+  identifica o strongSwan e o GMP distribuídos no engine, junto com o
+  código-fonte correspondente. Os textos de licença deles vão no pacote do
+  engine.
+
 ### Adicionado
 
 - Documentação inicial: README, arquitetura, roadmap, diário de desenvolvimento
