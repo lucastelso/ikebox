@@ -70,6 +70,18 @@ commits.
   - `src/`: React 19, TypeScript, Vite 8, Tailwind 4 com tokens claro/escuro e
     componentes shadcn/ui;
   - biome, vitest com mockIPC, logo e ícones.
+- Tela de conexão do app:
+  - seletor de perfil e botão central com anel de estado;
+  - estado com IP virtual, gateway, redes, tempo e tráfego;
+  - diálogo de credenciais que pede só o que falta, com "lembrar no chaveiro"
+    e mostrar/ocultar senha;
+  - erros com a causa provável, detalhes e "Informar credenciais";
+  - log mascarado copiável;
+  - consulta de status que adota conexões abertas pelo CLI.
+
+  IPC: `list_profiles`, `credentials_status`, `connect`, `disconnect`,
+  `status` e `forget_credentials`, com o evento `SessionUpdate` e erros
+  tipados (`UiError`).
 
 ### Alterado
 

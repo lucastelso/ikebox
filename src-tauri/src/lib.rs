@@ -7,12 +7,25 @@
 pub mod commands;
 pub mod dto;
 
-use tauri_specta::{Builder, collect_commands};
+use tauri_specta::{Builder, ErrorHandlingMode, collect_commands, collect_events};
 
-/// Registro dos comandos expostos à UI (fonte dos bindings TypeScript).
+/// Registro dos comandos e eventos expostos à UI (fonte dos bindings
+/// TypeScript). Erros chegam tipados (`{ status: "error", error: UiError }`).
 #[must_use]
 pub fn specta_builder() -> Builder<tauri::Wry> {
-    Builder::<tauri::Wry>::new().commands(collect_commands![commands::app_info])
+    Builder::<tauri::Wry>::new()
+        .error_handling(ErrorHandlingMode::Result)
+        .disable_serde_phases()
+        .commands(collect_commands![
+            commands::app_info,
+            commands::list_profiles,
+            commands::credentials_status,
+            commands::connect,
+            commands::disconnect,
+            commands::status,
+            commands::forget_credentials,
+        ])
+        .events(collect_events![dto::SessionUpdate])
 }
 
 /// Sobe o app.
@@ -23,6 +36,7 @@ pub fn run() {
     let builder = specta_builder();
     #[allow(clippy::expect_used)] // falha na inicialização: não há como seguir
     tauri::Builder::default()
+        .manage(commands::ConnectionLock::default())
         .invoke_handler(builder.invoke_handler())
         .setup(move |app| {
             builder.mount_events(app);

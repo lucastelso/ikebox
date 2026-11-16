@@ -16,11 +16,13 @@
   `npm run test:native`.
 - **Scaffold da GUI pronto** (`chore/scaffold-gui`): `npm run tauri dev` abre o
   app.
-- **Próximo branch:** `feat/ui-conexao`:
-  - tela principal (perfil, botão Conectar/Desconectar, estado);
-  - credenciais com "lembrar";
-  - erros claros e log mascarado;
-  - comandos e eventos no `src-tauri`, delegando a `core::session`.
+- **Tela de conexão pronta** (`feat/ui-conexao`). Ela já conecta de verdade
+  pelo backend Docker atual; teste com `npm run tauri dev`.
+- **Próximo branch:** `feat/ui-perfis`, o gerenciador de presets:
+  - importar JSON ou swanctl.conf (com diálogo nativo e arrastar e soltar);
+  - exportar;
+  - editor com validação campo a campo;
+  - duplicar e excluir.
 - **Pendente com o mantenedor:** `git push origin --all` (o ambiente
   automatizado não tem as credenciais do GitHub) e conferir a primeira
   execução da CI.
