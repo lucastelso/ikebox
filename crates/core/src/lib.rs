@@ -11,9 +11,11 @@
 //! - `session`: máquina de estados da conexão;
 //! - `diagnostics`: verificações do ambiente.
 
+pub mod diagnostics;
 pub mod engine;
 pub mod profiles;
 pub mod secrets;
+pub mod session;
 pub mod vici;
 
 /// Versão do núcleo (a mesma do workspace).

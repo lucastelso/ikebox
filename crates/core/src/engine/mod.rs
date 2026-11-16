@@ -13,7 +13,7 @@ use std::path::PathBuf;
 pub use docker::{BuildProgress, DockerEngine, READY_LINE, READY_TIMEOUT, STOP_TIMEOUT_SECS};
 pub use spec::{
     CONTAINER_NAME, CONTAINER_SOCKET_DIR, DBUS_SYSTEM_SOCKET, DEFAULT_IFACE, DEFAULT_MTU,
-    EngineSpec, HostSecurity, MANAGED_LABEL, SOCKET_FILE,
+    EngineSpec, HostSecurity, MANAGED_LABEL, PROFILE_LABEL, SOCKET_FILE,
 };
 
 /// Erros do engine. As mensagens são para o usuário final (pt-BR).

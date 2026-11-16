@@ -26,6 +26,8 @@ pub const CONTAINER_SOCKET_DIR: &str = "/run/ipsec-client";
 pub const SOCKET_FILE: &str = "charon.vici";
 /// Label que marca containers gerenciados pelo app.
 pub const MANAGED_LABEL: &str = "io.github.ipsec-client.managed";
+/// Label com o id do perfil conectado (para status/disconnect/logs).
+pub const PROFILE_LABEL: &str = "io.github.ipsec-client.profile";
 
 /// Opções de segurança do container que dependem do host (ADR-0005).
 #[derive(Debug, Clone, Copy, Default, PartialEq, Eq)]
@@ -73,6 +75,8 @@ pub struct EngineSpec {
     pub security: HostSecurity,
     /// Modo privilegiado de reserva (desligado por padrão).
     pub privileged: bool,
+    /// Id do perfil desta sessão (vira label do container).
+    pub profile_id: Option<String>,
 }
 
 impl EngineSpec {
@@ -92,6 +96,7 @@ impl EngineSpec {
             dbus_socket: dbus.exists().then_some(dbus),
             security: HostSecurity::detect(),
             privileged: false,
+            profile_id: None,
         }
     }
 
@@ -127,6 +132,11 @@ impl EngineSpec {
         }
         if !self.runtime_dir.is_absolute() {
             return invalid("o diretório de runtime precisa ser absoluto");
+        }
+        if let Some(id) = &self.profile_id
+            && !crate::profiles::is_valid_id(id)
+        {
+            return invalid("id de perfil inválido");
         }
         Ok(())
     }
@@ -175,10 +185,13 @@ impl EngineSpec {
     /// Corpo do `POST /containers/create`.
     #[must_use]
     pub fn create_body(&self) -> ContainerCreateBody {
-        let labels = HashMap::from([
+        let mut labels = HashMap::from([
             (MANAGED_LABEL.to_owned(), "true".to_owned()),
             (context::HASH_LABEL.to_owned(), context::content_hash()),
         ]);
+        if let Some(id) = &self.profile_id {
+            labels.insert(PROFILE_LABEL.to_owned(), id.clone());
+        }
         ContainerCreateBody {
             image: Some(self.image.clone()),
             env: Some(self.env()),
@@ -309,5 +322,16 @@ mod tests {
             Some(&context::content_hash())
         );
         assert_eq!(body.stop_timeout, Some(10));
+        assert!(!labels.contains_key(PROFILE_LABEL));
+
+        let mut s = spec();
+        s.profile_id = Some("minha-vpn".into());
+        let labels = s.create_body().labels.expect("labels");
+        assert_eq!(
+            labels.get(PROFILE_LABEL).map(String::as_str),
+            Some("minha-vpn")
+        );
+        s.profile_id = Some("../x".into());
+        assert!(s.validate().is_err());
     }
 }

@@ -441,3 +441,50 @@ para descartar flakiness.
   `Credentials::shared_secrets`, e confere que os logs, depois do `Redactor`,
   não trazem nem o usuário XAuth nem o id do grupo. O charon, por si só,
   registra os dois, e o teste confirma isso também.
+
+### Passo 12a: sessão no core (`feat/sessao-cli`, primeira parte)
+
+- **Assinaturas de falha reais.** Cada falha típica foi provocada de propósito
+  contra o gateway de teste, com `swanctl`, e as linhas do charon 5.8.2 foram
+  capturadas:
+
+  | Falha provocada | Linha capturada |
+  |---|---|
+  | PSK errada | `calculated HASH does not match HASH payload` |
+  | Senha errada | `XAuth authentication of '…' (myself) failed` |
+  | Proposta IKE errada | `received NO_PROPOSAL_CHOSEN` antes do IKE_SA |
+  | Proposta ESP errada | o mesmo aviso, depois do IKE_SA estabelecido |
+  | Gateway inexistente | `retransmit N of request` + `not established after` |
+
+  Essas linhas viraram os testes de `session::diagnose`.
+- **`core::diagnostics`:**
+  - root;
+  - `XDG_RUNTIME_DIR`;
+  - Docker;
+  - `xfrm_interface` (por `/sys/module` ou `/lib/modules`);
+  - systemd-resolved;
+  - D-Bus do sistema;
+  - portas 500/4500, por parse de `/proc/net/udp*`, sem root.
+
+  O `doctor` acrescenta o chaveiro e a imagem.
+- **`core::session`:**
+  - `establish`, genérica sobre `Charon` e testada com um mock: carrega os
+    segredos antes da conexão e, se faltar credencial, não toca no charon;
+  - `connect` (preflight → imagem → engine → eventos → negociação), que
+    derruba o engine em qualquer falha;
+  - `status` e `disconnect`, que funcionam de qualquer processo, porque o
+    container leva a label do perfil;
+  - eventos de estado, log mascarado, queda e retorno do túnel.
+- Um detalhe de concorrência: os logs chegam por outra conexão VICI. Antes de
+  diagnosticar uma falha, a sessão espera 300 ms para os últimos chegarem.
+- **Integração `session_docker.rs`:**
+  - senha errada → `XauthCredentials`, sem identidade no detalhe e sem nada de
+    pé depois;
+  - conexão com eventos;
+  - ping;
+  - segunda conexão recusada (`AlreadyConnected`);
+  - `status`;
+  - `disconnect`;
+  - idempotência.
+
+  Leva cerca de 4 s.
