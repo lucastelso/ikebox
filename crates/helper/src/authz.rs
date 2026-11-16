@@ -50,6 +50,33 @@ fn start_time(pid: u32) -> Option<u64> {
     parse_start_time(&std::fs::read_to_string(format!("/proc/{pid}/stat")).ok()?)
 }
 
+/// Effective uid in `/proc/<pid>/status` (`Uid:\treal\teffective\tsaved\tfs`).
+#[must_use]
+pub fn parse_euid(status: &str) -> Option<u32> {
+    status
+        .lines()
+        .find_map(|line| line.strip_prefix("Uid:"))?
+        .split_whitespace()
+        .nth(1)?
+        .parse()
+        .ok()
+}
+
+/// Start time of the process that has this pid **now**, if it still belongs
+/// to `uid`.
+///
+/// `SO_PEERCRED` gives the pid at connection time, and polkit looks the
+/// session up by pid. If the client exits and the pid is reused by a process
+/// of another user (one in the active session, for instance), polkit would
+/// judge that other process. The uid is read between two reads of the start
+/// time, so it is the uid of that very process.
+fn same_user_process(pid: u32, uid: u32) -> Option<u64> {
+    let before = start_time(pid)?;
+    let euid = parse_euid(&std::fs::read_to_string(format!("/proc/{pid}/status")).ok()?)?;
+    let after = start_time(pid)?;
+    (before == after && euid == uid).then_some(before)
+}
+
 /// Política de autorização.
 #[derive(Debug, Clone)]
 pub enum Authorizer {
@@ -88,8 +115,8 @@ impl Authorizer {
 fn polkit_check(peer: &Peer) -> Result<bool, dbus::Error> {
     use dbus::arg::{PropMap, Variant};
 
-    let start =
-        start_time(peer.pid).ok_or_else(|| dbus::Error::new_failed("client process is gone"))?;
+    let start = same_user_process(peer.pid, peer.uid)
+        .ok_or_else(|| dbus::Error::new_failed("client process is gone"))?;
     let mut subject_details = PropMap::new();
     subject_details.insert("pid".to_owned(), Variant(Box::new(peer.pid)));
     subject_details.insert("start-time".to_owned(), Variant(Box::new(start)));
@@ -143,5 +170,26 @@ mod tests {
     #[test]
     fn reads_own_start_time() {
         assert!(start_time(std::process::id()).is_some());
+    }
+
+    #[test]
+    fn parses_proc_status_euid() {
+        let status = "Name:\tx\nUmask:\t0022\nUid:\t1000\t1001\t1000\t1000\nGid:\t5\t5\t5\t5\n";
+        assert_eq!(parse_euid(status), Some(1001));
+        assert_eq!(parse_euid("Name:\tx\n"), None);
+        assert_eq!(parse_euid("Uid:\t1000\n"), None);
+    }
+
+    #[test]
+    fn a_reused_pid_of_another_user_is_not_the_client() {
+        let pid = std::process::id();
+        let uid = rustix::process::geteuid().as_raw();
+        assert_eq!(same_user_process(pid, uid), start_time(pid));
+        assert_eq!(
+            same_user_process(pid, uid + 1),
+            None,
+            "another user's process"
+        );
+        assert_eq!(same_user_process(u32::MAX, uid), None, "no such process");
     }
 }

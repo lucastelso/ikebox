@@ -3,7 +3,7 @@
 use std::os::unix::fs::{DirBuilderExt, FileTypeExt, MetadataExt, PermissionsExt};
 use std::path::{Path, PathBuf};
 use std::sync::{Mutex, PoisonError};
-use std::time::{Duration, Instant};
+use std::time::{Duration, Instant, SystemTime};
 
 use ipsec_client_proto::{
     EngineStatus, MAX_LOG_LINES, Request, Response, SOCKET_ROOT, StartParams, socket_dir,
@@ -11,7 +11,9 @@ use ipsec_client_proto::{
 };
 
 use crate::authz::Peer;
-use crate::systemd::{Launch, engine_logs, engine_run_args, engine_status, run, stop_engine};
+use crate::systemd::{
+    Launch, LogScope, engine_logs, engine_run_args, engine_status, engine_unit, run, stop_engine,
+};
 
 /// Tempo máximo para o engine abrir o socket VICI.
 const READY_TIMEOUT: Duration = Duration::from_secs(25);
@@ -83,14 +85,20 @@ fn stop(peer: &Peer) -> Result<Response, String> {
 }
 
 fn logs(peer: &Peer, tail: u32) -> Result<Response, String> {
-    let status = engine_status();
-    // Sem sessão ativa, o log é da última sessão, que pode ser de outro
-    // usuário: só o root lê.
-    if !(status.running && owns(&status, peer)) && peer.uid != 0 {
-        return Ok(Response::Logs { lines: Vec::new() });
-    }
+    // State, owner and invocation ID come from a single read: the session
+    // cannot change between the ownership check and the choice of the lines.
+    let unit = engine_unit();
+    let scope = match unit.invocation {
+        // The unit name is the same for every session of every user: only
+        // the lines of the running session, never those of an earlier one.
+        Some(id) if unit.status.running && owns(&unit.status, peer) => LogScope::Invocation(id),
+        // Without a session of their own, only root reads (the last sessions
+        // may be other users').
+        _ if peer.uid == 0 => LogScope::Unit,
+        _ => return Ok(Response::Logs { lines: Vec::new() }),
+    };
     Ok(Response::Logs {
-        lines: engine_logs(tail.clamp(1, MAX_LOG_LINES)),
+        lines: engine_logs(&scope, tail.clamp(1, MAX_LOG_LINES)),
     })
 }
 
@@ -117,11 +125,12 @@ fn start(params: &StartParams, peer: &Peer, paths: &Paths) -> Result<Response, S
         engine_dir: &paths.engine_dir,
         libexec_dir: &paths.libexec_dir,
     });
+    let launched = SystemTime::now();
     let (ok, _, err) = run("systemd-run", &args);
     if !ok {
         return Err(format!("failed to start the engine: {}", err.trim()));
     }
-    wait_ready(peer.uid)
+    wait_ready(peer.uid, launched)
 }
 
 /// `/run/ipsec-client` (0755 root) e `/run/ipsec-client/<uid>` (0711
@@ -173,7 +182,7 @@ fn socket_handed_over(socket: &str, uid: u32) -> bool {
     })
 }
 
-fn wait_ready(uid: u32) -> Result<Response, String> {
+fn wait_ready(uid: u32, launched: SystemTime) -> Result<Response, String> {
     let socket = vici_socket(uid);
     let started = Instant::now();
     while started.elapsed() < READY_TIMEOUT {
@@ -181,7 +190,9 @@ fn wait_ready(uid: u32) -> Result<Response, String> {
             return Ok(Response::Started { socket });
         }
         if started.elapsed() > Duration::from_secs(1) && !engine_status().running {
-            let logs = engine_logs(15).join("\n");
+            // Only what this attempt logged: the unit is gone, and so is its
+            // invocation ID.
+            let logs = engine_logs(&LogScope::Since(launched), 15).join("\n");
             return Err(format!("the engine exited during startup:\n{logs}"));
         }
         std::thread::sleep(Duration::from_millis(150));

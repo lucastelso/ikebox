@@ -217,13 +217,17 @@ pub fn decode<T: for<'de> Deserialize<'de>>(line: &str) -> Result<T, DecodeError
     serde_json::from_str(line.trim_end()).map_err(|e| DecodeError(format!("invalid message: {e}")))
 }
 
-/// `^[a-z][a-z0-9_-]{0,14}$` (IFNAMSIZ - 1).
+/// Prefix of the session interface. The engine deletes and recreates the
+/// interface it is given, as root: it only ever gets a name of its own.
+pub const IFACE_PREFIX: &str = "ipsc";
+
+/// `^ipsc[0-9]{1,4}$`: the session interface (`ipsc0`). Any other name is
+/// refused: with a free name, a client could make root delete another
+/// program's interface (`docker0`, `wg0`, a bridge) or reset its DNS.
 #[must_use]
 pub fn valid_iface(name: &str) -> bool {
-    let mut chars = name.chars();
-    matches!(chars.next(), Some('a'..='z'))
-        && name.len() <= 15
-        && chars.all(|c| matches!(c, 'a'..='z' | '0'..='9' | '_' | '-'))
+    name.strip_prefix(IFACE_PREFIX)
+        .is_some_and(|n| (1..=4).contains(&n.len()) && n.bytes().all(|b| b.is_ascii_digit()))
 }
 
 /// `^[a-z0-9][a-z0-9-]{0,62}$`.
@@ -353,6 +357,14 @@ mod tests {
             |p| p.iface = "Ipsc0".into(),
             |p| p.iface = "ipsc0;id".into(),
             |p| p.iface = "a-very-long-iface-name".into(),
+            // Interfaces of other programs: root must never delete them.
+            |p| p.iface = "eth0".into(),
+            |p| p.iface = "docker0".into(),
+            |p| p.iface = "wg0".into(),
+            |p| p.iface = "lo".into(),
+            |p| p.iface = "ipsc".into(),
+            |p| p.iface = "ipsc0x".into(),
+            |p| p.iface = "ipsc00000".into(),
             |p| p.if_id = 0,
             |p| p.mtu = 100,
             |p| p.log_level = 3,

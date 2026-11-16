@@ -16,17 +16,17 @@ mod authz;
 mod engine;
 mod systemd;
 
-use std::io::{BufRead, BufReader, Read, Write};
+use std::collections::HashMap;
+use std::io::{Read, Write};
 use std::os::unix::fs::PermissionsExt;
 use std::os::unix::net::{UnixListener, UnixStream};
 use std::path::PathBuf;
-use std::sync::Arc;
-use std::sync::atomic::{AtomicUsize, Ordering};
-use std::time::Duration;
+use std::sync::{Arc, Mutex, PoisonError};
+use std::time::{Duration, Instant};
 
 use ipsec_client_proto::{MAX_LINE, Request, Response, decode, encode};
 
-use crate::authz::{Authorizer, peer_of};
+use crate::authz::{Authorizer, Peer, peer_of};
 use crate::engine::Paths;
 
 const DEFAULT_ENGINE_DIR: &str = "/opt/ipsec-client/engine";
@@ -34,28 +34,71 @@ const DEFAULT_LIBEXEC_DIR: &str = "/opt/ipsec-client/libexec";
 /// Conexões atendidas ao mesmo tempo. O socket aceita qualquer usuário: sem
 /// limite (e com uma conexão por vez), um cliente parado travaria o helper.
 const MAX_CLIENTS: usize = 8;
-/// Tempo para o cliente mandar a linha do pedido.
-const READ_TIMEOUT: Duration = Duration::from_secs(3);
+/// Connections served at the same time for one uid. Lower than
+/// [`MAX_CLIENTS`]: one user who opens connections in a loop cannot take
+/// every slot and keep the others from controlling their VPN.
+const MAX_CLIENTS_PER_UID: usize = 4;
+/// Time for the client to send the **whole** request line. It is a deadline,
+/// not a per-read timeout: a client that drips one byte at a time does not
+/// hold its slot any longer.
+const REQUEST_DEADLINE: Duration = Duration::from_secs(3);
 
-static ACTIVE_CLIENTS: AtomicUsize = AtomicUsize::new(0);
+/// Connections being served, in total and per uid.
+#[derive(Debug, Default)]
+struct Slots {
+    total: usize,
+    per_uid: HashMap<u32, usize>,
+}
+
+impl Slots {
+    fn try_take(&mut self, uid: u32) -> bool {
+        let mine = self.per_uid.get(&uid).copied().unwrap_or(0);
+        if self.total >= MAX_CLIENTS || mine >= MAX_CLIENTS_PER_UID {
+            return false;
+        }
+        self.total += 1;
+        self.per_uid.insert(uid, mine + 1);
+        true
+    }
+
+    fn release(&mut self, uid: u32) {
+        self.total = self.total.saturating_sub(1);
+        if let Some(mine) = self.per_uid.get_mut(&uid) {
+            *mine = mine.saturating_sub(1);
+            if *mine == 0 {
+                self.per_uid.remove(&uid);
+            }
+        }
+    }
+}
+
+static SLOTS: Mutex<Option<Slots>> = Mutex::new(None);
 
 /// Libera a vaga da conexão mesmo se a thread entrar em pânico.
-struct ClientSlot;
+struct ClientSlot {
+    uid: u32,
+}
 
 impl ClientSlot {
-    fn take() -> Option<Self> {
-        if ACTIVE_CLIENTS.fetch_add(1, Ordering::SeqCst) >= MAX_CLIENTS {
-            ACTIVE_CLIENTS.fetch_sub(1, Ordering::SeqCst);
-            None
-        } else {
-            Some(Self)
-        }
+    fn take(uid: u32) -> Option<Self> {
+        let mut slots = SLOTS.lock().unwrap_or_else(PoisonError::into_inner);
+        let taken = slots.get_or_insert_with(Slots::default).try_take(uid);
+        drop(slots);
+        // Built only when a slot was taken (and with the lock released):
+        // dropping a `ClientSlot` gives a slot back.
+        taken.then(|| Self { uid })
     }
 }
 
 impl Drop for ClientSlot {
     fn drop(&mut self) {
-        ACTIVE_CLIENTS.fetch_sub(1, Ordering::SeqCst);
+        if let Some(slots) = SLOTS
+            .lock()
+            .unwrap_or_else(PoisonError::into_inner)
+            .as_mut()
+        {
+            slots.release(self.uid);
+        }
     }
 }
 
@@ -127,22 +170,51 @@ fn bind(path: &PathBuf) -> std::io::Result<UnixListener> {
     Ok(listener)
 }
 
-fn serve(mut stream: UnixStream, options: &Options) -> std::io::Result<()> {
-    stream.set_read_timeout(Some(READ_TIMEOUT))?;
+/// Reads the request line, up to `limit` in total and [`MAX_LINE`] bytes.
+/// A longer line comes back as it is, and decoding refuses it.
+fn read_request(stream: &UnixStream, limit: Duration) -> std::io::Result<String> {
+    let deadline = Instant::now() + limit;
+    let mut line = Vec::with_capacity(256);
+    let mut chunk = [0_u8; 4096];
+    while line.len() <= MAX_LINE {
+        let remaining = deadline
+            .checked_duration_since(Instant::now())
+            .filter(|left| !left.is_zero())
+            .ok_or_else(|| {
+                std::io::Error::new(
+                    std::io::ErrorKind::TimedOut,
+                    "the request did not arrive in time",
+                )
+            })?;
+        stream.set_read_timeout(Some(remaining))?;
+        let mut reader = stream;
+        let n = reader.read(&mut chunk)?;
+        if n == 0 {
+            break;
+        }
+        line.extend_from_slice(&chunk[..n]);
+        if let Some(end) = line.iter().position(|byte| *byte == b'\n') {
+            line.truncate(end);
+            break;
+        }
+    }
+    String::from_utf8(line)
+        .map_err(|_| std::io::Error::new(std::io::ErrorKind::InvalidData, "request is not UTF-8"))
+}
+
+fn serve(mut stream: UnixStream, peer: &Peer, options: &Options) -> std::io::Result<()> {
     stream.set_write_timeout(Some(Duration::from_secs(10)))?;
-    let peer = peer_of(&stream)?;
-    let mut line = String::new();
-    BufReader::new((&stream).take(MAX_LINE as u64 + 1)).read_line(&mut line)?;
+    let line = read_request(&stream, REQUEST_DEADLINE)?;
 
     let response = match decode::<Request>(&line) {
         Err(e) => Response::Error {
             message: e.to_string(),
         },
-        Ok(Request::Ping) => engine::handle(Request::Ping, &peer, &options.paths),
-        Ok(request) => match options.authorizer.authorize(&peer) {
+        Ok(Request::Ping) => engine::handle(Request::Ping, peer, &options.paths),
+        Ok(request) => match options.authorizer.authorize(peer) {
             Ok(()) => {
                 eprintln!("uid {}: {}", peer.uid, describe(&request));
-                engine::handle(request, &peer, &options.paths)
+                engine::handle(request, peer, &options.paths)
             }
             Err(message) => {
                 eprintln!("uid {}: refused ({message})", peer.uid);
@@ -204,19 +276,127 @@ fn main() {
     for stream in listener.incoming() {
         match stream {
             Ok(stream) => {
-                let Some(slot) = ClientSlot::take() else {
-                    eprintln!("connection refused: {MAX_CLIENTS} already being served");
+                let peer = match peer_of(&stream) {
+                    Ok(peer) => peer,
+                    Err(e) => {
+                        eprintln!("connection without credentials: {e}");
+                        continue;
+                    }
+                };
+                let Some(slot) = ClientSlot::take(peer.uid) else {
+                    eprintln!(
+                        "uid {}: connection refused (too many being served)",
+                        peer.uid
+                    );
                     continue;
                 };
                 let options = Arc::clone(&options);
                 std::thread::spawn(move || {
                     let _slot = slot;
-                    if let Err(e) = serve(stream, &options) {
+                    if let Err(e) = serve(stream, &peer, &options) {
                         eprintln!("connection closed with an error: {e}");
                     }
                 });
             }
             Err(e) => eprintln!("failed to accept a connection: {e}"),
         }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn request_line_has_a_total_deadline() {
+        // A client that drips one byte at a time, each well inside a per-read
+        // timeout, used to hold its slot for hours.
+        let (server, mut client) = UnixStream::pair().expect("pair");
+        let drip = std::thread::spawn(move || {
+            for _ in 0..40 {
+                if client.write_all(b"x").is_err() {
+                    break;
+                }
+                std::thread::sleep(Duration::from_millis(50));
+            }
+        });
+        let started = Instant::now();
+        let err = read_request(&server, Duration::from_millis(400)).expect_err("deadline");
+        assert!(
+            matches!(
+                err.kind(),
+                std::io::ErrorKind::TimedOut | std::io::ErrorKind::WouldBlock
+            ),
+            "{err}"
+        );
+        assert!(started.elapsed() < Duration::from_millis(1500));
+        drop(server);
+        drip.join().expect("drip");
+    }
+
+    #[test]
+    fn request_line_is_read_up_to_the_newline_and_the_limit() {
+        let (server, mut client) = UnixStream::pair().expect("pair");
+        client.write_all(b"{\"op\":\"ping\"}\nrest").expect("write");
+        let line = read_request(&server, Duration::from_secs(2)).expect("line");
+        assert_eq!(line, "{\"op\":\"ping\"}");
+        assert_eq!(decode::<Request>(&line).expect("decode"), Request::Ping);
+
+        // End of stream without a newline: what arrived is the line.
+        let (server, mut client) = UnixStream::pair().expect("pair");
+        client.write_all(b"{\"op\":\"stop\"}").expect("write");
+        drop(client);
+        let line = read_request(&server, Duration::from_secs(2)).expect("line");
+        assert_eq!(decode::<Request>(&line).expect("decode"), Request::Stop);
+
+        // Too long: reading stops, and decoding refuses it.
+        let (server, client) = UnixStream::pair().expect("pair");
+        let writer = std::thread::spawn(move || {
+            let mut client = client;
+            let _ = client.write_all(&vec![b'x'; MAX_LINE * 2]);
+        });
+        let line = read_request(&server, Duration::from_secs(5)).expect("line");
+        assert!(line.len() > MAX_LINE && line.len() <= MAX_LINE + 4096);
+        assert!(decode::<Request>(&line).is_err());
+        drop(server);
+        writer.join().expect("writer");
+    }
+
+    #[test]
+    fn refused_connections_do_not_block_or_free_slots() {
+        // uid that no other test uses: the counters are global.
+        let uid = 4_000_000_001;
+        let held: Vec<ClientSlot> = (0..MAX_CLIENTS_PER_UID)
+            .map(|_| ClientSlot::take(uid).expect("slot"))
+            .collect();
+        // A refusal must neither deadlock nor give back a slot it never had.
+        assert!(ClientSlot::take(uid).is_none());
+        assert!(ClientSlot::take(uid).is_none());
+        drop(held);
+        assert!(ClientSlot::take(uid).is_some());
+    }
+
+    #[test]
+    fn one_uid_cannot_take_every_slot() {
+        let mut slots = Slots::default();
+        for _ in 0..MAX_CLIENTS_PER_UID {
+            assert!(slots.try_take(1001));
+        }
+        assert!(!slots.try_take(1001), "per-uid limit");
+        assert!(slots.try_take(1000), "another user still gets in");
+        slots.release(1001);
+        assert!(slots.try_take(1001));
+        // The total limit still holds.
+        let mut slots = Slots::default();
+        let mut taken = 0;
+        for uid in 0..100 {
+            if slots.try_take(uid) {
+                taken += 1;
+            }
+        }
+        assert_eq!(taken, MAX_CLIENTS);
+        slots.release(0);
+        assert!(slots.try_take(500));
+        assert!(!slots.per_uid.contains_key(&0), "empty entries are dropped");
     }
 }

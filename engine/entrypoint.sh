@@ -209,7 +209,21 @@ flush_stale_xfrm() {
     fi
 }
 
+# Is there a link with the session's name, and is it an XFRM interface?
+# The output is read in full before matching (with pipefail, an early exit of
+# grep would kill `ip` with SIGPIPE).
+iface_exists() { ip link show dev "$IFACE" >/dev/null 2>&1; }
+iface_is_xfrm() {
+    local details
+    details=$(ip -d link show dev "$IFACE" 2>/dev/null) || return 1
+    [[ $details =~ (^|$'\n')[[:space:]]+xfrm([[:space:]]|$) ]]
+}
+
+# Only an XFRM interface is ever removed or has its DNS reverted: a link with
+# the same name that is something else (a bridge, another program's tunnel)
+# is not ours.
 remove_iface() {
+    iface_is_xfrm || return 0
     resolvectl revert "$IFACE" >/dev/null 2>&1 || true
     ip link del "$IFACE" >/dev/null 2>&1 || true
 }
@@ -304,6 +318,9 @@ main() {
     local version
     version=$("$CHARON" --version 2>/dev/null | grep -oE '[0-9]+\.[0-9]+\.[0-9]+' | head -n 1 || true)
     log "preparing (strongSwan ${version:-?})"
+    if iface_exists && ! iface_is_xfrm; then
+        die "$IFACE exists and is not an XFRM interface: it belongs to something else and is left alone"
+    fi
     cleanup
     create_iface
     write_runtime_conf
