@@ -43,6 +43,13 @@ network component: after updating the app, click "Update" on it.
 - Imported files are read with a real size limit (a device or a pipe is
   refused), and `IPSEC_CLIENT_HELPER_SOCKET` only works in development
   builds.
+- **charon no longer opens files named by the VICI client.** The session user
+  could name a certificate by path, and charon, as root, opened it, which told
+  whether the file existed. The embedded strongSwan carries a second patch
+  that refuses certificate paths and tokens.
+- The network component chooses the XFRM interface ID itself instead of
+  taking the app's, so a session cannot touch the SAs of another IPsec stack
+  on the computer.
 
 ### Fixed
 
@@ -62,9 +69,20 @@ Compatibility across distributions (audit of 0.2.0, part 3):
   the VPN DNS was not being applied. It is now asked directly.
 - Messages built outside the window (tray, notifications, errors) follow
   `LANGUAGE`, which Ubuntu sets, and locales such as `pt_PT@euro`.
+- When the remote network of the VPN contained the gateway's own address, the
+  tunnel swallowed its own traffic. The gateway now keeps a route through the
+  original path, as in the full tunnel.
 
 ### Changed
 
+- **The embedded strongSwan is one fully static executable** (musl): it no
+  longer depends on the computer's C library, and the network component is
+  half the size, since tools that only the tests use left it (ADR-0020).
+- **The app no longer carries the Docker engine**, meant for development: the
+  app is 18% smaller and the network component is the only engine of a
+  release build (development builds: `npm run dev:app`).
+- The Docker engine and the test gateway run on Debian 13 with strongSwan
+  6.0.1, instead of Ubuntu 20.04 and strongSwan 5.8.2.
 - The network component's service runs with no capability at all.
 - The installation guide lists the tested distributions, says how to get the
   VPN DNS on Debian and openSUSE, and how to install on RHEL, Rocky and

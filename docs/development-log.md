@@ -1558,3 +1558,59 @@ distributions), `tests/compat/packages.sh` with the 0.2.0 packages (from
 seven), `test:cli`.
 
 **Report:** [audits/v0.2.0.md](audits/v0.2.0.md#part-3-compatibility).
+
+### Step 40: phase 4, optimization and base images (ADR-0020)
+
+**The maintainer's decisions at the start:** the Docker engine leaves release
+builds; the next release is 0.3.0; P9, P10 and P11 of the audit go in.
+
+**P8 results from the maintainer.** On 2026-11-17 the maintainer ran the
+steps: no `scheduling re…` line in the last 500 log lines, `0` negotiations
+started by the gateway in three days, and the option was set and removed
+right away. Not conclusive: the count only means something after a session
+longer than the gateway's phase 1 lifetime, and step 2 needs a session that
+long with the option on. P8 stays open; the release does not carry it.
+
+**Measured first** (sizes and times are in ADR-0020): the engine builder,
+the engine tarball, the binaries, the dependency trees, the images, the
+frontend bundle.
+
+**Static engine with musl** (`feat/engine-musl`):
+
+- Alpine 3.24 builder; charon links musl and GMP statically and comes out as
+  a static-pie executable. Alpine ships no license texts, so the GMP and musl
+  ones were taken from their upstream tarballs (the first GMP download came
+  back truncated and failed its signature, as it should; the GNU mirror gave
+  the right file) and committed with their provenance.
+- The stack protector cannot be seen with `strings` in a stripped static
+  binary; counting canary reads (`%fs:0x28`) in the disassembly showed it
+  (2728 against 2661 in the glibc build). The flags are now explicit.
+- Patch `0002` (P9) refuses certificate paths and tokens in forced mode; a
+  `test:systemd` scenario checks it. Running it against the old engine was
+  not possible: staging refuses an engine without the patches of the commit,
+  which is the guard that keeps a release from shipping without it.
+- P7: `swanctl` goes to a tools tarball; the tests take it from there.
+- Name resolution: `tests/systemd` names the gateway by host name, served to
+  systemd-resolved by a 50-line DNS server in Python. The first run hung: the
+  slow-client scenario `wait`s for its background jobs, and the DNS server
+  was one of them. It runs as a transient unit now.
+
+**P10 and P11** (`fix/helper-if-id-gateway-route`): the helper uses one
+fixed `if_id`; the `updown` adds a host route to the gateway when the remote
+network contains it, tested offline with fake `ip`/`resolvectl`
+(`npm run test:updown`, in `npm run check` and CI), and the test fails with
+the previous `updown`.
+
+**No Docker engine in release builds** (`feat/release-without-docker`): the
+`docker` feature, off by default. App 10.5 → 9.3 MB, CLI 5.0 → 3.9 MB and 159
+→ 102 crates. Clippy and the tests run in both builds. Then `lto = "fat"`:
+app 8.6 MB, CLI 3.7 MB, helper 604 KB.
+
+**Debian 13 images:** the Docker engine and the test gateway moved off
+Ubuntu 20.04. The image grew (173 → 209 MB, systemd 257 for `resolvectl`),
+which is recorded as such. The failure diagnosis signatures still match on
+strongSwan 6.0.1.
+
+**Verification:** `npm run check`, `test:packaging`, `test:native`,
+`test:systemd`, `test:engine`, `test:docker`, `test:cli` and `test:compat`
+(seven distributions).

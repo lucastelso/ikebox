@@ -143,7 +143,7 @@ Rules for every phase:
 | 1 | Audit I: credentials, private data, supply chain | [audit report](audits/v0.2.0.md) (part 1), fixes, canary sweep in `test:systemd` | ✅ (step 37) |
 | 2 | Audit II: privilege boundaries | [audit report](audits/v0.2.0.md#part-2-privilege-boundaries) (part 2), fixes, new scenarios in `test:systemd` | ✅ (step 38) |
 | 3 | Compatibility across distributions | [audit report](audits/v0.2.0.md#part-3-compatibility) (part 3), `npm run test:compat` and `tests/compat/packages.sh` on seven distributions, fixes | ✅ (step 39) |
-| 4 | Optimization and base images | measurements, ADR, lighter images and binaries | ⏳ |
+| 4 | Optimization and base images | [ADR-0020](adr/0020-static-engine-and-lighter-builds.md): static musl engine, release without the Docker engine, Debian 13 test images, fat LTO; P9–P11 of the audit | ✅ (step 40) |
 | 5 | Interface: 5a review and visual directions; 5b implementation | local gallery to choose from; then the new look | ⏳ |
 | 6 | IPsec modes I: certify what the profile already accepts, design schema 2 | E2E scenarios, security warnings, ADRs | ⏳ |
 | 7+ | Planned: profile editor, IKEv2 + EAP, client certificates, importers | one phase each, detailed at the end of phase 6 | ⏳ |

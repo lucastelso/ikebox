@@ -29,6 +29,7 @@ English in 0.2.0.
 | [0017](0017-gpl-3-license.md) | GPL-3.0-or-later license | Accepted |
 | [0018](0018-component-installed-by-the-app.md) | The app installs the network component (embedded bundle + pkexec) | Accepted |
 | [0019](0019-forced-updown-and-if-id.md) | Whoever talks VICI does not choose the updown or the if_id (embedded engine) | Accepted |
+| [0020](0020-static-engine-and-lighter-builds.md) | Static engine with musl, no Docker engine in release builds | Accepted |
 
 Template for new ADRs: copy an existing one and keep the sections
 **Context · Decision · Consequences · Alternatives considered**.
