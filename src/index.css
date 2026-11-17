@@ -1,78 +1,106 @@
+/* biome-ignore-all lint/complexity/noImportantStyles: only the reduced-motion rule at the end uses it, on purpose */
 @import "tailwindcss";
 
 /*
- * Tokens de cor (padrão shadcn/ui), em OKLCH. O tema segue o sistema
- * (prefers-color-scheme) e pode ser forçado com data-theme="light|dark" no <html>.
+ * Color tokens (direction B of the interface review, ADR-0021): the
+ * connection state colors the top of the main screen. Every text/background
+ * pair meets WCAG AA (4.5:1) in both themes. The theme follows the system
+ * (prefers-color-scheme) and can be forced with data-theme="light|dark".
  */
 @custom-variant dark (&:where([data-theme="dark"], [data-theme="dark"] *));
 
 :root {
   --radius: 0.75rem;
-  --background: oklch(0.985 0.002 247);
-  --foreground: oklch(0.21 0.02 257);
-  --card: oklch(1 0 0);
-  --card-foreground: oklch(0.21 0.02 257);
-  --muted: oklch(0.96 0.005 247);
-  --muted-foreground: oklch(0.52 0.02 257);
-  --border: oklch(0.92 0.006 247);
-  --input: oklch(0.92 0.006 247);
-  --ring: oklch(0.6 0.13 190);
-  --primary: oklch(0.55 0.12 190);
-  --primary-foreground: oklch(0.99 0 0);
-  --secondary: oklch(0.96 0.005 247);
-  --secondary-foreground: oklch(0.21 0.02 257);
-  --success: oklch(0.62 0.15 155);
-  --success-foreground: oklch(0.99 0 0);
-  --warning: oklch(0.75 0.15 75);
-  --warning-foreground: oklch(0.25 0.05 75);
-  --destructive: oklch(0.58 0.2 27);
-  --destructive-foreground: oklch(0.99 0 0);
+  --background: #f3f6f8;
+  --foreground: #0f172a;
+  --card: #ffffff;
+  --card-foreground: #0f172a;
+  --muted: #eef2f6;
+  --muted-foreground: #55657a;
+  --border: #e3e8ee;
+  --input: #d5dde6;
+  --ring: #0e6f78;
+  --primary: #0e6f78;
+  --primary-foreground: #ffffff;
+  --secondary: #eef2f6;
+  --secondary-foreground: #0f172a;
+  --success: #047857;
+  --success-foreground: #ffffff;
+  --warning: #b45309;
+  --warning-foreground: #ffffff;
+  --destructive: #b91c1c;
+  --destructive-foreground: #ffffff;
+  /* The hero at the top of the connection screen: one gradient per state. */
+  --state-idle-1: #334155;
+  --state-idle-2: #1e293b;
+  --state-busy-1: #b45309;
+  --state-busy-2: #92400e;
+  --state-ok-1: #047857;
+  --state-ok-2: #065f46;
+  --state-bad-1: #b91c1c;
+  --state-bad-2: #7f1d1d;
 }
 
 @media (prefers-color-scheme: dark) {
   :root:not([data-theme="light"]) {
-    --background: oklch(0.17 0.015 257);
-    --foreground: oklch(0.96 0.005 247);
-    --card: oklch(0.21 0.017 257);
-    --card-foreground: oklch(0.96 0.005 247);
-    --muted: oklch(0.26 0.017 257);
-    --muted-foreground: oklch(0.7 0.015 257);
-    --border: oklch(0.3 0.017 257);
-    --input: oklch(0.3 0.017 257);
-    --ring: oklch(0.7 0.12 190);
-    --primary: oklch(0.7 0.12 190);
-    --primary-foreground: oklch(0.17 0.015 257);
-    --secondary: oklch(0.26 0.017 257);
-    --secondary-foreground: oklch(0.96 0.005 247);
-    --success: oklch(0.72 0.15 155);
-    --success-foreground: oklch(0.17 0.015 257);
-    --warning: oklch(0.8 0.14 75);
-    --warning-foreground: oklch(0.2 0.04 75);
-    --destructive: oklch(0.65 0.2 27);
-    --destructive-foreground: oklch(0.99 0 0);
+    --background: #0b1220;
+    --foreground: #e8eef6;
+    --card: #131c2e;
+    --card-foreground: #e8eef6;
+    --muted: #1a2438;
+    --muted-foreground: #9aa9bd;
+    --border: #223049;
+    --input: #2b3a55;
+    --ring: #5cc8d2;
+    --primary: #5cc8d2;
+    --primary-foreground: #06262a;
+    --secondary: #1a2438;
+    --secondary-foreground: #e8eef6;
+    --success: #34d399;
+    --success-foreground: #04261b;
+    --warning: #fbbf24;
+    --warning-foreground: #2a1a03;
+    --destructive: #f87171;
+    --destructive-foreground: #2a0606;
+    --state-idle-1: #1f2a3d;
+    --state-idle-2: #151d2c;
+    --state-busy-1: #8a4b0f;
+    --state-busy-2: #5a360c;
+    --state-ok-1: #0d5c45;
+    --state-ok-2: #0a4636;
+    --state-bad-1: #8b2023;
+    --state-bad-2: #5a1517;
   }
 }
 
 :root[data-theme="dark"] {
-  --background: oklch(0.17 0.015 257);
-  --foreground: oklch(0.96 0.005 247);
-  --card: oklch(0.21 0.017 257);
-  --card-foreground: oklch(0.96 0.005 247);
-  --muted: oklch(0.26 0.017 257);
-  --muted-foreground: oklch(0.7 0.015 257);
-  --border: oklch(0.3 0.017 257);
-  --input: oklch(0.3 0.017 257);
-  --ring: oklch(0.7 0.12 190);
-  --primary: oklch(0.7 0.12 190);
-  --primary-foreground: oklch(0.17 0.015 257);
-  --secondary: oklch(0.26 0.017 257);
-  --secondary-foreground: oklch(0.96 0.005 247);
-  --success: oklch(0.72 0.15 155);
-  --success-foreground: oklch(0.17 0.015 257);
-  --warning: oklch(0.8 0.14 75);
-  --warning-foreground: oklch(0.2 0.04 75);
-  --destructive: oklch(0.65 0.2 27);
-  --destructive-foreground: oklch(0.99 0 0);
+  --background: #0b1220;
+  --foreground: #e8eef6;
+  --card: #131c2e;
+  --card-foreground: #e8eef6;
+  --muted: #1a2438;
+  --muted-foreground: #9aa9bd;
+  --border: #223049;
+  --input: #2b3a55;
+  --ring: #5cc8d2;
+  --primary: #5cc8d2;
+  --primary-foreground: #06262a;
+  --secondary: #1a2438;
+  --secondary-foreground: #e8eef6;
+  --success: #34d399;
+  --success-foreground: #04261b;
+  --warning: #fbbf24;
+  --warning-foreground: #2a1a03;
+  --destructive: #f87171;
+  --destructive-foreground: #2a0606;
+  --state-idle-1: #1f2a3d;
+  --state-idle-2: #151d2c;
+  --state-busy-1: #8a4b0f;
+  --state-busy-2: #5a360c;
+  --state-ok-1: #0d5c45;
+  --state-ok-2: #0a4636;
+  --state-bad-1: #8b2023;
+  --state-bad-2: #5a1517;
 }
 
 @theme inline {
@@ -100,6 +128,7 @@
   --radius-lg: var(--radius);
   --radius-xl: calc(var(--radius) + 4px);
   --font-sans: "Inter", "Cantarell", "Noto Sans", system-ui, sans-serif;
+  --font-mono: "JetBrains Mono", "Source Code Pro", ui-monospace, monospace;
 }
 
 @layer base {
@@ -122,5 +151,43 @@
   textarea,
   [data-selectable] {
     user-select: text;
+  }
+}
+
+@layer components {
+  /* Top of the connection screen, colored by the state (data-state). */
+  .hero {
+    color: #ffffff;
+    background-image: linear-gradient(160deg, var(--hero-1), var(--hero-2));
+    transition: background-color 300ms;
+  }
+  .hero[data-state="idle"] {
+    --hero-1: var(--state-idle-1);
+    --hero-2: var(--state-idle-2);
+  }
+  .hero[data-state="busy"] {
+    --hero-1: var(--state-busy-1);
+    --hero-2: var(--state-busy-2);
+  }
+  .hero[data-state="ok"] {
+    --hero-1: var(--state-ok-1);
+    --hero-2: var(--state-ok-2);
+  }
+  .hero[data-state="bad"] {
+    --hero-1: var(--state-bad-1);
+    --hero-2: var(--state-bad-2);
+  }
+}
+
+/* The system's "reduce motion": no spinning, pulsing or sliding. !important is
+ * the point here: it must win over every animation utility. */
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
   }
 }

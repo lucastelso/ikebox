@@ -1,47 +1,46 @@
 import { LoaderCircle, Power } from 'lucide-react';
-import { useT } from '@/i18n';
+import type { ReactNode } from 'react';
 import { cn } from '@/lib/utils';
-import type { Phase } from './connectionReducer';
 
-const RING: Record<Phase, string> = {
-  idle: 'ring-border bg-card text-muted-foreground hover:text-primary hover:ring-primary/50',
-  preparing: 'ring-warning/60 bg-card text-warning animate-pulse',
-  negotiating: 'ring-warning/60 bg-card text-warning animate-pulse',
-  connected: 'ring-success bg-success/10 text-success hover:bg-success/15',
-  reconnecting: 'ring-warning bg-warning/10 text-warning animate-pulse',
-  disconnecting: 'ring-border bg-card text-muted-foreground',
-};
-
-interface Props {
-  phase: Phase;
+/**
+ * The main action, inside the colored top of the connection screen: solid
+ * (white) to start something, translucent to stop what is running.
+ */
+export function HeroAction({
+  label,
+  onClick,
+  solid,
+  busy = false,
+  disabled = false,
+  icon,
+}: {
+  label: string;
+  onClick: () => void;
+  solid: boolean;
+  busy?: boolean;
   disabled?: boolean;
-  onConnect: () => void;
-  onDisconnect: () => void;
-}
-
-/** Botão central: conecta, cancela ou desconecta conforme a fase. */
-export function ConnectButton({ phase, disabled, onConnect, onDisconnect }: Props) {
-  const label = useT().phase.action[phase];
-  const busy = phase === 'preparing' || phase === 'negotiating' || phase === 'disconnecting';
-  const action = phase === 'idle' ? onConnect : onDisconnect;
+  icon?: ReactNode;
+}) {
   return (
     <button
       type="button"
-      onClick={action}
-      disabled={disabled || phase === 'disconnecting'}
-      aria-label={label}
+      onClick={onClick}
+      disabled={disabled}
       className={cn(
-        'group flex size-40 flex-col items-center justify-center gap-2 rounded-full ring-8 transition-all duration-300',
-        'focus-visible:outline-none focus-visible:ring-ring disabled:cursor-not-allowed disabled:opacity-60',
-        RING[phase],
+        'flex h-12 w-full items-center justify-center gap-2 rounded-2xl text-base font-bold transition-colors',
+        'outline-none focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-white',
+        'disabled:cursor-not-allowed disabled:opacity-60 [&_svg]:size-5',
+        solid
+          ? 'bg-white text-[var(--hero-2)] hover:bg-white/90'
+          : 'bg-white/15 text-white hover:bg-white/25',
       )}
     >
       {busy ? (
-        <LoaderCircle className="size-12 animate-spin" aria-hidden />
+        <LoaderCircle className="animate-spin" aria-hidden />
       ) : (
-        <Power className="size-12" strokeWidth={2.25} aria-hidden />
+        (icon ?? <Power aria-hidden />)
       )}
-      <span className="text-sm font-semibold">{label}</span>
+      {label}
     </button>
   );
 }

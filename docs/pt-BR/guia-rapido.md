@@ -50,9 +50,11 @@ Em **Conexão**, clique em **Conectar**. Na primeira vez, o app pede:
 - **Usuário:** o seu usuário da VPN (ex.: matrícula);
 - **Senha:** a sua senha da VPN.
 
-Marque **Lembrar no chaveiro do sistema** para não digitar de novo. Quando
-aparecer **Conectado**, a VPN está ativa: abra o Remmina (ou o que você usa)
-normalmente.
+Marque **Lembrar no chaveiro do sistema** para não digitar de novo. O topo da
+janela mostra o estado pela cor: âmbar enquanto conecta, **verde** com
+**Conectado** quando a VPN está ativa (abra o Remmina, ou o que você usa,
+normalmente) e **vermelho** quando não conectou: o cartão logo abaixo diz o
+que fazer.
 
 **Para desconectar:** botão **Desconectar** (ou pelo ícone na bandeja).
 Fechar a janela não desconecta.

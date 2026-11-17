@@ -4,10 +4,7 @@ import { cn } from '@/lib/utils';
 /** Cartão no padrão shadcn/ui. */
 export function Card({ className, ...props }: React.ComponentProps<'div'>) {
   return (
-    <div
-      className={cn('rounded-xl border bg-card text-card-foreground shadow-sm', className)}
-      {...props}
-    />
+    <div className={cn('rounded-2xl border bg-card text-card-foreground', className)} {...props} />
   );
 }
 

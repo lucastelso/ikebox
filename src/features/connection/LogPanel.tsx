@@ -43,8 +43,8 @@ export function LogPanel({
   }
 
   return (
-    <details className="group w-full rounded-xl border bg-card">
-      <summary className="flex cursor-pointer select-none items-center gap-2 px-4 py-3 text-sm font-medium">
+    <details className="group w-full rounded-2xl border bg-card">
+      <summary className="flex cursor-pointer select-none items-center gap-2 rounded-2xl px-4 py-3 text-sm font-semibold outline-none focus-visible:ring-2 focus-visible:ring-ring">
         <ScrollText className="size-4 text-muted-foreground" aria-hidden />
         {t.title}
         <span className="text-xs font-normal text-muted-foreground">{t.lines(lines.length)}</span>

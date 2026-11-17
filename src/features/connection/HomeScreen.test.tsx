@@ -1,5 +1,5 @@
 import { mockIPC } from '@tauri-apps/api/mocks';
-import { render, screen, waitFor } from '@testing-library/react';
+import { render, screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { describe, expect, it } from 'vitest';
 import type {
@@ -112,6 +112,8 @@ describe('HomeScreen', () => {
     await userEvent.click(await screen.findByRole('button', { name: 'Connect' }));
 
     const dialog = await screen.findByRole('dialog');
+    // The close button speaks the interface language (it said "Fechar" in English).
+    expect(within(dialog).getByRole('button', { name: 'Close' })).toBeInTheDocument();
     expect(screen.queryByLabelText('Group PSK')).not.toBeInTheDocument();
     await userEvent.type(screen.getByLabelText('Username'), 'usuario.exemplo');
     await userEvent.type(screen.getByLabelText('Password'), 'senha-falsa');
@@ -139,7 +141,8 @@ describe('HomeScreen', () => {
     await userEvent.click(await screen.findByRole('button', { name: 'Connect' }));
 
     expect(await screen.findByRole('alert')).toHaveTextContent('Wrong XAuth username or password');
-    expect(screen.getByText('Disconnected')).toBeInTheDocument();
+    // The top of the screen says it failed (red), and offers the fix.
+    expect(screen.getByRole('heading', { name: 'Not connected' })).toBeInTheDocument();
     await userEvent.click(screen.getByRole('button', { name: 'Enter credentials' }));
     expect(await screen.findByLabelText('Group PSK')).toBeInTheDocument();
   });

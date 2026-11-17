@@ -9,23 +9,30 @@ export function SetupBanner({
   info,
   busy,
   onInstall,
+  step,
 }: {
   info: ComponentInfo;
   busy: boolean;
   onInstall: () => void;
+  /** Number of this step, when the screen shows more than one. */
+  step?: number;
 }) {
-  const t = useT().component;
+  const all = useT();
+  const t = all.component;
   if (!info.canInstall || info.state === 'ready') return null;
   const text = t.banner[info.state];
   return (
     <section
       aria-label={t.title}
-      className="w-full rounded-xl border border-primary/40 bg-primary/10 p-4 text-sm"
+      className="w-full rounded-2xl border border-primary/40 bg-card p-4 text-sm"
     >
       <div className="flex items-start gap-3">
         <ShieldCheck className="mt-0.5 size-5 shrink-0 text-primary" aria-hidden />
         <div className="flex min-w-0 flex-1 flex-col gap-2">
-          <p className="font-medium">{text.title}</p>
+          {step !== undefined && (
+            <p className="text-xs font-semibold text-muted-foreground">{all.home.step(step)}</p>
+          )}
+          <p className="font-semibold">{text.title}</p>
           <p className="text-xs text-muted-foreground">{text.body}</p>
           <div>
             <Button size="sm" onClick={onInstall} disabled={busy}>

@@ -116,7 +116,7 @@ export function SystemScreen() {
                 <li key={c.name} className="flex items-start gap-3 text-sm">
                   <Icon
                     className={cn('mt-0.5 size-4 shrink-0', TONE[c.level])}
-                    aria-label={c.level}
+                    aria-label={t.level[c.level]}
                   />
                   <div className="min-w-0" data-selectable>
                     <p className="font-medium">{c.name}</p>
