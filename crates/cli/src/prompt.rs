@@ -9,8 +9,8 @@ use ipsec_client_core::secrets::{Credentials, describe};
 use secrecy::SecretString;
 
 /// Lê credenciais da entrada padrão, uma por linha no formato `chave=valor`
-/// (chaves: `psk`, `xauth-user`, `xauth-password`; `#` comenta). Para
-/// automação, como o `docker login --password-stdin`: nunca passe segredos
+/// (chaves: `psk`, `xauth-user`, `xauth-password`, `eap-identity`,
+/// `eap-password`; `#` comenta). Para automação, como o `docker login --password-stdin`: nunca passe segredos
 /// por argumento ou variável de ambiente (aparecem em `ps` e no histórico).
 pub fn read_stdin(credentials: &mut Credentials) -> anyhow::Result<()> {
     parse_credentials(std::io::stdin().lock(), credentials)
@@ -21,6 +21,8 @@ fn parse_credentials(input: impl BufRead, credentials: &mut Credentials) -> anyh
         CredentialKind::Psk,
         CredentialKind::XauthUser,
         CredentialKind::XauthPassword,
+        CredentialKind::EapIdentity,
+        CredentialKind::EapPassword,
     ];
     for (n, line) in input.lines().enumerate() {
         let line = line?;
@@ -33,7 +35,7 @@ fn parse_credentials(input: impl BufRead, credentials: &mut Credentials) -> anyh
         };
         let Some(kind) = kinds.iter().find(|k| k.key() == key.trim()) else {
             bail!(
-                "input line {}: unknown key (use psk, xauth-user or xauth-password)",
+                "input line {}: unknown key (use psk, xauth-user, xauth-password, eap-identity or eap-password)",
                 n + 1
             );
         };
@@ -52,6 +54,8 @@ fn label(kind: CredentialKind) -> &'static str {
         CredentialKind::Psk => "Group PSK",
         CredentialKind::XauthUser => "XAuth username (e.g. employee id)",
         CredentialKind::XauthPassword => "XAuth password",
+        CredentialKind::EapIdentity => "Username (EAP)",
+        CredentialKind::EapPassword => "Password (EAP)",
     }
 }
 

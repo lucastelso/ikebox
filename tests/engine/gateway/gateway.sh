@@ -8,7 +8,10 @@
 # 203.0.113.1). No real data: fake credentials in swanctl.conf.
 #
 # GATEWAY_CONF picks another configuration (the IPsec modes of
-# tests/modes/gateways, one gateway container per mode).
+# tests/modes/gateways, one gateway container per mode). GATEWAY_PKI is a
+# directory with x509ca/, x509/ and private/ (a test CA, the gateway
+# certificate and its key, made at test time): they go to swanctl's
+# directories, which --load-all reads.
 
 set -euo pipefail
 
@@ -45,7 +48,19 @@ done
     exit 1
 }
 
-swanctl --load-all --file "${GATEWAY_CONF:-/test/swanctl.conf}"
+if [[ -n ${GATEWAY_PKI:-} ]]; then
+    for dir in x509ca x509 private; do
+        if [[ -d $GATEWAY_PKI/$dir ]]; then
+            cp "$GATEWAY_PKI/$dir"/* "/etc/swanctl/$dir/"
+        fi
+    done
+    chmod 0600 /etc/swanctl/private/* 2>/dev/null || true
+fi
+
+# With --file, swanctl reads x509/, x509ca/ and private/ next to the file:
+# the configuration goes to /etc/swanctl, where the certificates are.
+install -m 0600 "${GATEWAY_CONF:-/test/swanctl.conf}" /etc/swanctl/gateway.conf
+swanctl --load-all --file /etc/swanctl/gateway.conf
 log "ready"
 
 wait "$charon_pid" || true

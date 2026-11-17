@@ -51,8 +51,9 @@
   (templates, proposal presets). After the 0.5.0 push, CI failed in three
   jobs (shellcheck version, AppArmor in the engine E2E): fixed in step 44,
   to be confirmed by the next CI run.
-  **Next: phase 8 (IKEv2 + EAP-MSCHAPv2,
-  [ADR-0023](adr/0023-ikev2-eap-mschapv2.md)).**
+  **Now: phase 8 (IKEv2 + EAP-MSCHAPv2,
+  [ADR-0023](adr/0023-ikev2-eap-mschapv2.md)), step 46.** Done: engine
+  plugins, EAP profiles, editor, diagnosis, E2E. Next: release 0.7.0.
   Each phase ends by updating this line.
 - **Waiting for the maintainer:** P8 (`initiator_only`) is not concluded:
   the count of negotiations started by the gateway only means something

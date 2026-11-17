@@ -19,6 +19,11 @@ readonly PSK='psk=ipsec-client-test-psk'
 readonly XAUTH='psk=ipsec-client-test-psk
 xauth-user=usuario.teste
 xauth-password=senha-de-teste'
+readonly EAP='eap-identity=usuario.teste
+eap-password=senha-de-teste'
+# CA certificates made by tests/systemd/run.sh for this run (public, fake).
+readonly CA=/test/pki/client/ca.pem
+readonly OTHER_CA=/test/pki/client/other-ca.pem
 
 declare -A GW
 for arg in "$@"; do
@@ -255,6 +260,30 @@ ok "IKEv2 from the computer's own address"
 disconnect
 
 # ---------------------------------------------------------------------------
+step "IKEv2 + EAP-MSCHAPv2: username and password, gateway certificate checked"
+gw=${GW[ikev2-eap]}
+eap=(gateway="$gw" version=2 method=eap remote_id=gw.ipsec-client.test ca="$CA"
+    ike=aes256-sha256-modp2048 esp=aes256-sha256 remote_ts=192.0.2.0/24)
+connect v2-eap "$EAP" "${eap[@]}"
+expect_ike 2 ""
+expect_vip yes
+expect_routes split
+expect_esp native none
+traffic
+log=$(as alice "$CLI" logs -n 300)
+[[ $log == *"using trusted ca certificate"* && $log == *"with RSA_EMSA_PKCS1"*"successful"* ]] ||
+    fail "the log does not show the gateway certificate checked against the profile CA"
+[[ $log != *usuario.teste* ]] || fail "the EAP username is not masked in the log"
+# The password stays in charon's memory: not in the journal of the session.
+journalctl -u ipsec-client-engine --no-pager | grep -q senha-de-teste &&
+    fail "the EAP password is in the system journal"
+log=$(as alice "$CLI" logs -n 300 --anonymize)
+[[ $log != *"Mode Test CA"* && $log == *'"<certificate>"'* ]] ||
+    fail "certificate names are not anonymized"
+ok "EAP-MSCHAPv2 over the gateway's RSA certificate (checked against the profile CA), VIP, traffic"
+disconnect
+
+# ---------------------------------------------------------------------------
 step "Failures are diagnosed (IKEv2 and IKEv1 main mode)"
 gw=${GW[ikev2-psk]}
 v2=(gateway="$gw" version=2 method=psk remote_ts=192.0.2.0/24
@@ -274,6 +303,15 @@ gw=${GW[ikev1-main-psk]}
 expect_failure v1-main-bad-psk "psk=wrong-psk" "rejected phase 1 authentication" \
     gateway="$gw" version=1 method=psk remote_ts=192.0.2.0/24 \
     ike=aes256-sha256-modp2048 esp=aes256-sha256
+gw=${GW[ikev2-eap]}
+eap=(gateway="$gw" version=2 method=eap remote_id=gw.ipsec-client.test ca="$CA"
+    ike=aes256-sha256-modp2048 esp=aes256-sha256 remote_ts=192.0.2.0/24)
+expect_failure v2-eap-bad-password "eap-identity=usuario.teste
+eap-password=wrong" "wrong username or password (EAP)" "${eap[@]}"
+expect_failure v2-eap-other-ca "$EAP" "certificate could not be verified" \
+    "${eap[@]/#ca=*/ca=$OTHER_CA}"
+expect_failure v2-eap-bad-gateway-id "$EAP" "check the gateway's name" \
+    "${eap[@]/#remote_id=*/remote_id=other.ipsec-client.test}"
 ((wrong_diagnoses == 0)) || fail "$wrong_diagnoses failures without the right diagnosis"
 
 step "Result"

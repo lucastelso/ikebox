@@ -9,6 +9,9 @@
 .env.*
 !.env.example
 *.pem
+# Public, fake test CA certificates (never keys: a test in profiles/ca.rs
+# checks that none of them holds a private key).
+!crates/core/tests/fixtures/ca/*.pem
 *.key
 *.p12
 *.pfx

@@ -36,6 +36,7 @@ tempfile = "3.27.0"
 thiserror = "2.0.21"
 tokio = { version = "1.54.1", features = ["macros", "rt-multi-thread", "fs", "time", "sync", "net", "io-util"] }
 tracing = "0.1.44"
+x509-cert = { version = "0.3.0", features = ["pem"] }
 zeroize = "1.9.1"
 
 [dev-dependencies]

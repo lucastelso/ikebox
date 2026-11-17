@@ -28,6 +28,14 @@
 //! client retransmits until it gives up. Without this rule it looked like an
 //! unreachable gateway.
 //!
+//! IKEv2 + EAP-MSCHAPv2 (6.1.0, phase 8):
+//!
+//! | Failure                    | Line                                              |
+//! |----------------------------|---------------------------------------------------|
+//! | Username/password          | `EAP-MS-CHAPv2 failed with error ERROR_AUTHENTICATION_FAILURE` |
+//! | Gateway certificate        | `no issuer certificate found for` / `no trusted RSA public key found for` |
+//! | Gateway name (`remote.id`) | `received AUTHENTICATION_FAILED notify error`, before any EAP (a strongSwan gateway refuses an IDr that is not its own) |
+//!
 //! A gateway that rejects the identity the profile expects from it
 //! (`auth.remote_id`) answers with the same AUTHENTICATION_FAILED as a wrong
 //! PSK: the message names both.
@@ -49,6 +57,13 @@ pub enum FailureKind {
     TrafficSelectors,
     /// O gateway exige que o cliente peça um IP virtual (IKEv2).
     VirtualIpRequired,
+    /// Usuário ou senha EAP errados.
+    EapCredentials,
+    /// O certificado do gateway não pôde ser conferido (CA, nome ou chave).
+    GatewayCertificate,
+    /// Num perfil EAP, o gateway recusou antes da senha: o nome pedido a ele
+    /// (`auth.remote.id`) não é o dele.
+    GatewayName,
     /// O gateway não respondeu.
     Unreachable,
     /// Causa não identificada (ver o log).
@@ -92,6 +107,24 @@ impl fmt::Display for FailureKind {
                 "a fase 1 funcionou, mas o gateway exige que o cliente peça um IP virtual: \
                  ligue network.request_vip"
             ),
+            Self::EapCredentials => crate::tr!(
+                "wrong username or password (EAP)",
+                "usuário ou senha incorretos (EAP)"
+            ),
+            Self::GatewayCertificate => crate::tr!(
+                "the gateway's certificate could not be verified: it must be issued by the CA \
+                 in the profile and carry the gateway's name (auth.remote.ca, auth.remote.id), \
+                 with an RSA or Ed25519 key",
+                "o certificado do gateway não pôde ser conferido: ele deve ser emitido pela CA \
+                 do perfil e trazer o nome do gateway (auth.remote.ca, auth.remote.id), com \
+                 chave RSA ou Ed25519"
+            ),
+            Self::GatewayName => crate::tr!(
+                "the gateway refused the connection before the password: check the gateway's \
+                 name (auth.remote.id), which must be the one in its certificate",
+                "o gateway recusou a conexão antes da senha: confira o nome do gateway \
+                 (auth.remote.id), que deve ser o do certificado dele"
+            ),
             Self::Unreachable => crate::tr!(
                 "the gateway did not answer: check the address, your network and whether \
                  UDP 500/4500 is blocked (firewall/NAT)",
@@ -106,9 +139,11 @@ impl fmt::Display for FailureKind {
     }
 }
 
-/// Deduz a causa provável a partir das linhas de log da tentativa.
+/// Deduz a causa provável a partir das linhas de log da tentativa. `eap`:
+/// o perfil usa EAP (sem PSK), o que muda o sentido de um
+/// AUTHENTICATION_FAILED antes do IKE_SA.
 #[must_use]
-pub fn diagnose<S: AsRef<str>>(lines: &[S]) -> FailureKind {
+pub fn diagnose<S: AsRef<str>>(lines: &[S], eap: bool) -> FailureKind {
     let mut ike_established = false;
     let mut retransmits = false;
     let mut timed_out = false;
@@ -118,6 +153,20 @@ pub fn diagnose<S: AsRef<str>>(lines: &[S]) -> FailureKind {
         }
         if line.contains("XAuth authentication of") && line.contains("failed") {
             return FailureKind::XauthCredentials;
+        }
+        if line.contains("EAP-MS-CHAPv2 failed")
+            || (line.contains("EAP method") && line.contains("failed"))
+        {
+            return FailureKind::EapCredentials;
+        }
+        if line.contains("no issuer certificate found")
+            || (line.contains("no trusted") && line.contains("public key found"))
+            || line.contains("constraint check failed")
+        {
+            return FailureKind::GatewayCertificate;
+        }
+        if eap && !ike_established && line.contains("AUTHENTICATION_FAILED") {
+            return FailureKind::GatewayName;
         }
         if line.contains("HASH does not match")
             || line.contains("decryption failed")
@@ -229,36 +278,76 @@ mod tests {
         "giving up after 5 retransmits",
     ];
 
+    // IKEv2 + EAP-MSCHAPv2, 6.1.0 (identidades mascaradas como no log).
+    const EAP_SENHA_ERRADA: &[&str] = &[
+        "authentication of 'gw***st' with RSA_EMSA_PKCS1_SHA2_256 successful",
+        "server requested EAP_IDENTITY (id 0x00), sending 'us***te'",
+        "server requested EAP_MSCHAPV2 authentication (id 0xC8)",
+        "EAP-MS-CHAPv2 failed with error ERROR_AUTHENTICATION_FAILURE: '(***'",
+        "received AUTHENTICATION_FAILED notify error",
+    ];
+    const EAP_OUTRA_CA: &[&str] = &[
+        "received end entity cert \"O=Example, CN=gw***st\"",
+        "  using certificate \"O=Example, CN=gw***st\"",
+        "no issuer certificate found for \"O=Example, CN=gw***st\"",
+        "  issuer is \"O=***CA\"",
+        "no trusted RSA public key found for 'gw***st'",
+    ];
+    const EAP_NOME_ERRADO: &[&str] = &[
+        "sending cert request for \"O=***CA\"",
+        "no IDi configured, default to IP address 172.19.0.7",
+        "establishing CHILD_SA rede{1}",
+        "received AUTHENTICATION_FAILED notify error",
+    ];
+
+    #[test]
+    fn diagnoses_real_eap_failures() {
+        assert_eq!(
+            diagnose(EAP_SENHA_ERRADA, true),
+            FailureKind::EapCredentials
+        );
+        assert_eq!(
+            diagnose(EAP_OUTRA_CA, true),
+            FailureKind::GatewayCertificate
+        );
+        assert_eq!(diagnose(EAP_NOME_ERRADO, true), FailureKind::GatewayName);
+        // The same line in a PSK profile is still about the PSK.
+        assert_eq!(diagnose(EAP_NOME_ERRADO, false), FailureKind::PskOrGroupId);
+    }
+
     #[test]
     fn diagnoses_real_failures_of_the_mode_tests() {
-        assert_eq!(diagnose(V1_PRINCIPAL_PSK_ERRADA), FailureKind::PskOrGroupId);
-        assert_eq!(diagnose(V2_PSK_ERRADA), FailureKind::PskOrGroupId);
-        assert_eq!(diagnose(V2_PROPOSTA_IKE), FailureKind::IkeProposals);
-        assert_eq!(diagnose(V2_PROPOSTA_ESP), FailureKind::EspProposals);
-        assert_eq!(diagnose(V2_SEM_VIP), FailureKind::VirtualIpRequired);
-        assert_eq!(diagnose(V2_REDES), FailureKind::TrafficSelectors);
+        assert_eq!(
+            diagnose(V1_PRINCIPAL_PSK_ERRADA, false),
+            FailureKind::PskOrGroupId
+        );
+        assert_eq!(diagnose(V2_PSK_ERRADA, false), FailureKind::PskOrGroupId);
+        assert_eq!(diagnose(V2_PROPOSTA_IKE, false), FailureKind::IkeProposals);
+        assert_eq!(diagnose(V2_PROPOSTA_ESP, false), FailureKind::EspProposals);
+        assert_eq!(diagnose(V2_SEM_VIP, false), FailureKind::VirtualIpRequired);
+        assert_eq!(diagnose(V2_REDES, false), FailureKind::TrafficSelectors);
     }
 
     #[test]
     fn diagnoses_real_failures() {
-        assert_eq!(diagnose(PSK_ERRADA), FailureKind::PskOrGroupId);
-        assert_eq!(diagnose(SENHA_ERRADA), FailureKind::XauthCredentials);
-        assert_eq!(diagnose(PROPOSTA_IKE), FailureKind::IkeProposals);
-        assert_eq!(diagnose(PROPOSTA_ESP), FailureKind::EspProposals);
-        assert_eq!(diagnose(INALCANCAVEL), FailureKind::Unreachable);
+        assert_eq!(diagnose(PSK_ERRADA, false), FailureKind::PskOrGroupId);
+        assert_eq!(diagnose(SENHA_ERRADA, false), FailureKind::XauthCredentials);
+        assert_eq!(diagnose(PROPOSTA_IKE, false), FailureKind::IkeProposals);
+        assert_eq!(diagnose(PROPOSTA_ESP, false), FailureKind::EspProposals);
+        assert_eq!(diagnose(INALCANCAVEL, false), FailureKind::Unreachable);
     }
 
     #[test]
     fn other_cases() {
         assert_eq!(
-            diagnose(&["received AUTHENTICATION_FAILED error notify"]),
+            diagnose(&["received AUTHENTICATION_FAILED error notify"], false),
             FailureKind::PskOrGroupId
         );
         assert_eq!(
-            diagnose(&["received INVALID_ID_INFORMATION error notify"]),
+            diagnose(&["received INVALID_ID_INFORMATION error notify"], false),
             FailureKind::TrafficSelectors
         );
-        assert_eq!(diagnose::<&str>(&[]), FailureKind::Unknown);
-        assert_eq!(diagnose(&["algo inesperado"]), FailureKind::Unknown);
+        assert_eq!(diagnose::<&str>(&[], false), FailureKind::Unknown);
+        assert_eq!(diagnose(&["algo inesperado"], false), FailureKind::Unknown);
     }
 }

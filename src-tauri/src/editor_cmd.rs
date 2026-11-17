@@ -7,15 +7,18 @@
 //! close actions) comes from the saved profile; a new one takes it from its
 //! template.
 
+use std::io::Read as _;
 use std::net::IpAddr;
 
 use ipsec_client_core::profiles::{
-    AuthSettings, LocalMethod, Profile, ProfileStore, ProposalPreset, Template, proposals_level,
-    schema_of, validate,
+    AuthSettings, LocalMethod, MAX_CAS, Profile, ProfileStore, ProposalPreset, Template, parse_ca,
+    proposals_level, schema_of, split_pem, validate,
 };
 use ipsec_client_core::{tr, trf};
 use serde::{Deserialize, Serialize};
 use specta::Type;
+use tauri::AppHandle;
+use tauri_plugin_dialog::DialogExt;
 
 use crate::commands::blocking;
 use crate::dto::{ProfileSummary, Security, SecurityNote, UiError, UiErrorKind};
@@ -30,6 +33,8 @@ pub enum ProfileTemplate {
     CiscoEzvpn,
     /// Any gateway with IKEv2 and a PSK.
     Ikev2Psk,
+    /// IKEv2 with a username and password (EAP), gateway certificate.
+    Ikev2Eap,
     /// Nothing suggested.
     Blank,
 }
@@ -40,6 +45,7 @@ impl From<ProfileTemplate> for Template {
             ProfileTemplate::Fortigate => Self::Fortigate,
             ProfileTemplate::CiscoEzvpn => Self::CiscoEzvpn,
             ProfileTemplate::Ikev2Psk => Self::Ikev2Psk,
+            ProfileTemplate::Ikev2Eap => Self::Ikev2Eap,
             ProfileTemplate::Blank => Self::Blank,
         }
     }
@@ -120,6 +126,11 @@ pub struct ProfileDraft {
     pub xauth: bool,
     /// The XAuth password is a one-time code.
     pub otp: bool,
+    /// Username and password by EAP (IKEv2), the gateway proven by its
+    /// certificate.
+    pub eap: bool,
+    /// CA certificates (PEM) of the gateway's certificate (EAP).
+    pub ca: Vec<String>,
     /// Identity of the PSK round (group id); empty = the computer's address.
     pub local_id: String,
     /// Identity the gateway must present; empty = any.
@@ -152,6 +163,18 @@ pub struct DraftIssue {
     pub message: String,
 }
 
+/// What the editor shows of a CA certificate of the draft.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Type)]
+#[serde(rename_all = "camelCase")]
+pub struct CaSummary {
+    /// Subject.
+    pub subject: String,
+    /// Last day of validity (`YYYY-MM-DD`).
+    pub not_after: String,
+    /// `RSA` or `Ed25519`.
+    pub key: String,
+}
+
 /// The draft as Rust sees it: problems, security and file schema.
 #[derive(Debug, Clone, Serialize, Type)]
 #[serde(rename_all = "camelCase")]
@@ -166,6 +189,9 @@ pub struct DraftCheck {
     pub preset: Option<Proposals>,
     /// Schema the file will be written in (1 unless something needs 2).
     pub schema: u32,
+    /// One entry per CA of the draft, in order: absent when it cannot be used
+    /// (the reason is in `issues`).
+    pub cas: Vec<Option<CaSummary>>,
 }
 
 impl ProfileDraft {
@@ -183,6 +209,8 @@ impl ProfileDraft {
             esp_proposals: p.child.esp_proposals.clone(),
             xauth: p.auth.uses_xauth(),
             otp: p.auth.otp(),
+            eap: p.auth.uses_eap(),
+            ca: p.auth.remote.ca.clone(),
             local_id: p.auth.psk_id().unwrap_or_default().to_owned(),
             remote_id: p.auth.remote_id().unwrap_or_default().to_owned(),
             remote_ts: p.child.remote_ts.clone(),
@@ -223,11 +251,18 @@ impl ProfileDraft {
         p.ike.encap = self.encap;
         p.ike.proposals = list(&self.ike_proposals);
         p.ike.dpd_delay_secs = self.dpd_delay_secs;
-        p.auth = AuthSettings::psk(
-            optional(&self.local_id),
-            self.xauth,
-            optional(&self.remote_id),
-        );
+        p.auth = if self.eap {
+            let mut auth =
+                AuthSettings::eap(optional(&self.local_id), String::new(), self.ca.clone());
+            auth.remote.id = optional(&self.remote_id);
+            auth
+        } else {
+            AuthSettings::psk(
+                optional(&self.local_id),
+                self.xauth,
+                optional(&self.remote_id),
+            )
+        };
         if let Some(round) = p
             .auth
             .local
@@ -294,7 +329,10 @@ fn draft_field(path: &str, p: &Profile) -> (&'static str, Option<String>) {
         "auth.remote.id" => ("remoteId", None),
         "network.mtu" => ("mtu", None),
         _ if path.starts_with("ike.proposals") => ("ikeProposals", item(&p.ike.proposals)),
-        _ if path.starts_with("auth.local") => ("xauth", None),
+        _ if path.starts_with("auth.remote.ca") => {
+            ("ca", index.map(|i| trf!("CA {}", "CA {}", i + 1)))
+        }
+        _ if path.starts_with("auth.local") || path.starts_with("auth.remote") => ("auth", None),
         _ if path.starts_with("child.esp_proposals") => {
             ("espProposals", item(&p.child.esp_proposals))
         }
@@ -333,8 +371,118 @@ fn check(draft: &ProfileDraft, base: Profile) -> (Profile, DraftCheck) {
         )
         .map(Proposals::from),
         schema: schema_of(&profile),
+        cas: profile
+            .auth
+            .remote
+            .ca
+            .iter()
+            .map(|pem| {
+                parse_ca(pem).ok().map(|info| CaSummary {
+                    subject: info.subject,
+                    not_after: info.not_after,
+                    key: info.key.to_owned(),
+                })
+            })
+            .collect(),
     };
     (profile, check)
+}
+
+/// Largest file read as CA certificates.
+const MAX_CA_FILE_BYTES: u64 = 64 * 1024;
+
+/// The CA certificates in pasted text: one PEM block per certificate (a
+/// chain becomes several). Checked later, with the draft.
+///
+/// # Errors
+/// No certificate in the text, or more than the profile can carry.
+#[tauri::command]
+#[specta::specta]
+pub fn ca_entries(text: String) -> Result<Vec<String>, UiError> {
+    let blocks = split_pem(&text);
+    if blocks.is_empty() {
+        return Err(UiError::new(
+            UiErrorKind::Profile,
+            tr!(
+                "No certificate found: paste the text that starts with -----BEGIN CERTIFICATE-----.",
+                "Nenhum certificado encontrado: cole o texto que começa com -----BEGIN CERTIFICATE-----."
+            ),
+        ));
+    }
+    if blocks.len() > MAX_CAS {
+        return Err(UiError::new(
+            UiErrorKind::Profile,
+            tr!(
+                "At most 8 CA certificates.",
+                "No máximo 8 certificados de CA."
+            ),
+        ));
+    }
+    Ok(blocks)
+}
+
+/// Reads CA certificates from a file chosen in the native dialog (the path
+/// stays in Rust). `None` when cancelled.
+///
+/// # Errors
+/// Unreadable or too large file, or no certificate in it.
+#[tauri::command]
+#[specta::specta]
+pub async fn choose_ca_file(app: AppHandle) -> Result<Option<Vec<String>>, UiError> {
+    let picked = blocking(move || {
+        Ok(app
+            .dialog()
+            .file()
+            .set_title(tr!(
+                "Gateway CA certificate",
+                "Certificado da CA do gateway"
+            ))
+            .add_filter(
+                tr!(
+                    "Certificates (.pem, .crt, .cer)",
+                    "Certificados (.pem, .crt, .cer)"
+                ),
+                &["pem", "crt", "cer"],
+            )
+            .add_filter(tr!("All files", "Todos os arquivos"), &["*"])
+            .blocking_pick_file())
+    })
+    .await?;
+    let Some(file) = picked else { return Ok(None) };
+    let path = file.into_path().map_err(|_| {
+        UiError::new(
+            UiErrorKind::Other,
+            tr!(
+                "The chosen file is not local.",
+                "O arquivo escolhido não é local."
+            ),
+        )
+    })?;
+    blocking(move || {
+        let mut text = String::new();
+        std::fs::File::open(&path)
+            .and_then(|f| f.take(MAX_CA_FILE_BYTES + 1).read_to_string(&mut text))
+            .map_err(|e| {
+                UiError::new(
+                    UiErrorKind::Other,
+                    trf!(
+                        "Could not read the file: {e}",
+                        "Não foi possível ler o arquivo: {e}"
+                    ),
+                )
+            })?;
+        if text.len() as u64 > MAX_CA_FILE_BYTES {
+            return Err(UiError::new(
+                UiErrorKind::Profile,
+                tr!(
+                    "The file is too large for a CA certificate.",
+                    "O arquivo é grande demais para um certificado de CA."
+                ),
+            ));
+        }
+        ca_entries(text).map(Some)
+    })
+    .await
 }
 
 /// The presets the editor offers for an IKE version, with their security.
@@ -477,11 +625,11 @@ mod tests {
         d.gateway = "vpn..example".to_owned();
         d.remote_ts = vec!["192.0.2.0/24".to_owned(), "192.0.2.0/99".to_owned()];
         d.dns_servers = vec!["192.0.2.53".to_owned(), "dns.example".to_owned()];
-        d.xauth = true; // IKEv2
+        d.xauth = true; // IKEv2: XAuth does not exist
         d.local_id = " espaço".to_owned();
         let (_, c) = checked(&d);
         let fields: Vec<_> = c.issues.iter().map(|i| i.field.as_str()).collect();
-        for expected in ["gateway", "remoteTs", "dnsServers", "xauth"] {
+        for expected in ["gateway", "remoteTs", "dnsServers", "auth"] {
             assert!(fields.contains(&expected), "{expected}: {:?}", c.issues);
         }
         let ts = c.issues.iter().find(|i| i.field == "remoteTs").expect("ts");
@@ -519,6 +667,53 @@ mod tests {
         let (p2, c) = check(&again, p.clone());
         assert!(c.issues.is_empty(), "{:?}", c.issues);
         assert_eq!(p2, p);
+    }
+
+    const RSA_CA: &str = include_str!("../../crates/core/tests/fixtures/ca/rsa-ca.pem");
+    const ECDSA_CA: &str = include_str!("../../crates/core/tests/fixtures/ca/ecdsa-ca.pem");
+
+    #[test]
+    fn an_eap_draft_needs_the_gateway_name_and_a_usable_ca() {
+        let mut d = filled(ProfileTemplate::Ikev2Eap);
+        assert!(d.eap);
+        let (_, c) = checked(&d);
+        let fields: Vec<_> = c.issues.iter().map(|i| i.field.as_str()).collect();
+        assert_eq!(fields, ["remoteId", "ca"]);
+
+        d.remote_id = "vpn.example.com".to_owned();
+        d.ca = vec![RSA_CA.to_owned(), ECDSA_CA.to_owned()];
+        let (_, c) = checked(&d);
+        assert_eq!(c.issues.len(), 1, "{:?}", c.issues);
+        assert_eq!(c.issues[0].field, "ca");
+        assert!(
+            c.issues[0].message.starts_with("CA 2: "),
+            "{}",
+            c.issues[0].message
+        );
+        assert!(c.cas[0].as_ref().is_some_and(|s| s.key == "RSA"));
+        assert!(c.cas[1].is_none());
+
+        d.ca.pop();
+        let (p, c) = checked(&d);
+        assert!(c.issues.is_empty(), "{:?}", c.issues);
+        assert_eq!(c.schema, 2);
+        assert_eq!(c.security, Security::Good);
+        assert!(p.auth.uses_eap());
+        assert_eq!(p.auth.remote_id(), Some("vpn.example.com"));
+        // Back to a PSK: the CAs no longer apply.
+        d.eap = false;
+        d.ca.clear();
+        let (p, c) = checked(&d);
+        assert!(c.issues.is_empty(), "{:?}", c.issues);
+        assert!(!p.auth.uses_eap());
+    }
+
+    #[test]
+    fn pasted_text_becomes_ca_entries() {
+        let pasted = format!("issuer: x\n{RSA_CA}");
+        assert_eq!(ca_entries(pasted).expect("one"), [RSA_CA]);
+        assert!(ca_entries("no certificate".to_owned()).is_err());
+        assert!(ca_entries(RSA_CA.repeat(MAX_CAS + 1)).is_err());
     }
 
     #[test]

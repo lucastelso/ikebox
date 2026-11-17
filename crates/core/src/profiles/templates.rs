@@ -24,16 +24,21 @@ pub enum Template {
     /// Any gateway with IKEv2 and a PSK (strongSwan, pfSense/OPNsense,
     /// MikroTik...).
     Ikev2Psk,
+    /// IKEv2 with a username and password (EAP-MSCHAPv2), the gateway proven
+    /// by its certificate: what Windows, macOS and Android call "IKEv2 with
+    /// a username" (ADR-0023). The CA and the gateway's name stay blank.
+    Ikev2Eap,
     /// Nothing suggested: strongSwan's default proposals.
     Blank,
 }
 
 impl Template {
     /// Every template, in the order the editor offers them.
-    pub const ALL: [Self; 4] = [
+    pub const ALL: [Self; 5] = [
         Self::Fortigate,
         Self::CiscoEzvpn,
         Self::Ikev2Psk,
+        Self::Ikev2Eap,
         Self::Blank,
     ];
 
@@ -59,6 +64,14 @@ impl Template {
                 Some(ProposalPreset::Modern),
                 Some(30),
             ),
+            Self::Ikev2Eap => (
+                2,
+                false,
+                false,
+                false,
+                Some(ProposalPreset::Compatible),
+                Some(30),
+            ),
             Self::Blank => (2, false, false, false, None, None),
         };
         let (ike, esp) = preset.map_or_else(
@@ -82,7 +95,13 @@ impl Template {
                 rekey_time_secs: None,
                 dpd_delay_secs: dpd,
             },
-            auth: AuthSettings::psk(None, xauth, None),
+            auth: if self == Self::Ikev2Eap {
+                let mut auth = AuthSettings::eap(None, String::new(), Vec::new());
+                auth.remote.id = None;
+                auth
+            } else {
+                AuthSettings::psk(None, xauth, None)
+            },
             child: ChildSettings {
                 name: "rede".to_owned(),
                 esp_proposals: esp,
@@ -191,6 +210,14 @@ mod tests {
             p.name = "VPN".to_owned();
             p.gateway = "vpn.example.com".to_owned();
             p.child.remote_ts = vec!["192.0.2.0/24".to_owned()];
+            if template == Template::Ikev2Eap {
+                // Also blank there: the gateway's name and its CA.
+                let fields: Vec<_> = validate(&p).into_iter().map(|i| i.field).collect();
+                assert_eq!(fields, ["auth.remote.id", "auth.remote.ca"]);
+                p.auth.remote.id = Some("vpn.example.com".to_owned());
+                p.auth.remote.ca =
+                    vec![include_str!("../../tests/fixtures/ca/rsa-ca.pem").to_owned()];
+            }
             assert!(validate(&p).is_empty(), "{template:?}: {:?}", validate(&p));
         }
     }

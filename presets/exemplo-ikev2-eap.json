@@ -1,0 +1,54 @@
+{
+  "schema_version": 2,
+  "id": "exemplo-ikev2-eap",
+  "name": "Example: IKEv2 with username and password (EAP)",
+  "gateway": "vpn.example.com",
+  "ike": {
+    "version": 2,
+    "aggressive": false,
+    "encap": false,
+    "proposals": [
+      "aes256-sha256-modp2048",
+      "aes128-sha256-modp2048"
+    ],
+    "dpd_delay_secs": 30
+  },
+  "auth": {
+    "local": [
+      {
+        "method": "eap-mschapv2"
+      }
+    ],
+    "remote": {
+      "method": "certificate",
+      "id": "vpn.example.com",
+      "ca": [
+        "-----BEGIN CERTIFICATE-----\nMIIDQDCCAiigAwIBAgIUdUAdvUE5nBf1t6Pj1+pxaHNxxiUwDQYJKoZIhvcNAQEL\nBQAwNzEQMA4GA1UECgwHRXhhbXBsZTEjMCEGA1UEAwwaSVBzZWMgQ2xpZW50IFRl\nc3QgQ0EgKFJTQSkwIBcNMjYxMTE3MTk0OTE5WhgPMjA3NjExMDQxOTQ5MTlaMDcx\nEDAOBgNVBAoMB0V4YW1wbGUxIzAhBgNVBAMMGklQc2VjIENsaWVudCBUZXN0IENB\nIChSU0EpMIIBIjANBgkqhkiG9w0BAQEFAAOCAQ8AMIIBCgKCAQEAu7GxeC6Fh+mR\nX6it4MhfassJVCMw6PVt/0sv6Y08hdLdsyG4I1xQPIihHwAqv8NWpbpTCulQcunI\ntMbhZvbTFWfwO2fhhMwXWMTirdysH3jFezTtBd7mSFEV6DTbBaEC8BacsTW4GmbU\nkq0jv8dArS8bodGMUxSFIwjUiE2why0vYqBBQqCCcidfSjMcE5777l7BwYXie5aq\nmbESP3C0Fxs/tKj6OacWPkGb96l1E0syvCgGvNRTSI4FP7aKWUsxudBhi2zk8pRV\n3U+5OaLpsZ5BiLByk+2SYqPOcny2KSgtXWmIrsnC+WYDau4+ciGFotHYV2PJNm7K\n86EgaI269QIDAQABo0IwQDAdBgNVHQ4EFgQUh9/QPTgVoOo8aHFgKefQk+eggYow\nDwYDVR0TAQH/BAUwAwEB/zAOBgNVHQ8BAf8EBAMCAQYwDQYJKoZIhvcNAQELBQAD\nggEBADKUfZg6MZf5dMe0CRgACSN9c5Gys+iDrsnhpBVqcLx9s54OrvatO+jUw3bL\nJkb7dEZ5kaDNcQ73+ATvefc+7Fr59j5pY863ciDgWjBakl4vo1fmTene9YshVQlV\nrkbpDX4V2m91IytPzeLxOZek7/ks9N5Gx0/JDBJMSk2/yUSU8e/uK4MF/WGhDlhB\nZso+rhkfFdpxclIiBwqjKLftv6mSlVfBlisB5MBdm0OAK6JYjQkcg4mweTc4m/XU\nPgyZvc6A0EHxTDhet8CHcHif/8fAg4miSAfFQP2fIy5+yKXm8sMv+fOvmrmw2AcM\nS038/YoSYUdtHu0AK/NFH5vjiBw=\n-----END CERTIFICATE-----\n"
+      ]
+    }
+  },
+  "child": {
+    "name": "rede",
+    "esp_proposals": [
+      "aes256-sha256-modp2048",
+      "aes256-sha256"
+    ],
+    "remote_ts": [
+      "192.0.2.0/24"
+    ],
+    "dpd_action": "restart",
+    "close_action": "restart"
+  },
+  "network": {
+    "request_vip": true,
+    "mtu": 1400,
+    "dns": {
+      "servers": [],
+      "domains": [
+        "~corp.example.com"
+      ],
+      "use_received": true,
+      "default_route": false
+    }
+  }
+}

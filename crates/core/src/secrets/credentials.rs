@@ -1,4 +1,4 @@
-//! Credenciais de uma sessão: PSK, usuário e senha XAuth (ADR-0007).
+//! Credenciais de uma sessão: PSK, usuário e senha XAuth ou EAP (ADR-0007).
 //!
 //! Ficam em [`SecretString`] (zerada no drop) e saem da memória do app só
 //! para a memória do charon, via `load-shared` ([`SharedSecret`]).
@@ -17,6 +17,8 @@ pub struct Credentials {
     psk: Option<SecretString>,
     xauth_user: Option<SecretString>,
     xauth_password: Option<SecretString>,
+    eap_identity: Option<SecretString>,
+    eap_password: Option<SecretString>,
 }
 
 impl fmt::Debug for Credentials {
@@ -35,6 +37,11 @@ impl fmt::Debug for Credentials {
                 &self.xauth_user.as_ref().map(|u| mask(u.expose_secret())),
             )
             .field("xauth_password", &present(&self.xauth_password))
+            .field(
+                "eap_identity",
+                &self.eap_identity.as_ref().map(|u| mask(u.expose_secret())),
+            )
+            .field("eap_password", &present(&self.eap_password))
             .finish()
     }
 }
@@ -51,6 +58,8 @@ impl Credentials {
             CredentialKind::Psk => &mut self.psk,
             CredentialKind::XauthUser => &mut self.xauth_user,
             CredentialKind::XauthPassword => &mut self.xauth_password,
+            CredentialKind::EapIdentity => &mut self.eap_identity,
+            CredentialKind::EapPassword => &mut self.eap_password,
         }
     }
 
@@ -61,6 +70,8 @@ impl Credentials {
             CredentialKind::Psk => self.psk.as_ref(),
             CredentialKind::XauthUser => self.xauth_user.as_ref(),
             CredentialKind::XauthPassword => self.xauth_password.as_ref(),
+            CredentialKind::EapIdentity => self.eap_identity.as_ref(),
+            CredentialKind::EapPassword => self.eap_password.as_ref(),
         }
     }
 
@@ -73,6 +84,12 @@ impl Credentials {
     #[must_use]
     pub fn xauth_user(&self) -> Option<&str> {
         self.xauth_user.as_ref().map(ExposeSecret::expose_secret)
+    }
+
+    /// Identidade EAP (não é segredo, mas é pessoal: mascarar ao exibir).
+    #[must_use]
+    pub fn eap_identity(&self) -> Option<&str> {
+        self.eap_identity.as_ref().map(ExposeSecret::expose_secret)
     }
 
     /// Credenciais que o perfil exige e ainda faltam.
@@ -126,6 +143,8 @@ impl Credentials {
             CredentialKind::Psk,
             CredentialKind::XauthUser,
             CredentialKind::XauthPassword,
+            CredentialKind::EapIdentity,
+            CredentialKind::EapPassword,
         ] {
             store.delete(&profile.id, kind)?;
         }
@@ -136,7 +155,8 @@ impl Credentials {
     ///
     /// - PSK: donos = identidade local da rodada PSK (se houver; sem dono, ela
     ///   vale para qualquer par);
-    /// - XAuth: dono = usuário XAuth.
+    /// - XAuth: dono = usuário XAuth;
+    /// - EAP: dono = identidade EAP.
     ///
     /// # Errors
     /// [`SecretsError::Missing`] se faltar alguma credencial exigida.
@@ -174,7 +194,19 @@ impl Credentials {
                         password.expose_secret().as_bytes(),
                     ));
                 }
-                CredentialKind::XauthUser => {}
+                CredentialKind::EapPassword => {
+                    let identity = self
+                        .eap_identity()
+                        .ok_or(SecretsError::Missing(CredentialKind::EapIdentity))?;
+                    let password = self.get(kind).ok_or(SecretsError::Missing(kind))?;
+                    secrets.push(SharedSecret::new(
+                        &format!("eap-{}", profile.id),
+                        SecretKind::Eap,
+                        vec![identity.to_owned()],
+                        password.expose_secret().as_bytes(),
+                    ));
+                }
+                CredentialKind::XauthUser | CredentialKind::EapIdentity => {}
             }
         }
         Ok(secrets)

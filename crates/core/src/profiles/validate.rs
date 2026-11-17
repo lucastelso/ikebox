@@ -7,7 +7,8 @@
 use std::fmt;
 use std::net::IpAddr;
 
-use super::model::{LocalMethod, Profile};
+use super::ca::{MAX_CAS, parse_ca};
+use super::model::{LocalMethod, Profile, RemoteMethod};
 
 /// Um problema encontrado num campo.
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -192,7 +193,15 @@ fn check_auth(v: &mut Issues, p: &Profile) {
         let field = format!("auth.local[{i}]");
         match (i, round.method) {
             (0, LocalMethod::Psk) => {}
-            (1, LocalMethod::Xauth) => {
+            (0, LocalMethod::EapMschapv2) => {
+                if p.ike.version != 2 {
+                    v.add(
+                        field.clone(),
+                        crate::tr!("EAP only exists in IKEv2", "EAP só existe no IKEv2"),
+                    );
+                }
+            }
+            (1, LocalMethod::Xauth) if local[0].method == LocalMethod::Psk => {
                 if p.ike.version != 1 {
                     v.add(
                         field.clone(),
@@ -212,6 +221,13 @@ fn check_auth(v: &mut Issues, p: &Profile) {
                 crate::tr!(
                     "the PSK round must be the first",
                     "a rodada PSK deve ser a primeira"
+                ),
+            ),
+            (_, LocalMethod::EapMschapv2) => v.add(
+                field.clone(),
+                crate::tr!(
+                    "EAP must be the only round",
+                    "o EAP deve ser a única rodada"
                 ),
             ),
         }
@@ -248,6 +264,78 @@ fn check_auth(v: &mut Issues, p: &Profile) {
             "auth.remote.id",
             crate::tr!("invalid identity (1 to 255 characters, no leading/trailing spaces or control characters)", "identidade inválida (1 a 255 caracteres, sem espaços nas pontas nem controle)"),
         );
+    }
+    check_remote(v, p);
+}
+
+/// The gateway side: with EAP it must prove itself by certificate, checked
+/// against the profile's CAs and identity; never "accept any certificate".
+fn check_remote(v: &mut Issues, p: &Profile) {
+    let remote = &p.auth.remote;
+    let eap = p.auth.uses_eap();
+    match remote.method {
+        RemoteMethod::Psk => {
+            if eap {
+                v.add(
+                    "auth.remote.method",
+                    crate::tr!(
+                        "with EAP the gateway must authenticate with a certificate",
+                        "com EAP o gateway deve se autenticar por certificado"
+                    ),
+                );
+            }
+            if !remote.ca.is_empty() {
+                v.add(
+                    "auth.remote.ca",
+                    crate::tr!(
+                        "CA certificates only apply to a gateway with a certificate",
+                        "certificados de CA só valem para um gateway com certificado"
+                    ),
+                );
+            }
+        }
+        RemoteMethod::Certificate => {
+            if !eap {
+                v.add(
+                    "auth.remote.method",
+                    crate::tr!(
+                        "a gateway certificate is only supported with EAP for now",
+                        "por enquanto, certificado no gateway só com EAP"
+                    ),
+                );
+            }
+            if remote.id.is_none() {
+                v.add(
+                    "auth.remote.id",
+                    crate::tr!(
+                        "enter the name in the gateway's certificate (e.g. vpn.example.com)",
+                        "informe o nome que está no certificado do gateway (ex.: vpn.example.com)"
+                    ),
+                );
+            }
+            if remote.ca.is_empty() {
+                v.add(
+                    "auth.remote.ca",
+                    crate::tr!(
+                        "add the CA that signed the gateway's certificate",
+                        "adicione a CA que assinou o certificado do gateway"
+                    ),
+                );
+            }
+            v.check(
+                remote.ca.len() <= MAX_CAS,
+                "auth.remote.ca",
+                crate::tr!(
+                    "at most 8 CA certificates",
+                    "no máximo 8 certificados de CA"
+                ),
+            );
+            for (i, pem) in remote.ca.iter().enumerate() {
+                if let Err(message) = parse_ca(pem) {
+                    v.add(format!("auth.remote.ca[{i}]"), message);
+                }
+            }
+        }
     }
 }
 

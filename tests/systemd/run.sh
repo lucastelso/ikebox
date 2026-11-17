@@ -72,12 +72,42 @@ remove_mode_gateways() {
     docker ps -aq --filter "name=^$GW-mode-" | xargs -r docker rm -f >/dev/null 2>&1 || true
 }
 
+# make_pki DIR: a test CA, the gateway certificate it signs (RSA, SAN
+# gw.ipsec-client.test) and a second, unrelated CA, for the IKEv2 + EAP mode.
+# DIR/gateway/{x509ca,x509,private} goes to the gateway; DIR/client/ has the
+# CA certificates a profile may carry. The CA keys are deleted right away.
+# Fake, short-lived, made at test time: nothing of it is kept.
+make_pki() {
+    local dir=$1 ca_ext=(-addext "basicConstraints=critical,CA:TRUE"
+        -addext "keyUsage=critical,keyCertSign,cRLSign")
+    mkdir -p "$dir/gateway/x509ca" "$dir/gateway/x509" "$dir/gateway/private" "$dir/client" "$dir/tmp"
+    openssl req -x509 -newkey rsa:2048 -nodes -days 2 -keyout "$dir/tmp/ca.key" \
+        -subj "/O=Example/CN=IPsec Client Mode Test CA" "${ca_ext[@]}" \
+        -out "$dir/gateway/x509ca/ca.pem" 2>/dev/null
+    openssl req -newkey rsa:2048 -nodes -keyout "$dir/gateway/private/gateway.key" \
+        -subj "/O=Example/CN=gw.ipsec-client.test" -out "$dir/tmp/gateway.csr" 2>/dev/null
+    printf 'subjectAltName=DNS:gw.ipsec-client.test\nextendedKeyUsage=serverAuth,1.3.6.1.5.5.8.2.2\n' \
+        >"$dir/tmp/gateway.ext"
+    openssl x509 -req -in "$dir/tmp/gateway.csr" -CA "$dir/gateway/x509ca/ca.pem" \
+        -CAkey "$dir/tmp/ca.key" -CAcreateserial -days 2 -extfile "$dir/tmp/gateway.ext" \
+        -out "$dir/gateway/x509/gateway.pem" 2>/dev/null
+    openssl req -x509 -newkey rsa:2048 -nodes -days 2 -keyout "$dir/tmp/other.key" \
+        -subj "/O=Example/CN=IPsec Client Unrelated Test CA" "${ca_ext[@]}" \
+        -out "$dir/client/other-ca.pem" 2>/dev/null
+    cp "$dir/gateway/x509ca/ca.pem" "$dir/client/ca.pem"
+    rm -rf "$dir/tmp"
+    chmod -R a+rX "$dir/client"
+}
+
 # start_gateway NAME [CONF]: a test gateway on the test network; prints its IP.
 # CONF is a file of tests/modes/gateways (default: tests/engine/gateway).
 start_gateway() {
     local name=$1 conf=${2:-} _ ip
     local args=(-v "$repo/tests/engine/gateway:/test:ro")
-    [[ -z $conf ]] || args+=(-v "$repo/tests/modes/gateways:/modes:ro" -e "GATEWAY_CONF=/modes/$conf")
+    if [[ -n $conf ]]; then
+        args+=(-v "$repo/tests/modes/gateways:/modes:ro" -e "GATEWAY_CONF=/modes/$conf"
+            -v "$work/pki/gateway:/pki:ro" -e GATEWAY_PKI=/pki)
+    fi
     docker run -d --name "$name" --network "$NET" --cap-add NET_ADMIN \
         --security-opt label=disable "${args[@]}" --entrypoint /test/gateway.sh "$GW_IMAGE" >/dev/null
     for _ in $(seq 1 150); do
@@ -144,6 +174,8 @@ main() {
     docker network create "$NET" >/dev/null
     local _ gw_ip conf mode mode_gateways=()
     if [[ $SUITE == modes ]]; then
+        command -v openssl >/dev/null || fail "openssl is needed for the test CA of the EAP mode"
+        make_pki "$work/pki"
         for conf in "$repo"/tests/modes/gateways/*.conf; do
             mode=$(basename "$conf" .conf)
             gw_ip=$(start_gateway "$GW-mode-$mode" "$mode.conf")

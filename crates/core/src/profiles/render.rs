@@ -4,7 +4,7 @@
 use sha2::{Digest, Sha256};
 
 use super::ProfileError;
-use super::model::{ChildAction, LocalMethod, Profile};
+use super::model::{ChildAction, LocalMethod, Profile, RemoteMethod};
 use super::validate::{is_identity, validate};
 use crate::vici::Message;
 
@@ -26,6 +26,8 @@ pub struct ConnParams<'a> {
     /// Usuário XAuth (obrigatório em `psk-xauth`). Não é segredo, mas é
     /// identificador pessoal: vem das credenciais, nunca do perfil.
     pub xauth_user: Option<&'a str>,
+    /// Identidade EAP (obrigatória com EAP): também vem das credenciais.
+    pub eap_identity: Option<&'a str>,
 }
 
 impl Profile {
@@ -109,14 +111,28 @@ impl Profile {
                     )?;
                     Message::new().kv("auth", "xauth").kv("xauth_id", user)
                 }
+                LocalMethod::EapMschapv2 => {
+                    let identity = params.eap_identity.filter(|u| is_identity(u)).ok_or(
+                        ProfileError::MissingCredential(crate::tr!("EAP username", "usuário EAP")),
+                    )?;
+                    Message::new()
+                        .kv("auth", "eap-mschapv2")
+                        .kv("eap_id", identity)
+                }
             };
             if let Some(id) = &round.id {
                 section = section.kv("id", id);
             }
             conn = conn.section(&format!("local-{}", i + 1), section);
         }
-        // Só PSK no lado do gateway por enquanto (certificados: ADR-0022).
-        let mut remote = Message::new().kv("auth", "psk");
+        // O gateway: a mesma PSK, ou um certificado conferido contra as CAs
+        // do perfil, enviadas como dados (o patch 0002 recusa caminhos).
+        let mut remote = match self.auth.remote.method {
+            RemoteMethod::Psk => Message::new().kv("auth", "psk"),
+            RemoteMethod::Certificate => Message::new()
+                .kv("auth", "pubkey")
+                .list("cacerts", &self.auth.remote.ca),
+        };
         if let Some(id) = self.auth.remote_id() {
             remote = remote.kv("id", id);
         }

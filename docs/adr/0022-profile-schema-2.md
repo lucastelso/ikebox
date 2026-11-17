@@ -74,8 +74,8 @@ Local round methods:
   requires `remote.method: "certificate"`: MSCHAPv2 alone does not prove the
   gateway's identity well enough.
 - `xauth` only in IKEv1 and only as the second round; `eap-*` only in IKEv2.
-- The CAs in the profile are public data: they go to charon by VICI
-  `load-cert` **as data**, never as a path (the `0002` patch refuses paths,
+- The CAs in the profile are public data: they go to charon in the
+  `cacerts` of the connection (`load-conn`), **as data**, never as a path (the `0002` patch refuses paths,
   ADR-0019 and audit P9). They are size-limited (8 certificates, 16 KiB
   each) and parsed in Rust before being sent (X.509, CA flag, not expired).
 - New credential kinds in the keyring (`<profile>:<kind>`):

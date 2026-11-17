@@ -1,8 +1,10 @@
 # ADR-0023: IKEv2 + EAP-MSCHAPv2, with the gateway certificate always validated
 
-- **Status:** Accepted (design). Phase 6 of the post-0.2.0 program (step 43).
-  Implemented in phase 7+ ("IKEv2 + EAP"), on top of profile schema 2
-  (ADR-0022).
+- **Status:** Accepted. Designed in phase 6 (step 43), implemented in phase 8
+  (step 46, release 0.7.0) as designed, with the decisions taken at the
+  start of phase 8: RSA and Ed25519 gateway certificates only (an ECDSA CA
+  is refused when the profile is read), no revocation check, the CA chosen
+  from a file or pasted in the editor.
 - **Date:** 2026-11-17
 
 ## Context
@@ -30,9 +32,11 @@ The embedded engine (ADR-0020) has `x509`, `pem`, `pkcs1`, `pubkey` and
   an E2E scenario and its record in `BUILDINFO`.
 - **Charon side:** `load-conn` with `local-1 { auth = eap-mschapv2; eap_id =
   <identity> }` and `remote { auth = pubkey; id = <remote.id>; cacerts =
-  ... }` filled through `load-cert` **as data**; the CA is loaded as
-  `flag = CA`. charon then checks the chain up to the profile CA and that
-  the certificate carries `remote.id` (SAN). There is no option to skip it.
+  [<PEM>...] }`: the CA certificates go **as data** in the same message
+  (what swanctl itself sends; the design said `load-cert`, and the
+  connection's own `cacerts` turned out simpler, with the same guarantee).
+  charon then checks the chain up to the profile CA and that the
+  certificate carries `remote.id` (SAN). There is no option to skip it.
 - **Credentials:** `eap-identity` (masked, like the XAuth username) and
   `eap-password` (secret), by `load-shared` type `EAP` with the identity as
   owner, the same path as the XAuth password.

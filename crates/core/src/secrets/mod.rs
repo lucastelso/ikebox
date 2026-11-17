@@ -72,5 +72,7 @@ pub fn describe(kind: CredentialKind) -> &'static str {
         CredentialKind::Psk => crate::tr!("PSK (group key)", "PSK (chave do grupo)"),
         CredentialKind::XauthUser => crate::tr!("XAuth username", "usuário XAuth"),
         CredentialKind::XauthPassword => crate::tr!("XAuth password", "senha XAuth"),
+        CredentialKind::EapIdentity => crate::tr!("username (EAP)", "usuário (EAP)"),
+        CredentialKind::EapPassword => crate::tr!("password (EAP)", "senha (EAP)"),
     }
 }

@@ -41,6 +41,8 @@ pub fn specta_builder() -> Builder<tauri::Wry> {
             editor_cmd::edit_profile_draft,
             editor_cmd::check_profile_draft,
             editor_cmd::save_profile_draft,
+            editor_cmd::ca_entries,
+            editor_cmd::choose_ca_file,
             component_cmd::component_status,
             component_cmd::install_component,
             component_cmd::uninstall_component,

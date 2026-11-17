@@ -31,6 +31,7 @@ pub async fn establish<C: Charon>(
         updown,
         if_id,
         xauth_user: credentials.xauth_user(),
+        eap_identity: credentials.eap_identity(),
     })?;
     for secret in &secrets {
         charon.load_shared(secret).await?;

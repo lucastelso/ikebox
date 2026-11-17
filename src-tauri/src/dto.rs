@@ -133,6 +133,10 @@ pub enum CredentialField {
     XauthUser,
     /// Senha XAuth.
     XauthPassword,
+    /// Usuário EAP.
+    EapIdentity,
+    /// Senha EAP.
+    EapPassword,
 }
 
 impl From<CredentialKind> for CredentialField {
@@ -141,6 +145,8 @@ impl From<CredentialKind> for CredentialField {
             CredentialKind::Psk => Self::Psk,
             CredentialKind::XauthUser => Self::XauthUser,
             CredentialKind::XauthPassword => Self::XauthPassword,
+            CredentialKind::EapIdentity => Self::EapIdentity,
+            CredentialKind::EapPassword => Self::EapPassword,
         }
     }
 }
@@ -153,7 +159,7 @@ pub struct CredentialsStatus {
     pub required: Vec<CredentialField>,
     /// Campos já guardados no chaveiro.
     pub stored: Vec<CredentialField>,
-    /// Usuário XAuth guardado, mascarado (ex.: `us***lo`).
+    /// Usuário (XAuth ou EAP) guardado, mascarado (ex.: `us***lo`).
     pub masked_user: Option<String>,
     /// O chaveiro do sistema está disponível ("lembrar" possível)?
     pub keyring_available: bool,
@@ -176,6 +182,14 @@ pub struct CredentialsInput {
     #[serde(default)]
     #[specta(optional)]
     pub xauth_password: Option<String>,
+    /// Usuário EAP.
+    #[serde(default)]
+    #[specta(optional)]
+    pub eap_identity: Option<String>,
+    /// Senha EAP.
+    #[serde(default)]
+    #[specta(optional)]
+    pub eap_password: Option<String>,
 }
 
 impl fmt::Debug for CredentialsInput {
@@ -185,6 +199,8 @@ impl fmt::Debug for CredentialsInput {
             .field("psk", &given(&self.psk))
             .field("xauth_user", &given(&self.xauth_user))
             .field("xauth_password", &given(&self.xauth_password))
+            .field("eap_identity", &given(&self.eap_identity))
+            .field("eap_password", &given(&self.eap_password))
             .finish()
     }
 }
@@ -526,10 +542,14 @@ mod tests {
             psk: Some("psk-secreta".into()),
             xauth_user: Some("usuario".into()),
             xauth_password: Some(String::new()),
+            eap_identity: Some("usuario.eap".into()),
+            eap_password: Some("senha-eap".into()),
         };
         let debug = format!("{input:?}");
         assert!(
-            !debug.contains("psk-secreta") && !debug.contains("usuario"),
+            !debug.contains("psk-secreta")
+                && !debug.contains("usuario")
+                && !debug.contains("senha-eap"),
             "{debug}"
         );
         assert!(debug.contains("psk: true") && debug.contains("xauth_password: false"));
