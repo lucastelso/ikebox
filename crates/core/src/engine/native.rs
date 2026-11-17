@@ -26,15 +26,25 @@ pub struct NativeEngine {
 
 impl Default for NativeEngine {
     fn default() -> Self {
-        Self::new(PathBuf::from(
-            std::env::var_os("IPSEC_CLIENT_HELPER_SOCKET").unwrap_or_else(|| HELPER_SOCKET.into()),
-        ))
+        Self::new(default_socket())
     }
+}
+
+/// Socket of the helper. `$IPSEC_CLIENT_HELPER_SOCKET` replaces it only in
+/// development builds: the app sends the PSK and the password to the VICI
+/// socket that the helper names, so in a release build a variable planted in
+/// the user's environment must not point it at another process.
+fn default_socket() -> PathBuf {
+    #[cfg(debug_assertions)]
+    if let Some(socket) = std::env::var_os("IPSEC_CLIENT_HELPER_SOCKET") {
+        return PathBuf::from(socket);
+    }
+    PathBuf::from(HELPER_SOCKET)
 }
 
 impl NativeEngine {
     /// Cliente para o socket indicado (testes); o padrão usa [`HELPER_SOCKET`]
-    /// ou `$IPSEC_CLIENT_HELPER_SOCKET`.
+    /// (ou `$IPSEC_CLIENT_HELPER_SOCKET`, só em builds de desenvolvimento).
     #[must_use]
     pub fn new(socket: PathBuf) -> Self {
         Self { socket }

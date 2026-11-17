@@ -14,8 +14,8 @@ use std::sync::Mutex;
 use std::sync::atomic::{AtomicU64, Ordering};
 
 use ipsec_client_core::profiles::{
-    DnsSettings, MAX_PROFILE_BYTES, Profile, ProfileError, ProfileStore, SwanctlImportOptions,
-    import_swanctl, parse_profile, to_json,
+    DnsSettings, Profile, ProfileError, ProfileStore, SwanctlImportOptions, import_swanctl,
+    parse_profile, read_profile_file, to_json,
 };
 use ipsec_client_core::secrets::{Credentials, KeyringStore};
 use ipsec_client_core::{tr, trf};
@@ -66,26 +66,19 @@ fn store() -> Result<ProfileStore, UiError> {
 }
 
 fn read_limited(path: &Path) -> Result<String, UiError> {
-    let meta = std::fs::metadata(path).map_err(|e| {
-        other(trf!(
-            "Could not read the file: {e}",
-            "Não foi possível ler o arquivo: {e}"
-        ))
-    })?;
-    if meta.len() > MAX_PROFILE_BYTES {
-        return Err(UiError::new(
+    read_profile_file(path).map_err(|e| match e {
+        ProfileError::TooLarge => UiError::new(
             UiErrorKind::Profile,
             tr!(
                 "File too large to be a profile.",
                 "Arquivo grande demais para ser um perfil."
             ),
-        ));
-    }
-    std::fs::read_to_string(path).map_err(|e| {
-        other(trf!(
+        ),
+        ProfileError::Io(e) => other(trf!(
             "Could not read the file: {e}",
             "Não foi possível ler o arquivo: {e}"
-        ))
+        )),
+        e => UiError::from(e),
     })
 }
 

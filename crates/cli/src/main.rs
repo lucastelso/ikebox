@@ -27,7 +27,7 @@ use clap::{Parser, Subcommand};
 use ipsec_client_core::diagnostics::{self, CheckStatus};
 use ipsec_client_core::profiles::{
     DnsSettings, Profile, ProfileError, ProfileStore, SwanctlImportOptions, import_swanctl,
-    parse_profile,
+    parse_profile, read_profile_file,
 };
 use ipsec_client_core::secrets::{
     Credentials, KeyringStore, Redactor, SecretStore, describe, mask,
@@ -462,7 +462,7 @@ fn profiles(cmd: ProfilesCmd) -> anyhow::Result<ExitCode> {
             output,
             force,
         } => {
-            let text = std::fs::read_to_string(&file)
+            let text = read_profile_file(&file)
                 .with_context(|| format!("could not read {}", file.display()))?;
             let options = SwanctlImportOptions {
                 connection: conn,
@@ -515,7 +515,7 @@ fn profiles(cmd: ProfilesCmd) -> anyhow::Result<ExitCode> {
             }
         }
         ProfilesCmd::Validate { file } => {
-            let json = std::fs::read_to_string(&file)
+            let json = read_profile_file(&file)
                 .with_context(|| format!("could not read {}", file.display()))?;
             match parse_profile(&json) {
                 Ok(p) => println!("✔ Profile '{}' is valid.", p.id),

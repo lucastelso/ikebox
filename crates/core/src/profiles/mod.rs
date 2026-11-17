@@ -17,7 +17,9 @@ pub use model::{
     NetworkSettings, Profile, SCHEMA_VERSION,
 };
 pub use render::{ConnParams, UPDOWN_PATH};
-pub use store::{MAX_PROFILE_BYTES, ProfileList, ProfileStore, parse_profile, to_json};
+pub use store::{
+    MAX_PROFILE_BYTES, ProfileList, ProfileStore, parse_profile, read_profile_file, to_json,
+};
 pub use swanctl::{SwanctlImport, SwanctlImportOptions, import_swanctl};
 pub use validate::{ValidationIssue, validate};
 
@@ -96,6 +98,33 @@ mod tests {
 
     fn legacy() -> Profile {
         parse_profile(LEGACY).expect("preset legado válido")
+    }
+
+    #[test]
+    fn profile_files_are_read_with_a_real_limit() {
+        let dir = tempfile::tempdir().expect("tempdir");
+        let ok = dir.path().join("ok.json");
+        std::fs::write(&ok, LEGACY).expect("write");
+        assert_eq!(read_profile_file(&ok).expect("read"), LEGACY);
+
+        let exact = dir.path().join("exact");
+        std::fs::write(&exact, vec![b' '; MAX_PROFILE_BYTES as usize]).expect("write");
+        assert!(read_profile_file(&exact).is_ok());
+        let big = dir.path().join("big");
+        std::fs::write(&big, vec![b' '; MAX_PROFILE_BYTES as usize + 1]).expect("write");
+        assert!(matches!(
+            read_profile_file(&big),
+            Err(ProfileError::TooLarge)
+        ));
+
+        // Endless sources that report size zero: refused at once, not read
+        // until the memory runs out.
+        for special in ["/dev/zero", "/dev/urandom"] {
+            let err = read_profile_file(Path::new(special)).expect_err(special);
+            assert!(err.to_string().contains("regular file"), "{err}");
+        }
+        assert!(read_profile_file(dir.path()).is_err(), "a directory");
+        assert!(read_profile_file(&dir.path().join("missing")).is_err());
     }
 
     /// Renderiza uma mensagem VICI como texto (só em testes: aqui não há
