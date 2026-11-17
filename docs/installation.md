@@ -20,9 +20,9 @@ applications menu, with an icon, and opens like any other program. You do
 
 | Your distribution | File | Example |
 |---|---|---|
-| Fedora, openSUSE, RHEL/Rocky/AlmaLinux 10 | **.rpm** | `ipsec-client-0.5.0-1.x86_64.rpm` |
-| Ubuntu, Debian, Linux Mint, Pop!_OS | **.deb** | `ipsec-client_0.5.0_amd64.deb` |
-| Others (Arch, etc.) | **.AppImage** | `ipsec-client_0.5.0_amd64.AppImage` |
+| Fedora, openSUSE, RHEL/Rocky/AlmaLinux 10 | **.rpm** | `ipsec-client-0.6.0-1.x86_64.rpm` |
+| Ubuntu, Debian, Linux Mint, Pop!_OS | **.deb** | `ipsec-client_0.6.0_amd64.deb` |
+| Others (Arch, etc.) | **.AppImage** | `ipsec-client_0.6.0_amd64.AppImage` |
 
 The files are on the repository's
 [Releases](https://github.com/lucastelso/ipsec-client/releases) page on GitHub,
