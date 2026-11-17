@@ -86,6 +86,7 @@ old helper refuses the new request, as it should.
 
 - No real VPN data in the repository (ADR-0010). The guard runs in the hooks.
 - One branch per roadmap item and Conventional Commits in English.
-- `--no-ff` merge with `npm run check` green.
+- `--no-ff` merge with `npm run check` green; the branch is deleted after the
+  merge (the merge commit keeps its name).
 - On every relevant step, an entry in the development log. On every merge,
   update this file, the roadmap and the CHANGELOG.
