@@ -40,18 +40,19 @@
   ([roadmap](roadmap.md#post-020-program-decided-on-2026-11-16)): audit I
   (credentials, private data, supply chain) → audit II (privilege boundaries)
   → compatibility → optimization and base images → interface → IPsec modes.
-  **Phases 1, 2 and 3 are done** (steps 37 to 39,
-  [audit report](audits/v0.2.0.md)). Their fixes are merged, not released:
-  username masking and core dumps (phase 1); the helper boundary, the log
-  text coming from the gateway and the in-place installer (phase 2); the
-  package dependencies, image-based distributions, the systemd-resolved
-  diagnostics and the compatibility matrix (phase 3).
-  **Next: phase 4 (optimization and base images).** Each phase ends by
-  updating this line.
-- **Waiting for the maintainer:** test `initiator_only` on the real VPN
-  (audit P8, step by step in the report) and decide P9 to P13 (phase 2);
-  the desktop checks that containers cannot do (P15) and P14, P16 and P17
-  (phase 3).
+  **Phases 1 to 4 are done** (steps 37 to 40, [audit report](audits/v0.2.0.md),
+  [ADR-0020](adr/0020-static-engine-and-lighter-builds.md)) and go out in
+  **0.3.0**: the audit fixes (credentials, privilege boundaries,
+  compatibility), the static musl engine, release builds without the Docker
+  engine, Debian 13 test images and P9–P11.
+  **Next: phase 5 (interface: 5a review and visual directions).** Each phase
+  ends by updating this line.
+- **Waiting for the maintainer:** P8 (`initiator_only`) is not concluded:
+  the count of negotiations started by the gateway only means something
+  after a session longer than the gateway's phase 1 lifetime, and step 2
+  needs a session that long with the option on (the report has the steps).
+  To decide: P13 (phase 6) and P14 to P17 (phase 3); the desktop checks of
+  P15 fit the acceptance of 0.3.0.
 - **Still open from before:** `chore/release` (CI builds the packages on the
   tag, rpm/deb post-install with `--origin package`, signed `SHA256SUMS`,
   acceptance on a clean VM); running charon without root (ADR-0019).
