@@ -89,6 +89,7 @@ npm run test:docker    # Rust core integration with real Docker
 npm run test:cli       # full CLI flow
 npm run test:native    # compiled strongSwan (embedded engine) + E2E (includes the ADR-0019 attack)
 npm run test:systemd   # embedded engine with real systemd (privileged container)
+npm run test:modes     # IPsec modes the profile accepts, on the same path (~3 min)
 npm run test:packaging # network component installer, as root in a container
 npm run test:compat    # test:systemd on seven distributions (~4 min after the first run)
 ```

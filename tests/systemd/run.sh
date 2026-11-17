@@ -26,6 +26,10 @@
 #                              ipsec-client-helper already built (for an older
 #                              glibc than this computer's); default: build
 #                              them here with cargo
+#   IPSEC_CLIENT_TEST_SUITE    systemd (default, the scenarios above) or modes
+#                              (tests/modes/run.sh: one test gateway per IPsec
+#                              mode in tests/modes/gateways, and
+#                              tests/modes/inside.sh instead)
 
 set -euo pipefail
 
@@ -39,6 +43,7 @@ readonly DISTRO=${IPSEC_CLIENT_TEST_NAME:-local}
 readonly HOST_IMAGE=ipsec-client-systemd-test:$DISTRO
 readonly BASE=${IPSEC_CLIENT_TEST_BASE:-}
 readonly BIN_DIR=${IPSEC_CLIENT_TEST_BIN_DIR:-}
+readonly SUITE=${IPSEC_CLIENT_TEST_SUITE:-systemd}
 
 step() { printf '\n\033[1;36m==> %s\033[0m\n' "$*"; }
 ok() { printf '  \033[0;32m✔\033[0m %s\n' "$*"; }
@@ -57,9 +62,35 @@ cleanup() {
             --no-pager -n 80 2>/dev/null
     fi
     docker rm -f "$HOST" "$GW" >/dev/null 2>&1
+    remove_mode_gateways
     docker network rm "$NET" >/dev/null 2>&1
     [[ -n $work ]] && rm -rf "$work"
     exit "$rc"
+}
+
+remove_mode_gateways() {
+    docker ps -aq --filter "name=^$GW-mode-" | xargs -r docker rm -f >/dev/null 2>&1 || true
+}
+
+# start_gateway NAME [CONF]: a test gateway on the test network; prints its IP.
+# CONF is a file of tests/modes/gateways (default: tests/engine/gateway).
+start_gateway() {
+    local name=$1 conf=${2:-} _ ip
+    local args=(-v "$repo/tests/engine/gateway:/test:ro")
+    [[ -z $conf ]] || args+=(-v "$repo/tests/modes/gateways:/modes:ro" -e "GATEWAY_CONF=/modes/$conf")
+    docker run -d --name "$name" --network "$NET" --cap-add NET_ADMIN \
+        --security-opt label=disable "${args[@]}" --entrypoint /test/gateway.sh "$GW_IMAGE" >/dev/null
+    for _ in $(seq 1 150); do
+        grep -q '\[test-gateway\] ready' < <(docker logs "$name" 2>&1) && break
+        sleep 0.1
+    done
+    ip=$(docker inspect -f '{{range .NetworkSettings.Networks}}{{.IPAddress}}{{end}}' "$name")
+    if ! grep -q '\[test-gateway\] ready' < <(docker logs "$name" 2>&1) ||
+        [[ ! $ip =~ ^[0-9]+(\.[0-9]+){3}$ ]]; then
+        docker logs "$name" 2>&1 | tail -n 20 >&2
+        fail "the test gateway $name did not start"
+    fi
+    printf '%s\n' "$ip"
 }
 
 main() {
@@ -77,6 +108,7 @@ main() {
     grep -q '^patches=.*0001-vici-forced-updown' < <(tar -xzOf "$engine" opt/ipsec-client/engine/BUILDINFO) ||
         fail "the engine in $engine lacks the ADR-0019 patch: rebuild it (native-engine/build.sh)"
     docker rm -f "$HOST" "$GW" >/dev/null 2>&1 || true
+    remove_mode_gateways
     docker network rm "$NET" >/dev/null 2>&1 || true
     trap cleanup EXIT
     work=$(mktemp -d "${XDG_RUNTIME_DIR:-/tmp}/ipsec-client-systemd.XXXXXX")
@@ -97,25 +129,30 @@ main() {
     fi
     tar -xzOf "$tools" opt/ipsec-client/engine/sbin/swanctl >"$work/swanctl"
     chmod 0755 "$work/swanctl"
-    install -m 0644 "$here/helper_client.py" "$here/dns_responder.py" "$repo/tests/engine/initiator.conf.in" \
+    install -m 0644 "$here/lib.sh" "$here/helper_client.py" "$here/dns_responder.py" \
+        "$repo/tests/engine/initiator.conf.in" \
         "$repo/crates/core/tests/fixtures/perfil-gateway-teste.json" "$work/"
     install -m 0755 "$here/inside.sh" "$work/"
+    install -d -m 0755 "$work/modes"
+    install -m 0644 "$repo/tests/modes/make_profile.py" "$work/modes/"
+    install -m 0755 "$repo/tests/modes/inside.sh" "$work/modes/"
     ok "component bundle and ipsec-client-cli ready"
 
     step "Test gateway and computer with systemd"
     docker build -q -t "$GW_IMAGE" "$repo/engine" >/dev/null
     docker build -q ${BASE:+--build-arg "BASE=$BASE"} -t "$HOST_IMAGE" "$here" >/dev/null
     docker network create "$NET" >/dev/null
-    docker run -d --name "$GW" --network "$NET" --cap-add NET_ADMIN \
-        --security-opt label=disable \
-        -v "$repo/tests/engine/gateway:/test:ro" --entrypoint /test/gateway.sh "$GW_IMAGE" >/dev/null
-    local _ gw_ip
-    for _ in $(seq 1 150); do
-        grep -q '\[test-gateway\] ready' < <(docker logs "$GW" 2>&1) && break
-        sleep 0.1
-    done
-    gw_ip=$(docker inspect -f '{{range .NetworkSettings.Networks}}{{.IPAddress}}{{end}}' "$GW")
-    [[ $gw_ip =~ ^[0-9]+(\.[0-9]+){3}$ ]] || fail "the test gateway did not start"
+    local _ gw_ip conf mode mode_gateways=()
+    if [[ $SUITE == modes ]]; then
+        for conf in "$repo"/tests/modes/gateways/*.conf; do
+            mode=$(basename "$conf" .conf)
+            gw_ip=$(start_gateway "$GW-mode-$mode" "$mode.conf")
+            mode_gateways+=("$mode=$gw_ip")
+        done
+        gw_ip="${mode_gateways[*]}"
+    else
+        gw_ip=$(start_gateway "$GW")
+    fi
     docker run -d --name "$HOST" --hostname teste --network "$NET" --privileged \
         --cgroupns=private --security-opt label=disable \
         --tmpfs /run --tmpfs /run/lock --tmpfs /tmp \
@@ -129,7 +166,11 @@ main() {
     [[ $state == running || $state == degraded ]] || fail "the container systemd did not start ($state)"
     ok "gateway at $gw_ip; container systemd: $state"
 
-    docker exec "$HOST" bash /test/inside.sh "$gw_ip"
+    if [[ $SUITE == modes ]]; then
+        docker exec "$HOST" bash /test/modes/inside.sh "${mode_gateways[@]}"
+    else
+        docker exec "$HOST" bash /test/inside.sh "$gw_ip"
+    fi
 }
 
 main "$@"

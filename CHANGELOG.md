@@ -7,6 +7,23 @@ and the project uses [Semantic Versioning](https://semver.org/).
 
 ## [Unreleased]
 
+### Fixed
+
+- **Profiles without a virtual IP** (`network.request_vip: false`) connected
+  but installed no route, so no traffic went through the tunnel. charon
+  calls the `updown` with `up-host` when our side is the computer's own
+  address, and the `updown` took it for a host-to-host tunnel. Found by the
+  new mode tests.
+
+### Added
+
+- `npm run test:modes`, also in CI: every IPsec mode the profile accepts,
+  certified on the production path (CLI → helper → embedded strongSwan
+  6.1.0, real systemd): IKEv1 main mode with PSK, with and without XAuth;
+  IKEv1 aggressive mode with PSK only; IKEv2 with PSK and a checked gateway
+  identity; with and without forced NAT-T, PFS (including on an IKEv2
+  rekey), virtual IP, split and full tunnel.
+
 ## [0.4.0] - 2026-11-17
 
 A new look, chosen by the maintainer from three directions
