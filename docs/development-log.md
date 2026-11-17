@@ -1614,3 +1614,36 @@ strongSwan 6.0.1.
 **Verification:** `npm run check`, `test:packaging`, `test:native`,
 `test:systemd`, `test:engine`, `test:docker`, `test:cli` and `test:compat`
 (seven distributions).
+
+### Step 41: phase 5a, interface review and visual directions
+
+**Tooling** (`scripts/ui-review/`, kept for 5b): the real app built by Vite
+with `mockIPC` fixtures (RFC 5737/2606 data) and scenarios chosen by URL
+(first use, idle, credentials, connecting, connected, error, outdated
+component, profiles, profile details, system), screenshotted by headless
+Firefox in a throwaway profile: 10 scenarios × English/Portuguese ×
+light/dark, plus the minimum width. A tiny server holds the page's `load`
+event until the scenario has clicked through, because Firefox takes the
+screenshot on `load`. Tailwind 4 only scans the Vite root, so the review
+stylesheet adds `@source` for `src/`. Output in `target/ui-review/`, never
+published.
+
+**What the review found** (fixed in 5b whatever the direction):
+
+- contrast in the light theme: white on the primary button 4.28:1,
+  "Preparing…" in amber 2.18:1, "Connected" in green 3.26:1 (the dark theme
+  passes everything);
+- no visible keyboard focus on the hand-made buttons (tabs, profile
+  expander, error dismiss, show password);
+- the dialog close button says "Fechar" in English too; diagnostic icons are
+  read as "ok/warn/fail" in Portuguese;
+- animations ignore "reduce motion";
+- "IPsec Client" wraps to two lines in the header at 440 and 380 px;
+- the error message mixes what happened with what to do, in one long
+  technical block;
+- first use has two competing primary actions.
+
+**Directions** (gallery `target/ui-review/gallery/index.html`): A, native
+GNOME (libadwaita look); B, the whole screen colored by the connection state,
+with big numbers and tabs at the bottom; C, compact and technical, with the
+log always visible. Recommended: B. Waiting for the maintainer's choice.
