@@ -11,8 +11,11 @@
 #   - IKEv1 aggressive mode + group PSK only;
 #   - IKEv2 + PSK (gateway identity, PFS on rekey, full tunnel, no VIP);
 #
-# each with or without forced NAT-T (ESP in UDP) and PFS. IKEv1 aggressive
-# mode + group PSK + XAuth, the original mode, is in npm run test:systemd.
+# each with or without forced NAT-T (ESP in UDP) and PFS; and seven failures
+# that must end with the right diagnosis and a clean computer (wrong PSK,
+# gateway identity, proposals, networks, virtual IP required). IKEv1
+# aggressive mode + group PSK + XAuth, the original mode, is in
+# npm run test:systemd.
 #
 # Requirements: the same as tests/systemd/run.sh.
 

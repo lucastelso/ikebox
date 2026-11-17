@@ -10,6 +10,27 @@
 //! | IKE proposals             | `received NO_PROPOSAL_CHOSEN` before the IKE_SA    |
 //! | ESP/PFS proposals         | `received NO_PROPOSAL_CHOSEN` after the IKE_SA     |
 //! | Gateway unreachable       | `retransmit … of request` + `not established after`|
+//!
+//! IKEv2 lines from strongSwan 6.1.0 against the mode test gateways
+//! (`npm run test:modes`, phase 6):
+//!
+//! | Failure                   | Line                                               |
+//! |---------------------------|----------------------------------------------------|
+//! | PSK or gateway identity   | `received AUTHENTICATION_FAILED notify error`      |
+//! | IKE proposals             | `received NO_PROPOSAL_CHOSEN notify error`         |
+//! | ESP proposals             | `received NO_PROPOSAL_CHOSEN notify, no CHILD_SA built` (after the IKE_SA) |
+//! | Networks                  | `received TS_UNACCEPTABLE notify, no CHILD_SA built` |
+//! | Virtual IP required       | `received FAILED_CP_REQUIRED notify, no CHILD_SA built` |
+//!
+//! IKEv1 main mode with a wrong PSK: the gateway's answers are encrypted with
+//! a key derived from its PSK, so they do not decrypt (`invalid HASH_V1
+//! payload length, decryption failed?`, `could not decrypt payloads`) and the
+//! client retransmits until it gives up. Without this rule it looked like an
+//! unreachable gateway.
+//!
+//! A gateway that rejects the identity the profile expects from it
+//! (`auth.remote_id`) answers with the same AUTHENTICATION_FAILED as a wrong
+//! PSK: the message names both.
 
 use std::fmt;
 
@@ -26,6 +47,8 @@ pub enum FailureKind {
     EspProposals,
     /// Redes (traffic selectors) recusadas pelo gateway.
     TrafficSelectors,
+    /// O gateway exige que o cliente peça um IP virtual (IKEv2).
+    VirtualIpRequired,
     /// O gateway não respondeu.
     Unreachable,
     /// Causa não identificada (ver o log).
@@ -36,10 +59,12 @@ impl fmt::Display for FailureKind {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         f.write_str(match self {
             Self::PskOrGroupId => crate::tr!(
-                "the gateway rejected phase 1 authentication: check the group PSK and the \
-                 group id (auth.local_id; on FortiGate/Cisco it is usually keyid:<group-name>)",
-                "o gateway recusou a autenticação da fase 1: confira a PSK do grupo e o id do \
-                 grupo (auth.local_id; em FortiGate/Cisco costuma ser keyid:<nome-do-grupo>)"
+                "the gateway rejected phase 1 authentication: check the PSK and the \
+                 identities (auth.local_id, the group id: on FortiGate/Cisco it is usually \
+                 keyid:<group-name>; and auth.remote_id, if the profile has one)",
+                "o gateway recusou a autenticação da fase 1: confira a PSK e as identidades \
+                 (auth.local_id, o id do grupo: em FortiGate/Cisco costuma ser \
+                 keyid:<nome-do-grupo>; e auth.remote_id, se o perfil tiver)"
             ),
             Self::XauthCredentials => crate::tr!(
                 "wrong XAuth username or password",
@@ -60,6 +85,12 @@ impl fmt::Display for FailureKind {
             Self::TrafficSelectors => crate::tr!(
                 "the gateway rejected the requested networks (child.remote_ts/local_ts)",
                 "o gateway recusou as redes pedidas (child.remote_ts/local_ts)"
+            ),
+            Self::VirtualIpRequired => crate::tr!(
+                "phase 1 worked, but the gateway requires the client to ask for a virtual \
+                 IP: turn on network.request_vip",
+                "a fase 1 funcionou, mas o gateway exige que o cliente peça um IP virtual: \
+                 ligue network.request_vip"
             ),
             Self::Unreachable => crate::tr!(
                 "the gateway did not answer: check the address, your network and whether \
@@ -89,6 +120,8 @@ pub fn diagnose<S: AsRef<str>>(lines: &[S]) -> FailureKind {
             return FailureKind::XauthCredentials;
         }
         if line.contains("HASH does not match")
+            || line.contains("decryption failed")
+            || line.contains("could not decrypt payloads")
             || (!ike_established && line.contains("AUTHENTICATION_FAILED"))
         {
             return FailureKind::PskOrGroupId;
@@ -99,6 +132,9 @@ pub fn diagnose<S: AsRef<str>>(lines: &[S]) -> FailureKind {
             } else {
                 FailureKind::IkeProposals
             };
+        }
+        if line.contains("FAILED_CP_REQUIRED") {
+            return FailureKind::VirtualIpRequired;
         }
         if line.contains("INVALID_ID_INFORMATION") || line.contains("TS_UNACCEPTABLE") {
             return FailureKind::TrafficSelectors;
@@ -152,6 +188,56 @@ mod tests {
         "retransmit 2 of request message ID 0, seq 1",
         "establishing CHILD_SA 'rede-teste' not established after 25000ms",
     ];
+
+    // Linhas reais do charon 6.1.0 em IKEv2 (gateways de teste dos modos).
+    const V2_PSK_ERRADA: &[&str] = &[
+        "initiating IKE_SA v2-bad-psk[1] to 172.19.0.5",
+        "selected proposal: IKE:AES_GCM_16_256/PRF_HMAC_SHA2_256/CURVE_25519",
+        "authentication of '172.19.0.6' (myself) with pre-shared key",
+        "establishing CHILD_SA rede{1}",
+        "received AUTHENTICATION_FAILED notify error",
+    ];
+    const V2_PROPOSTA_IKE: &[&str] = &[
+        "initiating IKE_SA v2-bad-ike[1] to 172.19.0.5",
+        "received NO_PROPOSAL_CHOSEN notify error",
+    ];
+    const V2_PROPOSTA_ESP: &[&str] = &[
+        "authentication of 'gw.ipsec-client.test' with pre-shared key successful",
+        "installing new virtual IP 198.51.100.10",
+        "IKE_SA v2-bad-esp[1] established between 172.19.0.6[172.19.0.6]...172.19.0.5[gw.ipsec-client.test]",
+        "received NO_PROPOSAL_CHOSEN notify, no CHILD_SA built",
+        "failed to establish CHILD_SA, keeping IKE_SA",
+    ];
+    const V2_SEM_VIP: &[&str] = &[
+        "IKE_SA v2-psk-novip[1] established between 172.19.0.6[172.19.0.6]...172.19.0.5[gw***st]",
+        "received FAILED_CP_REQUIRED notify, no CHILD_SA built",
+        "failed to establish CHILD_SA, keeping IKE_SA",
+    ];
+    const V2_REDES: &[&str] = &[
+        "IKE_SA v2-bad-ts[1] established between 172.19.0.6[172.19.0.6]...172.19.0.5[gw.ipsec-client.test]",
+        "received TS_UNACCEPTABLE notify, no CHILD_SA built",
+    ];
+
+    // IKEv1 modo principal com PSK errada (6.1.0): as respostas não decifram.
+    const V1_PRINCIPAL_PSK_ERRADA: &[&str] = &[
+        "initiating Main Mode IKE_SA v1-main-bad-psk[1] to 172.19.0.3",
+        "generating ID_PROT request 0 [ ID HASH ]",
+        "invalid HASH_V1 payload length, decryption failed?",
+        "message parsing failed",
+        "could not decrypt payloads",
+        "sending retransmit 1 of request message ID 0, seq 3",
+        "giving up after 5 retransmits",
+    ];
+
+    #[test]
+    fn diagnoses_real_failures_of_the_mode_tests() {
+        assert_eq!(diagnose(V1_PRINCIPAL_PSK_ERRADA), FailureKind::PskOrGroupId);
+        assert_eq!(diagnose(V2_PSK_ERRADA), FailureKind::PskOrGroupId);
+        assert_eq!(diagnose(V2_PROPOSTA_IKE), FailureKind::IkeProposals);
+        assert_eq!(diagnose(V2_PROPOSTA_ESP), FailureKind::EspProposals);
+        assert_eq!(diagnose(V2_SEM_VIP), FailureKind::VirtualIpRequired);
+        assert_eq!(diagnose(V2_REDES), FailureKind::TrafficSelectors);
+    }
 
     #[test]
     fn diagnoses_real_failures() {
