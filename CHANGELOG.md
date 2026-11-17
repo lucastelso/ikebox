@@ -81,9 +81,9 @@ Compatibility across distributions (audit of 0.2.0, part 3):
 
 - **The embedded strongSwan is one fully static executable** (musl): it no
   longer depends on the computer's C library, and the network component is
-  half the size, since tools that only the tests use left it (ADR-0020).
+  40% smaller, since tools that only the tests use left it (ADR-0020).
 - **The app no longer carries the Docker engine**, meant for development: the
-  app is 18% smaller and the network component is the only engine of a
+  app is 17% smaller (the `.rpm`/`.deb` packages, 23%) and the network component is the only engine of a
   release build (development builds: `npm run dev:app`).
 - The Docker engine and the test gateway run on Debian 13 with strongSwan
   6.0.1, instead of Ubuntu 20.04 and strongSwan 5.8.2.
