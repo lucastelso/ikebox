@@ -1674,3 +1674,38 @@ the virtual IP cut by an ellipsis; it wraps now.
 **Release 0.4.0:** only the interface changes. The network component is the
 same, but its bundle carries the version, so the app offers "Update" — said
 in the notes.
+
+### Step 43: phase 6, IPsec modes I
+
+**Certification** (`test/ipsec-modes`): until now only IKEv1 aggressive +
+group PSK + XAuth was tested, although profile schema 1 also accepts main
+mode, PSK without XAuth and IKEv2. `npm run test:modes` reuses the
+`test:systemd` computer (Fedora, real systemd, the real installer, helper
+and embedded strongSwan 6.1.0) and starts one test gateway per mode
+(`tests/modes/gateways/*.conf`, `GATEWAY_CONF` in `gateway.sh`). Each
+scenario writes a profile, connects with the CLI as alice and reads what was
+negotiated from charon (`swanctl --list-sas` over alice's socket: version,
+`TUNNEL` or `TUNNEL-in-UDP`, the DH group of phase 2) and from the kernel
+(SA counts only). The part shared with `tests/systemd/inside.sh` moved to
+`tests/systemd/lib.sh`.
+
+Eight scenarios: IKEv1 main + PSK + XAuth (split with PFS; full tunnel with
+forced NAT-T, no PFS), IKEv1 main + PSK (with VIP and PFS; without VIP, with
+NAT-T), IKEv1 aggressive + PSK only (legacy algorithms), IKEv2 + PSK (gateway
+identity checked, PFS showing only after a CHILD_SA rekey, since the first
+CHILD_SA comes out of IKE_AUTH without a DH exchange; full tunnel with NAT-T;
+without VIP).
+
+**Bug found:** a profile without a virtual IP connected and installed no
+route. strongSwan's updown verb ends in `-host` when *our* traffic selector
+is the computer's own address, whatever the remote side is; our `updown`
+treated `up-host` as a host-to-host tunnel and did nothing. Now `-host` goes
+through the same path as `-client`, and `route_up` still skips the real
+host-to-host case (remote TS = the gateway). `npm run test:updown` covers it
+and fails with the old script.
+
+**Gateway behavior worth a diagnosis:** an IKEv2 gateway with an address
+pool refuses a client that does not ask for a virtual IP
+(`received FAILED_CP_REQUIRED notify, no CHILD_SA built`). The test gateway
+gives clients without a VIP their own connection, chosen by identity.
+

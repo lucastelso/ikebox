@@ -211,6 +211,7 @@ npm run test:docker         # integração do núcleo Rust com o Docker real (en
 npm run test:cli            # fluxo completo do CLI contra o gateway de teste
 npm run test:native         # strongSwan compilado (engine embutido) + teste ponta a ponta
 npm run test:systemd        # engine embutido com systemd de verdade num container (sandbox, 2 usuários, ataque)
+npm run test:modes          # modos de IPsec no mesmo caminho: IKEv1 principal/agressivo, PSK, XAuth, IKEv2; NAT-T, PFS, VIP, túnel completo
 npm run test:packaging      # instalador do componente de rede, como root num container
 npm run test:compat         # test:systemd repetido em sete distribuições (Ubuntu, Debian, Fedora, openSUSE, AlmaLinux)
 tests/compat/packages.sh <dir>  # instala .deb/.rpm gerados nas mesmas sete, com o gerenciador de pacotes de cada uma

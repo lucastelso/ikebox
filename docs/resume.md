@@ -45,8 +45,11 @@
   [ADR-0021](adr/0021-interface-state-color.md)). 0.3.0 carries phases 1–4
   (audit fixes, static engine, no Docker in release); **0.4.0** carries phase
   5, the interface colored by the connection state (direction B).
-  **Next: phase 6 (IPsec modes I: certify what the profile already accepts,
-  design profile schema 2).** Each phase ends by updating this line.
+  **Now: phase 6 (IPsec modes I), step 43.** Done: `npm run test:modes`
+  certifies every mode schema 1 accepts, and fixed the profiles without a
+  virtual IP (no route). Next in this phase: security level per profile,
+  IKEv2 failure diagnosis, the schema 2 ADRs, release 0.5.0. Each phase ends
+  by updating this line.
 - **Waiting for the maintainer:** P8 (`initiator_only`) is not concluded:
   the count of negotiations started by the gateway only means something
   after a session longer than the gateway's phase 1 lifetime, and step 2
@@ -89,6 +92,7 @@ npm run test:docker    # Rust core integration with real Docker
 npm run test:cli       # full CLI flow
 npm run test:native    # compiled strongSwan (embedded engine) + E2E (includes the ADR-0019 attack)
 npm run test:systemd   # embedded engine with real systemd (privileged container)
+npm run test:modes     # IPsec modes the profile accepts, on the same path (~3 min)
 npm run test:packaging # network component installer, as root in a container
 npm run test:compat    # test:systemd on seven distributions (~4 min after the first run)
 ```

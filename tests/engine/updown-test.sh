@@ -5,7 +5,10 @@
 #
 # Covers the gateway host route (audit of 0.2.0, P11): when the remote
 # network contains the gateway, the route to the gateway through the original
-# path comes before the route of the network, and goes away with it.
+# path comes before the route of the network, and goes away with it. And the
+# profiles without a virtual IP (phase 6): charon says "up-host" when our
+# side is this computer's own address, and the remote network still needs
+# its route.
 
 set -euo pipefail
 
@@ -36,12 +39,13 @@ STUB
 printf '#!/bin/sh\nexit 0\n' >"$work/bin/resolvectl"
 chmod 0755 "$work/bin/ip" "$work/bin/resolvectl"
 
-# run VERB PEER PEER_CLIENT: runs updown and leaves its ip calls in $CALLS.
+# run VERB PEER PEER_CLIENT [SOURCE_IP]: runs updown and leaves its ip calls
+# in $CALLS. SOURCE_IP is the virtual IP (default 198.51.100.10; "" = none).
 run() {
     export CALLS="$work/calls-$RANDOM"
     : >"$CALLS"
     PATH="$work/bin:$PATH" PLUTO_VERB=$1 PLUTO_PEER=$2 PLUTO_PEER_CLIENT=$3 \
-        PLUTO_MY_SOURCEIP4_1=198.51.100.10 bash "$UPDOWN" --iface ipsc0 >/dev/null
+        PLUTO_MY_SOURCEIP4_1=${4-198.51.100.10} bash "$UPDOWN" --iface ipsc0 >/dev/null
 }
 # line_of PATTERN: number of the first call that matches (0 if none).
 line_of() { grep -n -F -- "$1" "$CALLS" | head -n 1 | cut -d: -f1 || true; }
@@ -84,3 +88,17 @@ run up-client 198.51.100.200 198.51.100.128/25
 run up-client 198.51.100.100 198.51.100.128/25
 [[ -z $(line_of "198.51.100.100/32") ]] || fail "/25 not containing the gateway"
 ok "prefix boundaries (/25 in and out)"
+
+echo "updown: no virtual IP (up-host)"
+
+run up-host 203.0.113.7 192.0.2.0/24 ""
+[[ -n $(line_of "route replace 192.0.2.0/24 dev ipsc0 proto 241") ]] ||
+    fail "no virtual IP: network route missing: $(cat "$CALLS")"
+[[ -z $(line_of " src ") ]] || fail "no virtual IP: the route must not carry a source: $(cat "$CALLS")"
+run down-host 203.0.113.7 192.0.2.0/24 ""
+[[ -n $(line_of "route del 192.0.2.0/24 dev ipsc0 proto 241") ]] || fail "no virtual IP: route not removed"
+ok "our side is this computer's address: the remote network is routed, and removed on down"
+
+run up-host 203.0.113.7 203.0.113.7/32 ""
+[[ -z $(line_of "route replace") ]] || fail "host-to-host: nothing to route"
+ok "true host-to-host (remote TS is the gateway): no route"

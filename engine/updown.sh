@@ -260,17 +260,18 @@ dns_down() {
 }
 
 # --- principal --------------------------------------------------------------
+# "-host" says that OUR side of the tunnel is this computer's own address
+# (no virtual IP), not that the tunnel is host-to-host: the remote side may
+# still be a network that needs a route. route_up skips the true
+# host-to-host case (the remote TS is the gateway itself).
 case $verb in
-up-client | up-client-v6)
+up-client | up-client-v6 | up-host | up-host-v6)
     route_up
     dns_up
     ;;
-down-client | down-client-v6)
+down-client | down-client-v6 | down-host | down-host-v6)
     route_down
     dns_down
-    ;;
-up-host | up-host-v6 | down-host | down-host-v6)
-    log "host-to-host tunnel ($verb): nothing to do"
     ;;
 *)
     log "verb ignored: ${verb:-<empty>}"

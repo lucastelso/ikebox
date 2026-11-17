@@ -6,6 +6,9 @@
 # Protected networks (RFC 5737): 192.0.2.0/24 (the gateway answers on
 # 192.0.2.1) and 203.0.113.0/24 (child with modp768 PFS only; answers on
 # 203.0.113.1). No real data: fake credentials in swanctl.conf.
+#
+# GATEWAY_CONF picks another configuration (the IPsec modes of
+# tests/modes/gateways, one gateway container per mode).
 
 set -euo pipefail
 
@@ -42,7 +45,7 @@ done
     exit 1
 }
 
-swanctl --load-all --file /test/swanctl.conf
+swanctl --load-all --file "${GATEWAY_CONF:-/test/swanctl.conf}"
 log "ready"
 
 wait "$charon_pid" || true

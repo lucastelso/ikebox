@@ -115,6 +115,8 @@ jobs:
       - uses: Swatinem/rust-cache@d1527c8f67ef9af357290475d4af4b0fab8f12e0 # v2.9.3
       - name: With real systemd (installer, helper, sandbox, two users and the attack)
         run: npm run test:systemd
+      - name: IPsec modes (IKEv1 main/aggressive, PSK, XAuth, IKEv2; NAT-T, PFS, VIP, full tunnel)
+        run: npm run test:modes
 
   packaging:
     name: Network component installer (container)
