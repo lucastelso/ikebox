@@ -1,4 +1,4 @@
-import { ChevronDown, Download, Trash2 } from 'lucide-react';
+import { ChevronDown, Download, Pencil, Trash2 } from 'lucide-react';
 import { useState } from 'react';
 import { commands, type ProfileDetails, type ProfileSummary } from '@/bindings';
 import { Button } from '@/components/ui/button';
@@ -20,14 +20,17 @@ function Row({ label, value }: { label: string; value: string | undefined }) {
 /** Um perfil na lista: resumo, detalhes sob demanda, exportar e excluir. */
 export function ProfileCard({
   profile,
+  onEdit,
   onExport,
   onDelete,
 }: {
   profile: ProfileSummary;
+  onEdit: () => void;
   onExport: () => void;
   onDelete: () => void;
 }) {
   const t = useT().profiles;
+  const tEditor = useT().editor;
   const [open, setOpen] = useState(false);
   const [details, setDetails] = useState<ProfileDetails | null>(null);
 
@@ -62,6 +65,14 @@ export function ProfileCard({
             <SecurityBadge level={profile.security} className="mt-1.5" />
           </span>
         </button>
+        <Button
+          size="icon"
+          variant="ghost"
+          onClick={onEdit}
+          aria-label={tEditor.edit(profile.name)}
+        >
+          <Pencil />
+        </Button>
         <Button size="icon" variant="ghost" onClick={onExport} aria-label={t.export(profile.name)}>
           <Download />
         </Button>

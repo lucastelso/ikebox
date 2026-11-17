@@ -8,6 +8,7 @@ pub mod commands;
 pub mod component_cmd;
 pub mod desktop;
 pub mod dto;
+pub mod editor_cmd;
 pub mod profiles_cmd;
 
 use tauri_specta::{Builder, ErrorHandlingMode, collect_commands, collect_events};
@@ -35,6 +36,11 @@ pub fn specta_builder() -> Builder<tauri::Wry> {
             profiles_cmd::profile_details,
             profiles_cmd::export_profile,
             profiles_cmd::delete_profile,
+            editor_cmd::proposal_presets,
+            editor_cmd::new_profile_draft,
+            editor_cmd::edit_profile_draft,
+            editor_cmd::check_profile_draft,
+            editor_cmd::save_profile_draft,
             component_cmd::component_status,
             component_cmd::install_component,
             component_cmd::uninstall_component,

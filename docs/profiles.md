@@ -157,6 +157,36 @@ change depends on what the gateway accepts.
 | **Legacy** | obsolete, with no cheap attack: IKEv1 itself (RFC 9395); a group PSK with XAuth (everyone with the group PSK can pose as the gateway and receive your username and password); 3DES, Blowfish, CAST (64-bit blocks); SHA-1; `modp1536` |
 | **Good** | none of the above |
 
+## Creating and editing in the app
+
+**Profiles → New** opens the editor from a template, and the pencil on a
+profile card edits it. The editor shows what the profile is (no raw JSON);
+Rust checks every change and says, field by field, what is missing or
+wrong, and the security badge updates as you type. It only saves a valid
+profile.
+
+| Template | Starts with |
+|---|---|
+| FortiGate | IKEv1 aggressive, forced NAT-T, group PSK + XAuth, "compatible" proposals, DPD 30 s |
+| Cisco Easy VPN | IKEv1 aggressive, forced NAT-T, group PSK + XAuth, "legacy" proposals, DPD 30 s. The group name goes in the group id as `keyid:<group>` |
+| IKEv2 with a PSK | IKEv2, "modern" proposals, DPD 30 s |
+| Blank | IKEv2 with strongSwan's `default` proposals |
+
+The proposals are picked by name, each with the badge it gives, or typed in
+**Advanced** exactly as the gateway has them:
+
+| Preset | Phase 1 | Phase 2 | Level |
+|---|---|---|---|
+| Modern (IKEv2) | `aes256gcm16-prfsha256-curve25519` | `aes256gcm16-curve25519`, `aes256gcm16` | good |
+| Compatible | `aes256-sha256-modp2048`, `aes128-sha256-modp2048` | IKEv1: the same with PFS; IKEv2: `aes256-sha256-modp2048`, `aes256-sha256` | good |
+| Legacy | `aes256-sha1-modp1024`, `aes128-sha1-modp1024`, `3des-sha1-modp1024` | IKEv1: the same; IKEv2: `aes256-sha1`, `aes128-sha1` | weak |
+
+In IKEv1, every phase 2 proposal of a preset carries the same DH group:
+quick mode sends a single key exchange. The identifier cannot change once
+saved: it is also the key of the stored credentials. Fields the editor does
+not show (rekey times, child name, local networks, DPD and close actions)
+are kept as they were, or come from the template.
+
 ## Building a profile from a `swanctl.conf`
 
 If you already have a working `swanctl.conf`, the CLI creates the profile for

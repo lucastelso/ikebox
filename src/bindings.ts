@@ -54,6 +54,19 @@ export const commands = {
 	exportProfile: (profileId: string, options?: InvokeOptions) => typedError<string | null, UiError>(__TAURI_INVOKE("export_profile", { profileId }, options)),
 	/**  Exclui o perfil e, se pedido, as credenciais guardadas dele. */
 	deleteProfile: (profileId: string, forgetCredentials: boolean, options?: InvokeOptions) => typedError<null, UiError>(__TAURI_INVOKE("delete_profile", { profileId, forgetCredentials }, options)),
+	/**  The presets the editor offers for an IKE version, with their security. */
+	proposalPresets: (ikeVersion: number, options?: InvokeOptions) => __TAURI_INVOKE<ProposalPresetInfo[]>("proposal_presets", { ikeVersion }, options),
+	/**  A new draft from a template. */
+	newProfileDraft: (template: ProfileTemplate, options?: InvokeOptions) => __TAURI_INVOKE<ProfileDraft>("new_profile_draft", { template }, options),
+	/**  A draft of a saved profile. */
+	editProfileDraft: (profileId: string, options?: InvokeOptions) => typedError<ProfileDraft, UiError>(__TAURI_INVOKE("edit_profile_draft", { profileId }, options)),
+	/**  Problems, security and schema of a draft (called while the person types). */
+	checkProfileDraft: (draft: ProfileDraft, options?: InvokeOptions) => typedError<DraftCheck, UiError>(__TAURI_INVOKE("check_profile_draft", { draft }, options)),
+	/**
+	 *  Saves the draft: a new profile (its id must be free) or the edited one
+	 *  (its id does not change: it is also the keyring key).
+	 */
+	saveProfileDraft: (draft: ProfileDraft, options?: InvokeOptions) => typedError<ProfileSummary, UiError>(__TAURI_INVOKE("save_profile_draft", { draft }, options)),
 	/**  Estado do componente de rede. */
 	componentStatus: (options?: InvokeOptions) => typedError<ComponentInfo, UiError>(__TAURI_INVOKE("component_status", undefined, options)),
 	/**
@@ -196,6 +209,28 @@ export type DiagnosticCheck = {
 	hint: string | null,
 };
 
+/**  The draft as Rust sees it: problems, security and file schema. */
+export type DraftCheck = {
+	/**  Problems; empty = can be saved. */
+	issues: DraftIssue[],
+	/**  Security level of the profile. */
+	security: Security,
+	/**  Why, the worst first. */
+	notes: SecurityNote[],
+	/**  The preset the proposals are, if any. */
+	preset: Proposals | null,
+	/**  Schema the file will be written in (1 unless something needs 2). */
+	schema: number,
+};
+
+/**  A problem in a field of the draft. */
+export type DraftIssue = {
+	/**  Draft field (`gateway`, `remoteTs`...; `general` when none fits). */
+	field: string,
+	/**  What is wrong, in the interface language. */
+	message: string,
+};
+
 /**  Tipo do arquivo importado. */
 export type ImportKind = 
 /**  Perfil do IPsec Client (.json). */
@@ -274,6 +309,57 @@ export type ProfileDetails = {
 	securityNotes: SecurityNote[],
 };
 
+/**
+ *  What the editor shows of a profile. No credentials: profiles never have
+ *  them (ADR-0007).
+ */
+export type ProfileDraft = {
+	/**  Id of the profile being edited; absent for a new profile. */
+	originalId: string | null,
+	/**  Template a new profile starts from. */
+	template: ProfileTemplate,
+	/**  Identifier (file name and keyring key; fixed once saved). */
+	id: string,
+	/**  Display name. */
+	name: string,
+	/**  Gateway: DNS name or IP. */
+	gateway: string,
+	/**  1 or 2. */
+	ikeVersion: number,
+	/**  IKEv1 aggressive mode. */
+	aggressive: boolean,
+	/**  Forces NAT-T. */
+	encap: boolean,
+	/**  Phase 1 proposals. */
+	ikeProposals: string[],
+	/**  Phase 2 proposals. */
+	espProposals: string[],
+	/**  A second round with username and password (IKEv1). */
+	xauth: boolean,
+	/**  The XAuth password is a one-time code. */
+	otp: boolean,
+	/**  Identity of the PSK round (group id); empty = the computer's address. */
+	localId: string,
+	/**  Identity the gateway must present; empty = any. */
+	remoteId: string,
+	/**  Networks reached through the VPN. */
+	remoteTs: string[],
+	/**  Asks the gateway for a virtual IP. */
+	requestVip: boolean,
+	/**  Static DNS servers. */
+	dnsServers: string[],
+	/**  DNS domains (`~x` routes only). */
+	dnsDomains: string[],
+	/**  Also uses the DNS servers sent by the gateway. */
+	useReceivedDns: boolean,
+	/**  These DNS servers answer every name. */
+	dnsDefaultRoute: boolean,
+	/**  Tunnel MTU. */
+	mtu: number,
+	/**  DPD interval in seconds; absent = off. */
+	dpdDelaySecs: number | null,
+};
+
 /**  Lista de perfis. */
 export type ProfileList = {
 	/**  Perfis válidos, por nome. */
@@ -299,6 +385,38 @@ export type ProfileSummary = {
 	/**  Nível de segurança (selo); o motivo vem nos detalhes. */
 	security: Security,
 };
+
+/**  Vendor template of a new profile. */
+export type ProfileTemplate = 
+/**  FortiGate: IKEv1 aggressive, group PSK + XAuth. */
+"fortigate" | 
+/**  Cisco Easy VPN: IKEv1 aggressive, group PSK + XAuth, older algorithms. */
+"ciscoEzvpn" | 
+/**  Any gateway with IKEv2 and a PSK. */
+"ikev2Psk" | 
+/**  Nothing suggested. */
+"blank";
+
+/**  A preset as the editor offers it. */
+export type ProposalPresetInfo = {
+	/**  Which preset. */
+	preset: Proposals,
+	/**  Phase 1 proposals. */
+	ike: string[],
+	/**  Phase 2 proposals. */
+	esp: string[],
+	/**  Security level of these proposals. */
+	security: Security,
+};
+
+/**  A named set of proposals. */
+export type Proposals = 
+/**  AES-GCM and Curve25519 (IKEv2). */
+"modern" | 
+/**  AES and SHA-256 with DH 2048. */
+"compatible" | 
+/**  SHA-1 and DH 1024: old gateways. */
+"legacy";
 
 /**  Nível de segurança de um perfil: só avisa, nunca impede de conectar. */
 export type Security = 

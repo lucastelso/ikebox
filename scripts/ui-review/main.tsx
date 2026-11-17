@@ -112,6 +112,36 @@ const logLines = [
   '15[IKE] CHILD_SA rede{1} established with SPIs and TS 198.51.100.10/32 === 192.0.2.0/24',
 ];
 
+const editorPresets = [
+  { preset: 'compatible', ike: ['aes256-sha256-modp2048', 'aes128-sha256-modp2048'], esp: ['aes256-sha256-modp2048', 'aes128-sha256-modp2048'], security: 'good' },
+  { preset: 'legacy', ike: ['aes256-sha1-modp1024'], esp: ['aes256-sha1-modp1024'], security: 'weak' },
+];
+
+const editorDraft = {
+  originalId: null,
+  template: 'fortigate',
+  id: scenario === 'editor-problems' ? '' : 'example-corp',
+  name: scenario === 'editor-problems' ? '' : 'Example Corp',
+  gateway: scenario === 'editor-problems' ? '' : 'vpn.example.com',
+  ikeVersion: 1,
+  aggressive: true,
+  encap: true,
+  ikeProposals: editorPresets[0]?.ike ?? [],
+  espProposals: editorPresets[0]?.esp ?? [],
+  xauth: true,
+  otp: false,
+  localId: scenario === 'editor-problems' ? '' : 'keyid:example-group',
+  remoteId: '',
+  remoteTs: scenario === 'editor-problems' ? [] : ['192.0.2.0/24'],
+  requestVip: true,
+  dnsServers: [],
+  dnsDomains: scenario === 'editor-problems' ? [] : ['~corp.example.com'],
+  useReceivedDns: true,
+  dnsDefaultRoute: false,
+  mtu: 1400,
+  dpdDelaySecs: 30,
+};
+
 const hasProfiles = scenario !== 'first-use';
 const componentState =
   scenario === 'first-use' ? 'notInstalled' : scenario === 'outdated' ? 'outdated' : 'ready';
@@ -167,6 +197,32 @@ mockIPC(
             },
           ],
         };
+      case 'new_profile_draft':
+        return editorDraft;
+      case 'proposal_presets':
+        return editorPresets;
+      case 'check_profile_draft':
+        return {
+          issues:
+            scenario === 'editor-problems'
+              ? [
+                  { field: 'gateway', message: L('enter a valid DNS name or IP address', 'informe um nome DNS ou um endereço IP válido') },
+                  { field: 'remoteTs', message: L('enter at least one remote network (e.g. 192.0.2.0/24)', 'informe ao menos uma rede remota (ex.: 192.0.2.0/24)') },
+                ]
+              : [],
+          security: 'weak',
+          notes: [
+            {
+              level: 'weak',
+              message: L(
+                'Aggressive mode with a PSK: the gateway answers anyone who knows the group id with a hash of the PSK, which can be guessed offline.',
+                'Modo agressivo com PSK: o gateway responde a quem souber o id do grupo com um hash da PSK, que pode ser adivinhada offline.',
+              ),
+            },
+          ],
+          preset: 'compatible',
+          schema: 1,
+        };
       case 'set_language':
         return null;
       default:
@@ -212,6 +268,20 @@ async function play() {
     click('main button[aria-expanded]');
   }
   if (scenario === 'system') navTo(2);
+  if (scenario === 'editor' || scenario === 'editor-problems') {
+    navTo(1);
+    await sleep(150);
+    click('main h2 + div button');
+    await sleep(150);
+    click('[role="dialog"] button');
+    await sleep(300);
+    if (scenario === 'editor-problems') {
+      const save = [...document.querySelectorAll('main button')].find(
+        (b) => b.textContent === L('Save', 'Salvar'),
+      ) as HTMLElement | undefined;
+      save?.click();
+    }
+  }
   await sleep(400);
   connected = scenario === 'connected';
   await fetch('/__release').catch(() => {});

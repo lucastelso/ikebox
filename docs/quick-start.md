@@ -86,6 +86,12 @@ IPs and domains become placeholders.
 
 ## For whoever passes the profile on
 
+No profile yet? In **Profiles → New**, pick what the VPN looks like
+(FortiGate, Cisco Easy VPN, IKEv2 with a PSK, or blank) and fill in what the
+gateway administrator gave you: gateway, group id, networks, DNS. The editor
+says what is missing and shows the security badge while you type; the pencil
+next to a profile edits it later.
+
 In **Profiles**, click the export button (the down arrow) next to the profile
 and save the file. It has **no** password, username or PSK.
 

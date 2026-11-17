@@ -9,6 +9,13 @@ and the project uses [Semantic Versioning](https://semver.org/).
 
 ### Added
 
+- **Profile editor:** **Profiles → New** starts from a template (FortiGate,
+  Cisco Easy VPN, IKEv2 with a PSK, blank), and the pencil on a profile
+  edits it. Proposals are picked by name ("modern", "compatible", "legacy",
+  each with its security badge) or typed in an advanced mode. Rust checks
+  every change: problems show field by field, and the security badge and
+  its reasons update while typing. The identifier is fixed once saved.
+
 - **Profile schema 2** ([ADR-0022](docs/adr/0022-profile-schema-2.md)):
   authentication as rounds (`auth.local`, `auth.remote`). The app reads
   schema 1 and 2 and writes the lowest schema that expresses the profile, so

@@ -1798,3 +1798,19 @@ deletes one stored earlier, and the credentials status counts only what
 may be stored, so the dialog asks for the code every time. `test:modes`
 gained a scenario that connects through a schema 2 file with `otp`.
 
+**Profile editor** (`feat/ui-profile-editor`): the core gained
+`profiles/templates.rs` (the four templates and the three proposal presets,
+with `detect` and the level of the proposals alone), and the app a flat
+`ProfileDraft` with five commands (`editor_cmd.rs`): presets per IKE
+version, a new draft from a template, a draft of a saved profile, a check
+(problems per draft field, with the offending item of a list; security;
+preset; file schema) and save. A draft only carries what the editor shows:
+the rest comes from the saved profile or the template, so editing never
+drops a field the editor does not know. Validation stays in Rust; the UI
+asks for a check 200 ms after the last change and shows problems once a
+field was left or a save was tried. Switching to IKEv2 drops aggressive mode
+and XAuth and moves a preset to its IKEv2 proposals (Modern falls back to
+Compatible in IKEv1, which has no AEAD in phase 1). The screenshots
+(`editor`, `editor-problems` in `scripts/ui-review`) showed the sticky
+footer letting the form show through; it is opaque now.
+
