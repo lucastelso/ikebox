@@ -1939,3 +1939,35 @@ loading uses plugins the engine already had: pkcs8, pubkey, gmp,
 curve25519), but its bundle carries the version, so the app offers
 "Update", as the notes say.
 
+### Step 48: phase 10, importers for legacy clients
+
+Decisions taken at the start: all five formats (Cisco `.pcf`, vpnc,
+NetworkManager, `ipsec.conf`, FortiClient); passwords skipped without being
+read (no decryption of the `.pcf` `enc_GroupPwd`); release 0.9.0 at the end.
+
+**Core** (`profiles/legacy/`): one module per format, with what they share
+in `mod.rs`: detection by name and content, DH group spellings (`dh2`,
+`group14`, `modp1536`), a Cisco-style mapping for `.pcf` and vpnc (IKEv1
+aggressive, `keyid:<group>`, group PSK + XAuth, AES/3DES with SHA-1, the
+networks left to the gateway with a warning), and an INI reader that drops
+secret keys before keeping a value. NetworkManager's vpnc and libreswan
+connections go through the vpnc and `ipsec.conf` mappings; its strongswan
+plugin is IKEv2 with PSK only, since its other methods point to files.
+`ipsec.conf` resolves `%default` and `also=`, takes the client as `left`,
+and accepts libreswan's spellings (`aggrmode`, `ikev2=never`, `phase2alg`,
+`sha2_256`, `;modp`). The FortiClient XML is read with `roxmltree` with DTDs
+refused, following FortiClient's documented elements; secrets elements are
+never looked at. Certificates, EAP and non-IPsec VPNs are refused with the
+reason and where to go instead (the editor's templates).
+
+**App and CLI:** the import preview names the format, says that secrets
+were not read and takes DNS for every converted file; the native dialog
+gained a filter for these files. `profiles import-legacy` detects the
+format or takes `--format`; the save step is now shared with
+`import-swanctl`.
+
+**Tests:** 18 unit tests with files written in each client's shape (FAKE
+values), each checking that no secret reaches the profile JSON. End to end,
+`test:modes` imports a strongSwan `ipsec.conf` and a FortiClient XML for the
+IKEv1 main mode + XAuth test gateway and connects through both.
+

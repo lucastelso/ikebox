@@ -149,7 +149,7 @@ Rules for every phase:
 | 7 | Profile editor and schema 2 in the code | schema 2 with rounds and one-time XAuth passwords ([ADR-0022](adr/0022-profile-schema-2.md)); editor with four templates and three proposal presets; released in 0.6.0 | ✅ (step 45) |
 | 8 | IKEv2 + EAP-MSCHAPv2 | [ADR-0023](adr/0023-ikev2-eap-mschapv2.md): engine with eap-identity/eap-mschapv2/md4, EAP profiles with the gateway certificate always checked (RSA/Ed25519, no revocation check), editor, diagnosis, E2E; released in 0.7.0 | ✅ (step 46) |
 | 9 | Client certificates | [ADR-0024](adr/0024-client-certificates.md): `.p12` import (modern and 3DES/RC2) into the keyring, certificate profiles in IKEv2 and IKEv1 main mode (XAuth optional), app, CLI, diagnosis, E2E; released in 0.8.0 | ✅ (step 47) |
-| 10 | Importers for legacy clients | [below](#phases-7-planned-detailed-at-the-end-of-phase-6) | ⏳ |
+| 10 | Importers for legacy clients | Cisco `.pcf`, vpnc, NetworkManager, `ipsec.conf`, FortiClient XML, secrets never read ([profiles.md](profiles.md#importing-from-other-vpn-clients)); released in 0.9.0 | ✅ (step 48) |
 
 ### Phase 1: audit I (credentials, private data, supply chain)
 

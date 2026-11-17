@@ -26,8 +26,9 @@ use anyhow::{Context, bail};
 use clap::{Parser, Subcommand};
 use ipsec_client_core::diagnostics::{self, CheckStatus};
 use ipsec_client_core::profiles::{
-    CredentialKind, DnsSettings, Profile, ProfileError, ProfileStore, SecurityLevel,
-    SwanctlImportOptions, import_swanctl, parse_profile, read_profile_file,
+    CredentialKind, DnsSettings, LegacyFormat, Profile, ProfileError, ProfileStore, SecurityLevel,
+    SwanctlImport, SwanctlImportOptions, detect_legacy, import_legacy, import_swanctl,
+    parse_profile, read_profile_file,
 };
 use ipsec_client_core::secrets::{
     ClientCertInfo, ClientCertificate, Credentials, KeyringStore, MAX_PKCS12_BYTES, Redactor,
@@ -164,6 +165,41 @@ enum ProfilesCmd {
         #[arg(long)]
         force: bool,
     },
+    /// Creates the profile from another VPN client's configuration: Cisco
+    /// VPN Client (.pcf), vpnc, NetworkManager (.nmconnection), ipsec.conf or a
+    /// FortiClient XML backup. Passwords in the file are skipped without being
+    /// read.
+    ImportLegacy {
+        /// The other client's file.
+        file: PathBuf,
+        /// Its format (default: detected from the name and content).
+        #[arg(long, value_enum)]
+        format: Option<LegacyArg>,
+        /// Connection to import, when the file has several (ipsec.conf).
+        #[arg(long)]
+        conn: Option<String>,
+        /// Profile id (default: derived from the name).
+        #[arg(long)]
+        id: Option<String>,
+        /// Display name (default: the name in the file).
+        #[arg(long)]
+        name: Option<String>,
+        /// VPN DNS server (repeatable); replaces the file's.
+        #[arg(long = "dns")]
+        dns: Vec<std::net::IpAddr>,
+        /// VPN DNS domain (repeatable): `~domain` only routes queries.
+        #[arg(long = "domain")]
+        domains: Vec<String>,
+        /// Also uses the DNS servers sent by the gateway.
+        #[arg(long)]
+        use_received_dns: bool,
+        /// Writes the profile to this file instead of saving it to the profile list.
+        #[arg(long)]
+        output: Option<PathBuf>,
+        /// Replaces an existing profile with the same id.
+        #[arg(long)]
+        force: bool,
+    },
     /// Validates a profile file without importing it.
     Validate {
         /// File.
@@ -171,6 +207,33 @@ enum ProfilesCmd {
     },
     /// Shows the profiles directory.
     Path,
+}
+
+/// Formats of `profiles import-legacy`.
+#[derive(Debug, Clone, Copy, clap::ValueEnum)]
+enum LegacyArg {
+    /// Cisco VPN Client profile.
+    Pcf,
+    /// vpnc configuration.
+    Vpnc,
+    /// NetworkManager connection (keyfile).
+    Networkmanager,
+    /// strongSwan/libreswan ipsec.conf.
+    IpsecConf,
+    /// FortiClient XML backup.
+    Forticlient,
+}
+
+impl From<LegacyArg> for LegacyFormat {
+    fn from(a: LegacyArg) -> Self {
+        match a {
+            LegacyArg::Pcf => Self::CiscoPcf,
+            LegacyArg::Vpnc => Self::Vpnc,
+            LegacyArg::Networkmanager => Self::NetworkManager,
+            LegacyArg::IpsecConf => Self::IpsecConf,
+            LegacyArg::Forticlient => Self::FortiClient,
+        }
+    }
 }
 
 #[derive(Debug, Subcommand)]
@@ -443,6 +506,54 @@ fn security_text(p: &Profile) -> String {
     out
 }
 
+/// Shows an imported profile and saves it (or writes it to `output`).
+fn save_imported(
+    store: &ProfileStore,
+    result: &SwanctlImport,
+    output: Option<PathBuf>,
+    force: bool,
+) -> anyhow::Result<()> {
+    let p = &result.profile;
+    for warning in &result.warnings {
+        println!("⚠ {warning}");
+    }
+    println!("Profile created (no secrets):");
+    println!("  id:        {}", p.id);
+    println!("  name:      {}", p.name);
+    println!("  gateway:   {}", p.gateway);
+    println!(
+        "  IKE:       v{}{}",
+        p.ike.version,
+        if p.ike.aggressive { " aggressive" } else { "" }
+    );
+    println!("  networks:  {}", p.child.remote_ts.join(", "));
+    if p.network.dns.servers.is_empty() && p.network.dns.domains.is_empty() {
+        println!("  DNS:       (none; use --dns/--domain if the VPN has internal DNS)");
+    }
+    match output {
+        Some(path) => {
+            write_private(&path, &ipsec_client_core::profiles::to_json(p)?)?;
+            println!(
+                "✔ Written to {} (0600). Import it with `profiles import`.",
+                path.display()
+            );
+        }
+        None => {
+            if !force && store.load(&p.id).is_ok() {
+                bail!(
+                    "a profile '{}' already exists; use --force to replace it",
+                    p.id
+                );
+            }
+            store.save(p)?;
+            println!("✔ Profile '{}' saved.", p.id);
+            print!("{}", security_text(p));
+            println!("  Next step: ipsec-client-cli secrets set {}", p.id);
+        }
+    }
+    Ok(())
+}
+
 fn profiles(cmd: ProfilesCmd) -> anyhow::Result<ExitCode> {
     let store = store()?;
     match cmd {
@@ -519,44 +630,50 @@ fn profiles(cmd: ProfilesCmd) -> anyhow::Result<ExitCode> {
                 },
             };
             let result = import_swanctl(&text, &options)?;
-            let p = &result.profile;
-            for warning in &result.warnings {
-                println!("⚠ {warning}");
-            }
-            println!("Profile created (no secrets):");
-            println!("  id:        {}", p.id);
-            println!("  name:      {}", p.name);
-            println!("  gateway:   {}", p.gateway);
-            println!(
-                "  IKE:       v{}{}",
-                p.ike.version,
-                if p.ike.aggressive { " aggressive" } else { "" }
-            );
-            println!("  networks:  {}", p.child.remote_ts.join(", "));
-            if p.network.dns.servers.is_empty() && p.network.dns.domains.is_empty() {
-                println!("  DNS:       (none; use --dns/--domain if the VPN has internal DNS)");
-            }
-            match output {
-                Some(path) => {
-                    write_private(&path, &ipsec_client_core::profiles::to_json(p)?)?;
-                    println!(
-                        "✔ Written to {} (0600). Import it with `profiles import`.",
-                        path.display()
-                    );
-                }
-                None => {
-                    if !force && store.load(&p.id).is_ok() {
-                        bail!(
-                            "a profile '{}' already exists; use --force to replace it",
-                            p.id
-                        );
-                    }
-                    store.save(p)?;
-                    println!("✔ Profile '{}' saved.", p.id);
-                    print!("{}", security_text(p));
-                    println!("  Next step: ipsec-client-cli secrets set {}", p.id);
-                }
-            }
+            save_imported(&store, &result, output, force)?;
+        }
+        ProfilesCmd::ImportLegacy {
+            file,
+            format,
+            conn,
+            id,
+            name,
+            dns,
+            domains,
+            use_received_dns,
+            output,
+            force,
+        } => {
+            let text = read_profile_file(&file)
+                .with_context(|| format!("could not read {}", file.display()))?;
+            let file_name = file
+                .file_name()
+                .map(|f| f.to_string_lossy().into_owned())
+                .unwrap_or_default();
+            let format = match format {
+                Some(f) => LegacyFormat::from(f),
+                None => detect_legacy(&file_name, &text).ok_or_else(|| {
+                    anyhow::anyhow!(
+                        "could not tell the format of {}; pass --format (pcf, vpnc, \
+                         networkmanager, ipsec-conf, forticlient)",
+                        file.display()
+                    )
+                })?,
+            };
+            println!("Format: {}", format.label());
+            let options = SwanctlImportOptions {
+                connection: conn,
+                id,
+                name,
+                dns: DnsSettings {
+                    servers: dns,
+                    domains,
+                    use_received: use_received_dns,
+                    default_route: false,
+                },
+            };
+            let result = import_legacy(&text, format, &options)?;
+            save_imported(&store, &result, output, force)?;
         }
         ProfilesCmd::Validate { file } => {
             let json = read_profile_file(&file)

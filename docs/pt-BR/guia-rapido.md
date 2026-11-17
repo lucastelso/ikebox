@@ -40,7 +40,9 @@ instalar o componente de rede"*. Clique em **Instalar agora** e digite a
 
 Vá em **Perfis → Importar** e escolha o arquivo que você recebeu, ou
 **arraste o arquivo** para a janela. Confira a prévia e clique em
-**Importar**.
+**Importar**. O app também lê a configuração de outros clientes VPN (Cisco
+`.pcf`, vpnc, NetworkManager, `ipsec.conf`, FortiClient): as senhas neles
+não são lidas, e você as digita ao conectar.
 
 ## 4. Conectar (todo dia)
 

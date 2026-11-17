@@ -26,7 +26,7 @@ export const en = {
     certExpired: 'Your certificate has expired: import a new one',
     noProfilesTitle: 'No profiles yet',
     noProfilesBody:
-      'To connect, import the profile (.json) you got from your team, or the swanctl.conf of a VPN that already works.',
+      'To connect, import the profile (.json) you got from your team, or the configuration of another VPN client that already works (Cisco .pcf, vpnc, NetworkManager, ipsec.conf, swanctl.conf, FortiClient).',
     importProfile: 'Import profile',
     importToConnect: 'Import a profile to connect',
     step: (n: number) => `Step ${n}`,
@@ -119,7 +119,7 @@ export const en = {
     title: 'Profiles',
     import: 'Import',
     intro:
-      'Import a profile (.json) you got from your team or the swanctl.conf of a VPN that already works. You can also drag the file into the window.',
+      'Import a profile (.json) you got from your team, or the configuration of another VPN client (Cisco .pcf, vpnc, NetworkManager, ipsec.conf, swanctl.conf, FortiClient): passwords in it are not read. You can also drag the file into the window.',
     none: 'No profiles yet.',
     ignored: 'Ignored files',
     exported: (path: string) => `Exported: ${path}`,
@@ -264,6 +264,14 @@ export const en = {
   importDialog: {
     title: 'Import profile',
     jsonKind: 'IPsec Client profile',
+    kind: {
+      swanctl: 'swanctl.conf',
+      ciscoPcf: 'Cisco VPN Client (.pcf)',
+      vpnc: 'vpnc',
+      networkManager: 'NetworkManager',
+      ipsecConf: 'ipsec.conf',
+      fortiClient: 'FortiClient',
+    },
     gateway: 'Gateway: ',
     networks: 'Networks: ',
     noSecrets: 'Secrets in the file are not read: you enter the credentials when connecting.',
@@ -393,7 +401,7 @@ export const pt: Messages = {
     certExpired: 'O seu certificado venceu: importe um novo',
     noProfilesTitle: 'Nenhum perfil ainda',
     noProfilesBody:
-      'Para conectar, importe o perfil (.json) que você recebeu da sua equipe, ou o swanctl.conf de uma VPN que já funciona.',
+      'Para conectar, importe o perfil (.json) que você recebeu da sua equipe, ou a configuração de outro cliente VPN que já funciona (Cisco .pcf, vpnc, NetworkManager, ipsec.conf, swanctl.conf, FortiClient).',
     importProfile: 'Importar perfil',
     importToConnect: 'Importe um perfil para conectar',
     step: (n) => `Passo ${n}`,
@@ -486,7 +494,7 @@ export const pt: Messages = {
     title: 'Perfis',
     import: 'Importar',
     intro:
-      'Importe um perfil (.json) recebido da sua equipe ou o swanctl.conf de uma VPN que já funciona. Você também pode arrastar o arquivo para a janela.',
+      'Importe um perfil (.json) recebido da sua equipe, ou a configuração de outro cliente VPN (Cisco .pcf, vpnc, NetworkManager, ipsec.conf, swanctl.conf, FortiClient): as senhas nele não são lidas. Você também pode arrastar o arquivo para a janela.',
     none: 'Nenhum perfil ainda.',
     ignored: 'Arquivos ignorados',
     exported: (path) => `Exportado: ${path}`,
@@ -632,6 +640,14 @@ export const pt: Messages = {
   importDialog: {
     title: 'Importar perfil',
     jsonKind: 'perfil do IPsec Client',
+    kind: {
+      swanctl: 'swanctl.conf',
+      ciscoPcf: 'Cisco VPN Client (.pcf)',
+      vpnc: 'vpnc',
+      networkManager: 'NetworkManager',
+      ipsecConf: 'ipsec.conf',
+      fortiClient: 'FortiClient',
+    },
     gateway: 'Gateway: ',
     networks: 'Redes: ',
     noSecrets: 'Os segredos do arquivo não são lidos: você informa as credenciais ao conectar.',

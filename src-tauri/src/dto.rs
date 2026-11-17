@@ -696,6 +696,45 @@ pub enum ImportKind {
     Json,
     /// `swanctl.conf` de uma VPN que já funciona.
     Swanctl,
+    /// Perfil do Cisco VPN Client (`.pcf`).
+    CiscoPcf,
+    /// Configuração do vpnc.
+    Vpnc,
+    /// Conexão do NetworkManager (`.nmconnection`).
+    NetworkManager,
+    /// `ipsec.conf` do strongSwan/libreswan.
+    IpsecConf,
+    /// Backup de configuração do FortiClient (XML).
+    FortiClient,
+}
+
+impl ImportKind {
+    /// O formato de outro cliente VPN, se for um deles.
+    #[must_use]
+    pub fn legacy(self) -> Option<ipsec_client_core::profiles::LegacyFormat> {
+        use ipsec_client_core::profiles::LegacyFormat as L;
+        Some(match self {
+            Self::Json | Self::Swanctl => return None,
+            Self::CiscoPcf => L::CiscoPcf,
+            Self::Vpnc => L::Vpnc,
+            Self::NetworkManager => L::NetworkManager,
+            Self::IpsecConf => L::IpsecConf,
+            Self::FortiClient => L::FortiClient,
+        })
+    }
+
+    /// O tipo de um formato de outro cliente VPN.
+    #[must_use]
+    pub fn from_legacy(format: ipsec_client_core::profiles::LegacyFormat) -> Self {
+        use ipsec_client_core::profiles::LegacyFormat as L;
+        match format {
+            L::CiscoPcf => Self::CiscoPcf,
+            L::Vpnc => Self::Vpnc,
+            L::NetworkManager => Self::NetworkManager,
+            L::IpsecConf => Self::IpsecConf,
+            L::FortiClient => Self::FortiClient,
+        }
+    }
 }
 
 /// Prévia de um arquivo a importar. O arquivo fica guardado no Rust, e a UI

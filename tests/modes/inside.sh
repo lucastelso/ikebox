@@ -144,6 +144,21 @@ disconnect() {
     host_is_clean
 }
 
+# connect_imported ID FILE CREDENTIALS: imports another client's file with
+# `profiles import-legacy` (format detected) and connects.
+connect_imported() {
+    local id=$1 file=$2 creds=$3 out
+    out=$(as alice "$CLI" profiles import-legacy "$file" --id "$id" 2>&1) || {
+        printf '%s\n' "$out"
+        fail "$id: import-legacy failed"
+    }
+    out=$(as alice "$CLI" connect "$id" --detach --credentials-stdin <<<"$creds" 2>&1) || {
+        printf '%s\n' "$out"
+        fail "$id: connect failed"
+    }
+    [[ $out == *"Connected: $id"* ]] || fail "$id: unexpected connect output: $out"
+}
+
 install -d -m 0755 /tmp/modes
 describe_computer
 install_component
@@ -181,6 +196,61 @@ traffic
 [[ $(as alice "$CLI" profiles show v1-main-xauth-v2 2>/dev/null) == *'"otp": true'* ]] ||
     fail "the schema 2 profile lost its otp flag"
 ok "a schema 2 file connects the same way, and keeps its one-time code flag"
+disconnect
+
+step "Imported from other clients: strongSwan ipsec.conf and a FortiClient XML backup"
+gw=${GW[ikev1-main-xauth]}
+cat >/tmp/modes/ipsec.conf <<IPSEC
+config setup
+
+conn %default
+    keyexchange=ikev1
+
+conn work
+    right=$gw
+    authby=xauthpsk
+    xauth=client
+    xauth_identity=usuario.teste
+    leftsourceip=%config
+    rightsubnet=192.0.2.0/24
+    ike=aes256-sha256-modp2048!
+    esp=aes256-sha256-modp2048!
+IPSEC
+connect_imported legacy-ipsec-conf /tmp/modes/ipsec.conf "$XAUTH"
+expect_ike 1 Main
+expect_routes split
+expect_esp native MODP_2048
+traffic
+disconnect
+cat >/tmp/modes/forticlient.conf <<FORTI
+<?xml version="1.0" encoding="UTF-8"?>
+<forticlient_configuration><vpn><ipsecvpn><connections><connection>
+  <name>Mode test FortiClient</name>
+  <ike_settings>
+    <server>$gw</server>
+    <authentication_method>Preshared Key</authentication_method>
+    <preshared_key>Enc 00112233</preshared_key>
+    <mode>main</mode>
+    <dhgroup>14</dhgroup>
+    <mode_config>1</mode_config>
+    <xauth><enabled>1</enabled><username>Enc 4455</username></xauth>
+    <proposals><proposal>AES256|SHA256</proposal></proposals>
+  </ike_settings>
+  <ipsec_settings>
+    <remote_networks><network><addr>192.0.2.0</addr><mask>255.255.255.0</mask></network></remote_networks>
+    <dhgroup>14</dhgroup>
+    <proposals><proposal>AES256|SHA256</proposal></proposals>
+  </ipsec_settings>
+</connection></connections></ipsecvpn></vpn></forticlient_configuration>
+FORTI
+connect_imported legacy-forticlient /tmp/modes/forticlient.conf "$XAUTH"
+expect_ike 1 Main
+expect_vip yes
+expect_esp native MODP_2048
+traffic
+[[ $(as alice "$CLI" profiles show legacy-forticlient 2>/dev/null) != *00112233* ]] ||
+    fail "a secret from the FortiClient file reached the profile"
+ok "ipsec.conf and FortiClient XML imported and connected (main mode + XAuth, PFS), no secret copied"
 disconnect
 
 # ---------------------------------------------------------------------------

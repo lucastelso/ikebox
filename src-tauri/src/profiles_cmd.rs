@@ -14,8 +14,8 @@ use std::sync::Mutex;
 use std::sync::atomic::{AtomicU64, Ordering};
 
 use ipsec_client_core::profiles::{
-    DnsSettings, Profile, ProfileError, ProfileStore, SwanctlImportOptions, import_swanctl,
-    parse_profile, read_profile_file, to_json,
+    DnsSettings, Profile, ProfileError, ProfileStore, SwanctlImport, SwanctlImportOptions,
+    detect_legacy, import_legacy, import_swanctl, parse_profile, read_profile_file, to_json,
 };
 use ipsec_client_core::secrets::{Credentials, KeyringStore};
 use ipsec_client_core::{tr, trf};
@@ -87,9 +87,24 @@ fn detect_kind(path: &Path, text: &str) -> ImportKind {
         .extension()
         .is_some_and(|e| e.eq_ignore_ascii_case("json"));
     if json_ext || text.trim_start().starts_with('{') {
-        ImportKind::Json
-    } else {
-        ImportKind::Swanctl
+        return ImportKind::Json;
+    }
+    let name = path
+        .file_name()
+        .map(|f| f.to_string_lossy().into_owned())
+        .unwrap_or_default();
+    detect_legacy(&name, text).map_or(ImportKind::Swanctl, ImportKind::from_legacy)
+}
+
+/// A swanctl.conf or another client's file, with the given options.
+fn import_other(
+    kind: ImportKind,
+    text: &str,
+    options: &SwanctlImportOptions,
+) -> Result<SwanctlImport, ProfileError> {
+    match kind.legacy() {
+        Some(format) => import_legacy(text, format, options),
+        None => import_swanctl(text, options),
     }
 }
 
@@ -103,9 +118,8 @@ pub fn preview_path(pending: &PendingImports, path: PathBuf) -> Result<ImportPre
         .unwrap_or_default();
     let parsed: Result<(Profile, Vec<String>), ProfileError> = match kind {
         ImportKind::Json => parse_profile(&text).map(|p| (p, Vec::new())),
-        ImportKind::Swanctl => {
-            import_swanctl(&text, &SwanctlImportOptions::default()).map(|r| (r.profile, r.warnings))
-        }
+        other => import_other(other, &text, &SwanctlImportOptions::default())
+            .map(|r| (r.profile, r.warnings)),
     };
     let token = pending.insert(path);
     Ok(match parsed {
@@ -156,6 +170,13 @@ pub async fn choose_import_file(app: AppHandle) -> Result<Option<ImportPreview>,
                 &["json"],
             )
             .add_filter("swanctl.conf", &["conf"])
+            .add_filter(
+                tr!(
+                    "Other VPN clients (Cisco .pcf, vpnc, NetworkManager, ipsec.conf, FortiClient)",
+                    "Outros clientes VPN (Cisco .pcf, vpnc, NetworkManager, ipsec.conf, FortiClient)"
+                ),
+                &["pcf", "conf", "nmconnection", "xml"],
+            )
             .add_filter(tr!("All files", "Todos os arquivos"), &["*"])
             .blocking_pick_file())
     })
@@ -227,8 +248,9 @@ pub async fn confirm_import(
         let text = read_limited(&path)?;
         let mut profile = match detect_kind(&path, &text) {
             ImportKind::Json => parse_profile(&text)?,
-            ImportKind::Swanctl => {
-                import_swanctl(
+            other => {
+                import_other(
+                    other,
                     &text,
                     &SwanctlImportOptions {
                         dns: parse_dns(&options)?,

@@ -7,6 +7,17 @@ and the project uses [Semantic Versioning](https://semver.org/).
 
 ## [Unreleased]
 
+### Added
+
+- **Import from other VPN clients:** Cisco VPN Client (`.pcf`), vpnc,
+  NetworkManager (vpnc, strongswan and libreswan connections, with their
+  DNS and routes), the old `ipsec.conf` of strongSwan and libreswan, and
+  FortiClient's XML backup. In **Profiles → Import** (the format is
+  detected) and in the CLI (`profiles import-legacy`). Passwords in these
+  files, plain or "encrypted", are skipped without being read: you type
+  them when connecting. Each import lists what to review; certificates and
+  non-IPsec VPNs are refused with the reason.
+
 ## [0.8.0] - 2026-11-17
 
 Your certificate, phase 9 of the program. The network component does not

@@ -270,6 +270,33 @@ hand:
 Put the file in `presets.local/`, which never goes to git, and import it with
 `ipsec-client-cli profiles import <file>`.
 
+## Importing from other VPN clients
+
+The app (**Profiles → Import**, or dragging the file) and the CLI
+(`profiles import-legacy <file>`) also read the configuration of other
+clients. The format is detected from the file name and content.
+
+**Passwords are never read**: a group password, plain or "encrypted" (the
+`.pcf` `enc_GroupPwd` uses a known, weak algorithm), an XAuth username or
+password, the `[vpn-secrets]` section of NetworkManager. They are skipped
+without being decrypted or copied; you type them when connecting. Paths
+inside a file (a CA, a key) are not opened either.
+
+| Format | Read | Becomes | Refused |
+|---|---|---|---|
+| Cisco VPN Client (`.pcf`) | `Host`, `GroupName`, `DHGroup`, `Description` | IKEv1 aggressive, `keyid:<group>`, group PSK + XAuth, AES/3DES with SHA-1 over the DH group, networks from the gateway (0.0.0.0/0) | certificates (`AuthType` 3, 5), IPsec over TCP |
+| vpnc (`.conf`) | `IPSec gateway`, `IPSec ID`, `IKE DH Group`, `Perfect Forward Secrecy`, `NAT Traversal Mode`, `Domain` | the same as `.pcf`, with PFS and forced NAT-T when set | `IKE Authmode` cert/hybrid, `cisco-udp` |
+| NetworkManager (`.nmconnection`) | `[vpn]` of the vpnc, strongswan (IKEv2, PSK) and libreswan plugins; `[ipv4]` DNS, search domains and routes (when it does not take the default route) | as the matching format | strongswan methods other than PSK; OpenVPN, OpenConnect, L2TP, PPTP, WireGuard |
+| `ipsec.conf` (strongSwan 5, libreswan) | `conn` with `%default` and `also=`: `right`, `rightid`, `rightsubnet`, `leftid`, `authby`, `xauth`, `aggressive`/`aggrmode`, `keyexchange`/`ikev2`, `ike`, `esp`/`phase2alg`, `forceencaps`, `leftsourceip`, `dpddelay`, `dpdaction`, lifetimes | the client is `left`, the gateway `right`; the first `conn` (or `--conn`) | certificates (`rsasig`, `pubkey`, `leftcert`), EAP |
+| FortiClient (XML backup) | the first IPsec connection: `server`, `mode`, `dhgroup`, `proposals`, `localid`, `xauth/enabled`, `mode_config`, `dpd`, `remote_networks`, lifetimes | IKEv1, main or aggressive, PSK + optional XAuth | certificate authentication |
+
+Each import lists what to review (for example, a group id that Cisco or
+FortiGate gateways usually expect as `keyid:<group>`). The FortiClient
+importer follows FortiClient's documented XML; it was tested with files
+written from that documentation, not with real exports. `test:modes`
+connects through profiles imported from an `ipsec.conf` and a FortiClient
+XML.
+
 ## Handing the profile to a colleague
 
 1. Export the profile from the app or the CLI. The file contains no

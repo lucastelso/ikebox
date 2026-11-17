@@ -190,7 +190,7 @@ fn parse(text: &str, warnings: &mut Vec<String>) -> Result<Section, ProfileError
         .ok_or_else(|| err(crate::tr!("empty file", "arquivo vazio")))
 }
 
-fn list(value: &str) -> Vec<String> {
+pub(super) fn list(value: &str) -> Vec<String> {
     value
         .split(',')
         .map(str::trim)
@@ -204,7 +204,7 @@ fn yes(value: Option<&str>) -> bool {
 }
 
 /// Duração do strongSwan: número (segundos) com sufixo opcional s/m/h/d.
-fn duration(value: &str) -> Option<u32> {
+pub(super) fn duration(value: &str) -> Option<u32> {
     let value = value.trim();
     let (number, factor) = match value.chars().last()? {
         's' => (&value[..value.len() - 1], 1),
@@ -232,7 +232,7 @@ fn action(value: Option<&str>, field: &str, warnings: &mut Vec<String>) -> Child
 }
 
 /// Converte um nome do swanctl num id de perfil (`[a-z0-9-]`).
-fn slugify(name: &str) -> String {
+pub(super) fn slugify(name: &str) -> String {
     let mut slug: String = name
         .to_lowercase()
         .chars()
