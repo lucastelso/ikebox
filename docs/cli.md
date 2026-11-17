@@ -39,12 +39,12 @@ ipsec-client-cli connect vpn                              # Ctrl+C disconnects
 | `component status [--bundle DIR]` | Network component state: version, strongSwan and origin. With `--bundle`, says whether the bundle differs from the installed one. Exits with **3** if not installed |
 | `component install --bundle DIR` | Installs or updates the component from a bundle (`npm run stage:component` builds one in `target/network-component`). The system asks for the administrator password once |
 | `component uninstall` | Removes the component (asks for the administrator password). It does not remove what came from a .rpm/.deb package |
-| `profiles list` | Lists the profiles and warns about invalid files |
-| `profiles show <id>` | Shows the profile (JSON) |
+| `profiles list` | Lists the profiles, with their security level, and warns about invalid files |
+| `profiles show <id>` | Shows the profile (JSON on stdout) and its security level with the reasons (stderr) |
 | `profiles import <file> [--force]` | Imports a profile (validates it first; `--force` replaces an existing one) |
 | `profiles export <id> <file>` | Exports the profile, without credentials, to hand it to a colleague |
 | `profiles import-swanctl <swanctl.conf> [--id] [--name] [--dns IP]... [--domain D]... [--use-received-dns] [--output file] [--force]` | Creates the profile from an existing `swanctl.conf`. Skips the `secrets` section without reading it and does not copy the XAuth username |
-| `profiles validate <file>` | Validates without importing and lists the problems field by field |
+| `profiles validate <file>` | Validates without importing and lists the problems field by field; a valid profile also gets its security level ([profiles.md](profiles.md#security-level)) |
 | `profiles delete <id>` | Removes the profile (the credentials stay in the keyring) |
 | `profiles path` | Shows the profiles directory |
 | `secrets set <id> [--credentials-stdin]` | Asks for (passwords without echo) and stores the credentials in the keyring. Enter keeps the current value |

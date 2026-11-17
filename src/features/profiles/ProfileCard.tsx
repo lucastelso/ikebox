@@ -5,6 +5,7 @@ import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
 import { useT } from '@/i18n';
 import { cn } from '@/lib/utils';
+import { SecurityBadge, SecurityNotes } from './SecurityBadge';
 
 function Row({ label, value }: { label: string; value: string | undefined }) {
   if (!value) return null;
@@ -58,6 +59,7 @@ export function ProfileCard({
           <span className="min-w-0">
             <span className="block truncate font-medium">{profile.name}</span>
             <span className="block truncate text-xs text-muted-foreground">{profile.gateway}</span>
+            <SecurityBadge level={profile.security} className="mt-1.5" />
           </span>
         </button>
         <Button size="icon" variant="ghost" onClick={onExport} aria-label={t.export(profile.name)}>
@@ -68,26 +70,29 @@ export function ProfileCard({
         </Button>
       </div>
       {open && (
-        <dl
-          className="grid grid-cols-[auto_1fr] gap-x-4 gap-y-1.5 border-t px-4 py-3 text-xs"
-          data-selectable
-        >
-          {details ? (
-            <>
-              <Row label={t.field.id} value={details.summary.id} />
-              <Row label={t.field.protocol} value={details.ike} />
-              <Row label={t.field.auth} value={details.auth} />
-              <Row label={t.field.groupId} value={details.localId ?? undefined} />
-              <Row label={t.field.networks} value={details.summary.remoteTs.join(', ')} />
-              <Row label={t.field.phase1} value={details.ikeProposals.join(', ')} />
-              <Row label={t.field.phase2} value={details.espProposals.join(', ')} />
-              <Row label={t.field.dns} value={details.dnsServers.join(', ')} />
-              <Row label={t.field.domains} value={details.dnsDomains.join(', ')} />
-            </>
-          ) : (
-            <dd className="col-span-2 text-muted-foreground">{t.loading}</dd>
-          )}
-        </dl>
+        <>
+          <dl
+            className="grid grid-cols-[auto_1fr] gap-x-4 gap-y-1.5 border-t px-4 py-3 text-xs"
+            data-selectable
+          >
+            {details ? (
+              <>
+                <Row label={t.field.id} value={details.summary.id} />
+                <Row label={t.field.protocol} value={details.ike} />
+                <Row label={t.field.auth} value={details.auth} />
+                <Row label={t.field.groupId} value={details.localId ?? undefined} />
+                <Row label={t.field.networks} value={details.summary.remoteTs.join(', ')} />
+                <Row label={t.field.phase1} value={details.ikeProposals.join(', ')} />
+                <Row label={t.field.phase2} value={details.espProposals.join(', ')} />
+                <Row label={t.field.dns} value={details.dnsServers.join(', ')} />
+                <Row label={t.field.domains} value={details.dnsDomains.join(', ')} />
+              </>
+            ) : (
+              <dd className="col-span-2 text-muted-foreground">{t.loading}</dd>
+            )}
+          </dl>
+          {details && <SecurityNotes notes={details.securityNotes} />}
+        </>
       )}
     </Card>
   );

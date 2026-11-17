@@ -7,7 +7,28 @@ and the project uses [Semantic Versioning](https://semver.org/).
 
 ## [Unreleased]
 
+### Added
+
+- **Security level per profile:** a badge (good, legacy or weak) on the
+  profile card, in the import preview and at the top of the connection
+  screen, and the reason for each point in the profile details: aggressive
+  mode with a PSK, DH groups under 2048 bits, DES/3DES, MD5/SHA-1, IKEv1,
+  and the group PSK + XAuth risk (anyone with the group PSK can pose as the
+  gateway, audit P13). It only warns: weak profiles still connect. The CLI
+  shows it in `profiles list`, `show`, `validate` and `import`.
+- **Failure diagnosis for IKEv2**, learned from real strongSwan 6.1.0 lines:
+  the gateway requiring a virtual IP is a cause of its own, and the
+  authentication message names the gateway identity (`auth.remote_id`) too.
+
+### Changed
+
+- The credentials dialog of a profile without XAuth asks for the
+  "Pre-shared key (PSK)" instead of a "Group PSK".
+
 ### Fixed
+
+- **IKEv1 main mode with a wrong PSK** said the gateway did not answer: its
+  answers just did not decrypt. It now says to check the PSK.
 
 - **Profiles without a virtual IP** (`network.request_vip: false`) connected
   but installed no route, so no traffic went through the tunnel. charon

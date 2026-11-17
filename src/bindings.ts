@@ -244,6 +244,8 @@ export type ImportPreview = {
 	error: string | null,
 	/**  Já existe perfil com o id sugerido? */
 	exists: boolean,
+	/**  Nível de segurança (se o arquivo pôde ser lido). */
+	security: Security | null,
 };
 
 /**  Detalhes de um perfil (somente leitura; não há credenciais no perfil). */
@@ -268,6 +270,8 @@ export type ProfileDetails = {
 	useReceivedDns: boolean,
 	/**  MTU. */
 	mtu: number,
+	/**  Pontos fracos, o pior primeiro (vazio = nada a apontar). */
+	securityNotes: SecurityNote[],
 };
 
 /**  Lista de perfis. */
@@ -290,6 +294,25 @@ export type ProfileSummary = {
 	usesXauth: boolean,
 	/**  Redes acessadas pelo túnel. */
 	remoteTs: string[],
+	/**  Nível de segurança (selo); o motivo vem nos detalhes. */
+	security: Security,
+};
+
+/**  Nível de segurança de um perfil: só avisa, nunca impede de conectar. */
+export type Security = 
+/**  Nada a apontar. */
+"good" | 
+/**  Obsoleto, sem ataque barato conhecido. */
+"legacy" | 
+/**  Há ataque prático conhecido. */
+"weak";
+
+/**  Um ponto fraco do perfil, explicado no idioma da interface. */
+export type SecurityNote = {
+	/**  Gravidade. */
+	level: Security,
+	/**  Explicação. */
+	message: string,
 };
 
 /**  Atualização da sessão, enviada como evento para a UI. */

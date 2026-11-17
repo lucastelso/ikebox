@@ -26,6 +26,7 @@ const profiles = [
     gateway: 'vpn.example.com',
     usesXauth: true,
     remoteTs: ['192.0.2.0/24', '198.51.100.0/24'],
+    security: 'weak' as const,
   },
   {
     id: 'lab-long-name',
@@ -36,6 +37,7 @@ const profiles = [
     gateway: '203.0.113.10',
     usesXauth: true,
     remoteTs: ['203.0.113.0/24'],
+    security: 'good' as const,
   },
 ];
 
@@ -146,6 +148,22 @@ mockIPC(
           dnsDomains: ['~corp.example.com'],
           useReceivedDns: true,
           mtu: 1400,
+          securityNotes: [
+            {
+              level: 'weak',
+              message: L(
+                'Aggressive mode with a PSK: the gateway answers anyone who knows the group id with a hash of the PSK, which can be guessed offline.',
+                'Modo agressivo com PSK: o gateway responde a quem souber o id do grupo com um hash da PSK, que pode ser adivinhada offline.',
+              ),
+            },
+            {
+              level: 'legacy',
+              message: L(
+                'IKEv1 is obsolete (RFC 9395): use IKEv2 when the gateway offers it.',
+                'O IKEv1 está obsoleto (RFC 9395): use IKEv2 quando o gateway oferecer.',
+              ),
+            },
+          ],
         };
       case 'set_language':
         return null;

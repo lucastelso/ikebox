@@ -4,10 +4,12 @@
 //! - [`validate`]: regras (o Rust é a fonte da verdade);
 //! - [`Profile::to_load_conn`] e [`Profile::updown_command`]: geração da
 //!   configuração do charon;
-//! - [`ProfileStore`]: disco, importação e exportação.
+//! - [`ProfileStore`]: disco, importação e exportação;
+//! - [`Profile::security`]: nível de segurança (só avisa, nunca bloqueia).
 
 mod model;
 mod render;
+mod security;
 mod store;
 mod swanctl;
 mod validate;
@@ -17,6 +19,7 @@ pub use model::{
     NetworkSettings, Profile, SCHEMA_VERSION,
 };
 pub use render::{ConnParams, UPDOWN_PATH};
+pub use security::{FindingKind, SecurityFinding, SecurityLevel, SecurityReport};
 pub use store::{
     MAX_PROFILE_BYTES, ProfileList, ProfileStore, parse_profile, read_profile_file, to_json,
 };

@@ -22,6 +22,7 @@ import {
 import { useT } from '@/i18n';
 import { SetupBanner } from '../component/SetupBanner';
 import { useComponent } from '../component/useComponent';
+import { SecurityBadge } from '../profiles/SecurityBadge';
 import { HeroAction } from './ConnectButton';
 import { CredentialsDialog } from './CredentialsDialog';
 import type { Phase } from './connectionReducer';
@@ -239,6 +240,9 @@ export function HomeScreen({ onImport }: { onImport?: () => void }) {
                 {headline}
               </h1>
               <p className="text-sm text-white/85">{subtitle}</p>
+              {selected && selected.security !== 'good' && (
+                <SecurityBadge level={selected.security} onHero className="mt-1.5" />
+              )}
             </div>
           </div>
 
@@ -296,6 +300,7 @@ export function HomeScreen({ onImport }: { onImport?: () => void }) {
           onOpenChange={(open) => !open && setDialog(null)}
           profileName={selected.name}
           fields={dialog.fields}
+          groupPsk={selected.usesXauth}
           keyringAvailable={dialog.keyringAvailable}
           onSubmit={(input, remember) => void submitCredentials(input, remember)}
         />

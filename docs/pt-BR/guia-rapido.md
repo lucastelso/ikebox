@@ -56,6 +56,11 @@ janela mostra o estado pela cor: âmbar enquanto conecta, **verde** com
 normalmente) e **vermelho** quando não conectou: o cartão logo abaixo diz o
 que fazer.
 
+Abaixo do estado, um selo pode dizer **Segurança legada** ou **Segurança
+fraca**. É um aviso sobre como a VPN está configurada (algoritmos ou modos
+antigos), não um erro: a VPN funciona. Os motivos estão em **Perfis**, ao
+abrir o perfil; só quem administra o gateway pode mudá-los.
+
 **Para desconectar:** botão **Desconectar** (ou pelo ícone na bandeja).
 Fechar a janela não desconecta.
 

@@ -114,6 +114,7 @@ pub fn preview_path(pending: &PendingImports, path: PathBuf) -> Result<ImportPre
             file_name,
             kind,
             exists: store()?.load(&profile.id).is_ok(),
+            security: Some(profile.security().level.into()),
             suggested_id: profile.id,
             suggested_name: profile.name,
             gateway: Some(profile.gateway),
@@ -132,6 +133,7 @@ pub fn preview_path(pending: &PendingImports, path: PathBuf) -> Result<ImportPre
             warnings: Vec::new(),
             error: Some(UiError::from(e).message),
             exists: false,
+            security: None,
         },
     })
 }

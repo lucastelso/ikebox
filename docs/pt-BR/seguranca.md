@@ -53,7 +53,10 @@ vulnerabilidades.
    receber o usuário e a senha XAuth e enviar rotas e servidores DNS. É assim
    que o IKEv1 com PSK de grupo e XAuth funciona, em qualquer cliente. Trate
    a PSK do grupo como segredo e desconfie de conectar a partir de redes em
-   que alguém possa interceptar o tráfego até o gateway.
+   que alguém possa interceptar o tráfego até o gateway. O app avisa nesses
+   perfis: o selo de segurança deles é no máximo "legada", e os detalhes do
+   perfil explicam o motivo
+   ([nível de segurança](../profiles.md#security-level), em inglês).
 4. **AppImage.** O arquivo baixado é a base da confiança. Um programa
    malicioso rodando como o próprio usuário poderia trocar os arquivos durante
    a instalação do componente (ADR-0018): o root não lê o AppImage, então o
@@ -75,7 +78,8 @@ vulnerabilidades.
    administradores (root e os grupos do journal).
 7. **O IKEv1 está sendo aposentado pelo strongSwan.** A versão 6.1.0 desativa
    o IKEv1 por padrão (o build embutido o habilita) e anunciou a remoção numa
-   versão futura. Os perfis que o app aceita hoje são IKEv1; como mantê-los
+   versão futura. A maioria das VPNs para as quais o app foi feito é IKEv1
+   (o IKEv2 com PSK também é aceito e testado); como manter o IKEv1
    funcionando com correções de segurança é uma decisão em aberto (veja a
    [auditoria da 0.2.0](../audits/v0.2.0.md), em inglês, item P1).
 

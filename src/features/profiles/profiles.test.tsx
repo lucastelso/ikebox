@@ -2,7 +2,7 @@ import { mockIPC } from '@tauri-apps/api/mocks';
 import { render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { describe, expect, it, vi } from 'vitest';
-import type { ImportPreview, ProfileList } from '@/bindings';
+import type { ImportPreview, ProfileDetails, ProfileList, ProfileSummary } from '@/bindings';
 import { ImportDialog } from './ImportDialog';
 import { ProfilesScreen } from './ProfilesScreen';
 
@@ -17,6 +17,7 @@ const swanctlPreview: ImportPreview = {
   warnings: ["'updown' foi ignorado (o app usa o próprio)"],
   error: null,
   exists: false,
+  security: 'legacy',
 };
 
 function mockCalls() {
@@ -44,6 +45,7 @@ describe('ImportDialog', () => {
     render(<ImportDialog preview={swanctlPreview} onClose={() => {}} onImported={onImported} />);
 
     expect(screen.getByText(/Secrets in the file are not read/)).toBeInTheDocument();
+    expect(screen.getByText('Legacy security')).toBeInTheDocument();
     const id = screen.getByLabelText('Identifier');
     await userEvent.clear(id);
     await userEvent.type(id, 'trabalho');
@@ -110,6 +112,7 @@ describe('ProfilesScreen', () => {
         gateway: '203.0.113.10',
         usesXauth: true,
         remoteTs: [],
+        security: 'weak',
       },
     ],
     broken: [{ file: 'quebrado.json', error: 'JSON inválido' }],
@@ -143,5 +146,37 @@ describe('ProfilesScreen', () => {
       cmd: 'delete_profile',
       args: { profileId: 'trabalho', forgetCredentials: true },
     });
+  });
+
+  it('shows the security badge and, in the details, why', async () => {
+    mockIPC((cmd) => {
+      if (cmd === 'list_profiles') return list;
+      if (cmd === 'profile_details') {
+        return {
+          summary: list.profiles[0] as ProfileSummary,
+          ike: 'IKEv1 (aggressive mode)',
+          ikeProposals: ['aes256-sha1-modp1024'],
+          espProposals: ['aes256-sha1-modp1024'],
+          auth: 'group PSK + username and password (XAuth)',
+          localId: 'keyid:grupo',
+          dnsServers: [],
+          dnsDomains: [],
+          useReceivedDns: true,
+          mtu: 1400,
+          securityNotes: [
+            { level: 'weak', message: 'Aggressive mode with a PSK: …' },
+            { level: 'legacy', message: 'IKEv1 is obsolete (RFC 9395): …' },
+          ],
+        } satisfies ProfileDetails;
+      }
+      return null;
+    });
+    render(<ProfilesScreen onImport={() => {}} />);
+
+    expect(await screen.findByText('Weak security')).toBeInTheDocument();
+    await userEvent.click(screen.getByRole('button', { name: /^VPN do trabalho/ }));
+    expect(await screen.findByText('Aggressive mode with a PSK: …')).toBeInTheDocument();
+    expect(screen.getByText(/Only a warning: the profile still connects/)).toBeInTheDocument();
+    expect(screen.getByText('IKEv1 is obsolete (RFC 9395): …')).toBeInTheDocument();
   });
 });
