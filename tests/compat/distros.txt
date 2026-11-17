@@ -1,0 +1,9 @@
+# Compatibility matrix (phase 3 of the post-0.2.0 program): the distributions
+# on which tests/compat/run.sh repeats the test with real systemd.
+# name                 base image, pinned by digest
+ubuntu-22.04           ubuntu@sha256:9abcaffc92a5279fff3a6a41635c0800ea33e528425fb389658806476e7defde
+ubuntu-24.04           ubuntu@sha256:73b999393d07f2bf65a40373778a44dc9a6d54ad7718d29247d8ff9413c4d6a8
+debian-12              debian@sha256:268fb24c39bca92d326dd83ea3abebe4a3f7751c804ffef23bb6d857dd343ff8
+debian-13              debian@sha256:9c6e381421d0f48d1b8133e573f33c185ee16cbf505eda9c4a8a4791b25ea8a6
+fedora-45              fedora@sha256:a7d72ba2745b100a3351087472e5ee7b2450af7cf331e7673007e3817612839c
+opensuse-tumbleweed    opensuse/tumbleweed@sha256:14d536cfce86a7dbab858a4358f74634cf60a4a944e8e00acc89fbc153077e88

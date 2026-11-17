@@ -21,6 +21,7 @@
     "stage:component": "scripts/stage-network-component.sh",
     "test:packaging": "tests/packaging/install-test.sh",
     "test:systemd": "tests/systemd/run.sh",
+    "test:compat": "tests/compat/run.sh",
     "test:native": "native-engine/build.sh && native-engine/spike/run-e2e.sh \"$(grep -vE '^\\s*(#|$)' native-engine/versions.txt | head -n 1 | cut -d' ' -f1)\"",
     "dev": "vite",
     "build": "tsc && vite build",

@@ -77,6 +77,10 @@ must_be_empty() {
     fail "$1"
 }
 
+step "Test computer"
+# shellcheck source=/dev/null
+ok "$(. /etc/os-release && printf '%s' "$PRETTY_NAME"): systemd $(systemctl --version | awk 'NR == 1 { print $2 }'), iproute2 $(ip -V | grep -oE 'iproute2-[^, ]+' | cut -d- -f2), bash ${BASH_VERSION%%(*}, glibc $(ldd --version | awk 'NR == 1 { print $NF }')"
+
 step "Installation with the real installer"
 bash /test/bundle/install-native.sh install --bundle /test/bundle --origin manual \
     >/tmp/install.log 2>&1 || {
@@ -90,6 +94,11 @@ printf '[Service]\nExecStart=\nExecStart=/opt/ipsec-client/bin/ipsec-client-help
     >/etc/systemd/system/ipsec-client-helper.service.d/test.conf
 systemctl daemon-reload
 systemctl stop ipsec-client-helper.service 2>/dev/null || true
+# Some base images come with a user of their own on uid 1000 (Ubuntu 24.04).
+for uid in 1000 1001; do
+    existing=$(getent passwd "$uid" | cut -d: -f1 || true)
+    [[ -z $existing ]] || userdel -r "$existing" 2>/dev/null
+done
 useradd -m -u 1000 alice
 useradd -m -u 1001 bob
 ok "$(tail -n 1 /tmp/install.log)"

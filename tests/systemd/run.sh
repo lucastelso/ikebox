@@ -16,6 +16,16 @@
 # Requirements: Docker (the container needs --privileged for systemd and XFRM
 # in its network namespace), the engine compiled with the patch
 # (native-engine/build.sh) and cargo.
+#
+# Environment (set by tests/compat/run.sh to repeat the test on another
+# distribution):
+#   IPSEC_CLIENT_TEST_BASE     base image of the test computer (default: the
+#                              Fedora pinned in the Dockerfile)
+#   IPSEC_CLIENT_TEST_NAME     name of that distribution (image tag, messages)
+#   IPSEC_CLIENT_TEST_BIN_DIR  directory with ipsec-client-cli and
+#                              ipsec-client-helper already built (for an older
+#                              glibc than this computer's); default: build
+#                              them here with cargo
 
 set -euo pipefail
 
@@ -25,7 +35,10 @@ readonly NET=ipsec-client-systemd-test
 readonly GW=ipsec-client-systemd-gw
 readonly HOST=ipsec-client-systemd-host
 readonly GW_IMAGE=ipsec-client-engine:e2e
-readonly HOST_IMAGE=ipsec-client-systemd-test:local
+readonly DISTRO=${IPSEC_CLIENT_TEST_NAME:-local}
+readonly HOST_IMAGE=ipsec-client-systemd-test:$DISTRO
+readonly BASE=${IPSEC_CLIENT_TEST_BASE:-}
+readonly BIN_DIR=${IPSEC_CLIENT_TEST_BIN_DIR:-}
 
 step() { printf '\n\033[1;36m==> %s\033[0m\n' "$*"; }
 ok() { printf '  \033[0;32m✔\033[0m %s\n' "$*"; }
@@ -70,9 +83,17 @@ main() {
     ok "engine with the patch: $(basename "$engine")"
 
     step "Network component and CLI"
-    "$repo/scripts/stage-network-component.sh" --out "$work/bundle" --engine "$engine" >/dev/null
-    cargo build -q --release --locked -p ipsec-client-cli --manifest-path "$repo/Cargo.toml"
-    install -m 0755 "$repo/target/release/ipsec-client-cli" "$work/ipsec-client-cli"
+    if [[ -n $BIN_DIR ]]; then
+        [[ -x $BIN_DIR/ipsec-client-cli && -x $BIN_DIR/ipsec-client-helper ]] ||
+            fail "ipsec-client-cli and ipsec-client-helper not found in $BIN_DIR"
+        "$repo/scripts/stage-network-component.sh" --out "$work/bundle" --engine "$engine" \
+            --helper "$BIN_DIR/ipsec-client-helper" >/dev/null
+        install -m 0755 "$BIN_DIR/ipsec-client-cli" "$work/ipsec-client-cli"
+    else
+        "$repo/scripts/stage-network-component.sh" --out "$work/bundle" --engine "$engine" >/dev/null
+        cargo build -q --release --locked -p ipsec-client-cli --manifest-path "$repo/Cargo.toml"
+        install -m 0755 "$repo/target/release/ipsec-client-cli" "$work/ipsec-client-cli"
+    fi
     install -m 0644 "$here/helper_client.py" "$repo/tests/engine/initiator.conf.in" \
         "$repo/crates/core/tests/fixtures/perfil-gateway-teste.json" "$work/"
     install -m 0755 "$here/inside.sh" "$work/"
@@ -80,7 +101,7 @@ main() {
 
     step "Test gateway and computer with systemd"
     docker build -q -t "$GW_IMAGE" "$repo/engine" >/dev/null
-    docker build -q -t "$HOST_IMAGE" "$here" >/dev/null
+    docker build -q ${BASE:+--build-arg "BASE=$BASE"} -t "$HOST_IMAGE" "$here" >/dev/null
     docker network create "$NET" >/dev/null
     docker run -d --name "$GW" --network "$NET" --cap-add NET_ADMIN \
         --security-opt label=disable \
