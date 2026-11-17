@@ -80,6 +80,9 @@ configure_flags=(
     --enable-gcm --enable-chapoly --enable-curve25519 --enable-gmp
     --enable-pem --enable-pkcs1 --enable-pkcs8 --enable-x509 --enable-pubkey
     --enable-xauth-generic --enable-updown --enable-unity
+    # IKEv2 + EAP-MSCHAPv2 (ADR-0023): the EAP identity exchange, MSCHAPv2
+    # itself and the MD4 hash it needs (DES is already above).
+    --enable-eap-identity --enable-eap-mschapv2 --enable-md4
     --disable-pki --disable-scepclient
 )
 # 6.x: PRF+ para o IKEv2 sem OpenSSL fica no plugin kdf.
