@@ -1975,3 +1975,15 @@ IKEv1 main mode + XAuth test gateway and connects through both.
 bundle carries the version, so the app offers "Update", as the notes say.
 With phase 10 the post-0.2.0 program planned on 2026-11-16 is complete.
 
+The first 0.9.0 build was stopped by the private-data scan of the
+packages: one string of the app binary matched a private pattern. Found
+without printing it (counts and shapes only): a single new string, 4
+characters (a brace and three letters) in `.rodata`, present in no source
+file, asset or dependency; the 0.8.0 binary had none. A short pattern
+matching bytes that are not text, like 0.1.1's 3 bytes in `.text`. With
+the maintainer's agreement, the scan of executables now only looks at
+readable strings of 6 or more characters (it was 4); a real leak (gateway,
+domain, IP) is longer than that, and every non-ELF file is still scanned
+whole. The local `v0.9.0` tag moved to the commit with this change, and the
+packages were built again from it.
+

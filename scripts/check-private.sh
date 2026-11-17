@@ -103,10 +103,12 @@ extract_package() {
 }
 
 # scan_patterns <caminho>...: arquivos em que os padrões privados aparecem.
-# Em executáveis ELF, só o texto legível (strings de 4+ caracteres) conta: um
-# padrão curto casa por acaso com bytes de código de máquina (aconteceu na
-# 0.1.1: 3 bytes isolados na seção .text do app). Um dado de verdade embutido
-# no binário fica em texto legível.
+# Em executáveis ELF, só o texto legível de 6+ caracteres conta: um padrão
+# curto casa por acaso com bytes que não são texto (aconteceu na 0.1.1: 3
+# bytes isolados na seção .text do app; e na 0.9.0: uma sequência de 4
+# caracteres, uma chave e três letras, em .rodata, que não existia em nenhum
+# fonte, asset ou dependência). Um dado de verdade embutido no binário
+# (gateway, domínio, IP) fica em texto legível e mais longo que isso.
 # Compressed files (.gz, .tar.gz) are skipped: their bytes are pseudo-random,
 # so a short pattern matches by chance (it happened in 0.2.0, in the
 # engine.tar.gz bytes), and extract_package already unpacks them next to the
@@ -117,7 +119,7 @@ scan_patterns() {
         if [[ $(head -c 4 "$file" | od -An -tx1 | tr -d ' \n') == 7f454c46 ]]; then
             # Process substitution: only grep decides. A pipe under pipefail
             # would turn a match into SIGPIPE on strings and hide the file.
-            grep -q -i -E -f "$clean_patterns" < <(strings -a -n 4 "$file") && printf '%s\n' "$file"
+            grep -q -i -E -f "$clean_patterns" < <(strings -a -n 6 "$file") && printf '%s\n' "$file"
         else
             grep -q -a -i -E -f "$clean_patterns" "$file" && printf '%s\n' "$file"
         fi
