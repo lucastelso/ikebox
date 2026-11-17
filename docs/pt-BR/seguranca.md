@@ -92,6 +92,16 @@ vulnerabilidades.
    ([ADR-0023](../adr/0023-ikev2-eap-mschapv2.md), em inglês). O MSCHAPv2 só
    é seguro dentro desse túnel conferido: o app nunca o envia a um gateway
    não verificado.
+9. **O seu certificado (certificado de cliente, 0.8.0).** A chave privada é
+   a credencial mais sensível que o app guarda: quem a tem é você na VPN até
+   o certificado vencer. Ela é lida do `.p12` em memória, guardada só no
+   chaveiro do sistema (tão protegida quanto as suas senhas guardadas:
+   destravada com a sua sessão) e enviada ao charon como dado, nunca como
+   arquivo. A senha do `.p12` não é guardada; o app não precisa mais do
+   arquivo, e você pode apagá-lo. Os nomes dele (o seu, o seu e-mail, a
+   organização) são mascarados no log. Vale o mesmo limite RSA/Ed25519 do
+   gateway; ainda sem smartcards ou tokens (PKCS#11)
+   ([ADR-0024](../adr/0024-client-certificates.md), em inglês).
 
 ### Fora do escopo
 

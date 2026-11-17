@@ -10,13 +10,18 @@ use secrecy::SecretString;
 
 /// Lê credenciais da entrada padrão, uma por linha no formato `chave=valor`
 /// (chaves: `psk`, `xauth-user`, `xauth-password`, `eap-identity`,
-/// `eap-password`; `#` comenta). Para automação, como o `docker login --password-stdin`: nunca passe segredos
-/// por argumento ou variável de ambiente (aparecem em `ps` e no histórico).
-pub fn read_stdin(credentials: &mut Credentials) -> anyhow::Result<()> {
+/// `eap-password`, e `p12-password`, a senha do arquivo de `--client-p12`;
+/// `#` comenta). Para automação, como o `docker login --password-stdin`:
+/// nunca passe segredos por argumento ou variável de ambiente (aparecem em
+/// `ps` e no histórico). Devolve a senha do `.p12`, se veio.
+pub fn read_stdin(credentials: &mut Credentials) -> anyhow::Result<Option<SecretString>> {
     parse_credentials(std::io::stdin().lock(), credentials)
 }
 
-fn parse_credentials(input: impl BufRead, credentials: &mut Credentials) -> anyhow::Result<()> {
+fn parse_credentials(
+    input: impl BufRead,
+    credentials: &mut Credentials,
+) -> anyhow::Result<Option<SecretString>> {
     let kinds = [
         CredentialKind::Psk,
         CredentialKind::XauthUser,
@@ -24,6 +29,7 @@ fn parse_credentials(input: impl BufRead, credentials: &mut Credentials) -> anyh
         CredentialKind::EapIdentity,
         CredentialKind::EapPassword,
     ];
+    let mut p12_password = None;
     for (n, line) in input.lines().enumerate() {
         let line = line?;
         let line = line.trim_end_matches(['\r', '\n']);
@@ -33,15 +39,30 @@ fn parse_credentials(input: impl BufRead, credentials: &mut Credentials) -> anyh
         let Some((key, value)) = line.split_once('=') else {
             bail!("input line {}: use key=value", n + 1);
         };
+        if key.trim() == "p12-password" {
+            p12_password = Some(SecretString::from(value.to_owned()));
+            continue;
+        }
         let Some(kind) = kinds.iter().find(|k| k.key() == key.trim()) else {
             bail!(
-                "input line {}: unknown key (use psk, xauth-user, xauth-password, eap-identity or eap-password)",
+                "input line {}: unknown key (use psk, xauth-user, xauth-password, eap-identity, \
+                 eap-password or p12-password)",
                 n + 1
             );
         };
         credentials.set(*kind, SecretString::from(value.to_owned()));
     }
-    Ok(())
+    Ok(p12_password)
+}
+
+/// Senha de um arquivo `.p12`, sem eco.
+pub fn ask_p12_password() -> anyhow::Result<SecretString> {
+    if !interactive() {
+        bail!("the .p12 password is needed and there is no terminal to ask for it");
+    }
+    let value = rpassword::prompt_password("Password of the .p12 file: ")
+        .context("failed to read from the terminal")?;
+    Ok(SecretString::from(value))
 }
 
 /// Há um terminal para perguntar?
@@ -56,6 +77,7 @@ fn label(kind: CredentialKind) -> &'static str {
         CredentialKind::XauthPassword => "XAuth password",
         CredentialKind::EapIdentity => "Username (EAP)",
         CredentialKind::EapPassword => "Password (EAP)",
+        CredentialKind::ClientCert | CredentialKind::ClientKey => "Client certificate",
     }
 }
 
@@ -73,7 +95,8 @@ pub fn ask(
             names.join(", ")
         );
     }
-    for &kind in kinds {
+    // A certificate is imported from its file, never typed.
+    for &kind in kinds.iter().filter(|k| k.is_typed()) {
         let has_current = credentials.get(kind).is_some();
         let hint = if keep_existing && has_current {
             " [Enter keeps the current one]"
@@ -115,6 +138,10 @@ mod tests {
         assert_eq!(get(CredentialKind::Psk), "a=b c");
         assert_eq!(get(CredentialKind::XauthUser), "usuario");
         assert_eq!(get(CredentialKind::XauthPassword), "s3nh@ ");
+        let p12 = parse_credentials("p12-password=x=y\n".as_bytes(), &mut Credentials::new())
+            .expect("p12")
+            .expect("password");
+        assert_eq!(secrecy::ExposeSecret::expose_secret(&p12), "x=y");
         assert!(parse_credentials("senha".as_bytes(), &mut Credentials::new()).is_err());
         assert!(parse_credentials("token=x".as_bytes(), &mut Credentials::new()).is_err());
     }

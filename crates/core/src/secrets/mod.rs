@@ -6,10 +6,12 @@
 //!   do sistema, [`MemoryStore`] = só memória);
 //! - [`Redactor`]/[`mask`]: mascaramento de identidades em logs exibidos.
 
+mod client_cert;
 mod credentials;
 mod redact;
 mod store;
 
+pub use client_cert::{ClientCertInfo, ClientCertificate, MAX_PKCS12_BYTES, describe_pem};
 pub use credentials::Credentials;
 pub use redact::{Anonymizer, Redactor, mask, printable};
 pub use store::{KEYRING_SERVICE, KeyringStore, MemoryStore, SecretStore, keyring_key};
@@ -74,5 +76,10 @@ pub fn describe(kind: CredentialKind) -> &'static str {
         CredentialKind::XauthPassword => crate::tr!("XAuth password", "senha XAuth"),
         CredentialKind::EapIdentity => crate::tr!("username (EAP)", "usuário (EAP)"),
         CredentialKind::EapPassword => crate::tr!("password (EAP)", "senha (EAP)"),
+        CredentialKind::ClientCert => crate::tr!("client certificate", "certificado do cliente"),
+        CredentialKind::ClientKey => crate::tr!(
+            "client certificate's private key",
+            "chave privada do certificado do cliente"
+        ),
     }
 }

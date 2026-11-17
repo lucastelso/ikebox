@@ -90,6 +90,16 @@ a vulnerability"). Do not open public issues for vulnerabilities.
    ([ADR-0023](docs/adr/0023-ikev2-eap-mschapv2.md)). MSCHAPv2 is only safe
    inside that checked tunnel: the app never sends it to an unverified
    gateway.
+9. **Your certificate (client certificates, 0.8.0).** The private key is the
+   most sensitive credential the app holds: whoever has it is you on the
+   VPN until the certificate expires. It is read from the `.p12` in memory,
+   stored only in the system keyring (as protected as your stored
+   passwords: unlocked with your session), and sent to charon as data, never
+   as a file. The `.p12` password is not stored; the app no longer needs the
+   file, and you can delete it. Its names (yours, your e-mail, the
+   organization) are masked in the log. The same RSA/Ed25519 limit as the
+   gateway applies; no smartcards or tokens (PKCS#11) yet
+   ([ADR-0024](docs/adr/0024-client-certificates.md)).
 
 ### Out of scope
 

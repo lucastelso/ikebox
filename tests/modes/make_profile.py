@@ -3,8 +3,8 @@
 Usage: make_profile.py OUT key=value...
 
 Keys: id, gateway, version (1|2), aggressive (yes|no), encap (yes|no),
-method (psk|psk-xauth|eap), local_id, remote_id, ca (CA certificate
-files, comma separated: eap only), ike (proposals, comma
+method (psk|psk-xauth|eap|cert|cert-xauth), local_id, remote_id, ca (CA
+certificate files, comma separated: eap and cert only), ike (proposals, comma
 separated), esp (proposals), remote_ts (comma separated), vip (yes|no),
 schema (1|2, default 1: the file format), otp (yes|no: the XAuth password
 is a one-time code; schema 2 only).
@@ -20,11 +20,15 @@ def main() -> None:
     args = dict(arg.split("=", 1) for arg in sys.argv[2:])
     yes = {"yes": True, "no": False}
     schema = int(args.get("schema", "1"))
-    if args["method"] == "eap":
+    if args["method"] in ("eap", "cert", "cert-xauth"):
         schema = 2
-        eap = {"method": "eap-mschapv2"}
+        method = "eap-mschapv2" if args["method"] == "eap" else "certificate"
+        first = {"method": method}
         if args.get("local_id"):
-            eap["id"] = args["local_id"]
+            first["id"] = args["local_id"]
+        local = [first]
+        if args["method"] == "cert-xauth":
+            local.append({"method": "xauth"})
         cas = []
         for path in filter(None, args.get("ca", "").split(",")):
             with open(path, encoding="utf-8") as f:
@@ -32,7 +36,7 @@ def main() -> None:
         remote = {"method": "certificate", "ca": cas}
         if args.get("remote_id"):
             remote["id"] = args["remote_id"]
-        auth = {"local": [eap], "remote": remote}
+        auth = {"local": local, "remote": remote}
     elif schema == 1:
         auth = {"method": args["method"]}
         for key in ("local_id", "remote_id"):

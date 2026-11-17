@@ -50,6 +50,11 @@ Em **Conexão**, clique em **Conectar**. Na primeira vez, o app pede:
 - **Usuário:** o seu usuário da VPN (ex.: matrícula);
 - **Senha:** a sua senha da VPN.
 
+O que ele pede depende da VPN. Se a sua usa **certificado** (um arquivo
+`.p12` ou `.pfx` da sua empresa), na primeira vez o app pede para **escolher
+o arquivo** e digitar a senha dele: a chave vai para o chaveiro do sistema,
+e depois você pode apagar o arquivo.
+
 Marque **Lembrar no chaveiro do sistema** para não digitar de novo. O topo da
 janela mostra o estado pela cor: âmbar enquanto conecta, **verde** com
 **Conectado** quando a VPN está ativa (abra o Remmina, ou o que você usa,

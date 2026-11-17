@@ -165,6 +165,7 @@ mod tests {
             if_id: profile.if_id(),
             xauth_user: Some("usuario.exemplo"),
             eap_identity: None,
+            client_cert: None,
         };
         let msg = profile.to_load_conn(&params).expect("load-conn");
         let mut text = String::new();
@@ -182,6 +183,7 @@ mod tests {
             if_id: profile.if_id(),
             xauth_user: Some("usuario.exemplo"),
             eap_identity: None,
+            client_cert: None,
         };
         let msg = profile.to_load_conn(&params).expect("load-conn");
         let mut text = String::new();
@@ -200,6 +202,7 @@ mod tests {
             if_id: 7,
             xauth_user: None,
             eap_identity: None,
+            client_cert: None,
         };
         let msg = profile.to_load_conn(&params).expect("load-conn");
         let mut text = String::new();
@@ -234,6 +237,7 @@ mod tests {
             if_id: 1,
             xauth_user: None,
             eap_identity: None,
+            client_cert: None,
         };
         assert!(matches!(
             profile.to_load_conn(&params),
@@ -242,6 +246,7 @@ mod tests {
         let params = ConnParams {
             xauth_user: Some("com'aspas"),
             eap_identity: None,
+            client_cert: None,
             ..params
         };
         assert!(profile.to_load_conn(&params).is_err());
@@ -357,6 +362,7 @@ mod tests {
             if_id: profile.if_id(),
             xauth_user: None,
             eap_identity: Some("usuario.exemplo"),
+            client_cert: None,
         };
         let msg = profile.to_load_conn(&params).expect("load-conn");
         let mut text = String::new();
@@ -375,6 +381,7 @@ mod tests {
         assert!(matches!(
             profile.to_load_conn(&ConnParams {
                 eap_identity: None,
+                client_cert: None,
                 ..params
             }),
             Err(ProfileError::MissingCredential(_))

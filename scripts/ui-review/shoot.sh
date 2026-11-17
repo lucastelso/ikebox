@@ -16,7 +16,7 @@ repo=$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)
 here="$repo/scripts/ui-review"
 out="$repo/target/ui-review"
 readonly PORT=4173
-ALL=(first-use idle credentials connecting connected error outdated profiles profile-open system editor editor-problems editor-eap)
+ALL=(first-use idle credentials credentials-cert connecting connected error outdated profiles profile-open system editor editor-problems editor-eap)
 NARROW=(idle connected error system profile-open)
 if (($# > 0)); then ALL=("$@"); NARROW=("$@"); fi
 

@@ -28,6 +28,9 @@ pub struct ConnParams<'a> {
     pub xauth_user: Option<&'a str>,
     /// Identidade EAP (obrigatória com EAP): também vem das credenciais.
     pub eap_identity: Option<&'a str>,
+    /// Certificado do cliente em PEM (obrigatório com certificado): vem do
+    /// chaveiro; a chave privada vai por `load-key`, não aqui.
+    pub client_cert: Option<&'a str>,
 }
 
 impl Profile {
@@ -118,6 +121,17 @@ impl Profile {
                     Message::new()
                         .kv("auth", "eap-mschapv2")
                         .kv("eap_id", identity)
+                }
+                LocalMethod::Certificate => {
+                    let cert =
+                        params
+                            .client_cert
+                            .ok_or(ProfileError::MissingCredential(crate::tr!(
+                                "client certificate",
+                                "certificado do cliente"
+                            )))?;
+                    // As data: the certificate goes in the connection itself.
+                    Message::new().kv("auth", "pubkey").list("certs", [cert])
                 }
             };
             if let Some(id) = &round.id {

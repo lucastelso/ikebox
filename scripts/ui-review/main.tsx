@@ -163,9 +163,20 @@ mockIPC(
       case 'app_info':
         return { version: '0.3.0', engineImage: L('embedded', 'embutido') };
       case 'credentials_status':
+        if (scenario === 'credentials-cert') {
+          return { required: ['clientCertificate'], stored: [], maskedUser: null, keyringAvailable: true, clientCertificate: null };
+        }
         return scenario === 'credentials'
-          ? { required: ['psk', 'xauthUser', 'xauthPassword'], stored: [], maskedUser: null, keyringAvailable: true }
-          : { required: ['psk', 'xauthUser', 'xauthPassword'], stored: ['psk', 'xauthUser', 'xauthPassword'], maskedUser: 'us***er', keyringAvailable: true };
+          ? { required: ['psk', 'xauthUser', 'xauthPassword'], stored: [], maskedUser: null, keyringAvailable: true, clientCertificate: null }
+          : {
+              required: ['psk', 'xauthUser', 'xauthPassword'],
+              stored: ['psk', 'xauthUser', 'xauthPassword'],
+              maskedUser: 'us***er',
+              keyringAvailable: true,
+              clientCertificate: null,
+            };
+      case 'choose_p12_file':
+        return { token: 'p12-0', fileName: 'fulana-de-tal.p12' };
       case 'connect':
         if (scenario === 'error') throw negotiationError;
         // "connecting": never answers, the screen stays in progress.
@@ -255,8 +266,17 @@ const navTo = (index: number) =>
 
 async function play() {
   await sleep(250);
-  if (scenario === 'credentials' || scenario === 'error' || scenario === 'connecting') {
+  if (
+    scenario === 'credentials' ||
+    scenario === 'credentials-cert' ||
+    scenario === 'error' ||
+    scenario === 'connecting'
+  ) {
     click('section.hero > div > button');
+    if (scenario === 'credentials-cert') {
+      await sleep(200);
+      (document.querySelector('[role="dialog"] fieldset button') as HTMLElement | null)?.click();
+    }
     if (scenario === 'connecting') {
       await sleep(100);
       await emit('session-update', { kind: 'preparing', step: L('starting the engine', 'subindo o engine') });

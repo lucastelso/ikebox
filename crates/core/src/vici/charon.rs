@@ -32,6 +32,37 @@ impl SecretKind {
     }
 }
 
+/// Uma chave privada a carregar no charon (`load-key`), como dados (PEM,
+/// PKCS#8): nunca um caminho (ADR-0019, ADR-0024). O `Debug` não mostra nada
+/// dela, e o buffer é zerado no drop.
+#[derive(Clone)]
+pub struct PrivateKey {
+    data: Zeroizing<Vec<u8>>,
+}
+
+impl PrivateKey {
+    /// Copia `data` para um buffer zerado no drop.
+    #[must_use]
+    pub fn new(data: &[u8]) -> Self {
+        Self {
+            data: Zeroizing::new(data.to_vec()),
+        }
+    }
+
+    fn to_message(&self) -> Message {
+        // "any": charon finds the type (RSA or Ed25519) in the PKCS#8.
+        Message::new()
+            .kv("type", "any")
+            .kv("data", self.data.as_slice())
+    }
+}
+
+impl fmt::Debug for PrivateKey {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        f.write_str("PrivateKey(<redigida>)")
+    }
+}
+
 /// Um segredo a carregar no charon. O `Debug` não mostra os dados nem os
 /// donos (identidades como id do grupo e usuário XAuth).
 #[derive(Clone)]
@@ -270,6 +301,8 @@ pub trait Charon {
     async fn load_shared(&mut self, secret: &SharedSecret) -> Result<(), ViciError>;
     /// `unload-shared`.
     async fn unload_shared(&mut self, id: &str) -> Result<(), ViciError>;
+    /// `load-key`: carrega a chave privada do cliente na memória do charon.
+    async fn load_key(&mut self, key: &PrivateKey) -> Result<(), ViciError>;
     /// `load-conn` com a configuração da conexão `name`.
     async fn load_conn(&mut self, name: &str, conn: &Message) -> Result<(), ViciError>;
     /// `unload-conn`.
@@ -333,6 +366,11 @@ impl Charon for ViciClient {
             .request("unload-shared", &Message::new().kv("id", id))
             .await?;
         check("unload-shared", &response)
+    }
+
+    async fn load_key(&mut self, key: &PrivateKey) -> Result<(), ViciError> {
+        let response = self.request("load-key", &key.to_message()).await?;
+        check("load-key", &response)
     }
 
     async fn load_conn(&mut self, name: &str, conn: &Message) -> Result<(), ViciError> {

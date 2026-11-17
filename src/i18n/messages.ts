@@ -21,6 +21,9 @@ export const en = {
     profileSelect: 'Connection profile',
     chooseProfile: 'Choose a profile',
     activeProfile: (id: string) => `Active connection: profile ${id}`,
+    certExpires: (days: number) =>
+      days <= 0 ? 'Your certificate expires today' : `Your certificate expires in ${days} days`,
+    certExpired: 'Your certificate has expired: import a new one',
     noProfilesTitle: 'No profiles yet',
     noProfilesBody:
       'To connect, import the profile (.json) you got from your team, or the swanctl.conf of a VPN that already works.',
@@ -82,6 +85,13 @@ export const en = {
     hide: 'Hide',
     remember: 'Remember in the system keyring',
     otpCode: 'One-time code',
+    certTitle: 'Your certificate',
+    certChoose: 'Choose file (.p12/.pfx)…',
+    certChosen: (name: string) => `File: ${name}`,
+    certPassword: 'Password of the file',
+    certHint:
+      'The file is opened here and its key goes to the system keyring; its password is not kept.',
+    certNeedsKeyring: 'A client certificate needs the system keyring, which is not available.',
     otpHint: 'This VPN uses a one-time code: it is asked at every connection and never stored.',
     noKeyring: 'Keyring unavailable: the credentials will be asked on every connection.',
     cancel: 'Cancel',
@@ -156,6 +166,7 @@ export const en = {
       ciscoEzvpn: 'Cisco Easy VPN',
       ikev2Psk: 'IKEv2 with a PSK',
       ikev2Eap: 'IKEv2 with username and password',
+      ikev2Cert: 'IKEv2 with your certificate',
       blank: 'Blank',
     },
     templateHint: {
@@ -163,6 +174,8 @@ export const en = {
       ciscoEzvpn: 'IKEv1 aggressive, group name, PSK + username and password, older algorithms',
       ikev2Psk: 'strongSwan, pfSense/OPNsense, MikroTik and others',
       ikev2Eap: 'EAP, the gateway proven by its certificate (as on Windows, macOS, Android)',
+      ikev2Cert:
+        'You and the gateway prove who you are with certificates (a .p12 from your company)',
       blank: 'Nothing suggested: copy everything from the gateway',
     },
     section: {
@@ -189,6 +202,11 @@ export const en = {
     authMethod: 'How you sign in',
     authPsk: 'Pre-shared key (PSK)',
     authEap: 'Username and password (EAP)',
+    authCert: 'Your certificate (.p12)',
+    localIdCertHint:
+      'Optional: the identity the gateway expects. Empty: the subject of your certificate.',
+    certNote:
+      'Your certificate is imported when you first connect: it never goes in the profile, so the profile can still be shared.',
     localIdEap: 'Your IKE identity',
     localIdEapHint: "Optional: the identity the gateway expects. Empty: the computer's address.",
     remoteIdCert: "Name in the gateway's certificate",
@@ -370,6 +388,9 @@ export const pt: Messages = {
     profileSelect: 'Perfil de conexão',
     chooseProfile: 'Escolha um perfil',
     activeProfile: (id) => `Conexão ativa: perfil ${id}`,
+    certExpires: (days) =>
+      days <= 0 ? 'O seu certificado vence hoje' : `O seu certificado vence em ${days} dias`,
+    certExpired: 'O seu certificado venceu: importe um novo',
     noProfilesTitle: 'Nenhum perfil ainda',
     noProfilesBody:
       'Para conectar, importe o perfil (.json) que você recebeu da sua equipe, ou o swanctl.conf de uma VPN que já funciona.',
@@ -431,6 +452,14 @@ export const pt: Messages = {
     hide: 'Ocultar',
     remember: 'Lembrar no chaveiro do sistema',
     otpCode: 'Código de uso único',
+    certTitle: 'O seu certificado',
+    certChoose: 'Escolher arquivo (.p12/.pfx)…',
+    certChosen: (name) => `Arquivo: ${name}`,
+    certPassword: 'Senha do arquivo',
+    certHint:
+      'O arquivo é aberto aqui e a chave vai para o chaveiro do sistema; a senha dele não é guardada.',
+    certNeedsKeyring:
+      'O certificado do cliente precisa do chaveiro do sistema, que não está disponível.',
     otpHint: 'Esta VPN usa um código de uso único: ele é pedido a cada conexão e nunca é guardado.',
     noKeyring: 'Chaveiro indisponível: as credenciais serão pedidas a cada conexão.',
     cancel: 'Cancelar',
@@ -504,6 +533,7 @@ export const pt: Messages = {
       ciscoEzvpn: 'Cisco Easy VPN',
       ikev2Psk: 'IKEv2 com PSK',
       ikev2Eap: 'IKEv2 com usuário e senha',
+      ikev2Cert: 'IKEv2 com o seu certificado',
       blank: 'Em branco',
     },
     templateHint: {
@@ -511,6 +541,7 @@ export const pt: Messages = {
       ciscoEzvpn: 'IKEv1 agressivo, nome do grupo, PSK + usuário e senha, algoritmos antigos',
       ikev2Psk: 'strongSwan, pfSense/OPNsense, MikroTik e outros',
       ikev2Eap: 'EAP, gateway comprovado pelo certificado (como no Windows, macOS, Android)',
+      ikev2Cert: 'Você e o gateway provam quem são por certificados (um .p12 da sua empresa)',
       blank: 'Nada sugerido: copie tudo do gateway',
     },
     section: {
@@ -537,6 +568,11 @@ export const pt: Messages = {
     authMethod: 'Como você entra',
     authPsk: 'Chave compartilhada (PSK)',
     authEap: 'Usuário e senha (EAP)',
+    authCert: 'O seu certificado (.p12)',
+    localIdCertHint:
+      'Opcional: a identidade que o gateway espera. Vazio: o titular do seu certificado.',
+    certNote:
+      'O seu certificado é importado na primeira conexão: ele nunca entra no perfil, que continua podendo ser compartilhado.',
     localIdEap: 'Sua identidade IKE',
     localIdEapHint: 'Opcional: a identidade que o gateway espera. Vazio: o endereço do computador.',
     remoteIdCert: 'Nome no certificado do gateway',

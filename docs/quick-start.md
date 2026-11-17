@@ -50,6 +50,11 @@ In **Connection**, click **Connect**. The first time, the app asks for:
 - **Username:** your VPN username (e.g. employee id);
 - **Password:** your VPN password.
 
+What it asks depends on the VPN. If yours uses a **certificate** (a `.p12`
+or `.pfx` file from your company), the first time the app asks you to
+**choose the file** and type its password: the key goes to the system
+keyring, and you can delete the file afterwards.
+
 Check **Remember in the system keyring** so you do not have to type them
 again. The top of the window shows the state by its color: amber while
 connecting, **green** with **Connected** when the VPN is on (open Remmina, or

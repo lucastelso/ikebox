@@ -32,9 +32,13 @@ pub async fn establish<C: Charon>(
         if_id,
         xauth_user: credentials.xauth_user(),
         eap_identity: credentials.eap_identity(),
+        client_cert: credentials.client_cert_pem(),
     })?;
     for secret in &secrets {
         charon.load_shared(secret).await?;
+    }
+    if let Some(key) = credentials.private_key() {
+        charon.load_key(&key).await?;
     }
     charon.load_conn(profile.conn_name(), &conn).await?;
     match charon
@@ -54,7 +58,7 @@ pub async fn establish<C: Charon>(
 pub(crate) mod tests {
     use super::*;
     use crate::profiles::{CredentialKind, parse_profile};
-    use crate::vici::{IkeSa, Message, SharedSecret, VersionInfo};
+    use crate::vici::{IkeSa, Message, PrivateKey, SharedSecret, VersionInfo};
     use secrecy::SecretString;
 
     /// Charon de mentira: registra as chamadas e falha onde mandarem.
@@ -75,6 +79,10 @@ pub(crate) mod tests {
         }
         async fn unload_shared(&mut self, id: &str) -> Result<(), ViciError> {
             self.calls.push(format!("unload-shared {id}"));
+            Ok(())
+        }
+        async fn load_key(&mut self, _key: &PrivateKey) -> Result<(), ViciError> {
+            self.calls.push("load-key".into());
             Ok(())
         }
         async fn load_conn(&mut self, name: &str, conn: &Message) -> Result<(), ViciError> {

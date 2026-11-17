@@ -4,8 +4,8 @@
 //! operações bloqueantes (disco, chaveiro via D-Bus) vão para
 //! `spawn_blocking`.
 
-use ipsec_client_core::profiles::{Profile, ProfileStore};
-use ipsec_client_core::secrets::{Credentials, KeyringStore, SecretStore, mask};
+use ipsec_client_core::profiles::{CredentialKind, Profile, ProfileStore};
+use ipsec_client_core::secrets::{ClientCertificate, Credentials, KeyringStore, SecretStore, mask};
 use ipsec_client_core::session::{self, ConnectOptions};
 use ipsec_client_core::{tr, trf};
 use secrecy::{ExposeSecret, SecretString};
@@ -14,8 +14,9 @@ use tauri_specta::Event as _;
 use tokio::sync::Mutex;
 
 use crate::dto::{
-    AppInfo, BrokenProfile, Connection, CredentialField, CredentialsInput, CredentialsStatus,
-    DiagnosticCheck, ProfileList, ProfileSummary, SessionUpdate, UiError, UiErrorKind,
+    AppInfo, BrokenProfile, ClientCertSummary, Connection, CredentialField, CredentialsInput,
+    CredentialsStatus, DiagnosticCheck, ProfileList, ProfileSummary, SessionUpdate, UiError,
+    UiErrorKind,
 };
 
 /// Impede duas operações de conexão ao mesmo tempo (ex.: clique duplo).
@@ -105,13 +106,22 @@ pub async fn list_profiles() -> Result<ProfileList, UiError> {
 pub async fn credentials_status(profile_id: String) -> Result<CredentialsStatus, UiError> {
     blocking(move || {
         let profile = load_profile(&profile_id)?;
-        let required = profile.required_credentials();
+        let mut required: Vec<CredentialField> = profile
+            .required_credentials()
+            .into_iter()
+            .map(CredentialField::from)
+            .collect();
+        required.dedup();
         let keyring = KeyringStore::new().ok();
         let mut stored = Vec::new();
         let mut masked_user = None;
+        let mut client_certificate = None;
         if let Some(store) = &keyring {
             // A one-time password (otp) is never stored: always asked.
             for kind in &profile.storable_credentials() {
+                if !kind.is_typed() {
+                    continue;
+                }
                 if let Some(value) = store.get(&profile.id, *kind)? {
                     if !kind.is_secret() {
                         masked_user = Some(mask(value.expose_secret()));
@@ -119,12 +129,25 @@ pub async fn credentials_status(profile_id: String) -> Result<CredentialsStatus,
                     stored.push(CredentialField::from(*kind));
                 }
             }
+            // The certificate counts as stored only with its key, and usable.
+            if profile.auth.uses_client_certificate() {
+                let cert = store.get(&profile.id, CredentialKind::ClientCert)?;
+                let key = store.get(&profile.id, CredentialKind::ClientKey)?;
+                if let (Some(cert), Some(key)) = (cert, key)
+                    && let Ok(pair) =
+                        ClientCertificate::from_pem(cert.expose_secret(), key.expose_secret())
+                {
+                    client_certificate = Some(ClientCertSummary::from(pair.info()));
+                    stored.push(CredentialField::ClientCertificate);
+                }
+            }
         }
         Ok(CredentialsStatus {
-            required: required.into_iter().map(CredentialField::from).collect(),
+            required,
             stored,
             masked_user,
             keyring_available: keyring.is_some(),
+            client_certificate,
         })
     })
     .await

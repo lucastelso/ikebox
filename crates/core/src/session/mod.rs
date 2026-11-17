@@ -20,7 +20,7 @@ use tokio::sync::mpsc::UnboundedSender;
 use tracing::{debug, warn};
 
 pub use establish::establish;
-pub use failure::{FailureKind, diagnose};
+pub use failure::{FailureKind, ProfileAuth, diagnose};
 
 use crate::diagnostics::{self, Check, CheckStatus};
 use crate::engine::{Backend, BuildProgress, EngineError, RunningEngine};
@@ -199,11 +199,19 @@ fn send(events: Option<&EventSink>, event: SessionEvent) {
 /// Identidades a mascarar nos logs desta sessão.
 #[must_use]
 pub fn redactor_for(profile: &Profile, credentials: &Credentials) -> Redactor {
+    // The client certificate's subject values and alternative names (the
+    // person's name, e-mail, organization) appear in charon's log too.
+    let cert_names: Vec<String> = credentials
+        .client_certificate()
+        .and_then(Result::ok)
+        .map(|cert| cert.info().names.clone())
+        .unwrap_or_default();
     let mut identities: Vec<&str> = Vec::new();
     identities.extend(credentials.xauth_user());
     identities.extend(credentials.eap_identity());
     identities.extend(profile.auth.psk_id());
     identities.extend(profile.auth.remote_id());
+    identities.extend(cert_names.iter().map(String::as_str));
     Redactor::new(identities)
 }
 
@@ -328,7 +336,7 @@ async fn negotiate(
             .map(|l| l.iter().cloned().collect())
             .unwrap_or_default();
         return Err(SessionError::Negotiation {
-            kind: diagnose(&lines, profile.auth.uses_eap()),
+            kind: diagnose(&lines, failure::ProfileAuth::of(profile)),
             detail: redactor.redact(&detail),
         });
     }

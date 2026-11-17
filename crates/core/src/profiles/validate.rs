@@ -201,7 +201,20 @@ fn check_auth(v: &mut Issues, p: &Profile) {
                     );
                 }
             }
-            (1, LocalMethod::Xauth) if local[0].method == LocalMethod::Psk => {
+            (0, LocalMethod::Certificate) => {
+                if p.ike.version == 1 && p.ike.aggressive {
+                    v.add(
+                        field.clone(),
+                        crate::tr!(
+                            "with a certificate, use main mode (aggressive: false)",
+                            "com certificado, use o modo principal (aggressive: false)"
+                        ),
+                    );
+                }
+            }
+            (1, LocalMethod::Xauth)
+                if matches!(local[0].method, LocalMethod::Psk | LocalMethod::Certificate) =>
+            {
                 if p.ike.version != 1 {
                     v.add(
                         field.clone(),
@@ -212,8 +225,15 @@ fn check_auth(v: &mut Issues, p: &Profile) {
             (_, LocalMethod::Xauth) => v.add(
                 field.clone(),
                 crate::tr!(
-                    "XAuth only comes after a PSK round",
-                    "XAuth só vem depois de uma rodada PSK"
+                    "XAuth only comes after a PSK or certificate round",
+                    "XAuth só vem depois de uma rodada de PSK ou certificado"
+                ),
+            ),
+            (_, LocalMethod::Certificate) => v.add(
+                field.clone(),
+                crate::tr!(
+                    "the certificate round must be the first",
+                    "a rodada do certificado deve ser a primeira"
                 ),
             ),
             (_, LocalMethod::Psk) => v.add(
@@ -273,8 +293,18 @@ fn check_auth(v: &mut Issues, p: &Profile) {
 fn check_remote(v: &mut Issues, p: &Profile) {
     let remote = &p.auth.remote;
     let eap = p.auth.uses_eap();
+    let client_cert = p.auth.uses_client_certificate();
     match remote.method {
         RemoteMethod::Psk => {
+            if client_cert {
+                v.add(
+                    "auth.remote.method",
+                    crate::tr!(
+                        "with a client certificate the gateway must authenticate with a certificate too",
+                        "com certificado do cliente o gateway também deve se autenticar por certificado"
+                    ),
+                );
+            }
             if eap {
                 v.add(
                     "auth.remote.method",
@@ -295,12 +325,12 @@ fn check_remote(v: &mut Issues, p: &Profile) {
             }
         }
         RemoteMethod::Certificate => {
-            if !eap {
+            if !eap && !client_cert {
                 v.add(
                     "auth.remote.method",
                     crate::tr!(
-                        "a gateway certificate is only supported with EAP for now",
-                        "por enquanto, certificado no gateway só com EAP"
+                        "a gateway certificate is only supported with EAP or a client certificate",
+                        "certificado no gateway só com EAP ou certificado do cliente"
                     ),
                 );
             }

@@ -122,8 +122,18 @@ the client and how the gateway authenticates:
   ([SECURITY.md](../SECURITY.md)). The username and password are
   credentials, asked when connecting (`eap-identity`, `eap-password` in the
   CLI). Example: [`presets/exemplo-ikev2-eap.json`](../presets/exemplo-ikev2-eap.json).
-- Client certificates come with phase 9
-  ([ADR-0024](adr/0024-client-certificates.md)).
+- **Your certificate** (since 0.8.0,
+  [ADR-0024](adr/0024-client-certificates.md)): one round
+  `{ "method": "certificate" }` (an optional `id` is the IKE identity the
+  gateway expects; by default, the certificate's subject), with the gateway
+  proven by its certificate as above. In IKEv2, or in IKEv1 **main mode**,
+  where an XAuth round may follow (`[certificate, xauth]`, as on Cisco ASA).
+  The certificate and its private key are **not** in the profile: they come
+  from a `.p12`/`.pfx` file, imported once into the system keyring (the app
+  asks for it when connecting; in the CLI, `secrets import-p12` or
+  `connect --client-p12`). Modern and old files (3DES/RC2 with SHA-1) are
+  read; the key must be **RSA or Ed25519**, and the file's password is never
+  stored.
 
 Unknown fields are refused, in both schemas. That way, a typo, or an attempt
 to put the `"psk"` in the file, does not go unnoticed.
@@ -142,6 +152,8 @@ each against a test gateway of its own:
 | 1 | main | `psk` | PSK | with and without a virtual IP; PFS; NAT-T |
 | 2 | — | `psk` | PSK | gateway identity (`remote_id`); PFS on rekey; full tunnel with NAT-T; without a virtual IP |
 | 2 | — | `eap-mschapv2` (schema 2), gateway by certificate | username, password | gateway RSA certificate checked against the profile CA; wrong password, other CA and wrong gateway name diagnosed |
+| 2 | — | `certificate` (schema 2), gateway by certificate | your certificate (.p12) | client and gateway RSA certificates from the same CA; a certificate from another CA is diagnosed |
+| 1 | main | `certificate` + `xauth` (schema 2), gateway by certificate | your certificate (.p12, an old 3DES one), username, password | mutual RSA certificates, then XAuth |
 
 Notes from those tests:
 
@@ -192,6 +204,7 @@ profile.
 | Cisco Easy VPN | IKEv1 aggressive, forced NAT-T, group PSK + XAuth, "legacy" proposals, DPD 30 s. The group name goes in the group id as `keyid:<group>` |
 | IKEv2 with a PSK | IKEv2, "modern" proposals, DPD 30 s |
 | IKEv2 with username and password | IKEv2, EAP-MSCHAPv2, "compatible" proposals, DPD 30 s. The gateway's name and its CA stay blank: the CA is chosen from a file or pasted (PEM), and the editor shows its subject and validity |
+| IKEv2 with your certificate | IKEv2, your certificate, "compatible" proposals, DPD 30 s. As above for the gateway; your `.p12` is asked when you first connect, not in the editor. In IKEv1 the same choice works in main mode, with XAuth optional |
 | Blank | IKEv2 with strongSwan's `default` proposals |
 
 The proposals are picked by name, each with the badge it gives, or typed in

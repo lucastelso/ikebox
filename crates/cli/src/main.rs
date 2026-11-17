@@ -26,13 +26,15 @@ use anyhow::{Context, bail};
 use clap::{Parser, Subcommand};
 use ipsec_client_core::diagnostics::{self, CheckStatus};
 use ipsec_client_core::profiles::{
-    DnsSettings, Profile, ProfileError, ProfileStore, SecurityLevel, SwanctlImportOptions,
-    import_swanctl, parse_profile, read_profile_file,
+    CredentialKind, DnsSettings, Profile, ProfileError, ProfileStore, SecurityLevel,
+    SwanctlImportOptions, import_swanctl, parse_profile, read_profile_file,
 };
 use ipsec_client_core::secrets::{
-    Credentials, KeyringStore, Redactor, SecretStore, describe, mask,
+    ClientCertInfo, ClientCertificate, Credentials, KeyringStore, MAX_PKCS12_BYTES, Redactor,
+    SecretStore, describe, describe_pem, mask,
 };
 use ipsec_client_core::session::{self, ConnectOptions, SessionEvent, SessionState};
+use secrecy::SecretString;
 use tokio::sync::mpsc;
 
 /// IPsec VPN client for Linux (legacy VPNs: IKEv1, group PSK + XAuth).
@@ -79,6 +81,11 @@ enum Command {
         /// Reads the credentials from standard input (`key=value` lines), for automation.
         #[arg(long)]
         credentials_stdin: bool,
+        /// Client certificate (.p12/.pfx) for this connection, kept only in memory
+        /// (with --remember, in the keyring). Its password is asked, or read from
+        /// the `p12-password` line of --credentials-stdin.
+        #[arg(long, value_name = "FILE")]
+        client_p12: Option<PathBuf>,
     },
     /// Disconnects (tells the gateway and stops the engine).
     Disconnect,
@@ -194,6 +201,17 @@ enum SecretsCmd {
         #[arg(long)]
         credentials_stdin: bool,
     },
+    /// Imports a client certificate (.p12/.pfx) into the keyring: the private
+    /// key and the certificate. The file's password is not stored.
+    ImportP12 {
+        /// Profile id.
+        profile: String,
+        /// The .p12/.pfx file.
+        file: PathBuf,
+        /// Reads the file's password from the first line of standard input.
+        #[arg(long)]
+        password_stdin: bool,
+    },
     /// Shows which credentials are stored (without revealing values).
     Status {
         /// Profile id.
@@ -260,6 +278,7 @@ async fn run(cli: Cli) -> anyhow::Result<ExitCode> {
             privileged,
             timeout,
             credentials_stdin,
+            client_p12,
         } => {
             let options = ConnectOptions {
                 privileged,
@@ -269,6 +288,7 @@ async fn run(cli: Cli) -> anyhow::Result<ExitCode> {
                 detach,
                 remember,
                 credentials_stdin,
+                client_p12,
                 verbose: cli.verbose,
             };
             connect(&profile, &flags, &options).await
@@ -596,6 +616,34 @@ fn secrets(cmd: SecretsCmd) -> anyhow::Result<ExitCode> {
             creds.save(&store, &profile)?;
             println!("✔ Credentials stored.");
         }
+        SecretsCmd::ImportP12 {
+            profile,
+            file,
+            password_stdin,
+        } => {
+            let profile = load_profile(&profile)?;
+            if !profile.auth.uses_client_certificate() {
+                bail!(
+                    "profile '{}' does not sign in with a client certificate",
+                    profile.id
+                );
+            }
+            let password = if password_stdin {
+                let mut line = String::new();
+                std::io::stdin().read_line(&mut line)?;
+                SecretString::from(line.trim_end_matches(['\r', '\n']).to_owned())
+            } else {
+                prompt::ask_p12_password()?
+            };
+            let cert = read_p12(&file, &password)?;
+            let store = KeyringStore::new()?;
+            let mut creds = Credentials::load(&store, &profile)?;
+            creds.set_client_certificate(&cert);
+            creds.save(&store, &profile)?;
+            println!("✔ Client certificate stored in the keyring.");
+            print_certificate(cert.info());
+            println!("  The .p12 file is no longer needed by the app.");
+        }
         SecretsCmd::Status { profile } => {
             let profile = load_profile(&profile)?;
             let store = KeyringStore::new()?;
@@ -603,6 +651,17 @@ fn secrets(cmd: SecretsCmd) -> anyhow::Result<ExitCode> {
                 let value = store.get(&profile.id, kind)?;
                 let shown = match (&value, kind.is_secret()) {
                     (None, _) => "missing".to_owned(),
+                    (Some(v), false) if kind == CredentialKind::ClientCert => {
+                        match describe_pem(secrecy::ExposeSecret::expose_secret(v)) {
+                            Ok(info) => format!(
+                                "stored ({} key, valid until {}, {} days)",
+                                info.key,
+                                info.not_after,
+                                info.days_left()
+                            ),
+                            Err(e) => format!("stored, but unusable: {e}"),
+                        }
+                    }
                     (Some(_), true) => "stored".to_owned(),
                     (Some(v), false) => {
                         format!("stored ({})", mask(secrecy::ExposeSecret::expose_secret(v)))
@@ -644,7 +703,33 @@ struct ConnectFlags {
     detach: bool,
     remember: bool,
     credentials_stdin: bool,
+    client_p12: Option<PathBuf>,
     verbose: u8,
+}
+
+/// Reads and checks a .p12 file (the path stays here, in the user's own
+/// process; only the key and certificate go on, as data).
+fn read_p12(file: &std::path::Path, password: &SecretString) -> anyhow::Result<ClientCertificate> {
+    let size = std::fs::metadata(file)
+        .with_context(|| format!("could not read {}", file.display()))?
+        .len();
+    if size > MAX_PKCS12_BYTES as u64 {
+        bail!("{} is too large for a certificate file", file.display());
+    }
+    let data = zeroize::Zeroizing::new(
+        std::fs::read(file).with_context(|| format!("could not read {}", file.display()))?,
+    );
+    ClientCertificate::from_pkcs12(&data, secrecy::ExposeSecret::expose_secret(password))
+        .map_err(|e| anyhow::anyhow!("{}: {e}", file.display()))
+}
+
+fn print_certificate(info: &ClientCertInfo) {
+    println!(
+        "  {} key, valid until {} ({} days)",
+        info.key,
+        info.not_after,
+        info.days_left()
+    );
 }
 
 async fn connect(
@@ -656,6 +741,7 @@ async fn connect(
         detach,
         remember,
         credentials_stdin,
+        ref client_p12,
         verbose,
     } = *flags;
     let profile = load_profile(id)?;
@@ -664,10 +750,29 @@ async fn connect(
         Some(store) => Credentials::load(store, &profile)?,
         None => Credentials::new(),
     };
+    let mut p12_password = None;
     if credentials_stdin {
-        prompt::read_stdin(&mut creds)?;
+        p12_password = prompt::read_stdin(&mut creds)?;
+    }
+    if let Some(file) = client_p12 {
+        let password = match p12_password {
+            Some(password) => password,
+            None if credentials_stdin => {
+                bail!("--client-p12 needs a p12-password line in the input")
+            }
+            None => prompt::ask_p12_password()?,
+        };
+        let cert = read_p12(file, &password)?;
+        creds.set_client_certificate(&cert);
     }
     let missing = creds.missing(&profile);
+    if missing.iter().any(|k| !k.is_typed()) {
+        bail!(
+            "this profile signs in with a client certificate: import it once with \
+             `ipsec-client-cli secrets import-p12 {} <file>`, or pass --client-p12 <file>",
+            profile.id
+        );
+    }
     if !missing.is_empty() && credentials_stdin {
         let names: Vec<_> = missing.iter().map(|k| describe(*k)).collect();
         bail!("missing credentials in the input: {}", names.join(", "));
@@ -682,14 +787,14 @@ async fn connect(
         }
         println!("Credentials for '{}':", profile.name);
         prompt::ask(&mut creds, &missing, false)?;
-        if remember {
-            match &keyring {
-                Some(store) => {
-                    creds.save(store, &profile)?;
-                    println!("✔ Credentials stored in the keyring.");
-                }
-                None => println!("⚠ No keyring: the credentials were not stored."),
+    }
+    if remember && (!missing.is_empty() || client_p12.is_some()) {
+        match &keyring {
+            Some(store) => {
+                creds.save(store, &profile)?;
+                println!("✔ Credentials stored in the keyring.");
             }
+            None => println!("⚠ No keyring: the credentials were not stored."),
         }
     }
 
