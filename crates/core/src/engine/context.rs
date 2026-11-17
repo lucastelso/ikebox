@@ -1,7 +1,7 @@
 //! Contexto de build da imagem do engine, embutido no binário (ADR-0006).
 //!
 //! Os arquivos de `engine/` entram no binário com `include_bytes!`. O hash do
-//! conteúdo identifica a imagem (`ipsec-client-engine:5.8.2-<hash8>`), então
+//! conteúdo identifica a imagem (`ipsec-client-engine:6.0.1-<hash8>`), então
 //! binário e engine sempre andam juntos.
 
 use sha2::{Digest, Sha256};
@@ -9,7 +9,7 @@ use sha2::{Digest, Sha256};
 /// Repositório (nome) da imagem do engine.
 pub const IMAGE_REPO: &str = "ipsec-client-engine";
 /// Versão do strongSwan fixada no Dockerfile.
-pub const STRONGSWAN_VERSION: &str = "5.8.2";
+pub const STRONGSWAN_VERSION: &str = "6.0.1";
 /// Label com o hash completo do contexto, gravada na imagem.
 pub const HASH_LABEL: &str = "io.github.ipsec-client.engine.hash";
 
@@ -56,7 +56,7 @@ pub fn content_hash() -> String {
     hex::encode(hasher.finalize())
 }
 
-/// Nome completo da imagem: `ipsec-client-engine:5.8.2-<8 primeiros do hash>`.
+/// Nome completo da imagem: `ipsec-client-engine:6.0.1-<8 primeiros do hash>`.
 #[must_use]
 pub fn image_tag() -> String {
     let hash = content_hash();
@@ -126,7 +126,7 @@ mod tests {
         assert_eq!(hash.len(), 64);
         assert_eq!(hash, content_hash());
         let tag = image_tag();
-        assert_eq!(tag, format!("ipsec-client-engine:5.8.2-{}", &hash[..8]));
+        assert_eq!(tag, format!("ipsec-client-engine:6.0.1-{}", &hash[..8]));
     }
 
     #[test]

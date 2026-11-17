@@ -1,6 +1,9 @@
 # ADR-0001: Engine in a Docker container with strongSwan 5.8.2
 
 - **Status:** Superseded by ADR-0013 for end users. Docker is still used in the tests.
+  Since ADR-0020 (2026-11-17): the image is Debian 13 slim with Debian's
+  strongSwan 6.0.1 (Ubuntu 20.04 left standard support), and release builds of
+  the app no longer carry the Docker engine at all.
 - **Date:** 2026-11-15
 
 ## Context

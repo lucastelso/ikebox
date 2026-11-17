@@ -95,10 +95,11 @@ All values are **non-sensitive**: secrets never go through here.
 
 ## Docker engine (tests and development, ADR-0001)
 
-The same `engine/` scripts in an `ubuntu:20.04` image with strongSwan 5.8.2
-(`engine/Dockerfile`), started with `--network host` and only `NET_ADMIN`
-(ADR-0005). It is the engine of the test gateway and the fallback when the
-network component is not installed. Its VICI socket is in
+The same `engine/` scripts in a `debian:13-slim` image with Debian's
+strongSwan 6.0.1 (`engine/Dockerfile`), started with `--network host` and
+only `NET_ADMIN` (ADR-0005). It is the test gateway and, in builds with the
+`docker` feature only (development and tests, never release), the fallback
+when the network component is not installed. Its VICI socket is in
 `$XDG_RUNTIME_DIR/ipsec-client/charon.vici` (0660, the user's group).
 
 ## Rust modules
