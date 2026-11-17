@@ -7,6 +7,11 @@ and the project uses [Semantic Versioning](https://semver.org/).
 
 ## [Unreleased]
 
+## [0.8.0] - 2026-11-17
+
+Your certificate, phase 9 of the program. The network component does not
+change, but it carries the new version number: the app offers to update it.
+
 ### Added
 
 - **Your certificate (client certificates)**

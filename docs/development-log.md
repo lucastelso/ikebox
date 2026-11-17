@@ -1934,3 +1934,8 @@ the client signed: `diagnose` now takes the profile's method
 did not accept your certificate". A wrong `.p12` password stops in the CLI,
 before the engine.
 
+**Release 0.8.0:** the network component is the same as in 0.7.0 (the key
+loading uses plugins the engine already had: pkcs8, pubkey, gmp,
+curve25519), but its bundle carries the version, so the app offers
+"Update", as the notes say.
+
