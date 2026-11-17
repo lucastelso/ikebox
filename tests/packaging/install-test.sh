@@ -8,10 +8,11 @@
 #
 # Scenarios: install, reinstall with another origin, remove, and refuse a
 # tampered bundle, a symlink, an incomplete bundle, a tarball outside
-# /opt/ipsec-client/engine and running without root. In a second container,
-# with a read-only policy directory (as on image-based distributions): the
-# policy goes to /etc with a new enough polkit, and an old polkit is refused
-# before anything is installed.
+# /opt/ipsec-client/engine or with a link inside, and running without root. In a second container
+# set up like an image-based distribution (Fedora Silverblue/Kinoite): a
+# read-only policy directory, where the policy goes to /etc with a new enough
+# polkit and an old polkit is refused before anything is installed; and /opt
+# as a link to /var/opt, which must stay a link.
 
 set -euo pipefail
 
@@ -118,6 +119,14 @@ STUB
     resum "$b"
     expect_refusal "tarball outside the engine" "unexpected paths" "$b"
 
+    b=$(copy_bundle)
+    evil=$(mktemp -d)
+    mkdir -p "$evil/opt/ipsec-client/engine"
+    ln -s /etc "$evil/opt/ipsec-client/engine/etc-link"
+    tar -czf "$b/engine.tar.gz" -C "$evil" opt
+    resum "$b"
+    expect_refusal "link inside the engine tarball" "links or special files" "$b"
+
     if bash /bundle/install-native.sh install --bundle /bundle --origin root >/dev/null 2>&1; then
         fail "invalid origin accepted"
     fi
@@ -131,8 +140,12 @@ STUB
     ok "without root: refused"
 }
 
-# Read-only /usr/share/polkit-1/actions (mounted read-only by the host part).
+# Image-based system: read-only /usr/share/polkit-1/actions (mounted
+# read-only by the host part) and /opt -> var/opt.
 inside_readonly() {
+    rm -rf /opt
+    mkdir -p /var/opt
+    ln -s var/opt /opt
     cat >/usr/local/bin/systemctl <<'STUB'
 #!/bin/sh
 echo "$*" >>/tmp/systemctl.log
@@ -170,6 +183,11 @@ STUB
             fail "polkit $version: the installer failed"
         }
         [[ -f /etc/polkit-1/actions/$policy ]] || fail "polkit $version: policy not in /etc/polkit-1/actions"
+        [[ -L /opt && $(readlink /opt) == var/opt ]] ||
+            fail "polkit $version: the /opt link was replaced by the installation"
+        [[ -x /var/opt/ipsec-client/bin/ipsec-client-helper &&
+            -f /var/opt/ipsec-client/engine/libexec/ipsec/charon ]] ||
+            fail "polkit $version: the component is not in /var/opt/ipsec-client"
         [[ $(stat -c '%a %U' "/etc/polkit-1/actions/$policy") == "644 root" ]] ||
             fail "polkit $version: wrong mode or owner of the policy"
         grep -q "goes to /etc/polkit-1/actions" /tmp/install.log || fail "polkit $version: the log does not say where the policy went"
@@ -178,6 +196,7 @@ STUB
             fail "polkit $version: something was left behind"
     done
     ok "polkit 124 and 127: policy installed in /etc/polkit-1/actions and removed with the component"
+    ok "/opt stays a link to var/opt: the component lands in /var/opt/ipsec-client"
 }
 
 # --- On the host ---------------------------------------------------------------

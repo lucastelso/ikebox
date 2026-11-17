@@ -90,6 +90,11 @@ verify_bundle() {
     if tar -tzf "$work/engine.tar.gz" | grep -vqE '^opt/(ipsec-client/(engine(/.*)?)?)?/?$'; then
         die "engine tarball with unexpected paths"
     fi
+    # Only files and directories (the first column of `tar -tv` is the type):
+    # a link inside it could point the extraction somewhere else.
+    if tar -tvzf "$work/engine.tar.gz" | cut -c1 | grep -vq '[-d]'; then
+        die "engine tarball with links or special files"
+    fi
 }
 
 # Directory for the polkit policy (printed). The usual one if it can be
@@ -135,7 +140,13 @@ do_install() {
     systemctl stop ipsec-client-engine.service 2>/dev/null || true
     rm -rf "$PREFIX/engine"
     install -d -m 0755 "$PREFIX" "$PREFIX/bin" "$PREFIX/libexec"
-    tar -xzf "$work/engine.tar.gz" -C / --no-same-owner --no-same-permissions
+    # --keep-directory-symlink: on image-based systems /opt is a link to
+    # var/opt (Fedora Silverblue/Kinoite). Without it, tar replaces the link
+    # with a real directory: the files installed through the link vanish and
+    # the root of the system is changed (or, read-only, the extraction fails).
+    # The tarball was checked to hold only opt/ipsec-client/engine/...
+    tar -xzf "$work/engine.tar.gz" -C / --no-same-owner --no-same-permissions \
+        --keep-directory-symlink
     install -m 0644 "$work/engine/strongswan.d/zz-ipsec-client.conf" \
         "$PREFIX/engine/etc/strongswan.d/zz-ipsec-client.conf"
     install -m 0755 "$work/engine/entrypoint.sh" "$PREFIX/libexec/entrypoint.sh"
