@@ -1873,3 +1873,7 @@ gateway lookup was `resolvectl query | awk '{...; exit}'` under pipefail,
 and when awk stops reading resolvectl may die of SIGPIPE, which ends the
 script silently. It now ignores the pipe status and tries a few times.
 
+**Release 0.7.0:** the network component changes this time (the engine has
+the EAP plugins), so updating it is required for EAP profiles; the notes say
+so.
+

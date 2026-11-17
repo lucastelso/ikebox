@@ -7,6 +7,12 @@ and the project uses [Semantic Versioning](https://semver.org/).
 
 ## [Unreleased]
 
+## [0.7.0] - 2026-11-17
+
+IKEv2 with a username and password, phase 8 of the program. The network
+component changes (its strongSwan gains the EAP plugins): update it in the
+app, or EAP profiles will not connect.
+
 ### Added
 
 - **IKEv2 with a username and password (EAP-MSCHAPv2)**
