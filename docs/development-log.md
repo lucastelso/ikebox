@@ -1814,3 +1814,7 @@ Compatible in IKEv1, which has no AEAD in phase 1). The screenshots
 (`editor`, `editor-problems` in `scripts/ui-review`) showed the sticky
 footer letting the form show through; it is opaque now.
 
+**Release 0.6.0:** the network component is the same as in 0.5.0 (only a
+shellcheck comment in `entrypoint.sh` changed), but its bundle carries the
+version, so the app offers "Update", as the notes say.
+

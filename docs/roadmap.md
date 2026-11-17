@@ -146,7 +146,7 @@ Rules for every phase:
 | 4 | Optimization and base images | [ADR-0020](adr/0020-static-engine-and-lighter-builds.md): static musl engine, release without the Docker engine, Debian 13 test images, fat LTO; P9–P11 of the audit | ✅ (step 40) |
 | 5 | Interface: 5a review and visual directions; 5b implementation | review and gallery (`scripts/ui-review/`); direction B chosen, [ADR-0021](adr/0021-interface-state-color.md); released in 0.4.0 | ✅ (steps 41–42) |
 | 6 | IPsec modes I: certify what the profile already accepts, design schema 2 | `npm run test:modes` (8 modes, 7 diagnosed failures; fixed profiles without a virtual IP), security level per profile, IKEv2 diagnosis, [ADR-0022](adr/0022-profile-schema-2.md) to [ADR-0025](adr/0025-deferred-xauth-otp-l2tp.md); released in 0.5.0 | ✅ (step 43) |
-| 7 | Profile editor and schema 2 in the code | [below](#phases-7-planned-detailed-at-the-end-of-phase-6) | ⏳ |
+| 7 | Profile editor and schema 2 in the code | schema 2 with rounds and one-time XAuth passwords ([ADR-0022](adr/0022-profile-schema-2.md)); editor with four templates and three proposal presets; released in 0.6.0 | ✅ (step 45) |
 | 8 | IKEv2 + EAP-MSCHAPv2 | [ADR-0023](adr/0023-ikev2-eap-mschapv2.md) | ⏳ |
 | 9 | Client certificates | [ADR-0024](adr/0024-client-certificates.md) | ⏳ |
 | 10 | Importers for legacy clients | [below](#phases-7-planned-detailed-at-the-end-of-phase-6) | ⏳ |

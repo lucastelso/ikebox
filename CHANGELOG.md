@@ -7,6 +7,12 @@ and the project uses [Semantic Versioning](https://semver.org/).
 
 ## [Unreleased]
 
+## [0.6.0] - 2026-11-17
+
+Profiles made in the app, phase 7 of the program: an editor with vendor
+templates, and profile schema 2 underneath. The network component does not
+change, but it carries the new version number: the app offers to update it.
+
 ### Added
 
 - **Profile editor:** **Profiles → New** starts from a template (FortiGate,
