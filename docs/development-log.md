@@ -1425,3 +1425,63 @@ in the audit report (P1) and in SECURITY.md as an open decision.
 
 **Report:** [audits/v0.2.0.md](audits/v0.2.0.md), with the fixed, proposed
 and accepted findings and what was checked.
+
+### Step 38: audit of 0.2.0, part 2 (privilege boundaries)
+
+**Scope:** every place where a less trusted side talks to a more trusted
+one, as listed in the roadmap: user → helper, sandbox, VICI → charon, gateway
+→ client, webview → Rust, installer, files and scripts, CI.
+
+**Method.** Static reading of the protocol, the helper, the units, the engine
+scripts, the installer, the 18 Tauri commands and the CI. The strongSwan
+6.1.0 source (same SHA-256 as the build) was searched for every VICI option
+that takes a path or a command, every process execution and every place where
+text from the peer is logged. `systemd-analyze security` on both units.
+
+**What was found and fixed** (`fix/helper-boundary`, `fix/untrusted-input`,
+`fix/install-in-place`):
+
+- **B1, interface chosen by the client.** The entrypoint deletes the
+  interface it is given before creating it, and the helper accepted any name:
+  a user could have root delete `docker0` or a bridge. The protocol now takes
+  only `ipsc<N>`, and the entrypoint leaves alone a link that is not XFRM.
+- **B2, the log of someone else's session.** `journalctl --unit` returns the
+  last lines of the unit, whatever the session. The lines are now selected by
+  `_SYSTEMD_INVOCATION_ID`, read in the same `systemctl show` as the state
+  and the owner. A startup failure uses `--since` (the invocation ID is gone
+  with the unit).
+- **B3, slow clients.** The read timeout was per read. Now a deadline for the
+  whole line, and four slots per uid.
+- **B4, pid reuse before polkit.** The helper checks the uid of the pid
+  between two reads of its start time.
+- **B5, helper unit:** syscall filter, `ProtectKernelLogs`, `UMask`. Score
+  3.6 → 2.1.
+- **B6, gateway text in the terminal.** `xauth_generic.c` logs the gateway's
+  XAuth message with `%.*s`. `printable()` in the core replaces control
+  characters and bidirectional overrides in every log line.
+- **B7, installer run from a user directory.** With a root-owned bundle
+  (`.rpm`/`.deb`), `pkexec` runs the installer in place.
+- **B8/B9:** `IPSEC_CLIENT_HELPER_SOCKET` only in debug builds; imported
+  files read with a real limit, regular files only.
+
+**Two things the tests taught.**
+
+- The "idle clients" scenario of `test:systemd` had never held a connection:
+  the `helper` function of the script passed only the JSON on and dropped
+  `--hold`. It passed because nothing was being tested.
+- Once it really held connections, it hung: the first version of the per-uid
+  slots built the guard inside `bool::then_some`, which evaluates its argument
+  even when the answer is "no". Dropping that guard locked the mutex that was
+  still held. Fixed with `then(|| ...)` after releasing the lock, and covered
+  by a unit test.
+
+**Not changed, and why.** `charon.initiator_only` would stop charon from
+answering IKE negotiations started by strangers, but it also drops a phase 1
+rekey started by the gateway: it needs a test on the real VPN (P8). The VICI
+`cert.file` option lets the session owner probe whether a file exists (P9);
+it goes with the next engine rebuild. The rest is in the report.
+
+**Verification:** `npm run check`, `test:systemd` (with the new scenarios),
+`test:engine`, `test:native`, `test:packaging`, `test:docker` and `test:cli`.
+
+**Report:** [audits/v0.2.0.md](audits/v0.2.0.md#part-2-privilege-boundaries).

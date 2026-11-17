@@ -141,7 +141,7 @@ Rules for every phase:
 |---|---|---|---|
 | 0 | Preparation | old `v0.1.1` tag removed from the remote (it pointed to the pre-rewrite history); this program recorded here | ⏳ (the remote tag is deleted by the maintainer) |
 | 1 | Audit I: credentials, private data, supply chain | [audit report](audits/v0.2.0.md) (part 1), fixes, canary sweep in `test:systemd` | ✅ (step 37) |
-| 2 | Audit II: privilege boundaries | full report, fixes | ⏳ |
+| 2 | Audit II: privilege boundaries | [audit report](audits/v0.2.0.md#part-2-privilege-boundaries) (part 2), fixes, new scenarios in `test:systemd` | ✅ (step 38) |
 | 3 | Compatibility across distributions | tested matrix, fixes | ⏳ |
 | 4 | Optimization and base images | measurements, ADR, lighter images and binaries | ⏳ |
 | 5 | Interface: 5a review and visual directions; 5b implementation | local gallery to choose from; then the new look | ⏳ |
@@ -188,7 +188,8 @@ Fedora, openSUSE Tumbleweed.
 - Binaries: `ldd` and the highest glibc required by the app, helper and
   engine.
 - systemd: minimum version of every sandbox property; Debian/Ubuntu variants
-  of `test:systemd`.
+  of `test:systemd`. With them, try the helper unit without `CAP_CHOWN` and
+  `CAP_DAC_READ_SEARCH` (audit P12).
 - Script tools: `ip` with `if_id`, `resolvectl` (without `systemd-resolved`
   the VPN DNS does not work: does the diagnostics say so?), bash features.
 - Immutable distributions: the polkit policy goes to

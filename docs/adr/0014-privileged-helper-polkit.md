@@ -5,7 +5,10 @@
   installation by the app is detailed in ADR-0018. ADR-0019 (0.2.0) closes a
   privilege escalation through VICI (an `updown` chosen by the client),
   changes the socket to `0600` of the uid and restricts `stop`/`logs` to the
-  owner.
+  owner. The audit of 0.2.0, part 2 (step 38) tightens the same boundary: only
+  the `ipsc<N>` interface, the log of the running session only, a deadline
+  and a per-user limit for requests, and a check of the client pid before
+  polkit.
 - **Date:** 2026-11-16
 
 ## Context
@@ -28,6 +31,8 @@ password, as with NetworkManager.
     the user's VICI socket.
 - **Authorization** on every request:
   - the client uid via `SO_PEERCRED`;
+  - the pid given to polkit must still belong to that uid (a pid reused by
+    another user's process is not the client);
   - a polkit check of the `io.github.lucastelso.ipsecclient.connect` action
     with `allow_active=yes`: the user of the active local session connects
     without a password, and remote or inactive sessions need an administrator.

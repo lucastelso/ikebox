@@ -40,9 +40,13 @@
   ([roadmap](roadmap.md#post-020-program-decided-on-2026-11-16)): audit I
   (credentials, private data, supply chain) → audit II (privilege boundaries)
   → compatibility → optimization and base images → interface → IPsec modes.
-  **Phase 1 is done** (step 37, [audit report](audits/v0.2.0.md)): username
-  masking and core dump fixes merged, not released. **Next: phase 2.** Each
-  phase ends by updating this line.
+  **Phases 1 and 2 are done** (steps 37 and 38,
+  [audit report](audits/v0.2.0.md)). Their fixes are merged, not released:
+  username masking and core dumps (phase 1); the helper boundary, the log
+  text coming from the gateway and the in-place installer (phase 2).
+  **Next: phase 3 (compatibility).** Each phase ends by updating this line.
+- **Waiting for the maintainer, from phase 2:** test `initiator_only` on the
+  real VPN (audit P8) and decide the other proposals (P9 to P13).
 - **Still open from before:** `chore/release` (CI builds the packages on the
   tag, rpm/deb post-install with `--origin package`, signed `SHA256SUMS`,
   acceptance on a clean VM); running charon without root (ADR-0019).

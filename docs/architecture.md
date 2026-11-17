@@ -46,18 +46,18 @@ the host, started by the privileged helper.
 
 | Piece | What it does |
 |---|---|
-| `crates/proto` | JSON-per-line protocol (`ping`, `start`, `stop`, `status`, `logs`) and the **validation rules shared** with `core` (interface, `if_id`, MTU, log level, profile id, DNS). Unknown fields are refused, so the client cannot pass paths or commands |
-| `crates/helper` | Root, socket activated. Uses `SO_PEERCRED` and asks polkit (`io.github.lucastelso.ipsecclient.connect`, `allow_active=yes`, non-interactive). Creates `/run/ipsec-client/<uid>` (0711 root:root) and starts the engine with `systemd-run --unit=ipsec-client-engine` and a sandbox, passing the profile DNS (validated). Waits until the VICI socket is handed over to the user (0600, owned by the uid) and replies with its path. Refuses when the engine belongs to another user; `stop` and `logs` only for the owner. Serves up to 8 connections in parallel (ADR-0019). Messages in English |
+| `crates/proto` | JSON-per-line protocol (`ping`, `start`, `stop`, `status`, `logs`) and the **validation rules shared** with `core` (interface, `if_id`, MTU, log level, profile id, DNS). The interface must be `ipsc<N>`: the engine removes and recreates it as root. Unknown fields are refused, so the client cannot pass paths or commands |
+| `crates/helper` | Root, socket activated. Uses `SO_PEERCRED` and asks polkit (`io.github.lucastelso.ipsecclient.connect`, `allow_active=yes`, non-interactive). Creates `/run/ipsec-client/<uid>` (0711 root:root) and starts the engine with `systemd-run --unit=ipsec-client-engine` and a sandbox, passing the profile DNS (validated). Waits until the VICI socket is handed over to the user (0600, owned by the uid) and replies with its path. Refuses when the engine belongs to another user; `stop` and `logs` only for the owner, and `logs` returns only the lines of the running session (selected by the unit's invocation ID). Before asking polkit, checks that the client pid still belongs to the client uid. Serves up to 8 connections in parallel, 4 per uid, with a 3 s deadline for the whole request (ADR-0019). Messages in English |
 | Engine sandbox | Capabilities `NET_ADMIN`, `NET_BIND_SERVICE`, `NET_RAW` and `CHOWN`; `NoNewPrivileges`, `ProtectSystem=strict`, `ProtectHome`, `PrivateTmp`, `PrivateDevices`, `PrivateIPC`, `ProtectKernelModules`, `ProtectKernelTunables`, `ProtectKernelLogs`, `ProtectProc=invisible`, `SystemCallFilter=@system-service`, `RestrictAddressFamilies` (unix, inet, inet6, netlink), `MemoryDenyWriteExecute`, `UMask=0077`; only `RuntimeDirectory` and the user's socket directory are writable |
 | `packaging/` | Units `ipsec-client-helper.{socket,service}` (the helper is hardened too), the polkit policy and `install-native.sh`. The installer takes a bundle (`--bundle`), checks `SHA256SUMS` on a root-only copy, installs into `/opt/ipsec-client`, records `VERSION`/`SHA256SUMS`/`ORIGIN` and runs `restorecon` for SELinux. Its lines are tagged `[network component]` |
-| `core::component` (ADR-0018) | Component bundle (`scripts/stage-network-component.sh`, shipped in `<resources>/network` in release builds; the helper goes compressed, because the AppImage's linuxdeploy rewrites ELF executables), state (not installed, ready, outdated or broken), installation via `pkexec` from a private copy in `$XDG_RUNTIME_DIR` and removal through root's installer |
+| `core::component` (ADR-0018) | Component bundle (`scripts/stage-network-component.sh`, shipped in `<resources>/network` in release builds; the helper goes compressed, because the AppImage's linuxdeploy rewrites ELF executables), state (not installed, ready, outdated or broken), installation via `pkexec`, in place when the bundle is root-owned (`.rpm`/`.deb`) or from a private copy in `$XDG_RUNTIME_DIR` (AppImage), and removal through root's installer |
 | `core::engine::Backend` | `Native` (helper) when installed, or `Docker` as a fallback. `IPSEC_CLIENT_BACKEND=native\|docker` forces one. An old helper that refuses the new request becomes `EngineError::HelperOutdated` ("update the network component") |
 
 ### Engine scripts (`engine/`)
 
 | File | Role |
 |---|---|
-| `entrypoint.sh` | Validates the environment; cleans leftovers; recreates `ipsc0`; writes the runtime config; starts charon; hands the VICI socket over (`chmod 0600` then `chown <uid>`); on `SIGTERM`, stops charon and cleans the interface, routes, DNS and XFRM state with the `if_id`. With `IPSEC_CLIENT_UPDOWN` + `IPSEC_CLIENT_DNS_*`, writes `updown.args` (one argument per line, root only) and the `force_updown`/`force_if_id` options of the strongSwan patch |
+| `entrypoint.sh` | Validates the environment; cleans leftovers; recreates `ipsc0` (and gives up if a link with that name exists and is not an XFRM interface); writes the runtime config; starts charon; hands the VICI socket over (`chmod 0600` then `chown <uid>`); on `SIGTERM`, stops charon and cleans the interface, routes, DNS and XFRM state with the `if_id`. With `IPSEC_CLIENT_UPDOWN` + `IPSEC_CLIENT_DNS_*`, writes `updown.args` (one argument per line, root only) and the `force_updown`/`force_if_id` options of the strongSwan patch |
 | `updown.sh` | Called by charon for each TS going up or down; installs/removes routes on `ipsc0` (`proto 241`) and configures split DNS with `resolvectl`. In the embedded engine it runs as `updown --args-file <file>`; it validates the arguments and the values from charon (`PLUTO_*`) again |
 | `strongswan.d/zz-ipsec-client.conf` | `install_routes = no`, `resolve` plugin off, `updown.dns_handler = yes` (passes the received DNS servers to the updown), log to stderr (level 1) |
 
@@ -67,7 +67,7 @@ All values are **non-sensitive**: secrets never go through here.
 
 | Variable | Example | Validation |
 |---|---|---|
-| `IPSEC_CLIENT_IFACE` | `ipsc0` | `^[a-z][a-z0-9_-]{0,14}$` |
+| `IPSEC_CLIENT_IFACE` | `ipsc0` | `^[a-z][a-z0-9_-]{0,14}$` in the entrypoint; the helper only accepts `^ipsc[0-9]{1,4}$` from clients |
 | `IPSEC_CLIENT_IF_ID` | `4096` | integer 1–4294967295 |
 | `IPSEC_CLIENT_MTU` | `1400` | integer 576–9000 |
 | `IPSEC_CLIENT_SOCKET_UID` | `1000` | integer ≥ 0 (socket owner) |

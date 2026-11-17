@@ -17,12 +17,12 @@ vulnerabilidades.
 | PSK, usuário e senha XAuth | Ficam em memória (`secrecy`/`zeroize`) ou no chaveiro do sistema. Vão do app direto ao charon pelo socket VICI; o componente de rede (root) nunca as recebe. Nunca vão para disco, env, argumentos ou logs (ADR-0007; os ADRs estão em inglês, em [docs/adr](../adr/README.md)) |
 | Socket de controle VICI | Socket Unix `0600`, dono = uid da sessão, em `/run/ipsec-client/<uid>` (`0711`, do root). Só o dono da sessão fala com o charon (ADRs 0003, 0014 e 0019) |
 | Comandos executados como root | Quem fala VICI **não escolhe** o `updown` nem o `if_id`: o charon embutido tem um patch que os força para os valores definidos pelo root, e os argumentos do `updown` vão num arquivo, nunca por um shell (ADR-0019) |
-| Componente de rede (root) | API mínima por socket: aceita só números, o id do perfil e o DNS, validados, nunca caminhos, comandos ou segredos. Cada pedido é autorizado pelo polkit (`allow_active`: só a sessão local ativa) e o uid vem do kernel (`SO_PEERCRED`). Parar a VPN e ler o log só para o dono da sessão; conexões atendidas em paralelo, com limite (ADRs 0014 e 0019) |
+| Componente de rede (root) | API mínima por socket: aceita só números, o id do perfil e o DNS, validados, nunca caminhos, comandos ou segredos. Cada pedido é autorizado pelo polkit (`allow_active`: só a sessão local ativa) e o uid vem do kernel (`SO_PEERCRED`). A única interface que ele cria ou remove é a da sessão (`ipsc<N>`, e só se for uma interface XFRM). Parar a VPN e ler o log só para o dono da sessão, e o log traz só as linhas daquela sessão; conexões atendidas em paralelo, com limite por usuário e prazo (ADRs 0014 e 0019) |
 | Host durante a conexão | O charon roda como serviço transitório do systemd com sandbox: sistema somente leitura, `/proc/sys` e `/sys` somente leitura, sem dispositivos reais, sem ver outros processos, filtro de syscalls, só as capabilities de rede e sem novos privilégios (ADRs 0014 e 0019) |
-| Instalação do componente | O instalador confere o `SHA256SUMS` numa cópia só do root e recusa links e caminhos fora do lugar; a remoção só executa o instalador que pertence ao root (ADR-0018) |
+| Instalação do componente | O instalador confere o `SHA256SUMS` numa cópia só do root e recusa links e caminhos fora do lugar. Com o `.rpm`/`.deb`, ele roda a partir do diretório do próprio app, que pertence ao root: nenhum arquivo que o usuário possa alterar é executado como root. A remoção só executa o instalador que pertence ao root (ADR-0018) |
 | Rede do host | Rotas, VIP e DNS só na interface dedicada `ipsc0`, sem flush global de XFRM e sem tocar na interface física (ADR-0004) |
 | Dados da organização do usuário | Nunca entram no repositório; há um guarda automático, que também varre os pacotes de release por dentro (ADR-0010) |
-| Logs compartilhados | As identidades (usuário XAuth, id do grupo, identidade do gateway) são mascaradas onde o charon as imprime, conhecidas ou não pelo app. O "Copiar anonimizado" também troca gateway, IPs e domínios por marcadores antes de o texto sair do app |
+| Logs compartilhados | As identidades (usuário XAuth, id do grupo, identidade do gateway) são mascaradas onde o charon as imprime, conhecidas ou não pelo app. O "Copiar anonimizado" também troca gateway, IPs e domínios por marcadores antes de o texto sair do app. Caracteres de controle no log (o gateway consegue pôr texto ali) são trocados antes de ele ser mostrado ou impresso |
 | Memória de um processo que travou | Sem core dumps: o app, a CLI, o componente de rede e o charon rodam com o limite de core em zero, então um travamento não grava credenciais nem chaves de sessão em disco |
 
 ### Riscos conhecidos e aceitos
@@ -47,9 +47,18 @@ vulnerabilidades.
    legada**, não do app: o app só consegue usar o que o gateway aceita.
    Recomende à equipe de TI da sua organização migrar para IKEv2 com
    certificados ou EAP.
+
+   **Uma PSK de grupo não prova quem é o gateway.** Todos no grupo têm a
+   mesma PSK, e quem a tem consegue se passar pelo gateway para outro membro:
+   receber o usuário e a senha XAuth e enviar rotas e servidores DNS. É assim
+   que o IKEv1 com PSK de grupo e XAuth funciona, em qualquer cliente. Trate
+   a PSK do grupo como segredo e desconfie de conectar a partir de redes em
+   que alguém possa interceptar o tráfego até o gateway.
 4. **AppImage.** O arquivo baixado é a base da confiança. Um programa
    malicioso rodando como o próprio usuário poderia trocar os arquivos durante
-   a instalação do componente (ADR-0018). Além disso, o AppImage leva
+   a instalação do componente (ADR-0018): o root não lê o AppImage, então o
+   instalador roda a partir de uma cópia no diretório de runtime do usuário.
+   O `.rpm` e o `.deb` não têm essa janela. Além disso, o AppImage leva
    bibliotecas próprias (como o WebKitGTK), que não recebem as atualizações de
    segurança da distribuição. Prefira o `.rpm` ou o `.deb`.
 5. **Engine em Docker (só desenvolvimento e testes).** Sem o componente de
