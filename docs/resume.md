@@ -40,20 +40,20 @@
   ([roadmap](roadmap.md#post-020-program-decided-on-2026-11-16)): audit I
   (credentials, private data, supply chain) → audit II (privilege boundaries)
   → compatibility → optimization and base images → interface → IPsec modes.
-  **Phases 1 to 7 are done** (steps 37 to 45, [audit report](audits/v0.2.0.md),
+  **Phases 1 to 8 are done** (steps 37 to 46, [audit report](audits/v0.2.0.md),
   [ADR-0020](adr/0020-static-engine-and-lighter-builds.md) to
   [ADR-0025](adr/0025-deferred-xauth-otp-l2tp.md)). 0.3.0 carries phases 1–4
   (audit fixes, static engine, no Docker in release); 0.4.0 phase 5, the
   interface colored by the connection state; 0.5.0 phase 6, the IPsec modes
   certified by `npm run test:modes`, the security level and IKEv2
-  diagnosis; **0.6.0** phase 7: profile schema 2 (authentication rounds,
-  one-time XAuth passwords, lowest-schema writer) and the profile editor
-  (templates, proposal presets). After the 0.5.0 push, CI failed in three
-  jobs (shellcheck version, AppArmor in the engine E2E): fixed in step 44,
-  to be confirmed by the next CI run.
-  **Now: phase 8 (IKEv2 + EAP-MSCHAPv2,
-  [ADR-0023](adr/0023-ikev2-eap-mschapv2.md)), step 46.** Done: engine
-  plugins, EAP profiles, editor, diagnosis, E2E. Next: release 0.7.0.
+  diagnosis; 0.6.0 phase 7, profile schema 2 and the profile editor;
+  **0.7.0** phase 8: IKEv2 + EAP-MSCHAPv2 with the gateway certificate
+  always checked (RSA/Ed25519 only, no revocation check, both in
+  SECURITY.md). After the 0.5.0 push, CI failed in three jobs (shellcheck
+  version, AppArmor in the engine E2E): fixed in step 44, to be confirmed by
+  the next CI run.
+  **Next: phase 9 (client certificates,
+  [ADR-0024](adr/0024-client-certificates.md)).**
   Each phase ends by updating this line.
 - **Waiting for the maintainer:** P8 (`initiator_only`) is not concluded:
   the count of negotiations started by the gateway only means something
