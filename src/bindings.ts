@@ -325,7 +325,17 @@ export type ImportKind =
 /**  Perfil do IPsec Client (.json). */
 "json" | 
 /**  `swanctl.conf` de uma VPN que já funciona. */
-"swanctl";
+"swanctl" | 
+/**  Perfil do Cisco VPN Client (`.pcf`). */
+"ciscoPcf" | 
+/**  Configuração do vpnc. */
+"vpnc" | 
+/**  Conexão do NetworkManager (`.nmconnection`). */
+"networkManager" | 
+/**  `ipsec.conf` do strongSwan/libreswan. */
+"ipsecConf" | 
+/**  Backup de configuração do FortiClient (XML). */
+"fortiClient";
 
 /**  Opções da confirmação de importação. */
 export type ImportOptions = {

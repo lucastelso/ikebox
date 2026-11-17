@@ -23,7 +23,7 @@ function splitList(value: string): string[] {
     .filter(Boolean);
 }
 
-/** Confirma a importação de um perfil (.json) ou swanctl.conf. */
+/** Confirma a importação de um perfil (.json) ou da configuração de outro cliente VPN. */
 export function ImportDialog({
   preview,
   onClose,
@@ -49,7 +49,9 @@ export function ImportDialog({
     setName(preview.suggestedName);
   }, [preview]);
 
-  const swanctl = preview.kind === 'swanctl';
+  // Anything but a profile is converted (swanctl.conf, other clients):
+  // secrets skipped, DNS may be given here.
+  const converted = preview.kind !== 'json';
   const conflict = preview.exists && profileId === preview.suggestedId;
 
   async function submit(e: FormEvent) {
@@ -59,9 +61,9 @@ export function ImportDialog({
     const result = await commands.confirmImport(preview.token, {
       id: profileId,
       name,
-      dnsServers: swanctl ? splitList(dnsServers) : [],
-      dnsDomains: swanctl ? splitList(dnsDomains) : [],
-      useReceivedDns: swanctl && useReceived,
+      dnsServers: converted ? splitList(dnsServers) : [],
+      dnsDomains: converted ? splitList(dnsDomains) : [],
+      useReceivedDns: converted && useReceived,
       overwrite,
     });
     setSaving(false);
@@ -75,7 +77,7 @@ export function ImportDialog({
         <form onSubmit={submit} className="grid gap-5">
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2">
-              {swanctl ? (
+              {converted ? (
                 <FileText className="size-5 text-primary" aria-hidden />
               ) : (
                 <FileJson className="size-5 text-primary" aria-hidden />
@@ -83,7 +85,7 @@ export function ImportDialog({
               {t.title}
             </DialogTitle>
             <DialogDescription>
-              {preview.fileName} · {swanctl ? 'swanctl.conf' : t.jsonKind}
+              {preview.fileName} · {preview.kind === 'json' ? t.jsonKind : t.kind[preview.kind]}
             </DialogDescription>
           </DialogHeader>
 
@@ -103,7 +105,7 @@ export function ImportDialog({
                   <span className="font-mono">{preview.remoteTs.join(', ')}</span>
                 </p>
                 {preview.security && <SecurityBadge level={preview.security} className="mt-1" />}
-                {swanctl && <p className="text-xs text-muted-foreground">{t.noSecrets}</p>}
+                {converted && <p className="text-xs text-muted-foreground">{t.noSecrets}</p>}
               </div>
 
               <div className="grid gap-4">
@@ -122,7 +124,7 @@ export function ImportDialog({
                   <p className="text-xs text-muted-foreground">{t.idHint}</p>
                 </div>
 
-                {swanctl && (
+                {converted && (
                   <fieldset className="grid gap-3 rounded-lg border p-3">
                     <legend className="px-1 text-sm font-medium">{t.dnsLegend}</legend>
                     <div className="grid gap-2">

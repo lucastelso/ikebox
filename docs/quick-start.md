@@ -40,7 +40,10 @@ install the network component"*. Click **Install now** and type the
 ## 3. Import the profile (once)
 
 Go to **Profiles → Import** and choose the file you received, or **drag the
-file** into the window. Check the preview and click **Import**.
+file** into the window. Check the preview and click **Import**. The app also
+reads the configuration of other VPN clients (Cisco `.pcf`, vpnc,
+NetworkManager, `ipsec.conf`, FortiClient): the passwords in them are not
+read, and you type them when connecting.
 
 ## 4. Connect (every day)
 

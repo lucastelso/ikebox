@@ -43,6 +43,7 @@ ipsec-client-cli connect vpn                              # Ctrl+C disconnects
 | `profiles show <id>` | Shows the profile (JSON on stdout) and its security level with the reasons (stderr) |
 | `profiles import <file> [--force]` | Imports a profile (validates it first; `--force` replaces an existing one) |
 | `profiles export <id> <file>` | Exports the profile, without credentials, to hand it to a colleague |
+| `profiles import-legacy <file> [--format pcf\|vpnc\|networkmanager\|ipsec-conf\|forticlient] [--conn] [--id] [--name] [--dns IP]... [--domain D]... [--use-received-dns] [--output file] [--force]` | Creates the profile from another client's file (Cisco `.pcf`, vpnc, NetworkManager, `ipsec.conf`, FortiClient XML). The format is detected when not given; passwords in the file are skipped without being read ([profiles.md](profiles.md#importing-from-other-vpn-clients)) |
 | `profiles import-swanctl <swanctl.conf> [--id] [--name] [--dns IP]... [--domain D]... [--use-received-dns] [--output file] [--force]` | Creates the profile from an existing `swanctl.conf`. Skips the `secrets` section without reading it and does not copy the XAuth username |
 | `profiles validate <file>` | Validates without importing and lists the problems field by field; a valid profile also gets its security level ([profiles.md](profiles.md#security-level)) |
 | `profiles delete <id>` | Removes the profile (the credentials stay in the keyring) |

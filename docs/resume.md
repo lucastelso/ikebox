@@ -52,8 +52,8 @@
   After the 0.5.0 push, CI failed in three jobs (shellcheck version,
   AppArmor in the engine E2E): fixed in step 44, to be confirmed by the next
   CI run.
-  **Next: phase 10 (importers for legacy clients,
-  [roadmap](roadmap.md#phases-7-planned-detailed-at-the-end-of-phase-6)).**
+  **Now: phase 10 (importers for legacy clients), step 48.** Done: the five
+  importers, app, CLI, E2E. Next: release 0.9.0.
   Each phase ends by updating this line.
 - **Waiting for the maintainer:** P8 (`initiator_only`) is not concluded:
   the count of negotiations started by the gateway only means something

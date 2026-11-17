@@ -8,6 +8,7 @@
 //! - [`Profile::security`]: nível de segurança (só avisa, nunca bloqueia).
 
 mod ca;
+mod legacy;
 mod model;
 mod render;
 mod schema;
@@ -18,6 +19,7 @@ mod templates;
 mod validate;
 
 pub use ca::{CaInfo, MAX_CAS, parse_ca, split_pem};
+pub use legacy::{LegacyFormat, detect_legacy, import_legacy};
 pub use model::{
     AuthSettings, ChildAction, ChildSettings, CredentialKind, DnsSettings, IkeSettings,
     LocalMethod, LocalRound, NetworkSettings, Profile, RemoteAuth, RemoteMethod, SCHEMA_VERSION,
@@ -81,6 +83,10 @@ pub enum ProfileError {
     /// swanctl.conf that could not be imported.
     #[error("swanctl.conf: {0}")]
     Swanctl(String),
+    /// A file of another VPN client that could not be imported (the format
+    /// name first, e.g. "Cisco .pcf").
+    #[error("{0}: {1}")]
+    Legacy(&'static str, String),
     /// No configuration directory.
     #[error("{}", crate::tr!(
         "could not find the configuration directory (XDG_CONFIG_HOME/HOME)",

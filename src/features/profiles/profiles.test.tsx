@@ -104,6 +104,32 @@ describe('ImportDialog', () => {
   });
 });
 
+describe('ImportDialog with another client', () => {
+  it('a Cisco .pcf is named, says secrets were not read, and takes DNS', async () => {
+    const calls = mockCalls();
+    mockIPC((cmd, args) => {
+      calls.push({ cmd, args });
+      if (cmd === 'confirm_import') return null;
+      return null;
+    });
+    render(
+      <ImportDialog
+        preview={{ ...swanctlPreview, kind: 'ciscoPcf', fileName: 'trabalho.pcf' }}
+        onClose={() => {}}
+        onImported={() => {}}
+      />,
+    );
+    expect(screen.getByText(/Cisco VPN Client \(\.pcf\)/)).toBeInTheDocument();
+    expect(screen.getByText(/Secrets in the file are not read/)).toBeInTheDocument();
+    await userEvent.type(screen.getByLabelText('DNS servers'), '192.0.2.53');
+    await userEvent.click(screen.getByRole('button', { name: 'Import' }));
+    await waitFor(() => expect(calls.some((c) => c.cmd === 'confirm_import')).toBe(true));
+    expect(calls.find((c) => c.cmd === 'confirm_import')?.args).toMatchObject({
+      options: { dnsServers: ['192.0.2.53'] },
+    });
+  });
+});
+
 describe('ProfilesScreen', () => {
   const list: ProfileList = {
     profiles: [
