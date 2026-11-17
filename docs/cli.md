@@ -67,7 +67,8 @@ Lookup order in `connect`:
 1. the system keyring (`secrets set`, or `--remember`);
 2. whatever is missing, it asks in the terminal;
 3. with `--credentials-stdin`, it reads `key=value` lines from standard input.
-   The keys are `psk`, `xauth-user` and `xauth-password`. It is for
+   The keys are `psk`, `xauth-user` and `xauth-password`, and for a profile
+   with EAP `eap-identity` and `eap-password`. It is for
    automation; the keyring is not used in this mode.
 
 Never pass secrets as arguments or environment variables: they show up in

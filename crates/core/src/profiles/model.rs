@@ -67,6 +67,9 @@ pub enum LocalMethod {
     Psk,
     /// Usuário e senha XAuth (IKEv1, segunda rodada).
     Xauth,
+    /// Usuário e senha por EAP-MSCHAPv2 (IKEv2; o gateway se autentica por
+    /// certificado, ADR-0023).
+    EapMschapv2,
 }
 
 /// Uma rodada de autenticação do cliente.
@@ -108,6 +111,9 @@ fn is_false(value: &bool) -> bool {
 pub enum RemoteMethod {
     /// A mesma PSK do cliente.
     Psk,
+    /// Certificado, conferido contra a CA do perfil (`ca`) e a identidade
+    /// `id` (ADR-0022): nunca "aceitar qualquer certificado".
+    Certificate,
 }
 
 /// Autenticação do gateway.
@@ -116,9 +122,14 @@ pub enum RemoteMethod {
 pub struct RemoteAuth {
     /// Método.
     pub method: RemoteMethod,
-    /// Identidade que o gateway deve apresentar (ausente = qualquer).
+    /// Identidade que o gateway deve apresentar (ausente = qualquer; com
+    /// certificado, obrigatória).
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub id: Option<String>,
+    /// CAs (PEM) em que o certificado do gateway deve terminar. Dados
+    /// públicos, enviados ao charon como dados (nunca como caminho).
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub ca: Vec<String>,
 }
 
 /// Autenticação: as rodadas do cliente, em ordem, e a do gateway.
@@ -148,8 +159,32 @@ impl AuthSettings {
             remote: RemoteAuth {
                 method: RemoteMethod::Psk,
                 id: remote_id,
+                ca: Vec::new(),
             },
         }
+    }
+
+    /// Usuário e senha por EAP-MSCHAPv2, com o gateway autenticado por
+    /// certificado da identidade `gateway_id`, emitido por uma das `ca`.
+    #[must_use]
+    pub fn eap(local_id: Option<String>, gateway_id: String, ca: Vec<String>) -> Self {
+        Self {
+            local: vec![LocalRound {
+                id: local_id,
+                ..LocalRound::new(LocalMethod::EapMschapv2)
+            }],
+            remote: RemoteAuth {
+                method: RemoteMethod::Certificate,
+                id: Some(gateway_id),
+                ca,
+            },
+        }
+    }
+
+    /// Há uma rodada EAP?
+    #[must_use]
+    pub fn uses_eap(&self) -> bool {
+        self.round(LocalMethod::EapMschapv2).is_some()
     }
 
     fn round(&self, method: LocalMethod) -> Option<&LocalRound> {
@@ -281,6 +316,10 @@ pub enum CredentialKind {
     XauthUser,
     /// Senha XAuth.
     XauthPassword,
+    /// Identidade EAP (o usuário; não é segredo, mas é pessoal).
+    EapIdentity,
+    /// Senha EAP.
+    EapPassword,
 }
 
 impl CredentialKind {
@@ -291,6 +330,8 @@ impl CredentialKind {
             Self::Psk => "psk",
             Self::XauthUser => "xauth-user",
             Self::XauthPassword => "xauth-password",
+            Self::EapIdentity => "eap-identity",
+            Self::EapPassword => "eap-password",
         }
     }
 
@@ -298,7 +339,7 @@ impl CredentialKind {
     /// mascarado na exibição.
     #[must_use]
     pub fn is_secret(self) -> bool {
-        !matches!(self, Self::XauthUser)
+        !matches!(self, Self::XauthUser | Self::EapIdentity)
     }
 }
 
@@ -312,6 +353,9 @@ impl Profile {
                 LocalMethod::Psk => kinds.push(CredentialKind::Psk),
                 LocalMethod::Xauth => {
                     kinds.extend([CredentialKind::XauthUser, CredentialKind::XauthPassword]);
+                }
+                LocalMethod::EapMschapv2 => {
+                    kinds.extend([CredentialKind::EapIdentity, CredentialKind::EapPassword]);
                 }
             }
         }

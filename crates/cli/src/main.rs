@@ -753,7 +753,10 @@ async fn logs(follow: bool, lines: usize, anonymize: bool) -> anyhow::Result<Exi
         if let Some(store) = keyring()
             && let Ok(creds) = Credentials::load(&store, &profile)
         {
-            xauth_user = creds.xauth_user().map(str::to_owned);
+            xauth_user = creds
+                .xauth_user()
+                .or_else(|| creds.eap_identity())
+                .map(str::to_owned);
             identities.extend(xauth_user.clone());
         }
         if anonymize {

@@ -67,6 +67,22 @@ export const commands = {
 	 *  (its id does not change: it is also the keyring key).
 	 */
 	saveProfileDraft: (draft: ProfileDraft, options?: InvokeOptions) => typedError<ProfileSummary, UiError>(__TAURI_INVOKE("save_profile_draft", { draft }, options)),
+	/**
+	 *  The CA certificates in pasted text: one PEM block per certificate (a
+	 *  chain becomes several). Checked later, with the draft.
+	 * 
+	 *  # Errors
+	 *  No certificate in the text, or more than the profile can carry.
+	 */
+	caEntries: (text: string, options?: InvokeOptions) => typedError<string[], UiError>(__TAURI_INVOKE("ca_entries", { text }, options)),
+	/**
+	 *  Reads CA certificates from a file chosen in the native dialog (the path
+	 *  stays in Rust). `None` when cancelled.
+	 * 
+	 *  # Errors
+	 *  Unreadable or too large file, or no certificate in it.
+	 */
+	chooseCaFile: (options?: InvokeOptions) => typedError<string[] | null, UiError>(__TAURI_INVOKE("choose_ca_file", undefined, options)),
 	/**  Estado do componente de rede. */
 	componentStatus: (options?: InvokeOptions) => typedError<ComponentInfo, UiError>(__TAURI_INVOKE("component_status", undefined, options)),
 	/**
@@ -99,6 +115,16 @@ export type BrokenProfile = {
 	file: string,
 	/**  Motivo. */
 	error: string,
+};
+
+/**  What the editor shows of a CA certificate of the draft. */
+export type CaSummary = {
+	/**  Subject. */
+	subject: string,
+	/**  Last day of validity (`YYYY-MM-DD`). */
+	notAfter: string,
+	/**  `RSA` or `Ed25519`. */
+	key: string,
 };
 
 /**  Resultado de uma verificação do ambiente. */
@@ -170,7 +196,11 @@ export type CredentialField =
 /**  Usuário XAuth. */
 "xauthUser" | 
 /**  Senha XAuth. */
-"xauthPassword";
+"xauthPassword" | 
+/**  Usuário EAP. */
+"eapIdentity" | 
+/**  Senha EAP. */
+"eapPassword";
 
 /**
  *  Credenciais digitadas na UI (vazias = usar as guardadas). O `Debug` não
@@ -183,6 +213,10 @@ export type CredentialsInput = {
 	xauthUser?: string | null,
 	/**  Senha XAuth. */
 	xauthPassword?: string | null,
+	/**  Usuário EAP. */
+	eapIdentity?: string | null,
+	/**  Senha EAP. */
+	eapPassword?: string | null,
 };
 
 /**  O que está guardado para um perfil (sem revelar valores). */
@@ -191,7 +225,7 @@ export type CredentialsStatus = {
 	required: CredentialField[],
 	/**  Campos já guardados no chaveiro. */
 	stored: CredentialField[],
-	/**  Usuário XAuth guardado, mascarado (ex.: `us***lo`). */
+	/**  Usuário (XAuth ou EAP) guardado, mascarado (ex.: `us***lo`). */
 	maskedUser: string | null,
 	/**  O chaveiro do sistema está disponível ("lembrar" possível)? */
 	keyringAvailable: boolean,
@@ -221,6 +255,11 @@ export type DraftCheck = {
 	preset: Proposals | null,
 	/**  Schema the file will be written in (1 unless something needs 2). */
 	schema: number,
+	/**
+	 *  One entry per CA of the draft, in order: absent when it cannot be used
+	 *  (the reason is in `issues`).
+	 */
+	cas: (CaSummary | null)[],
 };
 
 /**  A problem in a field of the draft. */
@@ -338,6 +377,13 @@ export type ProfileDraft = {
 	xauth: boolean,
 	/**  The XAuth password is a one-time code. */
 	otp: boolean,
+	/**
+	 *  Username and password by EAP (IKEv2), the gateway proven by its
+	 *  certificate.
+	 */
+	eap: boolean,
+	/**  CA certificates (PEM) of the gateway's certificate (EAP). */
+	ca: string[],
 	/**  Identity of the PSK round (group id); empty = the computer's address. */
 	localId: string,
 	/**  Identity the gateway must present; empty = any. */
@@ -394,6 +440,8 @@ export type ProfileTemplate =
 "ciscoEzvpn" | 
 /**  Any gateway with IKEv2 and a PSK. */
 "ikev2Psk" | 
+/**  IKEv2 with a username and password (EAP), gateway certificate. */
+"ikev2Eap" | 
 /**  Nothing suggested. */
 "blank";
 

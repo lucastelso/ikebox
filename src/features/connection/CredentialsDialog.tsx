@@ -30,6 +30,19 @@ function fieldSpecs(
       ? { label: t.psk, secret: true, key: 'psk', placeholder: t.pskPlaceholder }
       : { label: t.pskOnly, secret: true, key: 'psk', placeholder: t.pskOnlyPlaceholder },
     xauthUser: { label: t.user, secret: false, key: 'xauthUser', placeholder: t.userPlaceholder },
+    // EAP asks for the same things as XAuth: the person's username and password.
+    eapIdentity: {
+      label: t.user,
+      secret: false,
+      key: 'eapIdentity',
+      placeholder: t.userPlaceholder,
+    },
+    eapPassword: {
+      label: t.password,
+      secret: true,
+      key: 'eapPassword',
+      placeholder: t.passwordPlaceholder,
+    },
     xauthPassword: {
       label: otp ? t.otpCode : t.password,
       secret: true,
@@ -39,7 +52,13 @@ function fieldSpecs(
   };
 }
 
-const ORDER: CredentialField[] = ['xauthUser', 'xauthPassword', 'psk'];
+const ORDER: CredentialField[] = [
+  'eapIdentity',
+  'eapPassword',
+  'xauthUser',
+  'xauthPassword',
+  'psk',
+];
 
 function SecretInput({ id, ...props }: React.ComponentProps<typeof Input>) {
   const t = useT().credentials;

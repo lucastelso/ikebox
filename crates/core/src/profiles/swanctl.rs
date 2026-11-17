@@ -342,16 +342,20 @@ pub fn import_swanctl(
                 a if a.starts_with("xauth") => xauth = true,
                 other => {
                     return Err(err(crate::trf!(
-                        "local authentication '{other}' is not supported yet (only psk and xauth)",
-                        "autenticação local '{other}' ainda não suportada (só psk e xauth)"
+                        "local authentication '{other}' cannot be imported (only psk and xauth); \
+                         for EAP, create the profile in the app (Profiles → New)",
+                        "autenticação local '{other}' não pode ser importada (só psk e xauth); \
+                         para EAP, crie o perfil no app (Perfis → Novo)"
                     )));
                 }
             }
         } else if name.starts_with("remote") {
             if auth != "psk" {
                 return Err(err(crate::trf!(
-                    "gateway authentication '{auth}' is not supported yet (only psk)",
-                    "autenticação do gateway '{auth}' ainda não suportada (só psk)"
+                    "gateway authentication '{auth}' cannot be imported (only psk); for a \
+                     gateway certificate, create the profile in the app (Profiles → New)",
+                    "autenticação do gateway '{auth}' não pode ser importada (só psk); para \
+                     certificado no gateway, crie o perfil no app (Perfis → Novo)"
                 )));
             }
             remote_id = round.value("id").map(str::to_owned);

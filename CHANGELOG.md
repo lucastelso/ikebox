@@ -7,6 +7,26 @@ and the project uses [Semantic Versioning](https://semver.org/).
 
 ## [Unreleased]
 
+### Added
+
+- **IKEv2 with a username and password (EAP-MSCHAPv2)**
+  ([ADR-0023](docs/adr/0023-ikev2-eap-mschapv2.md)): the "IKEv2 with
+  username and password" template in the editor, as on Windows, macOS and
+  Android. The gateway always proves itself with its certificate, checked
+  against the CA in the profile (chosen from a file or pasted, with its
+  subject and validity shown) and the gateway's name; there is no way to
+  skip it. The embedded engine gains the eap-identity, eap-mschapv2 and md4
+  plugins. Tested end to end, with the wrong password, another CA and a
+  wrong gateway name each diagnosed in plain words.
+- "Copy anonymized" and `logs --anonymize` also hide certificate names (the
+  organization in them).
+
+### Known limits
+
+- Gateway certificates must be RSA or Ed25519: an ECDSA CA is refused when
+  the profile is read. Revocation (CRL/OCSP) is not checked. Both are in
+  SECURITY.md.
+
 ## [0.6.0] - 2026-11-17
 
 Profiles made in the app, phase 7 of the program: an editor with vendor

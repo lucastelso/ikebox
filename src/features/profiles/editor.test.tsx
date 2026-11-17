@@ -24,6 +24,8 @@ const fortigate: ProfileDraft = {
   espProposals: ['aes256-sha256-modp2048', 'aes128-sha256-modp2048'],
   xauth: true,
   otp: false,
+  eap: false,
+  ca: [],
   localId: '',
   remoteId: '',
   remoteTs: [],
@@ -86,7 +88,18 @@ function mockEditor(list: ProfileList = { profiles: [], broken: [] }) {
       case 'list_profiles':
         return list;
       case 'new_profile_draft':
-        return fortigate;
+        return (args as { template: string }).template === 'ikev2Eap'
+          ? {
+              ...fortigate,
+              template: 'ikev2Eap',
+              ikeVersion: 2,
+              aggressive: false,
+              xauth: false,
+              eap: true,
+            }
+          : fortigate;
+      case 'ca_entries':
+        return ['-----BEGIN CERTIFICATE-----\nMIIB\n-----END CERTIFICATE-----\n'];
       case 'edit_profile_draft':
         return { ...fortigate, originalId: 'escritorio', id: 'escritorio', name: 'Escritório' };
       case 'proposal_presets':
@@ -103,7 +116,12 @@ function mockEditor(list: ProfileList = { profiles: [], broken: [] }) {
           security: d.aggressive ? 'weak' : 'good',
           notes: d.aggressive ? [{ level: 'weak', message: 'Aggressive mode with a PSK…' }] : [],
           preset: null,
-          schema: d.otp ? 2 : 1,
+          schema: d.otp || d.eap ? 2 : 1,
+          cas: d.ca.map(() => ({
+            subject: 'CN=IPsec Client Test CA (RSA),O=Example',
+            notAfter: '2076-11-04',
+            key: 'RSA',
+          })),
         } satisfies DraftCheck;
       }
       case 'save_profile_draft':
@@ -196,12 +214,54 @@ describe('ProfileEditor', () => {
     expect(calls.some((c) => c.cmd === 'save_profile_draft')).toBe(false);
   });
 
-  it('offers the four templates', async () => {
+  it('IKEv2 with EAP asks for the gateway name and its CA, pasted or from a file', async () => {
+    const calls = mockEditor();
+    render(<ProfilesScreen onImport={() => {}} />);
+    await userEvent.click(await screen.findByRole('button', { name: 'New' }));
+    await userEvent.click(screen.getByRole('button', { name: /IKEv2 with username and password/ }));
+
+    expect(await screen.findByLabelText("Name in the gateway's certificate")).toBeInTheDocument();
+    expect(screen.queryByLabelText('Username and password (XAuth)')).not.toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Choose file…' })).toBeInTheDocument();
+
+    await userEvent.type(
+      screen.getByLabelText("Name in the gateway's certificate"),
+      'vpn.example.com',
+    );
+    await userEvent.click(screen.getByLabelText('Gateway CA'));
+    await userEvent.paste('-----BEGIN CERTIFICATE-----\nMIIB\n-----END CERTIFICATE-----');
+    await userEvent.click(screen.getByRole('button', { name: 'Add' }));
+    expect(await screen.findByText(/IPsec Client Test CA/)).toBeInTheDocument();
+    expect(screen.getByText(/valid until 2076-11-04/)).toBeInTheDocument();
+    await waitFor(() =>
+      expect(lastDraft(calls, 'check_profile_draft')).toMatchObject({
+        eap: true,
+        remoteId: 'vpn.example.com',
+        ca: ['-----BEGIN CERTIFICATE-----\nMIIB\n-----END CERTIFICATE-----\n'],
+      }),
+    );
+
+    // Back to a PSK: the certificate fields go away with the CAs.
+    await userEvent.click(screen.getByLabelText('How you sign in'));
+    await userEvent.click(await screen.findByRole('option', { name: 'Pre-shared key (PSK)' }));
+    expect(screen.queryByRole('button', { name: 'Choose file…' })).not.toBeInTheDocument();
+    await waitFor(() =>
+      expect(lastDraft(calls, 'check_profile_draft')).toMatchObject({ eap: false, ca: [] }),
+    );
+  });
+
+  it('offers the five templates', async () => {
     mockEditor();
     render(<ProfilesScreen onImport={() => {}} />);
     await userEvent.click(await screen.findByRole('button', { name: 'New' }));
     const dialog = await screen.findByRole('dialog');
-    for (const name of [/FortiGate/, /Cisco Easy VPN/, /IKEv2 with a PSK/, /Blank/]) {
+    for (const name of [
+      /FortiGate/,
+      /Cisco Easy VPN/,
+      /IKEv2 with a PSK/,
+      /IKEv2 with username and password/,
+      /Blank/,
+    ]) {
       expect(within(dialog).getByRole('button', { name })).toBeInTheDocument();
     }
   });

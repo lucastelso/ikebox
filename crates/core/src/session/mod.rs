@@ -201,6 +201,7 @@ fn send(events: Option<&EventSink>, event: SessionEvent) {
 pub fn redactor_for(profile: &Profile, credentials: &Credentials) -> Redactor {
     let mut identities: Vec<&str> = Vec::new();
     identities.extend(credentials.xauth_user());
+    identities.extend(credentials.eap_identity());
     identities.extend(profile.auth.psk_id());
     identities.extend(profile.auth.remote_id());
     Redactor::new(identities)
@@ -209,9 +210,9 @@ pub fn redactor_for(profile: &Profile, credentials: &Credentials) -> Redactor {
 /// Anonimizador para o log que sai do app (copiar, relatório de bug): além
 /// das identidades, o gateway, os DNS e os domínios do perfil e todo IP.
 #[must_use]
-pub fn anonymizer_for(profile: &Profile, xauth_user: Option<&str>) -> Anonymizer {
+pub fn anonymizer_for(profile: &Profile, user: Option<&str>) -> Anonymizer {
     let mut identities: Vec<&str> = Vec::new();
-    identities.extend(xauth_user);
+    identities.extend(user);
     identities.extend(profile.auth.psk_id());
     identities.extend(profile.auth.remote_id());
     let dns = &profile.network.dns;
@@ -327,7 +328,7 @@ async fn negotiate(
             .map(|l| l.iter().cloned().collect())
             .unwrap_or_default();
         return Err(SessionError::Negotiation {
-            kind: diagnose(&lines),
+            kind: diagnose(&lines, profile.auth.uses_eap()),
             detail: redactor.redact(&detail),
         });
     }

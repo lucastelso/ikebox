@@ -212,6 +212,8 @@ fn apply_input(creds: &mut Credentials, input: CredentialsInput) {
         (K::Psk, input.psk),
         (K::XauthUser, input.xauth_user),
         (K::XauthPassword, input.xauth_password),
+        (K::EapIdentity, input.eap_identity),
+        (K::EapPassword, input.eap_password),
     ] {
         if let Some(value) = value.filter(|v| !v.is_empty()) {
             creds.set(kind, SecretString::from(value));
@@ -260,6 +262,8 @@ mod tests {
                 psk: Some(String::new()),
                 xauth_user: Some("usuario".into()),
                 xauth_password: None,
+                eap_identity: None,
+                eap_password: None,
             },
         );
         let psk = creds.get(CredentialKind::Psk).expect("psk");

@@ -101,9 +101,29 @@ the client and how the gateway authenticates:
 - Schema 1 `"method": "psk"` is `local: [psk]`; `"psk-xauth"` is
   `local: [psk, xauth]`; `local_id` is the `id` of the PSK round and
   `remote_id` the `id` of `remote`.
-- Rounds and gateway methods for EAP and certificates come with phases 8 and
-  9 ([ADR-0023](adr/0023-ikev2-eap-mschapv2.md),
-  [ADR-0024](adr/0024-client-certificates.md)).
+- **IKEv2 with a username and password** (EAP-MSCHAPv2, since 0.7.0,
+  [ADR-0023](adr/0023-ikev2-eap-mschapv2.md)): one round
+  `{ "method": "eap-mschapv2" }` (an optional `id` is the IKE identity the
+  gateway expects), and the gateway proven by its certificate:
+
+  ```jsonc
+  "remote": {
+    "method": "certificate",
+    "id": "vpn.example.com",       // required: a name in the certificate
+    "ca": ["-----BEGIN CERTIFICATE-----\n..."]  // the CA(s), in PEM
+  }
+  ```
+
+  The certificate must chain to one of `ca` and carry `id`; there is no
+  "accept any certificate". The CAs are public data and go to charon as
+  data. They must be CA certificates, valid today, with an **RSA or Ed25519**
+  key: the embedded engine has no ECDSA yet, and an ECDSA CA is refused when
+  the profile is read. Revocation (CRL/OCSP) is not checked
+  ([SECURITY.md](../SECURITY.md)). The username and password are
+  credentials, asked when connecting (`eap-identity`, `eap-password` in the
+  CLI). Example: [`presets/exemplo-ikev2-eap.json`](../presets/exemplo-ikev2-eap.json).
+- Client certificates come with phase 9
+  ([ADR-0024](adr/0024-client-certificates.md)).
 
 Unknown fields are refused, in both schemas. That way, a typo, or an attempt
 to put the `"psk"` in the file, does not go unnoticed.
@@ -121,6 +141,7 @@ each against a test gateway of its own:
 | 1 | main (`aggressive: false`) | `psk-xauth` | group PSK, username, password | split with PFS modp2048; full tunnel with NAT-T |
 | 1 | main | `psk` | PSK | with and without a virtual IP; PFS; NAT-T |
 | 2 | — | `psk` | PSK | gateway identity (`remote_id`); PFS on rekey; full tunnel with NAT-T; without a virtual IP |
+| 2 | — | `eap-mschapv2` (schema 2), gateway by certificate | username, password | gateway RSA certificate checked against the profile CA; wrong password, other CA and wrong gateway name diagnosed |
 
 Notes from those tests:
 
@@ -170,6 +191,7 @@ profile.
 | FortiGate | IKEv1 aggressive, forced NAT-T, group PSK + XAuth, "compatible" proposals, DPD 30 s |
 | Cisco Easy VPN | IKEv1 aggressive, forced NAT-T, group PSK + XAuth, "legacy" proposals, DPD 30 s. The group name goes in the group id as `keyid:<group>` |
 | IKEv2 with a PSK | IKEv2, "modern" proposals, DPD 30 s |
+| IKEv2 with username and password | IKEv2, EAP-MSCHAPv2, "compatible" proposals, DPD 30 s. The gateway's name and its CA stay blank: the CA is chosen from a file or pasted (PEM), and the editor shows its subject and validity |
 | Blank | IKEv2 with strongSwan's `default` proposals |
 
 The proposals are picked by name, each with the badge it gives, or typed in

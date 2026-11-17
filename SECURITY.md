@@ -80,6 +80,16 @@ a vulnerability"). Do not open public issues for vulnerabilities.
    with a PSK is supported and tested too); how to keep IKEv1 working with
    security fixes is an open decision (see the
    [audit of 0.2.0](docs/audits/v0.2.0.md), P1).
+8. **IKEv2 with a username and password (EAP).** The gateway always proves
+   itself with its certificate, checked against the CA in the profile and
+   the gateway name; there is no way to skip it. Two limits, decided for
+   0.7.0: **revocation is not checked** (no CRL or OCSP: that would make root
+   charon fetch URLs from the internet), so a revoked gateway certificate
+   still works until it expires; and the engine verifies **RSA and Ed25519**
+   only, so a gateway with an ECDSA certificate cannot be used yet
+   ([ADR-0023](docs/adr/0023-ikev2-eap-mschapv2.md)). MSCHAPv2 is only safe
+   inside that checked tunnel: the app never sends it to an unverified
+   gateway.
 
 ### Out of scope
 

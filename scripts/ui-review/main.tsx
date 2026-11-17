@@ -123,15 +123,17 @@ const editorDraft = {
   id: scenario === 'editor-problems' ? '' : 'example-corp',
   name: scenario === 'editor-problems' ? '' : 'Example Corp',
   gateway: scenario === 'editor-problems' ? '' : 'vpn.example.com',
-  ikeVersion: 1,
-  aggressive: true,
+  ikeVersion: scenario === 'editor-eap' ? 2 : 1,
+  aggressive: scenario !== 'editor-eap',
   encap: true,
   ikeProposals: editorPresets[0]?.ike ?? [],
   espProposals: editorPresets[0]?.esp ?? [],
-  xauth: true,
+  xauth: scenario !== 'editor-eap',
   otp: false,
-  localId: scenario === 'editor-problems' ? '' : 'keyid:example-group',
-  remoteId: '',
+  eap: scenario === 'editor-eap',
+  ca: scenario === 'editor-eap' ? ['-----BEGIN CERTIFICATE-----\nMIIB\n-----END CERTIFICATE-----\n'] : [],
+  localId: scenario === 'editor-problems' || scenario === 'editor-eap' ? '' : 'keyid:example-group',
+  remoteId: scenario === 'editor-eap' ? 'vpn.example.com' : '',
   remoteTs: scenario === 'editor-problems' ? [] : ['192.0.2.0/24'],
   requestVip: true,
   dnsServers: [],
@@ -210,7 +212,7 @@ mockIPC(
                   { field: 'remoteTs', message: L('enter at least one remote network (e.g. 192.0.2.0/24)', 'informe ao menos uma rede remota (ex.: 192.0.2.0/24)') },
                 ]
               : [],
-          security: 'weak',
+          security: scenario === 'editor-eap' ? 'good' : 'weak',
           notes: [
             {
               level: 'weak',
@@ -221,7 +223,11 @@ mockIPC(
             },
           ],
           preset: 'compatible',
-          schema: 1,
+          schema: scenario === 'editor-eap' ? 2 : 1,
+          cas:
+            scenario === 'editor-eap'
+              ? [{ subject: 'CN=Example Corp Root CA,O=Example Corp', notAfter: '2036-01-31', key: 'RSA' }]
+              : [],
         };
       case 'set_language':
         return null;
@@ -268,13 +274,17 @@ async function play() {
     click('main button[aria-expanded]');
   }
   if (scenario === 'system') navTo(2);
-  if (scenario === 'editor' || scenario === 'editor-problems') {
+  if (scenario === 'editor' || scenario === 'editor-problems' || scenario === 'editor-eap') {
     navTo(1);
     await sleep(150);
     click('main h2 + div button');
     await sleep(150);
     click('[role="dialog"] button');
     await sleep(300);
+    if (scenario === 'editor-eap') {
+      // The CA section is below the fold: bring it to the middle.
+      document.querySelector('main textarea')?.scrollIntoView({ block: 'center' });
+    }
     if (scenario === 'editor-problems') {
       const save = [...document.querySelectorAll('main button')].find(
         (b) => b.textContent === L('Save', 'Salvar'),

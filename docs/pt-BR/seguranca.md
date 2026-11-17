@@ -82,6 +82,16 @@ vulnerabilidades.
    (o IKEv2 com PSK também é aceito e testado); como manter o IKEv1
    funcionando com correções de segurança é uma decisão em aberto (veja a
    [auditoria da 0.2.0](../audits/v0.2.0.md), em inglês, item P1).
+8. **IKEv2 com usuário e senha (EAP).** O gateway sempre prova quem é pelo
+   certificado, conferido contra a CA do perfil e o nome do gateway; não há
+   como pular isso. Dois limites, decididos para a 0.7.0: **a revogação não
+   é verificada** (nem CRL nem OCSP: isso faria o charon, como root, buscar
+   URLs na internet), então um certificado de gateway revogado continua
+   funcionando até vencer; e o motor verifica **só RSA e Ed25519**, então um
+   gateway com certificado ECDSA ainda não pode ser usado
+   ([ADR-0023](../adr/0023-ikev2-eap-mschapv2.md), em inglês). O MSCHAPv2 só
+   é seguro dentro desse túnel conferido: o app nunca o envia a um gateway
+   não verificado.
 
 ### Fora do escopo
 

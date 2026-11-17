@@ -1,4 +1,4 @@
-import { ArrowLeft, Info } from 'lucide-react';
+import { ArrowLeft, FileUp, Info, ShieldCheck, X } from 'lucide-react';
 import { type ReactNode, useEffect, useId, useRef, useState } from 'react';
 import { toast } from 'sonner';
 import {
@@ -123,6 +123,7 @@ export function ProfileEditor({
   const [touched, setTouched] = useState<Set<string>>(new Set());
   const [attempted, setAttempted] = useState(false);
   const [saving, setSaving] = useState(false);
+  const [pastedCa, setPastedCa] = useState('');
   const editing = draft.originalId !== null;
 
   // Rust checks the draft a moment after the last change.
@@ -192,9 +193,34 @@ export function ProfileEditor({
     setDraft((d) => ({
       ...d,
       ikeVersion: version,
-      // Aggressive mode and XAuth only exist in IKEv1.
-      ...(version === 2 ? { aggressive: false, xauth: false, otp: false } : {}),
+      // Aggressive mode and XAuth only exist in IKEv1, EAP only in IKEv2.
+      ...(version === 2 ? { aggressive: false, xauth: false, otp: false } : { eap: false, ca: [] }),
     }));
+  }
+
+  function setEap(eap: boolean) {
+    setDraft((d) => ({ ...d, eap, xauth: false, otp: false, ...(eap ? {} : { ca: [] }) }));
+  }
+
+  /** Adds CA entries that are not there yet (Rust splits and later checks them). */
+  function addCas(entries: string[]) {
+    setDraft((d) => ({ ...d, ca: [...d.ca, ...entries.filter((e) => !d.ca.includes(e))] }));
+    touch('ca');
+  }
+
+  async function chooseCaFile() {
+    const result = await commands.chooseCaFile();
+    if (result.status === 'error') toast.error(result.error.message);
+    else if (result.data) addCas(result.data);
+  }
+
+  async function addPastedCa() {
+    const result = await commands.caEntries(pastedCa);
+    if (result.status === 'error') toast.error(result.error.message);
+    else {
+      addCas(result.data);
+      setPastedCa('');
+    }
   }
 
   async function save() {
@@ -293,13 +319,26 @@ export function ProfileEditor({
             </Field>
           )}
         </div>
+        {draft.ikeVersion === 2 && (
+          <Field id={id('authMethod')} label={t.authMethod} issues={[]}>
+            <Select value={draft.eap ? 'eap' : 'psk'} onValueChange={(v) => setEap(v === 'eap')}>
+              <SelectTrigger id={id('authMethod')}>
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="psk">{t.authPsk}</SelectItem>
+                <SelectItem value="eap">{t.authEap}</SelectItem>
+              </SelectContent>
+            </Select>
+          </Field>
+        )}
         <Field
           id={id('localId')}
-          label={t.localId}
-          hint={t.localIdHint}
+          label={draft.eap ? t.localIdEap : t.localId}
+          hint={draft.eap ? t.localIdEapHint : t.localIdHint}
           issues={issuesFor('localId')}
         >
-          {text('localId', 'keyid:…')}
+          {text('localId', draft.eap ? undefined : 'keyid:…')}
         </Field>
         {draft.ikeVersion === 1 && (
           <>
@@ -323,19 +362,95 @@ export function ProfileEditor({
             )}
           </>
         )}
-        {issuesFor('xauth').map((issue) => (
+        {issuesFor('auth').map((issue) => (
           <p key={issue} className="text-xs text-destructive">
             {issue}
           </p>
         ))}
         <Field
           id={id('remoteId')}
-          label={t.remoteId}
-          hint={t.remoteIdHint}
+          label={draft.eap ? t.remoteIdCert : t.remoteId}
+          hint={draft.eap ? t.remoteIdCertHint : t.remoteIdHint}
           issues={issuesFor('remoteId')}
         >
-          {text('remoteId')}
+          {text('remoteId', draft.eap ? t.gatewayPlaceholder : undefined)}
         </Field>
+        {draft.eap && (
+          <Field id={id('ca')} label={t.ca} hint={t.caHint} issues={issuesFor('ca')}>
+            {draft.ca.length > 0 && (
+              <ul className="grid gap-2">
+                {draft.ca.map((pem, i) => {
+                  const summary = check?.cas[i];
+                  return (
+                    <li
+                      key={pem}
+                      className="flex items-start gap-2 rounded-lg border bg-card p-2.5 text-xs"
+                    >
+                      <ShieldCheck
+                        className={cn(
+                          'mt-0.5 size-4 shrink-0',
+                          summary ? 'text-success' : 'text-destructive',
+                        )}
+                        aria-hidden
+                      />
+                      <span className="min-w-0 flex-1 break-words" data-selectable>
+                        {summary ? (
+                          <>
+                            <span className="block font-medium">{summary.subject}</span>
+                            <span className="block text-muted-foreground">
+                              {summary.key} · {t.caValidUntil(summary.notAfter)}
+                            </span>
+                          </>
+                        ) : (
+                          <span className="text-destructive">{t.caUnusable}</span>
+                        )}
+                      </span>
+                      <Button
+                        size="icon"
+                        variant="ghost"
+                        className="size-7"
+                        aria-label={t.caRemove(i + 1)}
+                        onClick={() =>
+                          set(
+                            'ca',
+                            draft.ca.filter((_, j) => j !== i),
+                          )
+                        }
+                      >
+                        <X />
+                      </Button>
+                    </li>
+                  );
+                })}
+              </ul>
+            )}
+            <Button variant="secondary" className="w-fit" onClick={() => void chooseCaFile()}>
+              <FileUp />
+              {t.caChooseFile}
+            </Button>
+            <p id={id('caPasteHint')} className="mt-1 text-xs text-muted-foreground">
+              {t.caPaste}
+            </p>
+            <textarea
+              id={id('ca')}
+              aria-describedby={id('caPasteHint')}
+              className={TEXTAREA}
+              value={pastedCa}
+              onChange={(e) => setPastedCa(e.target.value)}
+              placeholder="-----BEGIN CERTIFICATE-----"
+              spellCheck={false}
+              rows={3}
+            />
+            <Button
+              variant="secondary"
+              className="w-fit"
+              disabled={!pastedCa.trim()}
+              onClick={() => void addPastedCa()}
+            >
+              {t.caAdd}
+            </Button>
+          </Field>
+        )}
       </Section>
 
       <Section title={t.section.crypto}>

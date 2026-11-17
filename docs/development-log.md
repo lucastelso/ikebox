@@ -1823,3 +1823,53 @@ If it repeats, the next step is to run the bundling with verbose output.
 Packages verified, no private data, the 0.5.0 → 0.6.0 matrix passed on the
 seven distributions.
 
+### Step 46: phase 8, IKEv2 + EAP-MSCHAPv2
+
+Decisions taken at the start: gateway certificates RSA or Ed25519 only (no
+OpenSSL yet; an ECDSA CA is refused when the profile is read), no revocation
+check (recorded in SECURITY.md), the CA chosen from a file or pasted in the
+editor, release 0.7.0 at the end.
+
+**Engine** (`feat/engine-eap-plugins`): `eap-identity`, `eap-mschapv2` and
+`md4`, recorded in BUILDINFO with the rest of the configure options;
+`test:native` passes with it (968 KB, from 960 KB).
+
+**Profile** (`feat/profile-eap`): schema 2 gains the `eap-mschapv2` round
+and a gateway proven by `certificate`, with a required `id` and the CA
+certificates in PEM (`profiles/ca.rs`, parsed with RustCrypto's
+`x509-cert`: one certificate per entry, a CA, valid today, RSA or Ed25519).
+EAP only in IKEv2, alone, and only with a certificate on the gateway side.
+The CAs go to charon in the connection's own `cacerts`, as data: what
+swanctl itself sends, simpler than the `load-cert` of the design and with
+the same guarantee against paths. New credentials `eap-identity` (masked)
+and `eap-password` (secret), by `load-shared` type EAP; the CLI reads them
+from `--credentials-stdin`. The editor gained the "IKEv2 with username and
+password" template, the PSK/EAP choice for IKEv2, and the CA section (file
+or pasted text, split into one entry per certificate in Rust, each shown
+with its subject, key and validity). Test CA fixtures (public, fake) are in
+`crates/core/tests/fixtures/ca`, let in by a narrow `.gitignore` exception
+and a test that none of them holds a private key.
+
+**End to end:** the modes harness makes a test CA, a gateway certificate
+and an unrelated CA with the host's `openssl` at each run; the new
+`ikev2-eap` gateway loads them. Two harness bugs on the way: with `--file`,
+swanctl reads `x509/` and `private/` next to the configuration file (the
+gateway now copies its configuration to `/etc/swanctl`), and the CLI's
+`--credentials-stdin` had a fixed list of keys without the EAP ones. The
+first successful run showed certificate names (`O=..., CN=...`) in the log:
+"Copy anonymized" now replaces every quoted name in a certificate line with
+`"<certificate>"`.
+
+**Diagnosis**, from the real lines: a wrong password is
+`EAP-MS-CHAPv2 failed with error ERROR_AUTHENTICATION_FAILURE`; another CA
+is `no issuer certificate found` / `no trusted RSA public key found`; a
+wrong gateway name is refused by a strongSwan gateway with the same
+`AUTHENTICATION_FAILED` as a wrong PSK, so `diagnose` now takes whether the
+profile uses EAP, and in an EAP profile that line means "check the
+gateway's name".
+
+One `test:systemd` run stopped without a message in the DNS step: the
+gateway lookup was `resolvectl query | awk '{...; exit}'` under pipefail,
+and when awk stops reading resolvectl may die of SIGPIPE, which ends the
+script silently. It now ignores the pipe status and tries a few times.
+

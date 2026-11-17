@@ -7,6 +7,7 @@
 //! - [`ProfileStore`]: disco, importação e exportação;
 //! - [`Profile::security`]: nível de segurança (só avisa, nunca bloqueia).
 
+mod ca;
 mod model;
 mod render;
 mod schema;
@@ -16,6 +17,7 @@ mod swanctl;
 mod templates;
 mod validate;
 
+pub use ca::{CaInfo, MAX_CAS, parse_ca, split_pem};
 pub use model::{
     AuthSettings, ChildAction, ChildSettings, CredentialKind, DnsSettings, IkeSettings,
     LocalMethod, LocalRound, NetworkSettings, Profile, RemoteAuth, RemoteMethod, SCHEMA_VERSION,
@@ -162,6 +164,7 @@ mod tests {
             updown: Some(UPDOWN_PATH),
             if_id: profile.if_id(),
             xauth_user: Some("usuario.exemplo"),
+            eap_identity: None,
         };
         let msg = profile.to_load_conn(&params).expect("load-conn");
         let mut text = String::new();
@@ -178,6 +181,7 @@ mod tests {
             updown: None,
             if_id: profile.if_id(),
             xauth_user: Some("usuario.exemplo"),
+            eap_identity: None,
         };
         let msg = profile.to_load_conn(&params).expect("load-conn");
         let mut text = String::new();
@@ -195,6 +199,7 @@ mod tests {
             updown: Some(UPDOWN_PATH),
             if_id: 7,
             xauth_user: None,
+            eap_identity: None,
         };
         let msg = profile.to_load_conn(&params).expect("load-conn");
         let mut text = String::new();
@@ -228,6 +233,7 @@ mod tests {
             updown: Some(UPDOWN_PATH),
             if_id: 1,
             xauth_user: None,
+            eap_identity: None,
         };
         assert!(matches!(
             profile.to_load_conn(&params),
@@ -235,6 +241,7 @@ mod tests {
         ));
         let params = ConnParams {
             xauth_user: Some("com'aspas"),
+            eap_identity: None,
             ..params
         };
         assert!(profile.to_load_conn(&params).is_err());
@@ -332,6 +339,91 @@ mod tests {
             panic!("should be invalid");
         };
         assert_eq!(issues[0].field, "auth.local_id");
+    }
+
+    const EAP: &str = include_str!("../../../../presets/exemplo-ikev2-eap.json");
+
+    #[test]
+    fn eap_profile_renders_rounds_and_the_gateway_ca_as_data() {
+        let profile = parse_profile(EAP).expect("EAP preset");
+        assert_eq!(schema_of(&profile), 2);
+        assert_eq!(
+            profile.required_credentials(),
+            [CredentialKind::EapIdentity, CredentialKind::EapPassword]
+        );
+        let params = ConnParams {
+            iface: "ipsc0",
+            updown: None,
+            if_id: profile.if_id(),
+            xauth_user: None,
+            eap_identity: Some("usuario.exemplo"),
+        };
+        let msg = profile.to_load_conn(&params).expect("load-conn");
+        let mut text = String::new();
+        render(&msg, 0, &mut text);
+        for expected in [
+            "auth = eap-mschapv2",
+            "eap_id = usuario.exemplo",
+            "auth = pubkey",
+            "id = vpn.example.com",
+            "-----BEGIN CERTIFICATE-----",
+        ] {
+            assert!(text.contains(expected), "{expected}: {text}");
+        }
+        // The CA goes as data: never a file name for root charon (ADR-0019).
+        assert!(!text.contains("file"), "{text}");
+        assert!(matches!(
+            profile.to_load_conn(&ConnParams {
+                eap_identity: None,
+                ..params
+            }),
+            Err(ProfileError::MissingCredential(_))
+        ));
+        // Written back the same way.
+        assert_eq!(
+            parse_profile(&to_json(&profile).expect("json")).expect("parse"),
+            profile
+        );
+    }
+
+    #[test]
+    fn eap_needs_ikev2_and_a_gateway_proven_by_its_certificate() {
+        let ok = parse_profile(EAP).expect("EAP preset");
+        let fields =
+            |p: &Profile| -> Vec<String> { validate(p).into_iter().map(|i| i.field).collect() };
+
+        let mut p = ok.clone();
+        p.ike.version = 1;
+        assert_eq!(fields(&p), ["auth.local[0]"]);
+
+        let mut p = ok.clone();
+        p.auth.remote.method = RemoteMethod::Psk;
+        assert!(
+            fields(&p).contains(&"auth.remote.method".to_owned()),
+            "{:?}",
+            fields(&p)
+        );
+
+        let mut p = ok.clone();
+        p.auth.remote.id = None;
+        p.auth.remote.ca.clear();
+        assert_eq!(fields(&p), ["auth.remote.id", "auth.remote.ca"]);
+
+        let mut p = ok.clone();
+        p.auth.remote.ca = vec![include_str!("../../tests/fixtures/ca/ecdsa-ca.pem").to_owned()];
+        assert_eq!(fields(&p), ["auth.remote.ca[0]"]);
+
+        // A PSK profile with a gateway certificate is not supported yet.
+        let mut p = legacy();
+        p.auth.remote.method = RemoteMethod::Certificate;
+        assert!(
+            fields(&p).contains(&"auth.remote.method".to_owned()),
+            "{:?}",
+            fields(&p)
+        );
+
+        // EAP with a good certificate and modern proposals rates as good.
+        assert_eq!(ok.security().level, SecurityLevel::Good);
     }
 
     #[test]

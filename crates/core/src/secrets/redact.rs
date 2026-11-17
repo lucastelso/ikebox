@@ -373,8 +373,34 @@ impl Anonymizer {
         for (name, marker) in &self.names {
             out = replace_ascii_ci(&out, name, marker);
         }
-        replace_ips(&mask_structural(&out), &self.known_ips)
+        replace_ips(
+            &mask_certificate_names(&mask_structural(&out)),
+            &self.known_ips,
+        )
     }
+}
+
+/// charon prints certificate names in double quotes (`received end entity
+/// cert "O=..., CN=..."`, `using trusted ca certificate "..."`, `sending cert
+/// request for "..."`): organization and people's names. In a line about
+/// certificates, each quoted name becomes `<certificate>`.
+fn mask_certificate_names(text: &str) -> String {
+    let mut out = String::with_capacity(text.len());
+    for line in text.split_inclusive('\n') {
+        // Only lines about certificates, and only paired quotes.
+        if !line.to_ascii_lowercase().contains("cert") || line.matches('"').count() % 2 != 0 {
+            out.push_str(line);
+            continue;
+        }
+        for (i, part) in line.split('"').enumerate() {
+            out.push_str(if i % 2 == 1 {
+                "\"<certificate>\""
+            } else {
+                part
+            });
+        }
+    }
+    out
 }
 
 /// Troca `needle` (ASCII, em minúsculas) por `with`, sem diferenciar
@@ -648,6 +674,21 @@ rota 0.0.0.0/1 via ipsc0; fe80::1 e 2001:db8::7 vistos; versão 6.1.0; hora 15:3
         ] {
             assert_eq!(r.redact(line), line);
         }
+    }
+
+    #[test]
+    fn anonymizes_certificate_names() {
+        let a = anonymizer();
+        let log = "received end entity cert \"O=Example Corp, CN=gw.example.com\"\n\
+                   using trusted ca certificate \"O=Example Corp, CN=Example CA\"\n\
+                   sending cert request for \"O=Example Corp, CN=Example CA\"\n\
+                   EAP-MS-CHAPv2 succeeded: 'Welcome2strongSwan'\n";
+        let out = a.anonymize(log);
+        assert!(!out.contains("Example Corp"), "{out}");
+        assert_eq!(out.matches("\"<certificate>\"").count(), 3, "{out}");
+        assert!(out.ends_with('\n'));
+        // A stray quote in a certificate line is left as it is.
+        assert_eq!(mask_certificate_names("cert \"half"), "cert \"half");
     }
 
     #[test]

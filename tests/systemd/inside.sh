@@ -66,7 +66,16 @@ install -d /etc/systemd/resolved.conf.d
 printf '[Resolve]\nDNS=127.0.0.2\nDomains=~ipsec-client.test\n' >/etc/systemd/resolved.conf.d/test.conf
 systemctl restart systemd-resolved
 printf 'nameserver 127.0.0.53\noptions edns0 trust-ad\n' >/etc/resolv.conf
-resolved_ip=$(resolvectl query --legend=no -4 gw.ipsec-client.test 2>/dev/null | awk '{print $2; exit}')
+# A few tries: resolved was just restarted. `|| true`: awk stops reading at the
+# first line, and under pipefail resolvectl's SIGPIPE would end the script
+# without a word (it happened once).
+resolved_ip=""
+for _ in $(seq 1 20); do
+    resolved_ip=$(resolvectl query --legend=no -4 gw.ipsec-client.test 2>/dev/null |
+        awk '{print $2; exit}' || true)
+    [[ $resolved_ip == "$GW_IP" ]] && break
+    sleep 0.25
+done
 [[ $resolved_ip == "$GW_IP" ]] || fail "systemd-resolved does not resolve the test gateway (got '$resolved_ip')"
 ok "gw.ipsec-client.test resolves to $GW_IP through systemd-resolved"
 
