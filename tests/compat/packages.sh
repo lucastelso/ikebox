@@ -36,13 +36,15 @@ inside() {
     install_pkg() {
         case $kind in
         deb) apt-get install -y --no-install-recommends "$1" ;;
-        dnf) dnf -y install --setopt=install_weak_deps=False "$1" ;;
+        dnf | el) dnf -y install --setopt=install_weak_deps=False "$1" ;;
         zypper) zypper -n --no-gpg-checks install --no-recommends "$1" ;;
         esac
     }
     case $kind in
     deb) apt-get update -qq ;;
     zypper) zypper -q -n ref ;;
+    # RHEL family: WebKitGTK 4.1 and the tray library come from EPEL (+ CRB).
+    el) dnf -y install epel-release && { dnf config-manager --set-enabled crb || true; } ;;
     esac >/dev/null 2>&1
     if [[ -n ${OLD_PKG:-} ]]; then
         install_pkg "/old/$OLD_PKG" >/tmp/old.log 2>&1 || {
@@ -118,6 +120,7 @@ main() {
         case $name in
         ubuntu-* | debian-*) kind=deb ;;
         fedora-*) kind=dnf ;;
+        almalinux-* | rocky-*) kind=el ;;
         opensuse-*) kind=zypper ;;
         *) fail "unknown distribution family: $name" ;;
         esac

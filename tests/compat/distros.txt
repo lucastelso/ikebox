@@ -7,3 +7,6 @@ debian-12              debian@sha256:268fb24c39bca92d326dd83ea3abebe4a3f7751c804
 debian-13              debian@sha256:9c6e381421d0f48d1b8133e573f33c185ee16cbf505eda9c4a8a4791b25ea8a6
 fedora-45              fedora@sha256:a7d72ba2745b100a3351087472e5ee7b2450af7cf331e7673007e3817612839c
 opensuse-tumbleweed    opensuse/tumbleweed@sha256:14d536cfce86a7dbab858a4358f74634cf60a4a944e8e00acc89fbc153077e88
+# The .rpm needs EPEL (and CRB) on AlmaLinux/Rocky/RHEL 10: WebKitGTK 4.1 and
+# the tray library come from there. Version 9 is not supported (see the audit).
+almalinux-10           almalinux@sha256:ccf217024b3d5e268cc208d1edb384a1edee6359370cf6ea1ecbc42254e57375

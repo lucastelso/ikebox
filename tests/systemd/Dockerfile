@@ -15,8 +15,9 @@ FROM ${BASE}
 RUN set -eux; \
     if command -v dnf >/dev/null 2>&1; then \
         dnf -y install --setopt=install_weak_deps=False \
-            systemd systemd-resolved dbus-broker dbus-libs iproute iputils gawk python3 util-linux \
-            procps-ng gzip tar findutils polkit; \
+            systemd dbus-broker dbus-libs iproute iputils gawk python3 util-linux \
+            procps-ng gzip tar findutils polkit shadow-utils; \
+        dnf -y install --setopt=install_weak_deps=False systemd-resolved; \
         dnf clean all; \
     elif command -v apt-get >/dev/null 2>&1; then \
         export DEBIAN_FRONTEND=noninteractive; \
