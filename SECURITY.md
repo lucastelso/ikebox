@@ -51,7 +51,10 @@ a vulnerability"). Do not open public issues for vulnerabilities.
    member: receive the XAuth username and password, and push routes and DNS
    servers. This is how IKEv1 with a group PSK and XAuth works, in any
    client. Treat the group PSK as a secret, and be wary of connecting from
-   networks where someone could intercept the traffic to the gateway.
+   networks where someone could intercept the traffic to the gateway. The
+   app says so on these profiles: their security badge is at most "legacy",
+   and the profile details explain why
+   ([security level](docs/profiles.md#security-level)).
 4. **AppImage.** The downloaded file is the root of trust. A malicious
    program running as the user could swap files during the component
    installation (ADR-0018): root cannot read the AppImage, so the installer
@@ -73,8 +76,9 @@ a vulnerability"). Do not open public issues for vulnerabilities.
    unmasked log for administrators (root and the journal groups).
 7. **IKEv1 is being retired upstream.** strongSwan 6.1.0 disables IKEv1 by
    default (the embedded build enables it) and announced its removal in a
-   future release. The profiles this app supports today are IKEv1; how to
-   keep them working with security fixes is an open decision (see the
+   future release. Most of the VPNs this app was made for are IKEv1 (IKEv2
+   with a PSK is supported and tested too); how to keep IKEv1 working with
+   security fixes is an open decision (see the
    [audit of 0.2.0](docs/audits/v0.2.0.md), P1).
 
 ### Out of scope

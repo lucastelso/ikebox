@@ -26,8 +26,8 @@ use anyhow::{Context, bail};
 use clap::{Parser, Subcommand};
 use ipsec_client_core::diagnostics::{self, CheckStatus};
 use ipsec_client_core::profiles::{
-    DnsSettings, Profile, ProfileError, ProfileStore, SwanctlImportOptions, import_swanctl,
-    parse_profile, read_profile_file,
+    DnsSettings, Profile, ProfileError, ProfileStore, SecurityLevel, SwanctlImportOptions,
+    import_swanctl, parse_profile, read_profile_file,
 };
 use ipsec_client_core::secrets::{
     Credentials, KeyringStore, Redactor, SecretStore, describe, mask,
@@ -407,6 +407,22 @@ async fn doctor() -> anyhow::Result<ExitCode> {
     }
 }
 
+/// Security level of a profile and the reason for each finding. It only
+/// warns: weak profiles still connect.
+fn security_text(p: &Profile) -> String {
+    let report = p.security();
+    let mut out = format!("Security: {}\n", report.level.label());
+    for finding in &report.findings {
+        let mark = if finding.level == SecurityLevel::Weak {
+            "✘"
+        } else {
+            "⚠"
+        };
+        out.push_str(&format!("  {mark} {}\n", finding.message));
+    }
+    out
+}
+
 fn profiles(cmd: ProfilesCmd) -> anyhow::Result<ExitCode> {
     let store = store()?;
     match cmd {
@@ -419,21 +435,28 @@ fn profiles(cmd: ProfilesCmd) -> anyhow::Result<ExitCode> {
                 );
             }
             for p in &list.profiles {
-                println!("{:<24} {:<40} {}", p.id, p.name, p.gateway);
+                println!(
+                    "{:<24} {:<40} {:<32} {}",
+                    p.id,
+                    p.name,
+                    p.gateway,
+                    p.security().level.label()
+                );
             }
             for (path, error) in &list.broken {
                 eprintln!("⚠ ignored {}: {error}", path.display());
             }
         }
         ProfilesCmd::Show { profile } => {
-            print!(
-                "{}",
-                ipsec_client_core::profiles::to_json(&load_profile(&profile)?)?
-            );
+            let p = load_profile(&profile)?;
+            print!("{}", ipsec_client_core::profiles::to_json(&p)?);
+            // stdout stays the profile JSON; the security level goes to stderr.
+            eprint!("{}", security_text(&p));
         }
         ProfilesCmd::Import { file, force } => {
             let p = store.import(&file, force)?;
             println!("✔ Profile '{}' ({}) imported.", p.id, p.name);
+            print!("{}", security_text(&p));
             println!("  Next step: ipsec-client-cli secrets set {}", p.id);
         }
         ProfilesCmd::Export { profile, file } => {
@@ -510,6 +533,7 @@ fn profiles(cmd: ProfilesCmd) -> anyhow::Result<ExitCode> {
                     }
                     store.save(p)?;
                     println!("✔ Profile '{}' saved.", p.id);
+                    print!("{}", security_text(p));
                     println!("  Next step: ipsec-client-cli secrets set {}", p.id);
                 }
             }
@@ -518,7 +542,10 @@ fn profiles(cmd: ProfilesCmd) -> anyhow::Result<ExitCode> {
             let json = read_profile_file(&file)
                 .with_context(|| format!("could not read {}", file.display()))?;
             match parse_profile(&json) {
-                Ok(p) => println!("✔ Profile '{}' is valid.", p.id),
+                Ok(p) => {
+                    println!("✔ Profile '{}' is valid.", p.id);
+                    print!("{}", security_text(&p));
+                }
                 Err(ProfileError::Invalid(issues)) => {
                     for issue in issues {
                         println!("✘ {issue}");

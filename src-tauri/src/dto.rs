@@ -9,7 +9,9 @@ use std::fmt;
 use ipsec_client_core::component::{self, Bundle, ComponentError, Origin};
 use ipsec_client_core::diagnostics::{COMPONENT_CHECK, CheckStatus};
 use ipsec_client_core::engine::EngineError;
-use ipsec_client_core::profiles::{AuthMethod, CredentialKind, Profile, ProfileError};
+use ipsec_client_core::profiles::{
+    AuthMethod, CredentialKind, Profile, ProfileError, SecurityFinding, SecurityLevel,
+};
 use ipsec_client_core::secrets::SecretsError;
 use ipsec_client_core::session::{ConnectionInfo, SessionError, SessionEvent, SessionState};
 use ipsec_client_core::{tr, trf};
@@ -40,6 +42,8 @@ pub struct ProfileSummary {
     pub uses_xauth: bool,
     /// Redes acessadas pelo túnel.
     pub remote_ts: Vec<String>,
+    /// Nível de segurança (selo); o motivo vem nos detalhes.
+    pub security: Security,
 }
 
 impl From<&Profile> for ProfileSummary {
@@ -50,6 +54,48 @@ impl From<&Profile> for ProfileSummary {
             gateway: p.gateway.clone(),
             uses_xauth: p.auth.method == AuthMethod::PskXauth,
             remote_ts: p.child.remote_ts.clone(),
+            security: p.security().level.into(),
+        }
+    }
+}
+
+/// Nível de segurança de um perfil: só avisa, nunca impede de conectar.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, Type)]
+#[serde(rename_all = "camelCase")]
+pub enum Security {
+    /// Nada a apontar.
+    Good,
+    /// Obsoleto, sem ataque barato conhecido.
+    Legacy,
+    /// Há ataque prático conhecido.
+    Weak,
+}
+
+impl From<SecurityLevel> for Security {
+    fn from(level: SecurityLevel) -> Self {
+        match level {
+            SecurityLevel::Good => Self::Good,
+            SecurityLevel::Legacy => Self::Legacy,
+            SecurityLevel::Weak => Self::Weak,
+        }
+    }
+}
+
+/// Um ponto fraco do perfil, explicado no idioma da interface.
+#[derive(Debug, Clone, Serialize, Type)]
+#[serde(rename_all = "camelCase")]
+pub struct SecurityNote {
+    /// Gravidade.
+    pub level: Security,
+    /// Explicação.
+    pub message: String,
+}
+
+impl From<&SecurityFinding> for SecurityNote {
+    fn from(f: &SecurityFinding) -> Self {
+        Self {
+            level: f.level.into(),
+            message: f.message.clone(),
         }
     }
 }
@@ -620,6 +666,8 @@ pub struct ImportPreview {
     pub error: Option<String>,
     /// Já existe perfil com o id sugerido?
     pub exists: bool,
+    /// Nível de segurança (se o arquivo pôde ser lido).
+    pub security: Option<Security>,
 }
 
 /// Opções da confirmação de importação.
@@ -672,6 +720,8 @@ pub struct ProfileDetails {
     pub use_received_dns: bool,
     /// MTU.
     pub mtu: u16,
+    /// Pontos fracos, o pior primeiro (vazio = nada a apontar).
+    pub security_notes: Vec<SecurityNote>,
 }
 
 impl From<&Profile> for ProfileDetails {
@@ -706,6 +756,12 @@ impl From<&Profile> for ProfileDetails {
             dns_domains: p.network.dns.domains.clone(),
             use_received_dns: p.network.dns.use_received,
             mtu: p.network.mtu,
+            security_notes: p
+                .security()
+                .findings
+                .iter()
+                .map(SecurityNote::from)
+                .collect(),
         }
     }
 }

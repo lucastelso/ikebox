@@ -1709,3 +1709,27 @@ pool refuses a client that does not ask for a virtual IP
 (`received FAILED_CP_REQUIRED notify, no CHILD_SA built`). The test gateway
 gives clients without a VIP their own connection, chosen by identity.
 
+**Security level** (`feat/profile-security-level`): `Profile::security()`
+rates a profile from what it says (mode, method, proposal keywords) as
+good, legacy or weak, with one bilingual explanation per class of problem
+and phase (`profiles/security.rs`). It only warns, as the maintainer decided:
+the real VPN behind this project would be "weak" and has no other option.
+The app shows a badge on the profile card, in the import preview and in the
+hero (not when good), and the reasons in the profile details; the CLI in
+`profiles list/show/validate/import` (`show` keeps the JSON alone on stdout).
+The credentials dialog says "Pre-shared key (PSK)" for profiles without
+XAuth, since that PSK is not necessarily a group's.
+
+**IKEv2 diagnosis:** `test:modes` gained seven failure cases that must end
+with the right message and a clean host. The first run printed the real
+lines: wrong PSK, IKE and ESP proposals were already right; the gateway
+requiring a virtual IP (`FAILED_CP_REQUIRED`) became a cause of its own. A
+strongSwan gateway refuses a wrong `remote_id` with the same
+`AUTHENTICATION_FAILED` as a wrong PSK, so the message names both. And IKEv1
+main mode with a wrong PSK said "the gateway did not answer": the gateway
+answers, but with a key derived from its own PSK, so nothing decrypts
+(`decryption failed`, `could not decrypt payloads`) until the client gives
+up. That now reads as a PSK problem. The test for networks the gateway
+refuses had to use a connection without a full tunnel child: strongSwan
+narrows any request into `0.0.0.0/0`.
+

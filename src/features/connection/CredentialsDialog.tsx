@@ -18,12 +18,16 @@ import type { Messages } from '@/i18n/messages';
 
 function fieldSpecs(
   t: Messages['credentials'],
+  groupPsk: boolean,
 ): Record<
   CredentialField,
   { label: string; secret: boolean; key: keyof CredentialsInput; placeholder: string }
 > {
   return {
-    psk: { label: t.psk, secret: true, key: 'psk', placeholder: t.pskPlaceholder },
+    // With XAuth the PSK is the group's; without it, just "the PSK".
+    psk: groupPsk
+      ? { label: t.psk, secret: true, key: 'psk', placeholder: t.pskPlaceholder }
+      : { label: t.pskOnly, secret: true, key: 'psk', placeholder: t.pskOnlyPlaceholder },
     xauthUser: { label: t.user, secret: false, key: 'xauthUser', placeholder: t.userPlaceholder },
     xauthPassword: {
       label: t.password,
@@ -63,6 +67,7 @@ export function CredentialsDialog({
   onOpenChange,
   profileName,
   fields,
+  groupPsk = true,
   keyringAvailable,
   onSubmit,
 }: {
@@ -70,11 +75,13 @@ export function CredentialsDialog({
   onOpenChange: (open: boolean) => void;
   profileName: string;
   fields: CredentialField[];
+  /** The profile uses XAuth, so the PSK is the group's. */
+  groupPsk?: boolean;
   keyringAvailable: boolean;
   onSubmit: (input: CredentialsInput, remember: boolean) => void;
 }) {
   const t = useT().credentials;
-  const FIELDS = fieldSpecs(t);
+  const FIELDS = fieldSpecs(t, groupPsk);
   const baseId = useId();
   const [values, setValues] = useState<CredentialsInput>({});
   const [remember, setRemember] = useState(keyringAvailable);

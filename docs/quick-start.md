@@ -56,6 +56,11 @@ connecting, **green** with **Connected** when the VPN is on (open Remmina, or
 whatever you use, as usual), and **red** when it did not connect: the card
 below says what to do.
 
+Under the state, a badge may say **Legacy security** or **Weak security**.
+It is a warning about how the VPN is set up (old algorithms or modes), not
+an error: the VPN still works. The reasons are in **Profiles**, when you open
+the profile; only whoever runs the gateway can change them.
+
 **To disconnect:** the **Disconnect** button (or the tray icon). Closing the
 window does not disconnect.
 

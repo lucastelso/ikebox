@@ -72,6 +72,8 @@ export const en = {
     title: 'Credentials',
     psk: 'Group PSK',
     pskPlaceholder: 'group shared key',
+    pskOnly: 'Pre-shared key (PSK)',
+    pskOnlyPlaceholder: 'shared key',
     user: 'Username',
     userPlaceholder: 'e.g. your employee id',
     password: 'Password',
@@ -131,6 +133,12 @@ export const en = {
     deleteCredentials: 'Also delete the stored credentials',
     cancel: 'Cancel',
     confirmDelete: 'Delete',
+    security: {
+      label: { good: 'Good security', legacy: 'Legacy security', weak: 'Weak security' },
+      title: 'Security',
+      intro:
+        'Only a warning: the profile still connects. What can change depends on what the gateway accepts.',
+    },
   },
   importDialog: {
     title: 'Import profile',
@@ -310,6 +318,8 @@ export const pt: Messages = {
     title: 'Credenciais',
     psk: 'PSK do grupo',
     pskPlaceholder: 'chave compartilhada do grupo',
+    pskOnly: 'Chave pré-compartilhada (PSK)',
+    pskOnlyPlaceholder: 'chave compartilhada',
     user: 'Usuário',
     userPlaceholder: 'ex.: sua matrícula',
     password: 'Senha',
@@ -368,6 +378,12 @@ export const pt: Messages = {
     deleteCredentials: 'Apagar também as credenciais guardadas',
     cancel: 'Cancelar',
     confirmDelete: 'Excluir',
+    security: {
+      label: { good: 'Segurança boa', legacy: 'Segurança legada', weak: 'Segurança fraca' },
+      title: 'Segurança',
+      intro:
+        'Só um aviso: o perfil continua conectando. O que dá para mudar depende do que o gateway aceita.',
+    },
   },
   importDialog: {
     title: 'Importar perfil',

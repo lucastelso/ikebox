@@ -71,6 +71,54 @@ keyring.
 Unknown fields are refused. That way, a typo, or an attempt to put the
 `"psk"` in the file, does not go unnoticed.
 
+## Supported modes
+
+Every combination below is tested on the production path (CLI → helper →
+embedded strongSwan 6.1.0) by `npm run test:modes` and `npm run test:systemd`,
+each against a test gateway of its own:
+
+| IKE | Mode | `auth.method` | Credentials asked | Tested with |
+|---|---|---|---|---|
+| 1 | aggressive (`aggressive: true`) | `psk-xauth` | group PSK, username, password | split; PFS modp1024/modp768; NAT-T |
+| 1 | aggressive | `psk` | PSK | split; PFS modp1024; NAT-T |
+| 1 | main (`aggressive: false`) | `psk-xauth` | group PSK, username, password | split with PFS modp2048; full tunnel with NAT-T |
+| 1 | main | `psk` | PSK | with and without a virtual IP; PFS; NAT-T |
+| 2 | — | `psk` | PSK | gateway identity (`remote_id`); PFS on rekey; full tunnel with NAT-T; without a virtual IP |
+
+Notes from those tests:
+
+- **`encap: true`** forces ESP in UDP 4500 (NAT-T) even without NAT. With
+  `false`, strongSwan still switches to UDP by itself when it detects NAT.
+- **PFS** is a DH group in `child.esp_proposals` (e.g. `aes256-sha256-modp2048`).
+  In IKEv1 it applies from the first phase 2. In IKEv2 the first CHILD_SA
+  comes out of IKE_AUTH without a DH exchange: the group only shows up on
+  the first rekey.
+- **Without a virtual IP** (`network.request_vip: false`) the tunnel uses the
+  computer's own address, and the gateway must accept it as the client's
+  network. An IKEv2 gateway with an address pool usually *requires* the
+  virtual IP; the app then says "the gateway requires the client to ask for a
+  virtual IP".
+- **`auth.remote_id`** makes charon check the identity the gateway presents.
+  With a PSK it does not stop someone who has the PSK from posing as the
+  gateway (see below); it matters for gateways authenticated by certificate,
+  which come with profile schema 2.
+- XAuth only exists in IKEv1, and aggressive mode only in IKEv1: the
+  validation refuses other combinations.
+
+## Security level
+
+The app rates each profile and shows a badge on the profile card, in the
+import preview and at the top of the connection screen; the details of the
+profile (and `ipsec-client-cli profiles show`/`validate`) explain each
+point. **It only warns:** a weak profile still connects, because what can
+change depends on what the gateway accepts.
+
+| Level | When |
+|---|---|
+| **Weak** | a practical attack is known: aggressive mode with a PSK (the gateway hands a hash of the PSK to whoever knows the group id, to be guessed offline); DH groups under 2048 bits (`modp768`, `modp1024`, `modp1024s160`, `ecp192`); DES or NULL encryption; MD5 |
+| **Legacy** | obsolete, with no cheap attack: IKEv1 itself (RFC 9395); a group PSK with XAuth (everyone with the group PSK can pose as the gateway and receive your username and password); 3DES, Blowfish, CAST (64-bit blocks); SHA-1; `modp1536` |
+| **Good** | none of the above |
+
 ## Building a profile from a `swanctl.conf`
 
 If you already have a working `swanctl.conf`, the CLI creates the profile for

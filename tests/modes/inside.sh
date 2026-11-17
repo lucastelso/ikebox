@@ -100,6 +100,30 @@ expect_esp() {
     (($(count_xfrm_state "$ENGINE_IF_ID") >= 2)) || fail "no SAs with the engine if_id"
 }
 
+# expect_failure ID CREDENTIALS MESSAGE key=value...: the connection must fail
+# with MESSAGE (the diagnosis of the CLI) and leave nothing behind. A wrong
+# diagnosis is counted and printed with charon's lines, and the next cases
+# still run: one run shows every line to learn from.
+wrong_diagnoses=0
+expect_failure() {
+    local id=$1 creds=$2 message=$3 out
+    shift 3
+    python3 -I /test/modes/make_profile.py "/tmp/modes/$id.json" id="$id" "$@"
+    as alice "$CLI" profiles import --force /tmp/modes/"$id".json >/dev/null
+    if out=$(as alice "$CLI" connect "$id" --detach --credentials-stdin <<<"$creds" 2>&1); then
+        as alice "$CLI" disconnect >/dev/null || true
+        fail "$id: should not connect"
+    fi
+    host_is_clean
+    if [[ $out != *"$message"* ]]; then
+        printf '%s\n' "$out" | grep -vF 'keyring is not available' >&2
+        printf '  \033[0;31m✘ %s\033[0m\n' "$id: expected the diagnosis \"$message\"" >&2
+        wrong_diagnoses=$((wrong_diagnoses + 1))
+        return 0
+    fi
+    ok "$id: $(grep -F '✘' <<<"$out" | head -n 1)"
+}
+
 traffic() { ping -c 2 -W 2 -q 192.0.2.1 >/dev/null || fail "no traffic through the tunnel"; }
 
 disconnect() {
@@ -219,5 +243,27 @@ traffic
 ok "IKEv2 from the computer's own address"
 disconnect
 
+# ---------------------------------------------------------------------------
+step "Failures are diagnosed (IKEv2 and IKEv1 main mode)"
+gw=${GW[ikev2-psk]}
+v2=(gateway="$gw" version=2 method=psk remote_ts=192.0.2.0/24
+    ike=aes256gcm16-prfsha256-curve25519 esp=aes256gcm16)
+expect_failure v2-bad-psk "psk=wrong-psk" "rejected phase 1 authentication" "${v2[@]}"
+# A strongSwan gateway refuses an IDr that is not its own with the same
+# AUTHENTICATION_FAILED as a wrong PSK: the diagnosis names both.
+expect_failure v2-bad-gateway-id "$PSK" "auth.remote_id" "${v2[@]}" remote_id=other.ipsec-client.test
+expect_failure v2-bad-ike "$PSK" "none of the phase 1 proposals" \
+    "${v2[@]/#ike=*/ike=aes128-sha1-modp1024}"
+expect_failure v2-bad-esp "$PSK" "none of the phase 2 proposals" "${v2[@]/#esp=*/esp=aes128-sha1}"
+# The connection without a pool has no full tunnel child to narrow into.
+expect_failure v2-bad-ts "$PSK" "rejected the requested networks" \
+    "${v2[@]/#remote_ts=*/remote_ts=203.0.113.0/24}" vip=no local_id=novip.ipsec-client.test
+expect_failure v2-vip-required "$PSK" "ask for a virtual IP" "${v2[@]}" vip=no
+gw=${GW[ikev1-main-psk]}
+expect_failure v1-main-bad-psk "psk=wrong-psk" "rejected phase 1 authentication" \
+    gateway="$gw" version=1 method=psk remote_ts=192.0.2.0/24 \
+    ike=aes256-sha256-modp2048 esp=aes256-sha256
+((wrong_diagnoses == 0)) || fail "$wrong_diagnoses failures without the right diagnosis"
+
 step "Result"
-ok "IPsec modes: IKEv1 main (PSK, PSK + XAuth), IKEv1 aggressive PSK, IKEv2 PSK; NAT-T, PFS, VIP, split and full tunnel"
+ok "IPsec modes: IKEv1 main (PSK, PSK + XAuth), IKEv1 aggressive PSK, IKEv2 PSK; NAT-T, PFS, VIP, split and full tunnel; failures diagnosed"

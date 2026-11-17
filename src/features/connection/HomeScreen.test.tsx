@@ -20,6 +20,7 @@ const profiles: ProfileList = {
       gateway: 'vpn.example.com',
       usesXauth: true,
       remoteTs: ['192.0.2.0/24'],
+      security: 'weak',
     },
   ],
   broken: [],
@@ -98,6 +99,8 @@ describe('HomeScreen', () => {
   it('connects right away when the credentials are stored', async () => {
     const { connectCalls } = mockBackend();
     render(<HomeScreen />);
+    // A weak profile only warns: the badge is there and Connect still works.
+    expect(await screen.findByText('Weak security')).toBeInTheDocument();
     await userEvent.click(await screen.findByRole('button', { name: 'Connect' }));
 
     expect(await screen.findByText('Connected')).toBeInTheDocument();
@@ -127,6 +130,38 @@ describe('HomeScreen', () => {
         remember: true,
       },
     ]);
+  });
+
+  it('a profile without XAuth asks only for "the PSK", not a group PSK', async () => {
+    const pskOnly: ProfileList = {
+      profiles: [
+        {
+          id: 'escritorio',
+          name: 'Escritório',
+          gateway: 'vpn.example.com',
+          usesXauth: false,
+          remoteTs: ['192.0.2.0/24'],
+          security: 'good',
+        },
+      ],
+      broken: [],
+    };
+    const { connectCalls } = mockBackend({
+      list: pskOnly,
+      credentials: { required: ['psk'], stored: [] },
+    });
+    render(<HomeScreen />);
+    await userEvent.click(await screen.findByRole('button', { name: 'Connect' }));
+
+    await screen.findByRole('dialog');
+    expect(screen.queryByText('Good security')).not.toBeInTheDocument();
+    expect(screen.queryByLabelText('Group PSK')).not.toBeInTheDocument();
+    expect(screen.queryByLabelText('Username')).not.toBeInTheDocument();
+    await userEvent.type(screen.getByLabelText('Pre-shared key (PSK)'), 'psk-falsa');
+    await userEvent.click(screen.getByRole('button', { name: 'Connect', hidden: false }));
+
+    await waitFor(() => expect(connectCalls).toHaveLength(1));
+    expect(connectCalls[0]).toMatchObject({ credentials: { psk: 'psk-falsa' } });
   });
 
   it('shows the likely cause and offers to fix the credentials', async () => {

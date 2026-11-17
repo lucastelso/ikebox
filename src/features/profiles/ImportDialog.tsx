@@ -14,6 +14,7 @@ import {
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { useT } from '@/i18n';
+import { SecurityBadge } from './SecurityBadge';
 
 function splitList(value: string): string[] {
   return value
@@ -101,6 +102,7 @@ export function ImportDialog({
                   <span className="text-muted-foreground">{t.networks}</span>
                   <span className="font-mono">{preview.remoteTs.join(', ')}</span>
                 </p>
+                {preview.security && <SecurityBadge level={preview.security} className="mt-1" />}
                 {swanctl && <p className="text-xs text-muted-foreground">{t.noSecrets}</p>}
               </div>
 
