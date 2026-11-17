@@ -24,7 +24,7 @@ bollard = { version = "0.21.1", default-features = false, features = ["pipe"], o
 dbus-secret-service-keyring-store = { version = "1.0.1", features = ["crypto-rust"] }
 futures-util = { version = "0.3.34", optional = true }
 hex = "0.4.3"
-ipsec-client-proto = { version = "0.8.0", path = "../proto" }
+ipsec-client-proto = { version = "0.9.0", path = "../proto" }
 keyring-core = "1.0.1"
 p12-keystore = "0.4.1"
 pkcs1 = "0.8.0"

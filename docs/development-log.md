@@ -1971,3 +1971,7 @@ values), each checking that no secret reaches the profile JSON. End to end,
 `test:modes` imports a strongSwan `ipsec.conf` and a FortiClient XML for the
 IKEv1 main mode + XAuth test gateway and connects through both.
 
+**Release 0.9.0:** the network component is the same as in 0.8.0; its
+bundle carries the version, so the app offers "Update", as the notes say.
+With phase 10 the post-0.2.0 program planned on 2026-11-16 is complete.
+
