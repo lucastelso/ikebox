@@ -145,8 +145,11 @@ Rules for every phase:
 | 3 | Compatibility across distributions | [audit report](audits/v0.2.0.md#part-3-compatibility) (part 3), `npm run test:compat` and `tests/compat/packages.sh` on seven distributions, fixes | ✅ (step 39) |
 | 4 | Optimization and base images | [ADR-0020](adr/0020-static-engine-and-lighter-builds.md): static musl engine, release without the Docker engine, Debian 13 test images, fat LTO; P9–P11 of the audit | ✅ (step 40) |
 | 5 | Interface: 5a review and visual directions; 5b implementation | review and gallery (`scripts/ui-review/`); direction B chosen, [ADR-0021](adr/0021-interface-state-color.md); released in 0.4.0 | ✅ (steps 41–42) |
-| 6 | IPsec modes I: certify what the profile already accepts, design schema 2 | E2E scenarios, security warnings, ADRs | ⏳ |
-| 7+ | Planned: profile editor, IKEv2 + EAP, client certificates, importers | one phase each, detailed at the end of phase 6 | ⏳ |
+| 6 | IPsec modes I: certify what the profile already accepts, design schema 2 | `npm run test:modes` (8 modes, 7 diagnosed failures; fixed profiles without a virtual IP), security level per profile, IKEv2 diagnosis, [ADR-0022](adr/0022-profile-schema-2.md) to [ADR-0025](adr/0025-deferred-xauth-otp-l2tp.md); released in 0.5.0 | ✅ (step 43) |
+| 7 | Profile editor and schema 2 in the code | [below](#phases-7-planned-detailed-at-the-end-of-phase-6) | ⏳ |
+| 8 | IKEv2 + EAP-MSCHAPv2 | [ADR-0023](adr/0023-ikev2-eap-mschapv2.md) | ⏳ |
+| 9 | Client certificates | [ADR-0024](adr/0024-client-certificates.md) | ⏳ |
+| 10 | Importers for legacy clients | [below](#phases-7-planned-detailed-at-the-end-of-phase-6) | ⏳ |
 
 ### Phase 1: audit I (credentials, private data, supply chain)
 
@@ -265,20 +268,49 @@ deferred with a record: XAuth 2FA/OTP, L2TP/IPsec.
 - every new strongSwan plugin gets a surface review, an E2E test and a
   `BUILDINFO` record.
 
-### Phases 7+ (planned)
+### Phases 7+ (planned, detailed at the end of phase 6)
 
-1. Profile editor (`feat/ui-editor-perfis`), with generic vendor templates.
-2. IKEv2 + EAP (username and password).
-3. Client certificates.
-4. Importers for legacy clients (Cisco `.pcf`, vpnc, NetworkManager,
-   `ipsec.conf`, FortiClient XML), never copying a secret into the profile.
+Every phase keeps the security principles of phase 6 and ends with its
+modes in `npm run test:modes` (success and diagnosed failures).
+
+**Phase 7: profile editor and schema 2 in the code.**
+
+- Schema 2 model, validation and migration ([ADR-0022](adr/0022-profile-schema-2.md)):
+  read 1 and 2, write the lowest schema that expresses the profile;
+  snapshot tests that every schema 1 fixture renders the same `load-conn`.
+- Profile editor in the app (`feat/ui-profile-editor`): create and edit,
+  generic vendor templates (FortiGate, Cisco, strongSwan, pfSense), the
+  security badge updated while editing, "never remember the password" per
+  profile ([ADR-0025](adr/0025-deferred-xauth-otp-l2tp.md)).
+- Decision at the start: which templates, and whether the editor shows the
+  raw proposals or picks them from a list.
+
+**Phase 8: IKEv2 + EAP-MSCHAPv2** ([ADR-0023](adr/0023-ikev2-eap-mschapv2.md)).
+
+- Plugins `eap-identity`, `eap-mschapv2`, `md4` with their surface review and
+  `BUILDINFO` record; CA certificates loaded as data; gateway always
+  authenticated by certificate.
+- Test gateway with a CA made at test time; cases: good certificate, other
+  CA, wrong identity, wrong password; their diagnosis.
+- Credentials dialog with EAP identity and password; masking.
+
+**Phase 9: client certificates** ([ADR-0024](adr/0024-client-certificates.md)).
+
+- PKCS#12 import (pure Rust), key and certificate in the keyring, `load-key`
+  and `load-cert` as data; expiry warning.
+- RSA and Ed25519 first. Decision at the start, if a real gateway needs it:
+  OpenSSL in the engine for ECDSA (its own ADR).
+
+**Phase 10: importers for legacy clients.** Cisco `.pcf`, vpnc,
+NetworkManager, `ipsec.conf`, FortiClient XML, mapped to schema 2, never
+copying a secret into the profile (an encrypted `.pcf` group password is
+not decrypted: the person types the PSK).
 
 ## Ideas
 
 - Several simultaneous connections. The per-profile `if_id` already allows it.
 - Restrict ports 500/4500 to the gateway IP during the session.
 - More languages, now that the i18n infrastructure exists.
-- Certificate and EAP authentication (profile schema 2).
 - Long-duration test (rekey after about 11 h).
 - Option to close the window to the tray (today, closing quits the app while
   the VPN stays connected).

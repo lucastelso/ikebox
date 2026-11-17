@@ -20,6 +20,11 @@ and the project uses [Semantic Versioning](https://semver.org/).
   the gateway requiring a virtual IP is a cause of its own, and the
   authentication message names the gateway identity (`auth.remote_id`) too.
 
+- Design of the next modes, no code yet: profile schema 2 with
+  authentication rounds and gateway certificates (ADR-0022), IKEv2 +
+  EAP-MSCHAPv2 (ADR-0023), client certificates (ADR-0024); XAuth with
+  one-time codes and L2TP/IPsec deferred with the reasons (ADR-0025).
+
 ### Changed
 
 - The credentials dialog of a profile without XAuth asks for the

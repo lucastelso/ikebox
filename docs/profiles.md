@@ -101,7 +101,8 @@ Notes from those tests:
 - **`auth.remote_id`** makes charon check the identity the gateway presents.
   With a PSK it does not stop someone who has the PSK from posing as the
   gateway (see below); it matters for gateways authenticated by certificate,
-  which come with profile schema 2.
+  which come with profile schema 2
+  ([ADR-0022](adr/0022-profile-schema-2.md)).
 - XAuth only exists in IKEv1, and aggressive mode only in IKEv1: the
   validation refuses other combinations.
 
