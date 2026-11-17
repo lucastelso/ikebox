@@ -49,6 +49,8 @@
   profiles without a virtual IP installed no route), a security level per
   profile (badge + reasons, only warns), IKEv2 failure diagnosis, and the
   design of schema 2, EAP and client certificates.
+  After the push, CI failed in three jobs (shellcheck version, AppArmor in
+  the engine E2E): fixed in step 44, to be confirmed by the next CI run.
   **Next: phase 7 (profile editor and schema 2 in the code,
   [roadmap](roadmap.md#phases-7-planned-detailed-at-the-end-of-phase-6)).**
   Each phase ends by updating this line.
