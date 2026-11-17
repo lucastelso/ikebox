@@ -1816,5 +1816,10 @@ footer letting the form show through; it is opaque now.
 
 **Release 0.6.0:** the network component is the same as in 0.5.0 (only a
 shellcheck comment in `entrypoint.sh` changed), but its bundle carries the
-version, so the app offers "Update", as the notes say.
+version, so the app offers "Update", as the notes say. The first build stopped at "failed to run linuxdeploy", with no
+detail; the same command passed on the second run, with the AppImage tools
+already in their cache volume and 31 GB free, so it was taken as transient.
+If it repeats, the next step is to run the bundling with verbose output.
+Packages verified, no private data, the 0.5.0 → 0.6.0 matrix passed on the
+seven distributions.
 
