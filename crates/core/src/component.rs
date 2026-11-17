@@ -7,11 +7,14 @@
 //!   problema;
 //! - **instala** e **remove** com a senha de administrador, via `pkexec`.
 //!
-//! Para instalar, o pacote é copiado para um diretório privado, porque o root
-//! não lê a montagem FUSE do AppImage. A cópia é conferida e o instalador é
-//! chamado; como root, ele confere de novo numa cópia só dele antes de
-//! instalar. A remoção usa a cópia do instalador que ficou em
-//! `/opt/ipsec-client` (do root), nunca um arquivo do usuário.
+//! Para instalar, o instalador roda **no lugar** quando o pacote já está num
+//! diretório que só o root altera (o app instalado por `.rpm`/`.deb`): nada
+//! do que o root executa passa por um arquivo do usuário. No AppImage, o
+//! root não lê a montagem FUSE, então o pacote é copiado para um diretório
+//! privado e conferido. Nos dois casos o instalador, como root, confere de
+//! novo numa cópia só dele antes de instalar. A remoção usa a cópia do
+//! instalador que ficou em `/opt/ipsec-client` (do root), nunca um arquivo do
+//! usuário.
 
 use std::ffi::OsStr;
 use std::fs;
@@ -589,6 +592,55 @@ fn staging_parent() -> PathBuf {
         .unwrap_or_else(std::env::temp_dir)
 }
 
+/// Does `path` belong to root, with nobody else able to change it?
+fn root_only(meta: &fs::Metadata) -> bool {
+    meta.uid() == 0 && meta.mode() & 0o022 == 0
+}
+
+/// Is every directory from `/` down to `dir` (given in canonical form) a real
+/// directory that only root can change? If one of them is writable by
+/// someone else, that someone can swap what is below it.
+fn protected_dir(dir: &Path) -> bool {
+    dir.is_absolute()
+        && dir.ancestors().all(|ancestor| {
+            fs::symlink_metadata(ancestor).is_ok_and(|m| m.file_type().is_dir() && root_only(&m))
+        })
+}
+
+/// The bundle directory, if the installer can run from it **in place**: the
+/// whole path and every bundle file belong to root and nobody else can write
+/// to them (the app installed by a `.rpm`/`.deb`).
+///
+/// Then the copy to the user's runtime directory is skipped. That copy is a
+/// window: between the password prompt and the moment root runs the
+/// installer, a program running as the user could swap the copied installer
+/// and run as root.
+fn in_place_dir(bundle: &Bundle) -> Option<PathBuf> {
+    let dir = fs::canonicalize(bundle.dir()).ok()?;
+    if !protected_dir(&dir) {
+        return None;
+    }
+    let files = bundle
+        .entries
+        .iter()
+        .map(|(_, rel)| rel.as_str())
+        .chain([SUMS]);
+    for rel in files {
+        let path = dir.join(rel);
+        let parent = fs::canonicalize(path.parent()?).ok()?;
+        let meta = fs::symlink_metadata(&path).ok()?;
+        if !parent.starts_with(&dir)
+            || !protected_dir(&parent)
+            || !meta.file_type().is_file()
+            || !root_only(&meta)
+        {
+            return None;
+        }
+    }
+    let installer = fs::symlink_metadata(dir.join(INSTALLER)).ok()?;
+    (installer.mode() & 0o100 != 0).then_some(dir)
+}
+
 /// Instala ou atualiza o componente a partir do pacote. Pede a senha de
 /// administrador (`pkexec`). Bloqueante. Devolve a saída do instalador.
 ///
@@ -599,8 +651,16 @@ pub fn install(bundle: &Bundle, origin: Origin) -> Result<Vec<String>, Component
     if installed_at(Path::new(PREFIX)).is_some_and(|i| i.origin == Origin::Package) {
         return Err(ComponentError::ManagedByPackage);
     }
-    let staged = bundle.stage_in(&staging_parent())?;
-    let dir = staged.path();
+    // Root-owned bundle: run it where it is. Otherwise (AppImage), a private
+    // copy, deleted when `staged` goes out of scope.
+    let staged;
+    let dir = if let Some(dir) = in_place_dir(bundle) {
+        bundle.verify()?;
+        dir
+    } else {
+        staged = bundle.stage_in(&staging_parent())?;
+        staged.path().to_owned()
+    };
     let cmd = privileged(
         pkexec,
         &dir.join(INSTALLER),
@@ -796,6 +856,31 @@ mod tests {
         assert_eq!(staged.bundle().digest(), bundle.digest());
         drop(staged);
         assert!(!path.exists(), "a cópia é apagada");
+    }
+
+    #[test]
+    fn only_root_owned_paths_are_protected() {
+        // System directories: root's, and nobody else writes to them.
+        assert!(protected_dir(Path::new("/")));
+        let usr = fs::canonicalize("/usr").expect("/usr");
+        assert!(protected_dir(&usr));
+        // Anything the user owns, or under a world-writable directory.
+        let dir = tempfile::tempdir().expect("tempdir");
+        let canonical = fs::canonicalize(dir.path()).expect("canonical");
+        assert!(!protected_dir(&canonical));
+        assert!(!protected_dir(&std::env::temp_dir()));
+        assert!(!protected_dir(Path::new("relative/path")));
+        assert!(!protected_dir(Path::new("/does/not/exist")));
+    }
+
+    #[test]
+    fn a_user_owned_bundle_never_runs_in_place() {
+        // The tests do not run as root: the bundle belongs to the user, as in
+        // the AppImage. It must go through the private copy.
+        let src = tempfile::tempdir().expect("tempdir");
+        make_bundle(src.path());
+        let bundle = Bundle::open(src.path()).expect("abre");
+        assert_eq!(in_place_dir(&bundle), None);
     }
 
     #[test]
