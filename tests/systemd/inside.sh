@@ -12,7 +12,8 @@ readonly CLI=/test/ipsec-client-cli
 readonly IFACE=ipsc0
 readonly RT_PROTO=241
 readonly ALICE_SOCKET=/run/ipsec-client/1000/charon.vici
-readonly SWANCTL=/opt/ipsec-client/engine/sbin/swanctl
+# swanctl comes from the engine's test tools tarball: it is not shipped.
+readonly SWANCTL=/test/swanctl
 readonly CREDS='psk=ipsec-client-test-psk
 xauth-user=usuario.teste
 xauth-password=senha-de-teste'
@@ -103,8 +104,24 @@ useradd -m -u 1000 alice
 useradd -m -u 1001 bob
 ok "$(tail -n 1 /tmp/install.log)"
 
+step "The gateway is named, not numbered: charon resolves it through systemd-resolved"
+# As on a user's computer: /etc/resolv.conf points at the resolved stub, and
+# resolved forwards the test domain to a DNS server that knows the gateway.
+# charon resolves the name inside the engine sandbox, with its own C library
+# (musl, statically linked: no NSS modules).
+# A unit of its own, not a background job: later scenarios `wait` for theirs.
+systemd-run --quiet --unit=test-dns python3 -I /test/dns_responder.py 127.0.0.2 \
+    gw.ipsec-client.test "$GW_IP"
+install -d /etc/systemd/resolved.conf.d
+printf '[Resolve]\nDNS=127.0.0.2\nDomains=~ipsec-client.test\n' >/etc/systemd/resolved.conf.d/test.conf
+systemctl restart systemd-resolved
+printf 'nameserver 127.0.0.53\noptions edns0 trust-ad\n' >/etc/resolv.conf
+resolved_ip=$(resolvectl query --legend=no -4 gw.ipsec-client.test 2>/dev/null | awk '{print $2; exit}')
+[[ $resolved_ip == "$GW_IP" ]] || fail "systemd-resolved does not resolve the test gateway (got '$resolved_ip')"
+ok "gw.ipsec-client.test resolves to $GW_IP through systemd-resolved"
+
 step "alice connects with ipsec-client-cli (the profile DNS goes through the helper)"
-sed "s/\"gw.ipsec-client.test\"/\"$GW_IP\"/" /test/perfil-gateway-teste.json >/tmp/profile.json
+cp /test/perfil-gateway-teste.json /tmp/profile.json
 chmod 0644 /tmp/profile.json
 as alice "$CLI" profiles import /tmp/profile.json >/dev/null
 out=$(as alice "$CLI" connect gateway-teste --detach --credentials-stdin <<<"$CREDS" 2>&1) || {
@@ -112,7 +129,7 @@ out=$(as alice "$CLI" connect gateway-teste --detach --credentials-stdin <<<"$CR
     fail "connect failed"
 }
 [[ $out == *"Connected: gateway-teste"* ]] || fail "unexpected connect output: $out"
-ok "connected"
+ok "connected, with the gateway given by name"
 
 [[ $(stat -c '%a %U' "$ALICE_SOCKET") == "600 alice" ]] || fail "VICI socket without 0600/alice"
 [[ $(stat -c '%a %U %G' "$(dirname "$ALICE_SOCKET")") == "711 root root" ]] ||
@@ -297,6 +314,43 @@ forced=$(count_xfrm_state 0x1092)
 evil=$(count_xfrm_state 0x3e7)
 ((forced >= 2 && evil == 0)) || fail "client if_id used ($forced with 0x1092, $evil with 0x3e7)"
 ok "the forced updown ran (route and helper DNS) and the SAs use the helper's if_id"
+
+# Audit of 0.2.0, P9: VICI can name a certificate by path ("file"), which root
+# charon would open, telling the user whether the file exists. Refused.
+cat >/tmp/probe.conf <<'CONF'
+connections {
+    probe {
+        remote_addrs = 192.0.2.250
+        local {
+            auth = pubkey
+            cert-probe {
+                file = /etc/hostname
+            }
+        }
+        remote {
+            auth = pubkey
+        }
+    }
+}
+authorities {
+    probe {
+        file = /etc/hostname
+    }
+}
+CONF
+chmod 0644 /tmp/probe.conf
+out=$(runuser -u alice -- "$SWANCTL" --load-conns --uri "unix://$ALICE_SOCKET" --file /tmp/probe.conf 2>&1 || true)
+[[ $out == *"certificate files and tokens are not accepted"* ]] ||
+    fail "charon accepted a certificate by path in load-conn: $out"
+out=$(runuser -u alice -- "$SWANCTL" --load-authorities --uri "unix://$ALICE_SOCKET" --file /tmp/probe.conf 2>&1 || true)
+[[ $out == *"CA certificate files and tokens are not accepted"* ]] ||
+    fail "charon accepted a CA certificate by path in load-authority: $out"
+journal=$(journalctl -u ipsec-client-engine --no-pager)
+if ! grep -q "refusing certificate file or token" <<<"$journal" ||
+    ! grep -q "refusing CA certificate file or token" <<<"$journal"; then
+    fail "charon did not log the refusals"
+fi
+ok "certificates by path are refused in load-conn and load-authority (P9)"
 reply=$(helper alice '{"op":"stop"}')
 [[ $reply == *'"was_running":true'* ]] || fail "stop failed: $reply"
 host_is_clean
@@ -308,8 +362,10 @@ grep -q '^✔ systemd-resolved: ' <<<"$out" || {
     fail "doctor does not see systemd-resolved running"
 }
 # Masked, so that resolvectl cannot start it again through D-Bus. Its files
-# in /run/systemd/resolve stay: the diagnostics must not trust them.
+# in /run/systemd/resolve stay: the diagnostics must not trust them. Without
+# resolved, the gateway name comes from /etc/hosts.
 systemctl mask --now systemd-resolved.service >/dev/null 2>&1
+printf '%s gw.ipsec-client.test\n' "$GW_IP" >>/etc/hosts
 out=$(as alice "$CLI" doctor 2>&1 || true)
 grep -q '^⚠ systemd-resolved: ' <<<"$out" || {
     printf '%s\n' "$out"

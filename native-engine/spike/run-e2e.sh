@@ -9,11 +9,13 @@ set -euo pipefail
 version=${1:?versão (ex.: 6.1.0)}
 repo_root=$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)
 tarball="$repo_root/native-engine/dist/ipsec-client-engine-$version-x86_64.tar.gz"
-[[ -f $tarball ]] || { echo "rode antes: native-engine/build.sh $version" >&2; exit 1; }
+tools="$repo_root/native-engine/dist/ipsec-client-engine-tools-$version-x86_64.tar.gz"
+[[ -f $tarball && -f $tools ]] || { echo "rode antes: native-engine/build.sh $version" >&2; exit 1; }
 
 ctx=$(mktemp -d "${XDG_RUNTIME_DIR:-/tmp}/ipsec-client-spike.XXXXXX")
 trap 'rm -rf "$ctx"' EXIT
 cp "$tarball" "$ctx/engine.tar.gz"
+cp "$tools" "$ctx/engine-tools.tar.gz"
 cp "$repo_root/native-engine/spike/Dockerfile" "$ctx/"
 cp "$repo_root/engine/entrypoint.sh" "$repo_root/engine/updown.sh" "$ctx/"
 cp "$repo_root/engine/strongswan.d/zz-ipsec-client.conf" "$ctx/"

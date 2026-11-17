@@ -1,15 +1,16 @@
-# Embedded engine builder: compiles strongSwan from source.
+# Embedded engine builder: compiles strongSwan from source into one fully
+# static executable (ADR-0020).
 #
-# Ubuntu 22.04 (glibc 2.35): the same base used for the Tauri AppImage; the
-# binary runs on distributions with the same or a newer glibc.
-FROM ubuntu:22.04@sha256:9abcaffc92a5279fff3a6a41635c0800ea33e528425fb389658806476e7defde
+# Alpine (musl): charon links musl and GMP statically, so the engine does not
+# depend on the glibc of the computer it runs on. Pinned by digest; Alpine
+# 3.24.4, musl 1.2.6, GMP 6.3.0. When it changes, update the license texts in
+# native-engine/licenses/ (they must match the GMP and musl versions).
+FROM alpine@sha256:f59abe656b692d901e184be3445e084786602108599d2a51d229c0f5a48c71bf
 
-ENV DEBIAN_FRONTEND=noninteractive
 RUN set -eux; \
-    apt-get update; \
-    apt-get install -y --no-install-recommends \
-        build-essential patch pkg-config libgmp-dev ca-certificates curl gnupg bzip2 file python3; \
-    rm -rf /var/lib/apt/lists/*
+    apk add --no-cache \
+        bash build-base linux-headers patch pkgconf gmp-dev gmp-static \
+        ca-certificates curl gnupg bzip2 file python3 tar gzip coreutils findutils
 
 COPY build-strongswan.sh /usr/local/bin/build-strongswan
 ENTRYPOINT ["/usr/local/bin/build-strongswan"]
