@@ -32,7 +32,7 @@ jobs:
           npx --no -- commitlint
           --from "${{ github.event.pull_request.base.sha }}"
           --to "${{ github.event.pull_request.head.sha }}"
-      - run: npm run check:private && npm run lint:sh
+      - run: npm run check:private && npm run lint:sh && npm run test:updown
       - name: Frontend (biome, tsc, vitest, build)
         run: npm run lint:web && npm run typecheck && npm run test:web && npm run build
 

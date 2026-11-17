@@ -10,6 +10,13 @@ use ipsec_client_proto::{ENGINE_UNIT, EngineStatus, StartParams, socket_dir};
 /// Diretório de runtime do engine (gravável; `RuntimeDirectory` do systemd).
 pub const ENGINE_RUNTIME_DIR: &str = "/run/ipsec-client-engine";
 
+/// XFRM interface ID of every session, chosen here and never by the client
+/// (audit of 0.2.0, P10). One distinctive value ("IPC1"): another IPsec stack
+/// on the computer that uses XFRM interfaces is unlikely to pick it, and the
+/// engine only ever removes leftover SAs and policies with it. Only one
+/// engine runs at a time, so one value is enough.
+pub const ENGINE_IF_ID: u32 = 0x4950_4331;
+
 /// Capabilities que o engine pode ter:
 /// - `NET_ADMIN`: XFRM, rotas, endereços e interface;
 /// - `NET_BIND_SERVICE`: portas UDP 500/4500;
@@ -98,7 +105,7 @@ pub fn engine_run_args(launch: &Launch<'_>) -> Vec<String> {
     }
     let env = [
         ("IPSEC_CLIENT_IFACE", p.iface.clone()),
-        ("IPSEC_CLIENT_IF_ID", p.if_id.to_string()),
+        ("IPSEC_CLIENT_IF_ID", ENGINE_IF_ID.to_string()),
         ("IPSEC_CLIENT_MTU", p.mtu.to_string()),
         ("IPSEC_CLIENT_LOG_LEVEL", p.log_level.to_string()),
         ("IPSEC_CLIENT_SOCKET_UID", launch.uid.to_string()),
@@ -332,7 +339,9 @@ mod tests {
         assert!(has(
             "--setenv=IPSEC_CLIENT_CHARON=/opt/ipsec-client/engine/libexec/ipsec/charon"
         ));
-        assert!(has("--setenv=IPSEC_CLIENT_IF_ID=4096"));
+        // The client asked for 4096: the helper uses its own value (P10).
+        assert!(has(&format!("--setenv=IPSEC_CLIENT_IF_ID={ENGINE_IF_ID}")));
+        assert!(!args.iter().any(|a| a.contains("IF_ID=4096")));
         assert!(has("--setenv=IPSEC_CLIENT_SOCKET_UID=1000"));
         assert!(has(
             "--setenv=IPSEC_CLIENT_UPDOWN=/opt/ipsec-client/libexec/updown"

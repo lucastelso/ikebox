@@ -310,10 +310,15 @@ ok "the client's command did not run (charon ignored its updown)"
 route=$(ip -4 route show dev "$IFACE" proto "$RT_PROTO")
 [[ $route == *"192.0.2.0/24"* ]] || fail "the forced updown did not run: '$route'"
 [[ $(resolvectl dns "$IFACE") == *192.0.2.54* ]] || fail "the helper DNS was not applied"
-forced=$(count_xfrm_state 0x1092)
+# The helper's own if_id (0x49504331, P10): neither the one in the VICI
+# load-conn (999 = 0x3e7) nor the one in the request to the helper
+# (4242 = 0x1092).
+forced=$(count_xfrm_state 0x49504331)
 evil=$(count_xfrm_state 0x3e7)
-((forced >= 2 && evil == 0)) || fail "client if_id used ($forced with 0x1092, $evil with 0x3e7)"
-ok "the forced updown ran (route and helper DNS) and the SAs use the helper's if_id"
+asked=$(count_xfrm_state 0x1092)
+((forced >= 2 && evil == 0 && asked == 0)) ||
+    fail "if_id not the helper's ($forced with 0x49504331, $evil with 0x3e7, $asked with 0x1092)"
+ok "the forced updown ran (route and helper DNS) and the SAs use the helper's own if_id"
 
 # Audit of 0.2.0, P9: VICI can name a certificate by path ("file"), which root
 # charon would open, telling the user whether the file exists. Refused.

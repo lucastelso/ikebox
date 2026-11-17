@@ -67,7 +67,8 @@ pub enum Request {
 pub struct StartParams {
     /// Interface XFRM.
     pub iface: String,
-    /// `if_id` das SAs/políticas (≠ 0).
+    /// `if_id` das SAs/políticas (≠ 0). Kept on the wire for compatibility:
+    /// since 0.3.0 the helper ignores it and uses its own value (audit P10).
     pub if_id: u32,
     /// MTU da interface.
     pub mtu: u16,
