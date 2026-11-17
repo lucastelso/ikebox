@@ -52,8 +52,10 @@
   SECURITY.md). After the 0.5.0 push, CI failed in three jobs (shellcheck
   version, AppArmor in the engine E2E): fixed in step 44, to be confirmed by
   the next CI run.
-  **Next: phase 9 (client certificates,
-  [ADR-0024](adr/0024-client-certificates.md)).**
+  **Now: phase 9 (client certificates,
+  [ADR-0024](adr/0024-client-certificates.md)), step 47.** Done:
+  `.p12` import, certificate profiles in IKEv2 and IKEv1 main mode, app,
+  CLI, diagnosis, E2E. Next: release 0.8.0.
   Each phase ends by updating this line.
 - **Waiting for the maintainer:** P8 (`initiator_only`) is not concluded:
   the count of negotiations started by the gateway only means something
