@@ -9,6 +9,8 @@ RUN set -eux; \
 
 # The build tarball (native-engine/dist) is extracted to /opt/ipsec-client/engine.
 ADD engine.tar.gz /
+# swanctl (the E2E drives charon with it) comes from the test tools tarball.
+ADD engine-tools.tar.gz /
 COPY zz-ipsec-client.conf /opt/ipsec-client/engine/etc/strongswan.d/zz-ipsec-client.conf
 COPY entrypoint.sh /usr/local/sbin/ipsec-client-entrypoint
 COPY updown.sh /usr/local/libexec/ipsec-client/updown

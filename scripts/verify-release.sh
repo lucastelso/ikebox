@@ -6,7 +6,8 @@
 #   componente que não bate, e o empacotamento já alterou arquivos antes (o
 #   linuxdeploy reescreve o RPATH de executáveis dentro do AppImage);
 # - o strongSwan embutido precisa ter os patches de segurança do commit
-#   (native-engine/patches, ADR-0019);
+#   (native-engine/patches, ADR-0019) e ser um executável totalmente estático
+#   (ADR-0020), com as versões de GMP e musl registradas no BUILDINFO;
 # - o AppImage não pode exigir uma glibc mais nova que a do Ubuntu 22.04.
 #
 # Uso: scripts/verify-release.sh <diretório com os pacotes>
@@ -45,14 +46,24 @@ done
 ((${#expected_patches[@]} > 0)) || fail "no patch in native-engine/patches"
 
 component_ok() {
-    local name=$2 net="$1/usr/lib/ipsec-client/network" patches
+    local name=$2 net="$1/usr/lib/ipsec-client/network" patches info charon
     [[ -f $net/SHA256SUMS ]] || fail "$name: network component missing"
     (cd "$net" && sha256sum --check --strict --quiet SHA256SUMS) ||
         fail "$name: the network component does not match its SHA256SUMS"
-    patches=$(tar -xzOf "$net/engine.tar.gz" opt/ipsec-client/engine/BUILDINFO | sed -n 's/^patches=//p')
+    info=$(tar -xzOf "$net/engine.tar.gz" opt/ipsec-client/engine/BUILDINFO)
+    patches=$(sed -n 's/^patches=//p' <<<"$info")
     [[ $patches == "${expected_patches[*]}" ]] ||
         fail "$name: the embedded strongSwan lacks the security patches (ADR-0019)"
-    ok "$name: network component intact ($(grep -h '^version=' "$net/VERSION"), strongSwan with the patches)"
+    # One fully static executable (ADR-0020), with what went into it recorded.
+    charon="$work/charon-$name"
+    tar -xzOf "$net/engine.tar.gz" opt/ipsec-client/engine/libexec/ipsec/charon >"$charon"
+    [[ -z $(readelf -d "$charon" 2>/dev/null | grep NEEDED || true) ]] ||
+        fail "$name: charon is not fully static"
+    if ! grep -q '^linkage=static$' <<<"$info" || ! grep -q '^gmp=' <<<"$info" ||
+        ! grep -q '^musl=' <<<"$info"; then
+        fail "$name: the engine BUILDINFO does not record the static build (linkage, gmp, musl)"
+    fi
+    ok "$name: network component intact ($(grep -h '^version=' "$net/VERSION"), strongSwan with the patches, static: GMP $(sed -n 's/^gmp=\([^ ]*\).*/\1/p' <<<"$info"), musl $(sed -n 's/^musl=\([^ ]*\).*/\1/p' <<<"$info"))"
 }
 
 mkdir "$work/appimage" "$work/deb" "$work/rpm"

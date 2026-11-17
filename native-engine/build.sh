@@ -4,7 +4,8 @@
 # reproduzível: o usuário final recebe o resultado pronto dentro do app.
 #
 # Uso: native-engine/build.sh [VERSAO|all]     (padrão: a primeira da lista)
-# Saída: native-engine/dist/ipsec-client-engine-<versão>-x86_64.tar.gz
+# Saída: native-engine/dist/ipsec-client-engine-<versão>-x86_64.tar.gz (engine)
+#        native-engine/dist/ipsec-client-engine-tools-<versão>-x86_64.tar.gz (swanctl, tests only)
 
 set -euo pipefail
 
@@ -25,7 +26,8 @@ for entry in "${entries[@]}"; do
     [[ $wanted == all || $wanted == "$version" ]] || continue
     echo "==> strongSwan $version"
     docker run --rm --network bridge \
-        -v "$here/keys:/keys:ro" -v "$here/patches:/patches:ro" -v "$here/dist:/out" \
+        -v "$here/keys:/keys:ro" -v "$here/patches:/patches:ro" \
+        -v "$here/licenses:/licenses:ro" -v "$here/dist:/out" \
         --user "$(id -u):$(id -g)" -e HOME=/build \
         --tmpfs /build:exec,uid="$(id -u)",gid="$(id -g)" \
         "$BUILDER" "$version" "$path" "$sha256"

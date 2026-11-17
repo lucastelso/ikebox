@@ -69,10 +69,11 @@ main() {
         . "$HOME/.cargo/env"
     fi
     docker info >/dev/null 2>&1 || fail "Docker is not reachable"
-    local strongswan engine
+    local strongswan engine tools
     strongswan=$(grep -vE '^\s*(#|$)' "$repo/native-engine/versions.txt" | head -n 1 | awk '{print $1}')
     engine="$repo/native-engine/dist/ipsec-client-engine-$strongswan-x86_64.tar.gz"
-    [[ -f $engine ]] || fail "engine missing: run native-engine/build.sh $strongswan"
+    tools="$repo/native-engine/dist/ipsec-client-engine-tools-$strongswan-x86_64.tar.gz"
+    [[ -f $engine && -f $tools ]] || fail "engine missing: run native-engine/build.sh $strongswan"
     grep -q '^patches=.*0001-vici-forced-updown' < <(tar -xzOf "$engine" opt/ipsec-client/engine/BUILDINFO) ||
         fail "the engine in $engine lacks the ADR-0019 patch: rebuild it (native-engine/build.sh)"
     docker rm -f "$HOST" "$GW" >/dev/null 2>&1 || true
@@ -94,7 +95,9 @@ main() {
         cargo build -q --release --locked -p ipsec-client-cli --manifest-path "$repo/Cargo.toml"
         install -m 0755 "$repo/target/release/ipsec-client-cli" "$work/ipsec-client-cli"
     fi
-    install -m 0644 "$here/helper_client.py" "$repo/tests/engine/initiator.conf.in" \
+    tar -xzOf "$tools" opt/ipsec-client/engine/sbin/swanctl >"$work/swanctl"
+    chmod 0755 "$work/swanctl"
+    install -m 0644 "$here/helper_client.py" "$here/dns_responder.py" "$repo/tests/engine/initiator.conf.in" \
         "$repo/crates/core/tests/fixtures/perfil-gateway-teste.json" "$work/"
     install -m 0755 "$here/inside.sh" "$work/"
     ok "component bundle and ipsec-client-cli ready"

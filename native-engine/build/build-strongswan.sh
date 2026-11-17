@@ -2,18 +2,22 @@
 # Compila o strongSwan para o engine embutido (roda DENTRO do builder).
 #
 # Uso: build-strongswan VERSAO CAMINHO SHA256
-#   /keys     (ro)  chave pública de release do strongSwan
-#   /patches  (ro)  patches do IPsec Client (native-engine/patches/*.patch)
-#   /out      (rw)  destino do tarball
+#   /keys      (ro)  chave pública de release do strongSwan
+#   /patches   (ro)  patches do IPsec Client (native-engine/patches/*.patch)
+#   /licenses  (ro)  textos de licença do GMP e da musl (native-engine/licenses)
+#   /out       (rw)  destino dos tarballs
 #
 # Garantias:
 #   - o tarball é conferido por SHA-256 (fixado em native-engine/versions.txt)
 #     E pela assinatura GPG oficial;
 #   - os patches de segurança do IPsec Client são aplicados DEPOIS da
 #     conferência, e todos precisam aplicar (ADR-0019);
-#   - gmp entra estático; só a glibc fica dinâmica (resolução de nomes);
+#   - one fully static executable (musl and GMP inside, ADR-0020): it does
+#     not depend on the glibc of the computer it runs on;
 #   - plugins próprios, sem OpenSSL (políticas de cripto do host não afetam);
-#   - tarball determinístico (ordem, datas e donos fixos).
+#   - two tarballs: the engine (only what production runs) and the test tools
+#     (swanctl), which never go to users;
+#   - tarballs determinísticos (ordem, datas e donos fixos).
 
 set -euo pipefail
 
@@ -32,7 +36,7 @@ url="https://download.strongswan.org${path}${tarball}"
 
 log() { printf '[build] %s\n' "$*" >&2; }
 
-mkdir -p "$SRC" "$STAGE" /build/gmp-static
+mkdir -p "$SRC" "$STAGE"
 cd /build
 
 log "downloading $url"
@@ -61,9 +65,6 @@ for patch_file in /patches/*.patch; do
 done
 ((${#patches[@]} > 0)) || { echo "no patch in /patches" >&2; exit 1; }
 
-# Diretório só com a libgmp estática: o linker acha libgmp.a antes da .so.
-cp "$(gcc -print-file-name=libgmp.a)" /build/gmp-static/
-
 configure_flags=(
     --prefix="$PREFIX"
     --sysconfdir="$PREFIX/etc"
@@ -87,12 +88,17 @@ configure_flags=(
 cd "$SRC"
 log "configure (${#configure_flags[@]} options)"
 # 5.8.x é anterior ao -fno-common, padrão do gcc >= 10 (definições duplicadas).
-cflags="-O2"
+# Hardening stated, not left to the compiler's defaults: stack protector and
+# FORTIFY (Alpine's fortify-headers, part of build-base). PIE, full RELRO and a
+# non-executable stack come from the static-pie link.
+cflags="-O2 -fstack-protector-strong -D_FORTIFY_SOURCE=2 -fstack-clash-protection"
 [[ $version == 5.8.* ]] && cflags+=" -fcommon"
-CFLAGS="$cflags" LDFLAGS="-L/build/gmp-static" ./configure "${configure_flags[@]}" >/build/configure.log 2>&1 ||
+CFLAGS="$cflags" LDFLAGS="-static" ./configure "${configure_flags[@]}" >/build/configure.log 2>&1 ||
     { tail -n 40 /build/configure.log; exit 1; }
 log "make -j$(nproc)"
-make -j"$(nproc)" >/build/make.log 2>&1 || { tail -n 60 /build/make.log; exit 1; }
+# -all-static: libtool's way of linking the executables fully static (its
+# -static would still take libc as a shared library).
+make -j"$(nproc)" LDFLAGS="-all-static" >/build/make.log 2>&1 || { tail -n 60 /build/make.log; exit 1; }
 make install DESTDIR="$STAGE" >/build/install.log 2>&1 || { tail -n 30 /build/install.log; exit 1; }
 
 root="$STAGE$PREFIX"
@@ -100,26 +106,49 @@ find "$root" -type f -perm -u+x -exec sh -c 'file -b "$1" | grep -q ELF && strip
 # Build estático: as bibliotecas .a e os headers não servem em tempo de execução.
 rm -rf "${root:?}/share/man" "${root:?}/lib" "${root:?}/include"
 
-# Conformidade (ADR-0017): textos de licença do strongSwan e do GMP no pacote.
-mkdir -p "$root/share/licenses/strongswan" "$root/share/licenses/gmp"
-cp "$SRC/COPYING" "$SRC/LICENSE" "$root/share/licenses/strongswan/"
-cp /usr/share/doc/libgmp10/copyright "$root/share/licenses/gmp/copyright"
-gmp_version=$(dpkg-query -W -f='${Version}' libgmp-dev)
-
 charon="$root/libexec/ipsec/charon"
 [[ -x $charon ]] || { echo "charon was not built" >&2; exit 1; }
+# Fully static, or it is not the engine of ADR-0020.
+if [[ -n $(readelf -d "$charon" 2>/dev/null | grep NEEDED || true) ]]; then
+    echo "charon is not fully static: $(readelf -d "$charon" | grep NEEDED)" >&2
+    exit 1
+fi
+
+# Test tools: swanctl goes to its own tarball, never to users. What
+# production does not run stays out of the engine (audit of 0.2.0, P7):
+# strongSwan's stock _updown, the xfrmi tool, swanctl's configuration and the
+# configuration templates.
+TOOLS=/build/tools
+mkdir -p "$TOOLS$PREFIX/sbin"
+mv "$root/sbin/swanctl" "$TOOLS$PREFIX/sbin/swanctl"
+rmdir "$root/sbin"
+rm -rf "${root:?}/libexec/ipsec/_updown" "${root:?}/libexec/ipsec/xfrmi" \
+    "${root:?}/share/strongswan" "${root:?}/etc/swanctl" "${root:?}/etc/strongswan.d/swanctl.conf"
+
+# Conformidade (ADR-0017): textos de licença do strongSwan, do GMP e da musl.
+mkdir -p "$root/share/licenses/strongswan"
+cp "$SRC/COPYING" "$SRC/LICENSE" "$root/share/licenses/strongswan/"
+cp -R /licenses/gmp /licenses/musl "$root/share/licenses/"
+gmp_version=$(apk list -I gmp-static 2>/dev/null | awk '{print $1}' | sed 's/^gmp-static-//')
+musl_version=$(apk list -I musl 2>/dev/null | awk '{print $1}' | sed 's/^musl-//')
+[[ -n $gmp_version && -n $musl_version ]] || { echo "could not read the GMP/musl versions" >&2; exit 1; }
+
 {
     echo "strongswan=$version"
     echo "sha256=$sha256"
-    echo "builder=ubuntu:22.04 (glibc $(ldd --version | head -n 1 | awk '{print $NF}'))"
-    echo "gmp=$gmp_version (static; source: Ubuntu 22.04 gmp package)"
+    echo "builder=alpine:$(cat /etc/alpine-release) (musl $musl_version)"
+    echo "gmp=$gmp_version (static; Alpine package gmp-static)"
+    echo "musl=$musl_version (static)"
+    echo "linkage=static"
     echo "patches=${patches[*]}"
     echo "configure=${configure_flags[*]}"
-    echo "charon_deps=$(ldd "$charon" | awk '{print $1}' | tr '\n' ' ')"
 } >"$root/BUILDINFO"
 
-out="/out/ipsec-client-engine-$version-x86_64.tar.gz"
-tar --sort=name --mtime='@0' --owner=0 --group=0 --numeric-owner \
-    -C "$STAGE" -cf - opt | gzip -n -9 >"$out"
-log "done: $(basename "$out") ($(du -h "$out" | cut -f1))"
-log "charon dependencies: $(ldd "$charon" | awk '{print $1}' | tr '\n' ' ')"
+pack() {
+    tar --sort=name --mtime='@0' --owner=0 --group=0 --numeric-owner \
+        -C "$1" -cf - opt | gzip -n -9 >"$2"
+    log "done: $(basename "$2") ($(du -h "$2" | cut -f1))"
+}
+pack "$STAGE" "/out/ipsec-client-engine-$version-x86_64.tar.gz"
+pack "$TOOLS" "/out/ipsec-client-engine-tools-$version-x86_64.tar.gz"
+log "charon: $(file -b "$charon" | cut -d, -f1-2)"
