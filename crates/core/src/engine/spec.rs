@@ -9,17 +9,11 @@ use std::path::{Path, PathBuf};
 
 use bollard::models::{ContainerCreateBody, HostConfig};
 
-use super::EngineError;
 use super::context;
+use super::{DBUS_SYSTEM_SOCKET, DEFAULT_IFACE, DEFAULT_MTU, EngineError};
 
 /// Nome padrão do container do engine.
 pub const CONTAINER_NAME: &str = "ipsec-client-engine";
-/// Nome padrão da interface XFRM.
-pub const DEFAULT_IFACE: &str = "ipsc0";
-/// MTU padrão da interface XFRM (evita blackhole em Wi-Fi, ADR-0004).
-pub const DEFAULT_MTU: u16 = 1400;
-/// Caminho do socket D-Bus do sistema no host.
-pub const DBUS_SYSTEM_SOCKET: &str = "/run/dbus/system_bus_socket";
 /// Onde o diretório do socket VICI é montado dentro do container.
 pub const CONTAINER_SOCKET_DIR: &str = "/run/ipsec-client";
 /// Nome do arquivo do socket VICI.

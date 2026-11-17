@@ -14,12 +14,15 @@ workspace = true
 [features]
 # Testes de integração que sobem o engine no Docker real e alteram a rede do
 # host temporariamente (interface ipsct1). Rodar com: npm run test:docker
-docker-tests = []
+docker-tests = ["docker"]
+# The Docker engine (ADR-0001): development and tests only. Off by default, so
+# that release builds never carry it (audit of 0.2.0, phase 4).
+docker = ["dep:bollard", "dep:futures-util", "dep:tar"]
 
 [dependencies]
-bollard = { version = "0.21.1", default-features = false, features = ["pipe"] }
+bollard = { version = "0.21.1", default-features = false, features = ["pipe"], optional = true }
 dbus-secret-service-keyring-store = { version = "1.0.1", features = ["crypto-rust"] }
-futures-util = "0.3.34"
+futures-util = { version = "0.3.34", optional = true }
 hex = "0.4.3"
 ipsec-client-proto = { version = "0.2.0", path = "../proto" }
 keyring-core = "1.0.1"
@@ -28,7 +31,7 @@ secrecy = "0.10.3"
 serde = { version = "1.0.229", features = ["derive"] }
 serde_json = "1.0.154"
 sha2 = "0.11.1"
-tar = "0.4.46"
+tar = { version = "0.4.46", optional = true }
 tempfile = "3.27.0"
 thiserror = "2.0.21"
 tokio = { version = "1.54.1", features = ["macros", "rt-multi-thread", "fs", "time", "sync", "net", "io-util"] }

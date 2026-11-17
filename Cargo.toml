@@ -24,6 +24,6 @@ print_stdout = "warn"
 todo = "warn"
 
 [profile.release]
-lto = "thin"
+lto = "fat"
 codegen-units = 1
 strip = "symbols"

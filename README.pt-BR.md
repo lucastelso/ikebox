@@ -202,7 +202,7 @@ precisa dele.
 
 ```bash
 npm install                 # ferramentas, dependências do frontend e git hooks (só para desenvolver)
-npm run tauri dev           # abre o app desktop em modo de desenvolvimento
+npm run dev:app             # abre o app desktop em modo de desenvolvimento (com o engine em Docker como reserva)
 npm run check               # tudo o que precisa estar verde antes de um merge
 npm run bundle -- --bundles rpm   # gera o pacote instalável (rpm, deb ou appimage)
 npm run release:build -- v0.2.0   # pacotes de release (os três) num container Ubuntu 22.04

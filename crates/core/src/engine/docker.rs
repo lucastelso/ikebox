@@ -23,7 +23,7 @@ use bollard::query_parameters::{
 use futures_util::StreamExt;
 use tracing::{debug, info};
 
-use super::{EngineError, EngineSpec, context};
+use super::{BuildProgress, EngineError, EngineSpec, context};
 
 /// Linha que o entrypoint escreve quando o socket VICI está liberado.
 pub const READY_LINE: &str = "[engine] ready";
@@ -32,15 +32,6 @@ pub const READY_TIMEOUT: Duration = Duration::from_secs(20);
 /// Tempo do `docker stop` antes do SIGKILL (o entrypoint precisa limpar).
 pub const STOP_TIMEOUT_SECS: i32 = 10;
 const RECENT_LOG_LINES: usize = 40;
-
-/// Progresso do build da imagem, para mostrar ao usuário.
-#[derive(Debug, Clone, PartialEq, Eq)]
-pub enum BuildProgress {
-    /// A imagem já existia; nada a construir.
-    UpToDate,
-    /// Uma linha de saída do build.
-    Step(String),
-}
 
 /// Cliente do engine sobre a Docker API.
 #[derive(Debug, Clone)]

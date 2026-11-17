@@ -60,12 +60,12 @@ a vulnerability"). Do not open public issues for vulnerabilities.
    libraries (such
    as WebKitGTK), which do not get the distribution's security updates. Prefer
    the `.rpm` or the `.deb`.
-5. **Docker engine (development and tests only).** Without the network
-   component, the app still uses the container engine, if Docker is present.
-   Being in the `docker` group is equivalent to root, and that engine uses the
-   strongSwan 5.8.2 of Ubuntu 20.04, which is out of standard support. The
-   fallback privileged mode (`--privileged`) is off. End users do not need
-   Docker.
+5. **Docker engine (development and tests only).** Release builds of the
+   app have no Docker engine. Development builds (`npm run dev:app`) fall
+   back to it when the network component is not installed: being in the
+   `docker` group is equivalent to root, and that engine uses Debian's
+   strongSwan, with every plugin of the distribution. The fallback privileged
+   mode (`--privileged`) is off.
 6. **What other users of the same computer can see.** That a VPN is up, its
    virtual IP, routes, DNS servers and domains, and the profile id: Linux
    shows network state to every local user. They cannot read the connection

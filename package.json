@@ -30,6 +30,7 @@
     "release:build": "scripts/build-release.sh",
     "release:verify": "scripts/verify-release.sh",
     "tauri": "tauri",
+    "dev:app": "tauri dev --features docker",
     "lint:web": "biome check",
     "typecheck": "tsc",
     "test:web": "vitest run"

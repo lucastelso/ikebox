@@ -1,15 +1,26 @@
-//! Escolha do engine: embutido (helper, padrão) ou Docker (testes e quem
-//! ainda não instalou o componente de rede). ADR-0013.
+//! Escolha do engine: embutido (helper, padrão) ou, só em builds com a
+//! feature `docker`, o Docker (desenvolvimento e testes). ADR-0013.
 
 use std::path::PathBuf;
 
 use ipsec_client_proto::{DnsParams, StartParams, vici_socket};
 
-use super::{
-    BuildProgress, CONTAINER_NAME, DEFAULT_IFACE, DockerEngine, EngineError, EngineSpec,
-    NativeEngine, current_gid, default_runtime_dir,
-};
-use crate::profiles::{Profile, UPDOWN_PATH};
+#[cfg(feature = "docker")]
+use super::{CONTAINER_NAME, DockerEngine, EngineSpec, current_gid, default_runtime_dir};
+use super::{DEFAULT_IFACE, EngineError, NativeEngine};
+use crate::profiles::Profile;
+#[cfg(feature = "docker")]
+use crate::profiles::UPDOWN_PATH;
+
+/// Progresso do preparo do engine (build da imagem, no Docker), para mostrar
+/// ao usuário.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub enum BuildProgress {
+    /// A imagem já existia; nada a construir.
+    UpToDate,
+    /// Uma linha de saída do build.
+    Step(String),
+}
 
 /// Engine em execução: o que a sessão precisa para negociar.
 #[derive(Debug, Clone)]
@@ -30,28 +41,44 @@ pub struct RunningEngine {
 pub enum Backend {
     /// Engine embutido, via `ipsec-client-helper`.
     Native(NativeEngine),
-    /// Engine em container Docker.
+    /// Engine em container Docker (feature `docker`).
+    #[cfg(feature = "docker")]
     Docker(DockerEngine),
 }
 
 impl Backend {
     /// Escolhe o engine: `IPSEC_CLIENT_BACKEND=native|docker` força; senão, o
-    /// embutido quando o componente de rede está instalado, e o Docker como
-    /// reserva.
+    /// embutido. Só builds com a feature `docker` caem no Docker quando o
+    /// componente de rede não está instalado; os de release dizem para
+    /// instalá-lo (diagnóstico).
     ///
     /// # Errors
-    /// Docker indisponível quando ele é a única opção.
+    /// Docker indisponível quando ele é a única opção, ou pedido num build
+    /// sem ele.
     pub fn detect() -> Result<Self, EngineError> {
         let native = NativeEngine::default();
         match std::env::var("IPSEC_CLIENT_BACKEND").as_deref() {
             Ok("native") => return Ok(Self::Native(native)),
+            #[cfg(feature = "docker")]
             Ok("docker") => return Ok(Self::Docker(DockerEngine::connect()?)),
+            #[cfg(not(feature = "docker"))]
+            Ok("docker") => return Err(EngineError::NoDockerEngine),
             _ => {}
         }
-        if native.installed() {
-            Ok(Self::Native(native))
-        } else {
-            Ok(Self::Docker(DockerEngine::connect()?))
+        #[cfg(feature = "docker")]
+        if !native.installed() {
+            return Ok(Self::Docker(DockerEngine::connect()?));
+        }
+        Ok(Self::Native(native))
+    }
+
+    /// É o engine em Docker?
+    #[must_use]
+    pub fn is_docker(&self) -> bool {
+        match self {
+            Self::Native(_) => false,
+            #[cfg(feature = "docker")]
+            Self::Docker(_) => true,
         }
     }
 
@@ -60,6 +87,7 @@ impl Backend {
     pub fn kind(&self) -> &'static str {
         match self {
             Self::Native(_) => "embutido",
+            #[cfg(feature = "docker")]
             Self::Docker(_) => "Docker",
         }
     }
@@ -69,7 +97,10 @@ impl Backend {
     /// # Errors
     /// Build da imagem ou helper indisponível.
     pub async fn prepare(&self, progress: impl FnMut(BuildProgress)) -> Result<(), EngineError> {
+        #[cfg(not(feature = "docker"))]
+        let _ = progress;
         match self {
+            #[cfg(feature = "docker")]
             Self::Docker(docker) => docker.ensure_image(progress).await.map(|_| ()),
             Self::Native(native) => {
                 let native = native.clone();
@@ -88,7 +119,10 @@ impl Backend {
         privileged: bool,
     ) -> Result<RunningEngine, EngineError> {
         let if_id = profile.if_id();
+        #[cfg(not(feature = "docker"))]
+        let _ = privileged;
         match self {
+            #[cfg(feature = "docker")]
             Self::Docker(docker) => {
                 let mut spec = EngineSpec::new(default_runtime_dir()?, current_gid(), if_id);
                 spec.privileged = privileged;
@@ -129,6 +163,7 @@ impl Backend {
     /// Docker/helper indisponível.
     pub async fn stop(&self) -> Result<bool, EngineError> {
         match self {
+            #[cfg(feature = "docker")]
             Self::Docker(docker) => {
                 let was_running = docker.is_running(CONTAINER_NAME).await?;
                 docker.stop(CONTAINER_NAME).await?;
@@ -147,6 +182,7 @@ impl Backend {
     /// Docker/helper indisponível.
     pub async fn running_profile(&self) -> Result<Option<String>, EngineError> {
         match self {
+            #[cfg(feature = "docker")]
             Self::Docker(docker) => {
                 if !docker.is_running(CONTAINER_NAME).await? {
                     return Ok(None);
@@ -176,6 +212,7 @@ impl Backend {
     /// Sem `XDG_RUNTIME_DIR` (Docker).
     pub fn socket_path(&self) -> Result<PathBuf, EngineError> {
         match self {
+            #[cfg(feature = "docker")]
             Self::Docker(_) => Ok(default_runtime_dir()?.join(super::SOCKET_FILE)),
             Self::Native(_) => Ok(PathBuf::from(vici_socket(
                 rustix::process::getuid().as_raw(),
@@ -189,6 +226,7 @@ impl Backend {
     /// Docker/helper indisponível.
     pub async fn logs(&self, tail: usize) -> Result<Vec<String>, EngineError> {
         match self {
+            #[cfg(feature = "docker")]
             Self::Docker(docker) => {
                 use futures_util::StreamExt;
                 let mut stream = Box::pin(docker.log_lines(CONTAINER_NAME, tail, false));

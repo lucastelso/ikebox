@@ -59,7 +59,9 @@ main() {
     ok "temporary XDG_CONFIG_HOME: $XDG_CONFIG_HOME"
 
     step "CLI build"
-    cargo build -q -p ipsec-client-cli --manifest-path "$repo_root/Cargo.toml"
+    # With the Docker engine (feature docker): this test runs where the
+    # network component may not be installed (CI).
+    cargo build -q -p ipsec-client-cli --features docker --manifest-path "$repo_root/Cargo.toml"
     cli="$repo_root/target/debug/ipsec-client-cli"
     ok "$("$cli" --version)"
 

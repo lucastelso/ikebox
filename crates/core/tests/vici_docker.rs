@@ -127,7 +127,10 @@ async fn scenario(spec: EngineSpec, gateway_ip: String) {
     let mut charon = ViciClient::connect(&socket).await.expect("VICI");
     let version = charon.version().await.expect("version");
     assert_eq!(version.daemon, "charon");
-    assert_eq!(version.version, "5.8.2");
+    assert_eq!(
+        version.version,
+        ipsec_client_core::engine::context::STRONGSWAN_VERSION
+    );
 
     let mut credentials = Credentials::new();
     credentials.set(CredentialKind::Psk, SecretString::from(TEST_PSK));

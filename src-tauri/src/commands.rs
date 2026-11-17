@@ -51,8 +51,17 @@ fn load_profile(id: &str) -> Result<Profile, UiError> {
 pub fn app_info() -> AppInfo {
     AppInfo {
         version: ipsec_client_core::VERSION.to_owned(),
-        engine_image: ipsec_client_core::engine::context::image_tag(),
+        engine_image: engine_label(),
     }
+}
+
+/// What the System footer shows after "engine": the Docker image in
+/// development builds, "embedded" in release builds (no Docker engine).
+fn engine_label() -> String {
+    #[cfg(feature = "docker")]
+    return ipsec_client_core::engine::context::image_tag();
+    #[cfg(not(feature = "docker"))]
+    return tr!("embedded", "embutido").to_owned();
 }
 
 /// Diagnóstico do ambiente (o mesmo do `ipsec-client-cli doctor`).

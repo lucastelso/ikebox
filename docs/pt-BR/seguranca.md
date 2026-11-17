@@ -61,11 +61,12 @@ vulnerabilidades.
    O `.rpm` e o `.deb` não têm essa janela. Além disso, o AppImage leva
    bibliotecas próprias (como o WebKitGTK), que não recebem as atualizações de
    segurança da distribuição. Prefira o `.rpm` ou o `.deb`.
-5. **Engine em Docker (só desenvolvimento e testes).** Sem o componente de
-   rede, o app ainda usa o engine em container, se houver Docker. Pertencer ao
-   grupo `docker` equivale a ter root, e esse engine usa o strongSwan 5.8.2 do
-   Ubuntu 20.04, que já saiu do suporte padrão. O modo privilegiado de reserva
-   (`--privileged`) vem desligado. O usuário final não precisa do Docker.
+5. **Engine em Docker (só desenvolvimento e testes).** As versões de
+   release do app não têm o engine em Docker. As de desenvolvimento
+   (`npm run dev:app`) caem nele quando o componente de rede não está
+   instalado: pertencer ao grupo `docker` equivale a ter root, e esse engine
+   usa o strongSwan do Debian, com todos os plugins da distribuição. O modo
+   privilegiado de reserva (`--privileged`) vem desligado.
 6. **O que outros usuários do mesmo computador conseguem ver.** Que há uma
    VPN ativa, o IP virtual, as rotas, os servidores DNS e domínios, e o id do
    perfil: o Linux mostra o estado da rede a todo usuário local. Eles não

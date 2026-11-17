@@ -203,7 +203,7 @@ tests with a local IPsec gateway; end users do not need it.
 
 ```bash
 npm install                 # tools, frontend dependencies and git hooks (development only)
-npm run tauri dev           # opens the desktop app in development mode
+npm run dev:app             # opens the desktop app in development mode (with the Docker engine as a fallback)
 npm run check               # everything that must be green before a merge
 npm run bundle -- --bundles rpm   # builds the installable package (rpm, deb or appimage)
 npm run release:build -- v0.2.0   # release packages (all three) in an Ubuntu 22.04 container

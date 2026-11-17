@@ -30,12 +30,12 @@ set -euo pipefail
 repo_root=$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)
 here="$repo_root/tests/engine"
 
-# IMAGE: test gateway (validated strongSwan 5.8.2) and utilities.
+# IMAGE: test gateway (Debian's strongSwan 6.0.1) and utilities.
 # ENGINE_IMAGE: the engine under test (default: the same image; the embedded
 # engine spike passes another one, with the strongSwan we compile).
 readonly IMAGE=${IPSEC_CLIENT_E2E_IMAGE:-ipsec-client-engine:e2e}
 readonly ENGINE_IMAGE=${IPSEC_CLIENT_E2E_ENGINE_IMAGE:-$IMAGE}
-readonly EXPECT_VERSION=${IPSEC_CLIENT_E2E_EXPECT_VERSION:-5.8.2}
+readonly EXPECT_VERSION=${IPSEC_CLIENT_E2E_EXPECT_VERSION:-6.0.1}
 # 1 = embedded engine: updown/if_id forced by root and a uid-owned socket (0600).
 readonly FORCED=${IPSEC_CLIENT_E2E_FORCED:-0}
 readonly UPDOWN=/usr/local/libexec/ipsec-client/updown
@@ -318,9 +318,8 @@ main() {
     states=$(count_xfrm state)
     ((states == 0)) || fail "$states SAs with the if_id were left over"
     ok "leftovers removed: interface recreated, routes, DNS and SAs"
-    # Limitação conhecida: o iproute2 5.5 não remove políticas com if_id.
     policies=$(count_xfrm policy)
-    ok "remaining orphan policies: $policies (only with the iproute2 5.5 of the Docker image; they are inert)"
+    ok "remaining orphan policies: $policies"
 
     step "Scenario 2: reconnecting on top of the leftovers"
     # Simula o gateway real descartando a sessão morta (timeout de DPD): o
