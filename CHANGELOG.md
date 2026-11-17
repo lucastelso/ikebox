@@ -7,6 +7,12 @@ and the project uses [Semantic Versioning](https://semver.org/).
 
 ## [Unreleased]
 
+## [0.9.0] - 2026-11-17
+
+Import from other VPN clients, phase 10 of the program. The network
+component does not change, but it carries the new version number: the app
+offers to update it.
+
 ### Added
 
 - **Import from other VPN clients:** Cisco VPN Client (`.pcf`), vpnc,

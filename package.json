@@ -1,6 +1,6 @@
 {
   "name": "ipsec-client",
-  "version": "0.8.0",
+  "version": "0.9.0",
   "private": true,
   "description": "IPsec VPN client for Linux, focused on legacy VPNs (IKEv1, group PSK + XAuth)",
   "license": "GPL-3.0-or-later",

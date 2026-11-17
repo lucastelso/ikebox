@@ -40,20 +40,25 @@
   ([roadmap](roadmap.md#post-020-program-decided-on-2026-11-16)): audit I
   (credentials, private data, supply chain) → audit II (privilege boundaries)
   → compatibility → optimization and base images → interface → IPsec modes.
-  **Phases 1 to 9 are done** (steps 37 to 47, [audit report](audits/v0.2.0.md),
+  **Phases 1 to 10 are done: the post-0.2.0 program is complete** (steps 37
+  to 48, [audit report](audits/v0.2.0.md),
   [ADR-0020](adr/0020-static-engine-and-lighter-builds.md) to
   [ADR-0025](adr/0025-deferred-xauth-otp-l2tp.md)). 0.3.0 carries phases 1–4
   (audit fixes, static engine, no Docker in release); 0.4.0 phase 5, the
   interface colored by the connection state; 0.5.0 phase 6, the IPsec modes
   certified by `npm run test:modes`, the security level and IKEv2
   diagnosis; 0.6.0 phase 7, profile schema 2 and the profile editor; 0.7.0
-  phase 8, IKEv2 + EAP-MSCHAPv2; **0.8.0** phase 9: client certificates
-  (`.p12` import into the keyring, IKEv2 and IKEv1 main mode, RSA/Ed25519).
-  After the 0.5.0 push, CI failed in three jobs (shellcheck version,
-  AppArmor in the engine E2E): fixed in step 44, to be confirmed by the next
-  CI run.
-  **Now: phase 10 (importers for legacy clients), step 48.** Done: the five
-  importers, app, CLI, E2E. Next: release 0.9.0.
+  phase 8, IKEv2 + EAP-MSCHAPv2; 0.8.0 phase 9, client certificates;
+  **0.9.0** phase 10, importers for other clients (Cisco `.pcf`, vpnc,
+  NetworkManager, `ipsec.conf`, FortiClient). After the 0.5.0 push, CI
+  failed in three jobs (shellcheck version, AppArmor in the engine E2E):
+  fixed in step 44, to be confirmed by the next CI run.
+  **Next: to be decided with the maintainer.** Candidates already recorded:
+  the open audit items (P8 `initiator_only`, P14 to P17), the desktop checks
+  (P15, on Fedora/WebKitGTK and the AppImage on Ubuntu 24.04), the release
+  pipeline in CI (`chore/release`: signed `SHA256SUMS`, clean-VM
+  acceptance), ECDSA through OpenSSL (ADR-0024), smartcards (PKCS#11),
+  revocation checks, and the ideas at the end of the [roadmap](roadmap.md).
   Each phase ends by updating this line.
 - **Waiting for the maintainer:** P8 (`initiator_only`) is not concluded:
   the count of negotiations started by the gateway only means something

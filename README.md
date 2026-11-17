@@ -6,12 +6,14 @@ IPsec VPN client for **Linux**, built for **legacy** VPNs: IKEv1, aggressive
 mode, group PSK + XAuth, old DH groups. It is the kind of corporate VPN that
 today's Linux clients can no longer connect to.
 
-> **Status: v0.8.0 (pre-alpha).** The desktop app, installed from the `.rpm`
+> **Status: v0.9.0 (pre-alpha).** The desktop app, installed from the `.rpm`
 > and with its own embedded strongSwan (**no Docker**), connects end to end to
 > a real FortiGate VPN, and every IPsec mode its profiles accept (IKEv1 main
 > or aggressive, PSK with or without XAuth, IKEv2 with PSK, with a username
 > and password, or with your own certificate, the gateway's certificate
-> always checked) is tested on the same path. Profiles can be created and edited in the app, from vendor
+> always checked) is tested on the same path. Profiles can be imported from
+> other clients (Cisco `.pcf`, vpnc, NetworkManager, `ipsec.conf`,
+> FortiClient) without reading their passwords. Profiles can be created and edited in the app, from vendor
 > templates, and each one shows its security level. The interface speaks
 > English and Portuguese. Coming from 0.2.0 or older,
 > update the app **and** the network component (see the [CHANGELOG](CHANGELOG.md)).
@@ -210,7 +212,7 @@ npm install                 # tools, frontend dependencies and git hooks (develo
 npm run dev:app             # opens the desktop app in development mode (with the Docker engine as a fallback)
 npm run check               # everything that must be green before a merge
 npm run bundle -- --bundles rpm   # builds the installable package (rpm, deb or appimage)
-npm run release:build -- v0.8.0   # release packages (all three) in an Ubuntu 22.04 container
+npm run release:build -- v0.9.0   # release packages (all three) in an Ubuntu 22.04 container
 npm run test:engine         # end-to-end engine test with a local IPsec gateway
 npm run test:docker         # Rust core integration with real Docker (engine, VICI, session)
 npm run test:cli            # full CLI flow against the test gateway
