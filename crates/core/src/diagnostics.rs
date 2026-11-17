@@ -185,12 +185,48 @@ fn check_resolved() -> Check {
     check_resolved_at(Path::new(RESOLVED_SOCKET))
 }
 
-/// systemd-resolved is running if its socket accepts a connection. Files in
-/// `/run/systemd/resolve` are no proof: they stay after the service stops
-/// (the socket included), and then the VPN DNS is silently not applied.
+/// systemd-resolved is running if it **answers** on its socket. Neither the
+/// files in `/run/systemd/resolve` nor a successful connection are proof:
+/// the files stay after the service stops, and on recent systemd versions the
+/// socket belongs to systemd itself (socket activation), which accepts the
+/// connection and then drops it when the service cannot start. In both cases
+/// the VPN DNS is silently not applied.
+fn resolved_answers(socket: &Path) -> bool {
+    use std::io::{Read as _, Write as _};
+    let Ok(mut stream) = std::os::unix::net::UnixStream::connect(socket) else {
+        return false;
+    };
+    let timeout = Some(std::time::Duration::from_secs(1));
+    if stream.set_read_timeout(timeout).is_err() || stream.set_write_timeout(timeout).is_err() {
+        return false;
+    }
+    // Any Varlink reply will do: systemd 249 answers this one with
+    // "MethodNotImplemented", newer versions with their description.
+    if stream
+        .write_all(b"{\"method\":\"org.varlink.service.GetInfo\"}\0")
+        .is_err()
+    {
+        return false;
+    }
+    let mut reply = Vec::new();
+    let mut chunk = [0_u8; 1024];
+    while reply.len() < 64 * 1024 {
+        match stream.read(&mut chunk) {
+            Ok(0) | Err(_) => break,
+            Ok(n) => {
+                reply.extend_from_slice(&chunk[..n]);
+                if reply.contains(&0) {
+                    break;
+                }
+            }
+        }
+    }
+    reply.first() == Some(&b'{') && reply.contains(&0)
+}
+
 fn check_resolved_at(socket: &Path) -> Check {
     const ID: &str = "resolved";
-    if std::os::unix::net::UnixStream::connect(socket).is_ok() {
+    if resolved_answers(socket) {
         Check::ok(ID, "systemd-resolved", crate::tr!("active", "ativo"))
     } else {
         Check::bad(
@@ -450,8 +486,29 @@ mod tests {
   433: 3500007F:0035 00000000:0000 07 00000000:00000000 00:00000000 00000000   991        0 1 2 0000000000000000 0
 ";
 
+    /// Fake systemd-resolved: answers one request with `reply`, or closes the
+    /// connection without answering, as systemd does when the service is
+    /// masked.
+    fn fake_resolved(socket: &Path, reply: Option<&'static [u8]>) -> std::thread::JoinHandle<()> {
+        use std::io::{Read as _, Write as _};
+        let listener = std::os::unix::net::UnixListener::bind(socket).expect("bind");
+        std::thread::spawn(move || {
+            if let Ok((mut stream, _)) = listener.accept() {
+                let mut request = Vec::new();
+                let mut byte = [0_u8; 1];
+                while stream.read(&mut byte).is_ok_and(|n| n == 1) && byte[0] != 0 {
+                    request.push(byte[0]);
+                }
+                assert!(request.starts_with(b"{\"method\":"), "a Varlink call");
+                if let Some(reply) = reply {
+                    let _ = stream.write_all(reply);
+                }
+            }
+        })
+    }
+
     #[test]
-    fn resolved_is_active_only_if_its_socket_answers() {
+    fn resolved_is_active_only_if_it_answers() {
         let dir = tempfile::tempdir().expect("tempdir");
         let socket = dir.path().join("io.systemd.Resolve");
         assert_eq!(
@@ -459,14 +516,29 @@ mod tests {
             CheckStatus::Warn,
             "no socket"
         );
-        let listener = std::os::unix::net::UnixListener::bind(&socket).expect("bind");
-        assert_eq!(check_resolved_at(&socket).status, CheckStatus::Ok);
+
+        // systemd 262: its description; systemd 249: an error, still an answer.
+        for reply in [
+            &b"{\"parameters\":{\"vendor\":\"The systemd Project\"}}\0"[..],
+            &b"{\"error\":\"org.varlink.service.MethodNotImplemented\"}\0"[..],
+        ] {
+            let _ = std::fs::remove_file(&socket);
+            let server = fake_resolved(&socket, Some(reply));
+            assert_eq!(check_resolved_at(&socket).status, CheckStatus::Ok);
+            server.join().expect("server");
+        }
+
+        // Masked service behind systemd's socket: accepted, then dropped.
+        let _ = std::fs::remove_file(&socket);
+        let server = fake_resolved(&socket, None);
+        let masked = check_resolved_at(&socket);
+        assert_eq!(masked.status, CheckStatus::Warn);
+        assert!(masked.hint.is_some());
+        server.join().expect("server");
+
         // Stopped service: the socket file stays, nobody listens.
-        drop(listener);
         assert!(socket.exists());
-        let stale = check_resolved_at(&socket);
-        assert_eq!(stale.status, CheckStatus::Warn);
-        assert!(stale.hint.is_some());
+        assert_eq!(check_resolved_at(&socket).status, CheckStatus::Warn);
     }
 
     #[test]
