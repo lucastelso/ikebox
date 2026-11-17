@@ -1733,3 +1733,16 @@ up. That now reads as a PSK problem. The test for networks the gateway
 refuses had to use a connection without a full tunnel child: strongSwan
 narrows any request into `0.0.0.0/0`.
 
+**Design** (`docs/adr-schema-2`, no code): ADR-0022 replaces
+`auth.method` with authentication rounds and a gateway side (`psk` or
+`certificate`, which requires an identity and a CA from the profile, sent to
+charon as data); the app writes the lowest schema that expresses a profile,
+so schema 1 profiles keep opening on older versions. ADR-0023 adds IKEv2 +
+EAP-MSCHAPv2 only over a validated gateway certificate (three new plugins,
+reviewed). ADR-0024 imports client certificates from PKCS#12 into the
+keyring and sends key and certificate as data; RSA and Ed25519 work with
+the engine as it is, ECDSA would need OpenSSL and waits for a real case.
+ADR-0025 defers XAuth with a second exchange (one-time codes appended to
+the password already work) and leaves L2TP/IPsec out. The roadmap now
+details phases 7 to 10.
+

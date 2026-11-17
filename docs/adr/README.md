@@ -31,6 +31,10 @@ English in 0.2.0.
 | [0019](0019-forced-updown-and-if-id.md) | Whoever talks VICI does not choose the updown or the if_id (embedded engine) | Accepted |
 | [0020](0020-static-engine-and-lighter-builds.md) | Static engine with musl, no Docker engine in release builds | Accepted |
 | [0021](0021-interface-state-color.md) | Interface colored by the connection state (direction B) | Accepted |
+| [0022](0022-profile-schema-2.md) | Profile schema 2: authentication rounds, trust anchors, new credentials | Accepted (design) |
+| [0023](0023-ikev2-eap-mschapv2.md) | IKEv2 + EAP-MSCHAPv2, with the gateway certificate always validated | Accepted (design) |
+| [0024](0024-client-certificates.md) | Client certificates: PKCS#12 import, key only in the keyring, sent as data | Accepted (design) |
+| [0025](0025-deferred-xauth-otp-l2tp.md) | Deferred: XAuth with one-time codes, and L2TP/IPsec | Accepted (deferral) |
 
 Template for new ADRs: copy an existing one and keep the sections
 **Context · Decision · Consequences · Alternatives considered**.
