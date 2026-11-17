@@ -6,12 +6,12 @@ Cliente de VPN IPsec para **Linux**, feito para VPNs **legadas**: IKEv1, modo
 agressivo, PSK de grupo + XAuth, grupos DH antigos. É o tipo de VPN corporativa
 que os clientes atuais do Linux já não conseguem conectar.
 
-> **Status: v0.7.0 (pré-alfa).** O app desktop, instalado pelo `.rpm` e com o
+> **Status: v0.8.0 (pré-alfa).** O app desktop, instalado pelo `.rpm` e com o
 > strongSwan embutido (**sem Docker**), conecta de ponta a ponta numa VPN
 > FortiGate real, e todos os modos de IPsec que os perfis aceitam (IKEv1
-> principal ou agressivo, PSK com ou sem XAuth, IKEv2 com PSK ou com usuário
-> e senha sobre um certificado de gateway conferido) são testados pelo mesmo
-> caminho. Os perfis podem ser criados e editados no app, a partir
+> principal ou agressivo, PSK com ou sem XAuth, IKEv2 com PSK, com usuário e
+> senha ou com o seu próprio certificado, sempre conferindo o certificado do
+> gateway) são testados pelo mesmo caminho. Os perfis podem ser criados e editados no app, a partir
 > de modelos de fornecedor, e cada um mostra o seu nível de segurança. A
 > interface fala português e inglês. Vindo da 0.2.0 ou anterior, atualize o app
 > **e** o componente de rede (ver o [CHANGELOG](CHANGELOG.md), em inglês). Os
@@ -209,7 +209,7 @@ npm install                 # ferramentas, dependências do frontend e git hooks
 npm run dev:app             # abre o app desktop em modo de desenvolvimento (com o engine em Docker como reserva)
 npm run check               # tudo o que precisa estar verde antes de um merge
 npm run bundle -- --bundles rpm   # gera o pacote instalável (rpm, deb ou appimage)
-npm run release:build -- v0.7.0   # pacotes de release (os três) num container Ubuntu 22.04
+npm run release:build -- v0.8.0   # pacotes de release (os três) num container Ubuntu 22.04
 npm run test:engine         # teste ponta a ponta do engine com um gateway IPsec local
 npm run test:docker         # integração do núcleo Rust com o Docker real (engine, VICI, sessão)
 npm run test:cli            # fluxo completo do CLI contra o gateway de teste

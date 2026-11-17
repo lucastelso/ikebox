@@ -2153,7 +2153,7 @@ checksum = "791930b43c0d5973160d90a8f3894509f2b273430f5c5c73b668636d0287c5c0"
 
 [[package]]
 name = "ipsec-client-app"
-version = "0.7.0"
+version = "0.8.0"
 dependencies = [
  "dbus",
  "ipsec-client-core",
@@ -2173,7 +2173,7 @@ dependencies = [
 
 [[package]]
 name = "ipsec-client-cli"
-version = "0.7.0"
+version = "0.8.0"
 dependencies = [
  "anyhow",
  "clap",
@@ -2187,7 +2187,7 @@ dependencies = [
 
 [[package]]
 name = "ipsec-client-core"
-version = "0.7.0"
+version = "0.8.0"
 dependencies = [
  "bollard",
  "dbus-secret-service-keyring-store",
@@ -2215,7 +2215,7 @@ dependencies = [
 
 [[package]]
 name = "ipsec-client-helper"
-version = "0.7.0"
+version = "0.8.0"
 dependencies = [
  "dbus",
  "ipsec-client-proto",
@@ -2226,7 +2226,7 @@ dependencies = [
 
 [[package]]
 name = "ipsec-client-proto"
-version = "0.7.0"
+version = "0.8.0"
 dependencies = [
  "serde",
  "serde_json",
