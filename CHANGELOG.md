@@ -7,6 +7,13 @@ and the project uses [Semantic Versioning](https://semver.org/).
 
 ## [Unreleased]
 
+## [0.5.0] - 2026-11-17
+
+IPsec modes, phase 6 of the program: every mode the profile accepts is now
+tested on the production path, each profile shows how safe its settings
+are, and IKEv2 failures are explained. The network component changes (the
+`updown` fix below): the app offers to update it.
+
 ### Added
 
 - **Security level per profile:** a badge (good, legacy or weak) on the

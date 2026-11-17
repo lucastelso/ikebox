@@ -40,22 +40,24 @@
   ([roadmap](roadmap.md#post-020-program-decided-on-2026-11-16)): audit I
   (credentials, private data, supply chain) → audit II (privilege boundaries)
   → compatibility → optimization and base images → interface → IPsec modes.
-  **Phases 1 to 5 are done** (steps 37 to 42, [audit report](audits/v0.2.0.md),
-  [ADR-0020](adr/0020-static-engine-and-lighter-builds.md),
-  [ADR-0021](adr/0021-interface-state-color.md)). 0.3.0 carries phases 1–4
-  (audit fixes, static engine, no Docker in release); **0.4.0** carries phase
-  5, the interface colored by the connection state (direction B).
-  **Now: phase 6 (IPsec modes I), step 43.** Done: `npm run test:modes`
-  certifies every mode schema 1 accepts (and fixed the profiles without a
-  virtual IP); security level per profile (badge + reasons, only warns);
-  IKEv2 failure diagnosis. Next in this phase: the schema 2 ADRs and release
-  0.5.0. Each phase ends by updating this line.
+  **Phases 1 to 6 are done** (steps 37 to 43, [audit report](audits/v0.2.0.md),
+  [ADR-0020](adr/0020-static-engine-and-lighter-builds.md) to
+  [ADR-0025](adr/0025-deferred-xauth-otp-l2tp.md)). 0.3.0 carries phases 1–4
+  (audit fixes, static engine, no Docker in release); 0.4.0 carries phase 5,
+  the interface colored by the connection state; **0.5.0** carries phase 6:
+  `npm run test:modes` certifies every mode schema 1 accepts (and found that
+  profiles without a virtual IP installed no route), a security level per
+  profile (badge + reasons, only warns), IKEv2 failure diagnosis, and the
+  design of schema 2, EAP and client certificates.
+  **Next: phase 7 (profile editor and schema 2 in the code,
+  [roadmap](roadmap.md#phases-7-planned-detailed-at-the-end-of-phase-6)).**
+  Each phase ends by updating this line.
 - **Waiting for the maintainer:** P8 (`initiator_only`) is not concluded:
   the count of negotiations started by the gateway only means something
   after a session longer than the gateway's phase 1 lifetime, and step 2
   needs a session that long with the option on (the report has the steps).
-  To decide: P13 (phase 6) and P14 to P17 (phase 3); the desktop checks of
-  P15 fit the acceptance of 0.3.0.
+  To decide: P14 to P17 (phase 3); the desktop checks of P15 (now also the
+  security badge, on Fedora with WebKitGTK) fit the acceptance of a release.
 - **Still open from before:** `chore/release` (CI builds the packages on the
   tag, rpm/deb post-install with `--origin package`, signed `SHA256SUMS`,
   acceptance on a clean VM); running charon without root (ADR-0019).
