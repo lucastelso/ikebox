@@ -58,7 +58,7 @@ Baixe o arquivo da sua distribuição na página [Releases](https://github.com/l
 
 | Sua distribuição | Arquivo | Como instalar |
 |---|---|---|
-| Fedora, RHEL, openSUSE | `.rpm` | `sudo dnf install ./ipsec-client-*.x86_64.rpm` |
+| Fedora, openSUSE, RHEL 10 (com EPEL) | `.rpm` | `sudo dnf install ./ipsec-client-*.x86_64.rpm` |
 | Ubuntu, Debian, Mint | `.deb` | `sudo apt install ./ipsec-client_*_amd64.deb` |
 | Outras | `.AppImage` | `chmod +x` e abrir |
 
@@ -144,10 +144,13 @@ cada escolha está nos [ADRs](docs/adr/README.md).
 ## Requisitos
 
 - Linux x86_64 com kernel ≥ 4.19 e o módulo `xfrm_interface` (padrão nas
-  distribuições atuais).
-- systemd e polkit, padrão nas distribuições de desktop.
+  distribuições atuais), glibc ≥ 2.35 e WebKitGTK 4.1.
+- systemd ≥ 248 e polkit, padrão nas distribuições de desktop.
 - `systemd-resolved` ativo, para o DNS da VPN. Sem ele, o túnel funciona por
-  IP.
+  IP (o Debian e o openSUSE não o usam por padrão).
+- Testado de forma automática no Ubuntu 22.04 e 24.04, no Debian 12 e 13, no
+  Fedora 45, no openSUSE Tumbleweed e no AlmaLinux 10 ([manual de instalação](docs/pt-BR/instalacao.md#distribuições-testadas)).
+  O RHEL 9 e seus derivados não são suportados.
 - Uma conta de administrador, só para instalar o componente de rede uma vez.
 - Opcional: Secret Service (GNOME Keyring/KWallet), para lembrar credenciais;
   no GNOME, a extensão AppIndicator, para o ícone na bandeja.
@@ -209,6 +212,8 @@ npm run test:cli            # fluxo completo do CLI contra o gateway de teste
 npm run test:native         # strongSwan compilado (engine embutido) + teste ponta a ponta
 npm run test:systemd        # engine embutido com systemd de verdade num container (sandbox, 2 usuários, ataque)
 npm run test:packaging      # instalador do componente de rede, como root num container
+npm run test:compat         # test:systemd repetido em sete distribuições (Ubuntu, Debian, Fedora, openSUSE, AlmaLinux)
+tests/compat/packages.sh <dir>  # instala .deb/.rpm gerados nas mesmas sete, com o gerenciador de pacotes de cada uma
 scripts/test-native.sh      # instala o componente de verdade (sudo) e testa o CLI por ele
 scripts/check-private.sh    # procura dados privados no conteúdo staged
 ```

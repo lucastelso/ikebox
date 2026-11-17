@@ -1485,3 +1485,76 @@ it goes with the next engine rebuild. The rest is in the report.
 `test:engine`, `test:native`, `test:packaging`, `test:docker` and `test:cli`.
 
 **Report:** [audits/v0.2.0.md](audits/v0.2.0.md#part-2-privilege-boundaries).
+
+### Step 39: audit of 0.2.0, part 3 (compatibility across distributions)
+
+**Also asked by the maintainer:** a step-by-step guide for the P8 test (now
+in the report, "How to test P8 on the real VPN") and the end of the 40-odd
+branches on the remote. CONTRIBUTING now says to delete a branch after its
+merge; every local branch merged into `main` was deleted, and the command
+that deletes them on GitHub is in resume.md (this environment cannot push).
+
+**Two harnesses** (`test/compat-matrix`):
+
+- `tests/compat/run.sh` (`npm run test:compat`) runs `tests/systemd` on
+  Ubuntu 22.04 and 24.04, Debian 12 and 13, Fedora 45, openSUSE Tumbleweed
+  and AlmaLinux 10. The Dockerfile takes the base image as an argument and picks
+  the package manager it finds. The helper and the CLI are built once in the
+  release image, so they have the glibc floor of the published packages.
+- `tests/compat/packages.sh` installs a `.deb`/`.rpm` with each package
+  manager in a clean container, optionally updating from an older one, and
+  checks libraries (`ldd`), the helper and charon starting, the bundle hashes
+  and every tool the app and the engine call.
+
+**What the matrix found:**
+
+- The published 0.2.0 packages install everywhere, but a clean system lacks
+  `pkexec` and `ip`; Fedora and openSUSE also lack `systemctl`,
+  `systemd-run`, `journalctl`, `find` and `awk`. Desktop installations
+  usually have them, which is why nobody noticed. Declared now (Tauri
+  `depends`); on openSUSE `pkexec` is its own package, so the `.rpm` asks for
+  the file `/usr/bin/pkexec`.
+- Image-based systems: the installer wrote the policy to a read-only
+  `/usr/share/polkit-1/actions`. polkit 124+ also reads
+  `/etc/polkit-1/actions`; `pkaction --version` decides. While testing it, a
+  second bug: with `/opt` as a link to `var/opt` (Fedora Atomic), GNU tar
+  replaced the link with a directory and the files installed through the
+  link vanished. `--keep-directory-symlink` fixes it; the installer also
+  refuses links inside the engine tarball now that tar keeps them.
+- Without systemd-resolved, the diagnostics said "active": the files in
+  `/run/systemd/resolve` (the socket included) stay after it stops. The
+  first fix connected to the Varlink socket, which passed on Debian and
+  Ubuntu and failed on Fedora 45 and openSUSE: there (systemd 261/262) the
+  socket belongs to systemd, which accepts the connection of a masked
+  service and then resets it. The check now makes a Varlink call
+  (`org.varlink.service.GetInfo`) and requires any reply; systemd 249
+  answers "MethodNotImplemented", which counts.
+- The helper unit runs with an empty `CapabilityBoundingSet` on all seven
+  (audit P12), and the last scenario of `tests/systemd` swaps the uid list
+  for the real polkit: the request of the helper works on polkit 0.105 to
+  128. Until now, real polkit had only been exercised by hand on Fedora.
+- RHEL family: the installation guide recommended the `.rpm` for RHEL, Rocky
+  and AlmaLinux. On AlmaLinux 9 it does not install (no WebKitGTK 4.1, even
+  with EPEL), and the AppImage needs glibc 2.35 (EL9 has 2.34) because of
+  the WebKitGTK it carries. On AlmaLinux 10 it installs with EPEL + CRB and
+  passes the whole systemd test (polkit 125), so it became the seventh
+  distribution of the matrix; `packages.sh` enables EPEL for that family.
+  `verify-release.sh` only looked at the app's own glibc; it now reads every
+  ELF file in the AppImage.
+
+**Test harness lessons.** The Ubuntu 24.04 image has a user on uid 1000, and
+`pkaction` 0.105 exits with 1 even when it finds the action: the output
+decides now. A release build from `HEAD` used to write over
+`target/release-artifacts/0.2.0`, the published packages; it goes to
+`<version>-dev-<commit>` now.
+
+**Not testable here:** Wayland/X11, the tray, the AppImage on Ubuntu 24.04
+with AppArmor's user namespace restriction, NVIDIA. They are in the report
+as checks for the maintainer (P15).
+
+**Verification:** `npm run check`, `test:packaging`, `test:compat` (seven
+distributions), `tests/compat/packages.sh` with the 0.2.0 packages (from
+0.1.0, six distributions) and with test packages of this branch (from 0.1.1,
+seven), `test:cli`.
+
+**Report:** [audits/v0.2.0.md](audits/v0.2.0.md#part-3-compatibility).

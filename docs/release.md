@@ -92,9 +92,25 @@ sha256sum -c SHA256SUMS
 rpm -qip ipsec-client-*.rpm | grep -E '^(Name|Version)'
 ```
 
-Then install the package for your distribution over the current one (section
-4 of the [installation guide](installation.md#4-update)): open it from the
-menu, update the component if the app asks and connect.
+Then run the **compatibility matrix** on the new packages. It installs the
+`.deb`/`.rpm` with each distribution's package manager in a clean container
+(Ubuntu 22.04 and 24.04, Debian 12 and 13, Fedora, openSUSE Tumbleweed,
+AlmaLinux 10 with EPEL),
+updating from the previous version, and fails if a library or a tool the app
+needs was not brought by the package:
+
+```bash
+tests/compat/packages.sh target/release-artifacts/X.Y.Z --from target/release-artifacts/<previous>
+npm run test:compat      # the engine with real systemd and polkit, on the same seven
+```
+
+Finally, install the package for your distribution over the current one
+(section 4 of the [installation guide](installation.md#4-update)): open it
+from the menu, update the component if the app asks and connect.
+
+A build from `HEAD` or from a commit (`npm run release:build`, without the
+tag) goes to `target/release-artifacts/X.Y.Z-dev-<commit>/`, so a test build
+never replaces the packages of a published version.
 
 ## 5. Publish on GitHub
 

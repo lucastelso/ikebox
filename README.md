@@ -60,7 +60,7 @@ Download the file for your distribution from the
 
 | Your distribution | File | How to install |
 |---|---|---|
-| Fedora, RHEL, openSUSE | `.rpm` | `sudo dnf install ./ipsec-client-*.x86_64.rpm` |
+| Fedora, openSUSE, RHEL 10 (with EPEL) | `.rpm` | `sudo dnf install ./ipsec-client-*.x86_64.rpm` |
 | Ubuntu, Debian, Mint | `.deb` | `sudo apt install ./ipsec-client_*_amd64.deb` |
 | Others | `.AppImage` | `chmod +x` and open it |
 
@@ -146,10 +146,13 @@ behind each choice is in the [ADRs](docs/adr/README.md).
 ## Requirements
 
 - Linux x86_64 with kernel ≥ 4.19 and the `xfrm_interface` module (the default
-  in current distributions).
-- systemd and polkit, the default in desktop distributions.
+  in current distributions), glibc ≥ 2.35 and WebKitGTK 4.1.
+- systemd ≥ 248 and polkit, the default in desktop distributions.
 - `systemd-resolved` running, for the VPN DNS. Without it, the tunnel works by
-  IP.
+  IP (Debian and openSUSE do not use it by default).
+- Tested automatically on Ubuntu 22.04 and 24.04, Debian 12 and 13, Fedora 45,
+  openSUSE Tumbleweed and AlmaLinux 10 ([installation guide](docs/installation.md#tested-distributions)).
+  RHEL 9 and its rebuilds are not supported.
 - An administrator account, only to install the network component once.
 - Optional: Secret Service (GNOME Keyring/KWallet), to remember credentials;
   on GNOME, the AppIndicator extension, for the tray icon.
@@ -210,6 +213,8 @@ npm run test:cli            # full CLI flow against the test gateway
 npm run test:native         # compiled strongSwan (embedded engine) + end-to-end test
 npm run test:systemd        # embedded engine with real systemd in a container (sandbox, 2 users, attack)
 npm run test:packaging      # network component installer, as root in a container
+npm run test:compat         # test:systemd repeated on seven distributions (Ubuntu, Debian, Fedora, openSUSE, AlmaLinux)
+tests/compat/packages.sh <dir>  # installs built .deb/.rpm on the same seven, with their package managers
 scripts/test-native.sh      # installs the real component (sudo) and tests the CLI through it
 scripts/check-private.sh    # looks for private data in the staged content
 ```

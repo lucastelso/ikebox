@@ -83,10 +83,10 @@ pub enum ComponentError {
 
     /// No `pkexec`.
     #[error("{}", crate::tr!(
-        "pkexec (polkit) was not found; install polkit or use the IPsec Client \
-         .rpm/.deb package",
-        "o pkexec (polkit) não foi encontrado; instale o polkit ou use o pacote \
-         .rpm/.deb do IPsec Client"
+        "pkexec was not found; install it (package pkexec, or polkit on Fedora) or use \
+         the IPsec Client .rpm/.deb package",
+        "o pkexec não foi encontrado; instale-o (pacote pkexec, ou polkit no Fedora) ou \
+         use o pacote .rpm/.deb do IPsec Client"
     ))]
     NoPkexec,
 

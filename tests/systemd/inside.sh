@@ -77,6 +77,10 @@ must_be_empty() {
     fail "$1"
 }
 
+step "Test computer"
+# shellcheck source=/dev/null
+ok "$(. /etc/os-release && printf '%s' "$PRETTY_NAME"): systemd $(systemctl --version | awk 'NR == 1 { print $2 }'), iproute2 $(ip -V | grep -oE 'iproute2-[^, ]+' | cut -d- -f2), bash ${BASH_VERSION%%(*}, glibc $(ldd --version | awk 'NR == 1 { print $NF }')"
+
 step "Installation with the real installer"
 bash /test/bundle/install-native.sh install --bundle /test/bundle --origin manual \
     >/tmp/install.log 2>&1 || {
@@ -90,6 +94,11 @@ printf '[Service]\nExecStart=\nExecStart=/opt/ipsec-client/bin/ipsec-client-help
     >/etc/systemd/system/ipsec-client-helper.service.d/test.conf
 systemctl daemon-reload
 systemctl stop ipsec-client-helper.service 2>/dev/null || true
+# Some base images come with a user of their own on uid 1000 (Ubuntu 24.04).
+for uid in 1000 1001; do
+    existing=$(getent passwd "$uid" | cut -d: -f1 || true)
+    [[ -z $existing ]] || userdel -r "$existing" 2>/dev/null
+done
 useradd -m -u 1000 alice
 useradd -m -u 1001 bob
 ok "$(tail -n 1 /tmp/install.log)"
@@ -291,6 +300,55 @@ ok "the forced updown ran (route and helper DNS) and the SAs use the helper's if
 reply=$(helper alice '{"op":"stop"}')
 [[ $reply == *'"was_running":true'* ]] || fail "stop failed: $reply"
 host_is_clean
+
+step "Without systemd-resolved (the default on Debian and openSUSE)"
+out=$(as alice "$CLI" doctor 2>&1 || true)
+grep -q '^✔ systemd-resolved: ' <<<"$out" || {
+    printf '%s\n' "$out"
+    fail "doctor does not see systemd-resolved running"
+}
+# Masked, so that resolvectl cannot start it again through D-Bus. Its files
+# in /run/systemd/resolve stay: the diagnostics must not trust them.
+systemctl mask --now systemd-resolved.service >/dev/null 2>&1
+out=$(as alice "$CLI" doctor 2>&1 || true)
+grep -q '^⚠ systemd-resolved: ' <<<"$out" || {
+    printf '%s\n' "$out"
+    fail "doctor does not warn that systemd-resolved is missing"
+}
+ok "doctor warns: $(grep '^⚠ systemd-resolved: ' <<<"$out" | head -n 1)"
+out=$(as alice "$CLI" connect gateway-teste --detach --credentials-stdin <<<"$CREDS" 2>&1) || {
+    printf '%s\n' "$out"
+    fail "connect failed without systemd-resolved"
+}
+ping -c 2 -W 2 -q 192.0.2.1 >/dev/null || fail "no traffic through the tunnel without systemd-resolved"
+out=$(as alice "$CLI" logs -n 500)
+grep -q "warning: failed to set the DNS servers" <<<"$out" ||
+    fail "the log does not say that the VPN DNS was not applied"
+as alice "$CLI" disconnect >/dev/null
+host_is_clean
+ok "the tunnel works by IP, the log says the DNS was not applied, and nothing is left"
+
+step "Authorization by the real polkit of this distribution"
+# Until here the helper used a uid list. Without it, every request goes to
+# polkit: the policy must be known to it, and the question the helper asks
+# (process, start time, uid) must be understood by this polkit version.
+rm /etc/systemd/system/ipsec-client-helper.service.d/test.conf
+systemctl daemon-reload
+systemctl stop ipsec-client-helper.service 2>/dev/null || true
+# The output decides: pkaction 0.105 (Ubuntu 22.04) exits with 1 even when it
+# finds the action.
+out=$(pkaction --action-id io.github.lucastelso.ipsecclient.connect 2>&1 || true)
+[[ $out == io.github.lucastelso.ipsecclient.connect* ]] ||
+    fail "polkit does not know the action of the installed policy: $out"
+# alice has no local active session here (no login manager): a clean "no"
+# from polkit, not a failure to ask.
+reply=$(helper alice '{"op":"status"}')
+[[ $reply == *'"result":"error"'* && $reply == *"only the user of the active local session"* ]] ||
+    fail "polkit should have refused alice (no active session): $reply"
+# root is always authorized by polkit.
+reply=$(python3 -I /test/helper_client.py '{"op":"status"}')
+[[ $reply == *'"result":"status"'* && $reply == *'"running":false'* ]] || fail "polkit should have authorized root: $reply"
+ok "polkit $(pkaction --version | awk '{ print $NF }'): policy registered, a user without an active session is refused, root is authorized"
 
 step "Result"
 ok "embedded engine with systemd: tunnel, sandbox, user isolation and attack blocked"

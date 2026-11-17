@@ -80,6 +80,7 @@ the Rust side.
 | `npm run lint:sh` | shellcheck on every script. Without shellcheck installed, it uses the official Docker image |
 | `npm run test:engine` | End-to-end engine test with a local IPsec gateway. Needs Docker and free UDP ports 500/4500 |
 | `npm run test:native` / `test:systemd` | Embedded engine end to end, and with real systemd in a container (includes the ADR-0019 attack) |
+| `npm run test:compat` | `test:systemd` on every distribution of `tests/compat/distros.txt`, with the helper and the CLI built in the release image. `tests/compat/packages.sh <dir>` installs built packages on the same distributions |
 | `scripts/check-private.sh --history` | Scans the whole history. Run it before publishing |
 | `scripts/check-private.sh --artifacts <dir>` | Scans the inside of release packages (private patterns, home path, hostname). Runs on its own at the end of `npm run release:build` |
 

@@ -59,11 +59,15 @@ mkdir "$work/appimage" "$work/deb" "$work/rpm"
 (cd "$work/appimage" && "${appimages[0]}" --appimage-extract >/dev/null) ||
     fail "AppImage: could not extract the package"
 component_ok "$work/appimage/squashfs-root" "AppImage"
-glibc=$(objdump -T "$work/appimage/squashfs-root/usr/bin/ipsec-client" |
+# Every ELF file inside it, not only the app: the bundled libraries
+# (WebKitGTK, among others) are what require the newest glibc.
+glibc=$(find "$work/appimage/squashfs-root" -type f -exec sh -c \
+    'for f; do if head -c 4 "$f" | grep -q "ELF"; then objdump -T "$f" 2>/dev/null; fi; done; exit 0' _ {} + |
     grep -oE 'GLIBC_[0-9.]+' | sed 's/GLIBC_//' | sort -Vu | tail -n 1)
+[[ -n $glibc ]] || fail "AppImage: could not read the glibc versions"
 printf '%s\n%s\n' "$glibc" "$MAX_GLIBC" | sort -VC ||
     fail "AppImage: requires glibc $glibc (the limit is $MAX_GLIBC, from Ubuntu 22.04)"
-ok "AppImage: requires glibc $glibc (limit $MAX_GLIBC)"
+ok "AppImage: requires glibc $glibc, counting the bundled libraries (limit $MAX_GLIBC)"
 
 (cd "$work/deb" && ar x "${debs[0]}" && tar -xf data.tar.*) ||
     fail "deb: could not extract the package"

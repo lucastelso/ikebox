@@ -44,8 +44,39 @@ network component: after updating the app, click "Update" on it.
   refused), and `IPSEC_CLIENT_HELPER_SOCKET` only works in development
   builds.
 
+### Fixed
+
+Compatibility across distributions (audit of 0.2.0, part 3):
+
+- **Missing dependencies on a clean installation.** The `.deb` and the
+  `.rpm` only declared WebKitGTK, GTK and the tray library. Without `pkexec`
+  the network component could not be installed, and without `ip` (iproute2)
+  the VPN could not start; on Fedora and openSUSE, systemd's tools, `find`
+  and `awk` were missing too. They are declared now (on openSUSE, `pkexec` is
+  a package of its own).
+- **Image-based distributions** (Fedora Silverblue/Kinoite, openSUSE MicroOS):
+  installing the network component failed halfway. The polkit policy now goes
+  to `/etc/polkit-1/actions` when `/usr` is read-only (polkit 124 or newer),
+  and `/opt` stays a link to `/var/opt` instead of being replaced.
+- **Diagnostics said systemd-resolved was active after it stopped**, while
+  the VPN DNS was not being applied. It is now asked directly.
+- Messages built outside the window (tray, notifications, errors) follow
+  `LANGUAGE`, which Ubuntu sets, and locales such as `pt_PT@euro`.
+
 ### Changed
 
+- The network component's service runs with no capability at all.
+- The installation guide lists the tested distributions, says how to get the
+  VPN DNS on Debian and openSUSE, and how to install on RHEL, Rocky and
+  AlmaLinux 10 (with EPEL). Version 9 of those is not supported: it has
+  neither WebKitGTK 4.1 nor a recent enough glibc.
+- `npm run test:compat` repeats the systemd test on Ubuntu 22.04 and 24.04,
+  Debian 12 and 13, Fedora 45, openSUSE Tumbleweed and AlmaLinux 10, with the
+  real polkit of each; `tests/compat/packages.sh` installs the built packages
+  on the same seven.
+- `scripts/verify-release.sh` checks the glibc required by every library
+  inside the AppImage, not only by the app; a test build of the packages no
+  longer replaces those of a published version.
 - `npm run test:systemd` has a canary sweep: it looks for the test
   credentials in every file, process, journal entry, unit property and CLI
   output while connected and after disconnecting.
