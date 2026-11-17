@@ -40,13 +40,13 @@
   ([roadmap](roadmap.md#post-020-program-decided-on-2026-11-16)): audit I
   (credentials, private data, supply chain) → audit II (privilege boundaries)
   → compatibility → optimization and base images → interface → IPsec modes.
-  **Phases 1 to 4 are done** (steps 37 to 40, [audit report](audits/v0.2.0.md),
-  [ADR-0020](adr/0020-static-engine-and-lighter-builds.md)) and go out in
-  **0.3.0**: the audit fixes (credentials, privilege boundaries,
-  compatibility), the static musl engine, release builds without the Docker
-  engine, Debian 13 test images and P9–P11.
-  **Next: phase 5 (interface: 5a review and visual directions).** Each phase
-  ends by updating this line.
+  **Phases 1 to 5 are done** (steps 37 to 42, [audit report](audits/v0.2.0.md),
+  [ADR-0020](adr/0020-static-engine-and-lighter-builds.md),
+  [ADR-0021](adr/0021-interface-state-color.md)). 0.3.0 carries phases 1–4
+  (audit fixes, static engine, no Docker in release); **0.4.0** carries phase
+  5, the interface colored by the connection state (direction B).
+  **Next: phase 6 (IPsec modes I: certify what the profile already accepts,
+  design profile schema 2).** Each phase ends by updating this line.
 - **Waiting for the maintainer:** P8 (`initiator_only`) is not concluded:
   the count of negotiations started by the gateway only means something
   after a session longer than the gateway's phase 1 lifetime, and step 2

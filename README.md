@@ -6,10 +6,10 @@ IPsec VPN client for **Linux**, built for **legacy** VPNs: IKEv1, aggressive
 mode, group PSK + XAuth, old DH groups. It is the kind of corporate VPN that
 today's Linux clients can no longer connect to.
 
-> **Status: v0.3.0 (pre-alpha).** The desktop app, installed from the `.rpm`
+> **Status: v0.4.0 (pre-alpha).** The desktop app, installed from the `.rpm`
 > and with its own embedded strongSwan (**no Docker**), connects end to end to
-> a real FortiGate VPN. The interface speaks English and Portuguese. Version
-> 0.3.0 brings the fixes of a three-part security and compatibility audit:
+> a real FortiGate VPN. The interface speaks English and Portuguese, and its
+> color tells the connection state at a glance. Coming from 0.2.0 or older,
 > update the app **and** the network component (see the [CHANGELOG](CHANGELOG.md)).
 > The packages (AppImage, rpm and deb) are on the
 > [Releases](https://github.com/lucastelso/ipsec-client/releases) page. What
@@ -206,7 +206,7 @@ npm install                 # tools, frontend dependencies and git hooks (develo
 npm run dev:app             # opens the desktop app in development mode (with the Docker engine as a fallback)
 npm run check               # everything that must be green before a merge
 npm run bundle -- --bundles rpm   # builds the installable package (rpm, deb or appimage)
-npm run release:build -- v0.3.0   # release packages (all three) in an Ubuntu 22.04 container
+npm run release:build -- v0.4.0   # release packages (all three) in an Ubuntu 22.04 container
 npm run test:engine         # end-to-end engine test with a local IPsec gateway
 npm run test:docker         # Rust core integration with real Docker (engine, VICI, session)
 npm run test:cli            # full CLI flow against the test gateway
