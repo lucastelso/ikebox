@@ -13,6 +13,7 @@ mod schema;
 mod security;
 mod store;
 mod swanctl;
+mod templates;
 mod validate;
 
 pub use model::{
@@ -21,9 +22,10 @@ pub use model::{
 };
 pub use render::{ConnParams, UPDOWN_PATH};
 pub use schema::{OLDEST_SCHEMA_VERSION, schema_of, to_json};
-pub use security::{FindingKind, SecurityFinding, SecurityLevel, SecurityReport};
+pub use security::{FindingKind, SecurityFinding, SecurityLevel, SecurityReport, proposals_level};
 pub use store::{MAX_PROFILE_BYTES, ProfileList, ProfileStore, parse_profile, read_profile_file};
 pub use swanctl::{SwanctlImport, SwanctlImportOptions, import_swanctl};
+pub use templates::{ProposalPreset, Template};
 pub use validate::{ValidationIssue, validate};
 
 /// O id é válido (`[a-z0-9][a-z0-9-]{0,62}`)? Usado também nas chaves do

@@ -1,17 +1,27 @@
-import { FileUp, TriangleAlert } from 'lucide-react';
+import { FilePlus, FileUp, TriangleAlert } from 'lucide-react';
 import { useCallback, useEffect, useState } from 'react';
 import { toast } from 'sonner';
-import { commands, type ProfileList, type ProfileSummary } from '@/bindings';
+import {
+  commands,
+  type ProfileDraft,
+  type ProfileList,
+  type ProfileSummary,
+  type ProfileTemplate,
+} from '@/bindings';
 import { Button } from '@/components/ui/button';
 import { useT } from '@/i18n';
 import { DeleteDialog } from './DeleteDialog';
 import { ProfileCard } from './ProfileCard';
+import { ProfileEditor } from './ProfileEditor';
+import { TemplateDialog } from './TemplateDialog';
 
-/** Gerenciador de presets: importar, exportar, ver e excluir perfis. */
+/** Gerenciador de perfis: criar, editar, importar, exportar, ver e excluir. */
 export function ProfilesScreen({ onImport }: { onImport: () => void }) {
   const t = useT();
   const [list, setList] = useState<ProfileList | null>(null);
   const [toDelete, setToDelete] = useState<ProfileSummary | null>(null);
+  const [choosing, setChoosing] = useState(false);
+  const [editing, setEditing] = useState<ProfileDraft | null>(null);
 
   const reload = useCallback(async () => {
     const result = await commands.listProfiles();
@@ -32,6 +42,17 @@ export function ProfilesScreen({ onImport }: { onImport: () => void }) {
       });
   }
 
+  async function startNew(template: ProfileTemplate) {
+    setChoosing(false);
+    setEditing(await commands.newProfileDraft(template));
+  }
+
+  async function startEdit(profile: ProfileSummary) {
+    const result = await commands.editProfileDraft(profile.id);
+    if (result.status === 'ok') setEditing(result.data);
+    else toast.error(result.error.message);
+  }
+
   async function deleteProfile(forget: boolean) {
     if (!toDelete) return;
     const result = await commands.deleteProfile(toDelete.id, forget);
@@ -42,14 +63,33 @@ export function ProfilesScreen({ onImport }: { onImport: () => void }) {
     } else toast.error(result.error.message);
   }
 
+  if (editing) {
+    return (
+      <ProfileEditor
+        initial={editing}
+        onCancel={() => setEditing(null)}
+        onSaved={() => {
+          setEditing(null);
+          void reload();
+        }}
+      />
+    );
+  }
+
   return (
     <div className="flex w-full flex-col gap-4">
       <div className="flex items-center justify-between gap-2">
         <h2 className="text-lg font-semibold">{t.profiles.title}</h2>
-        <Button onClick={onImport}>
-          <FileUp />
-          {t.profiles.import}
-        </Button>
+        <div className="flex gap-2">
+          <Button variant="secondary" onClick={() => setChoosing(true)}>
+            <FilePlus />
+            {t.editor.newProfile}
+          </Button>
+          <Button onClick={onImport}>
+            <FileUp />
+            {t.profiles.import}
+          </Button>
+        </div>
       </div>
       <p className="text-xs text-muted-foreground">{t.profiles.intro}</p>
 
@@ -63,6 +103,7 @@ export function ProfilesScreen({ onImport }: { onImport: () => void }) {
         <ProfileCard
           key={p.id}
           profile={p}
+          onEdit={() => void startEdit(p)}
           onExport={() => void exportProfile(p)}
           onDelete={() => setToDelete(p)}
         />
@@ -82,6 +123,13 @@ export function ProfilesScreen({ onImport }: { onImport: () => void }) {
             ))}
           </ul>
         </div>
+      )}
+
+      {choosing && (
+        <TemplateDialog
+          onChoose={(template) => void startNew(template)}
+          onCancel={() => setChoosing(false)}
+        />
       )}
 
       {toDelete && (

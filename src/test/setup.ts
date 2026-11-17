@@ -16,3 +16,11 @@ class ResizeObserverStub {
   disconnect(): void {}
 }
 globalThis.ResizeObserver ??= ResizeObserverStub as unknown as typeof ResizeObserver;
+
+// O Select do Radix usa captura de ponteiro e scrollIntoView, que o jsdom não
+// implementa.
+if (!Element.prototype.hasPointerCapture) {
+  Element.prototype.hasPointerCapture = () => false;
+  Element.prototype.releasePointerCapture = () => {};
+}
+Element.prototype.scrollIntoView ??= () => {};

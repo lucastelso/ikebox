@@ -86,6 +86,12 @@ os IPs e os domínios viram marcadores.
 
 ## Para quem vai passar o perfil adiante
 
+Ainda não tem perfil? Em **Perfis → Novo**, escolha com o que a VPN se parece
+(FortiGate, Cisco Easy VPN, IKEv2 com PSK ou em branco) e preencha o que o
+administrador do gateway passou: gateway, id do grupo, redes, DNS. O editor
+diz o que falta e mostra o selo de segurança enquanto você digita; o lápis ao
+lado de um perfil o edita depois.
+
 Em **Perfis**, clique no botão de exportar (a seta para baixo) ao lado do
 perfil e salve o arquivo. Ele **não tem** senha, usuário nem PSK.
 

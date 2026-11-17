@@ -183,6 +183,20 @@ impl Profile {
     }
 }
 
+/// Security level of a set of proposals alone, without the mode or the
+/// authentication (the badge of a proposal preset in the editor).
+#[must_use]
+pub fn proposals_level(ike: &[String], esp: &[String]) -> SecurityLevel {
+    let mut findings = Vec::new();
+    check_proposals(&mut findings, "ike.proposals", ike, true);
+    check_proposals(&mut findings, "child.esp_proposals", esp, false);
+    findings
+        .iter()
+        .map(|f| f.level)
+        .max()
+        .unwrap_or(SecurityLevel::Good)
+}
+
 fn check_proposals(
     findings: &mut Vec<SecurityFinding>,
     field: &str,

@@ -54,7 +54,7 @@
   **Now: phase 7 (profile editor and schema 2 in the code,
   [roadmap](roadmap.md#phases-7-planned-detailed-at-the-end-of-phase-6)),
   step 45.** Done: schema 2 (rounds, lowest-schema writer, one-time XAuth
-  password). Next: the profile editor, then release 0.6.0.
+  password) and the profile editor. Next: release 0.6.0.
   Each phase ends by updating this line.
 - **Waiting for the maintainer:** P8 (`initiator_only`) is not concluded:
   the count of negotiations started by the gateway only means something
