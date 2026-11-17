@@ -38,5 +38,7 @@ the computer it runs on besides the kernel.
 
 Included plugins: kernel-netlink, socket-default, vici, updown, xauth-generic,
 unity, nonce, random, drbg, aes, des, sha1, sha2, md5, hmac, gcm, chapoly,
-curve25519, gmp (modp, including 768/1024), pem, pkcs1, pkcs8, x509 and pubkey.
-kdf is included in 6.x. Without OpenSSL, **there are no ECP curves**.
+curve25519, gmp (modp, including 768/1024), pem, pkcs1, pkcs8, x509 and pubkey;
+since 0.7.0 also eap-identity, eap-mschapv2 and md4 (IKEv2 + EAP-MSCHAPv2,
+ADR-0023). kdf is included in 6.x. Without OpenSSL, **there are no ECP
+curves** and no ECDSA: gateway certificates must be RSA or Ed25519.
