@@ -201,7 +201,7 @@ veja [como gerar e publicar uma versão](../release.md) (em inglês).
 |---|---|
 | O app não aparece no menu | Espere alguns segundos ou saia e entre na sessão. No AppImage, confira o atalho em `~/.local/share/applications/` |
 | O ícone da bandeja não aparece (GNOME) | Instale e ative a extensão AppIndicator (seção 3) |
-| "O pkexec (polkit) não foi encontrado" | Instale o pacote `polkit` da sua distribuição |
+| "O pkexec não foi encontrado" | Instale o `pkexec`: pacote `pkexec` no Debian, no Ubuntu e no openSUSE, `polkit` no Fedora. O `.rpm` e o `.deb` já o trazem como dependência |
 | "Autorização cancelada" | A janela de senha foi fechada. Clique em instalar de novo |
 | "Não foi possível obter a autorização de administrador" | A sua conta não é de administrador, ou a senha estava errada. Peça para alguém com `sudo` instalar o componente uma vez: depois, qualquer usuário conecta |
 | "O computador ainda não está pronto para conectar" | Clique em **Instalar componente de rede** no próprio aviso, ou veja **Sistema → Diagnóstico** |

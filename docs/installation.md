@@ -204,7 +204,7 @@ test a change. Release packages are built another way: see
 |---|---|
 | The app does not show up in the menu | Wait a few seconds or log out and back in. For the AppImage, check the shortcut in `~/.local/share/applications/` |
 | The tray icon does not show up (GNOME) | Install and enable the AppIndicator extension (section 3) |
-| "pkexec (polkit) was not found" | Install your distribution's `polkit` package |
+| "pkexec was not found" | Install `pkexec`: the `pkexec` package on Debian, Ubuntu and openSUSE, `polkit` on Fedora. The `.rpm` and the `.deb` bring it as a dependency |
 | "Authorization cancelled" | The password window was closed. Click install again |
 | "Could not get administrator authorization" | Your account is not an administrator, or the password was wrong. Ask someone with `sudo` to install the component once: after that, any user can connect |
 | "This computer is not ready to connect yet" | Click **Install network component** in the alert itself, or see **System → Diagnostics** |

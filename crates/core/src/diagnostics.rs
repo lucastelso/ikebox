@@ -147,6 +147,36 @@ fn check_xfrm_interface() -> Check {
     }
 }
 
+/// Directories where the engine looks for its tools (the `PATH` the helper
+/// gives it).
+const TOOL_DIRS: [&str; 4] = ["/usr/sbin", "/usr/bin", "/sbin", "/bin"];
+
+fn tool_exists(dirs: &[&Path], name: &str) -> bool {
+    dirs.iter().any(|dir| dir.join(name).is_file())
+}
+
+/// The engine creates the interface, the routes and the XFRM state with `ip`
+/// (iproute2). Desktop distributions have it; a minimal installation may not,
+/// and the AppImage cannot declare the dependency.
+fn check_ip_command(dirs: &[&Path]) -> Check {
+    const ID: &str = "iproute2";
+    let name = crate::tr!("ip command (iproute2)", "Comando ip (iproute2)");
+    if tool_exists(dirs, "ip") {
+        Check::ok(ID, name, crate::tr!("available", "disponível"))
+    } else {
+        Check::bad(
+            ID,
+            name,
+            CheckStatus::Fail,
+            crate::tr!("not found", "não encontrado"),
+            crate::tr!(
+                "install the iproute2 package (iproute on Fedora) of your distribution",
+                "instale o pacote iproute2 (iproute no Fedora) da sua distribuição"
+            ),
+        )
+    }
+}
+
 fn check_resolved() -> Check {
     const ID: &str = "resolved";
     if Path::new("/run/systemd/resolve/io.systemd.Resolve").exists()
@@ -161,9 +191,11 @@ fn check_resolved() -> Check {
             crate::tr!("not found", "não encontrado"),
             crate::tr!(
                 "without systemd-resolved, the VPN DNS (internal domains) is not configured; \
-                 the tunnel works by IP",
+                 the tunnel works by IP. Debian does not enable it by default: install the \
+                 systemd-resolved package",
                 "sem o systemd-resolved, o DNS da VPN (domínios internos) não é configurado; \
-                 o túnel funciona por IP"
+                 o túnel funciona por IP. O Debian não o ativa por padrão: instale o pacote \
+                 systemd-resolved"
             ),
         )
     }
@@ -336,11 +368,13 @@ async fn check_engine() -> Vec<Check> {
 pub async fn preflight(check_ports: bool) -> Vec<Check> {
     let mut checks = vec![check_not_root()];
     checks.extend(check_engine().await);
-    checks.extend([
-        check_xfrm_interface(),
-        check_resolved(),
-        check_dbus_socket(),
-    ]);
+    checks.push(check_xfrm_interface());
+    // Only the embedded engine runs `ip` on this computer (the Docker engine
+    // has its own inside the container).
+    if NativeEngine::default().installed() {
+        checks.push(check_ip_command(&TOOL_DIRS.map(Path::new)));
+    }
+    checks.extend([check_resolved(), check_dbus_socket()]);
     if check_ports {
         checks.push(check_ike_ports());
     }
@@ -406,6 +440,25 @@ mod tests {
   432: 00000000:1194 00000000:0000 07 00000000:00000000 00:00000000 00000000     0        0 1 2 0000000000000000 0
   433: 3500007F:0035 00000000:0000 07 00000000:00000000 00:00000000 00000000   991        0 1 2 0000000000000000 0
 ";
+
+    #[test]
+    fn ip_command_is_looked_up_in_the_engine_path() {
+        let dir = tempfile::tempdir().expect("tempdir");
+        let other = tempfile::tempdir().expect("tempdir");
+        let dirs = [other.path(), dir.path()];
+        let missing = check_ip_command(&dirs);
+        assert_eq!(missing.status, CheckStatus::Fail);
+        assert!(missing.hint.is_some());
+        std::fs::write(dir.path().join("ip"), "").expect("write");
+        assert_eq!(check_ip_command(&dirs).status, CheckStatus::Ok);
+        // The real one, on any computer that runs these tests with iproute2.
+        if TOOL_DIRS.iter().any(|d| Path::new(d).join("ip").is_file()) {
+            assert_eq!(
+                check_ip_command(&TOOL_DIRS.map(Path::new)).status,
+                CheckStatus::Ok
+            );
+        }
+    }
 
     #[test]
     fn parses_proc_net_udp() {
