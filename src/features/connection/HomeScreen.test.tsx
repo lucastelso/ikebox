@@ -7,6 +7,7 @@ import type {
   Connection,
   CredentialsStatus,
   ProfileList,
+  ProfileSummary,
   UiError,
 } from '@/bindings';
 import { I18nProvider } from '@/i18n';
@@ -19,6 +20,7 @@ const profiles: ProfileList = {
       name: 'VPN do trabalho',
       gateway: 'vpn.example.com',
       usesXauth: true,
+      otp: false,
       remoteTs: ['192.0.2.0/24'],
       security: 'weak',
     },
@@ -140,6 +142,7 @@ describe('HomeScreen', () => {
           name: 'Escritório',
           gateway: 'vpn.example.com',
           usesXauth: false,
+          otp: false,
           remoteTs: ['192.0.2.0/24'],
           security: 'good',
         },
@@ -162,6 +165,28 @@ describe('HomeScreen', () => {
 
     await waitFor(() => expect(connectCalls).toHaveLength(1));
     expect(connectCalls[0]).toMatchObject({ credentials: { psk: 'psk-falsa' } });
+  });
+
+  it('a one-time code is asked at every connection, with the reason', async () => {
+    const otpList: ProfileList = {
+      profiles: [{ ...(profiles.profiles[0] as ProfileSummary), otp: true }],
+      broken: [],
+    };
+    const { connectCalls } = mockBackend({
+      list: otpList,
+      credentials: { stored: ['psk', 'xauthUser'] },
+    });
+    render(<HomeScreen />);
+    await userEvent.click(await screen.findByRole('button', { name: 'Connect' }));
+
+    await screen.findByRole('dialog');
+    expect(screen.getByText(/never stored/)).toBeInTheDocument();
+    expect(screen.queryByLabelText('Username')).not.toBeInTheDocument();
+    await userEvent.type(screen.getByLabelText('One-time code'), '123456');
+    await userEvent.click(screen.getByRole('button', { name: 'Connect', hidden: false }));
+
+    await waitFor(() => expect(connectCalls).toHaveLength(1));
+    expect(connectCalls[0]).toMatchObject({ credentials: { xauthPassword: '123456' } });
   });
 
   it('shows the likely cause and offers to fix the credentials', async () => {

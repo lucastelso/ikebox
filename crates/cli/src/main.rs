@@ -747,7 +747,8 @@ async fn logs(follow: bool, lines: usize, anonymize: bool) -> anyhow::Result<Exi
     let mut identities: Vec<String> = Vec::new();
     let mut anonymizer = None;
     if let Ok(profile) = store()?.load(&profile_id) {
-        identities.extend(profile.auth.local_id.clone());
+        identities.extend(profile.auth.psk_id().map(str::to_owned));
+        identities.extend(profile.auth.remote_id().map(str::to_owned));
         let mut xauth_user = None;
         if let Some(store) = keyring()
             && let Ok(creds) = Credentials::load(&store, &profile)

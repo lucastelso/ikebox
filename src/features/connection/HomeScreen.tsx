@@ -301,6 +301,7 @@ export function HomeScreen({ onImport }: { onImport?: () => void }) {
           profileName={selected.name}
           fields={dialog.fields}
           groupPsk={selected.usesXauth}
+          otp={selected.otp}
           keyringAvailable={dialog.keyringAvailable}
           onSubmit={(input, remember) => void submitCredentials(input, remember)}
         />

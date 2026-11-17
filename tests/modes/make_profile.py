@@ -4,7 +4,9 @@ Usage: make_profile.py OUT key=value...
 
 Keys: id, gateway, version (1|2), aggressive (yes|no), encap (yes|no),
 method (psk|psk-xauth), local_id, remote_id, ike (proposals, comma
-separated), esp (proposals), remote_ts (comma separated), vip (yes|no).
+separated), esp (proposals), remote_ts (comma separated), vip (yes|no),
+schema (1|2, default 1: the file format), otp (yes|no: the XAuth password
+is a one-time code; schema 2 only).
 """
 
 import json
@@ -16,12 +18,28 @@ def main() -> None:
     out = sys.argv[1]
     args = dict(arg.split("=", 1) for arg in sys.argv[2:])
     yes = {"yes": True, "no": False}
-    auth = {"method": args["method"]}
-    for key in ("local_id", "remote_id"):
-        if args.get(key):
-            auth[key] = args[key]
+    schema = int(args.get("schema", "1"))
+    if schema == 1:
+        auth = {"method": args["method"]}
+        for key in ("local_id", "remote_id"):
+            if args.get(key):
+                auth[key] = args[key]
+    else:
+        psk = {"method": "psk"}
+        if args.get("local_id"):
+            psk["id"] = args["local_id"]
+        local = [psk]
+        if args["method"] == "psk-xauth":
+            xauth = {"method": "xauth"}
+            if yes[args.get("otp", "no")]:
+                xauth["otp"] = True
+            local.append(xauth)
+        remote = {"method": "psk"}
+        if args.get("remote_id"):
+            remote["id"] = args["remote_id"]
+        auth = {"local": local, "remote": remote}
     profile = {
-        "schema_version": 1,
+        "schema_version": schema,
         "id": args["id"],
         "name": f"Mode test {args['id']}",
         "gateway": args["gateway"],

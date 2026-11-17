@@ -10,43 +10,31 @@ use std::os::unix::fs::{DirBuilderExt, OpenOptionsExt, PermissionsExt};
 use std::path::{Path, PathBuf};
 
 use super::ProfileError;
-use super::model::{Profile, SCHEMA_VERSION};
+use super::model::Profile;
+use super::schema::{from_json, to_json, v1_field};
 use super::validate::{is_slug, validate};
 
 /// Tamanho máximo de um arquivo de perfil importado.
 pub const MAX_PROFILE_BYTES: u64 = 1024 * 1024;
 
-/// Lê um perfil de JSON: confere a versão do formato antes do resto e valida.
+/// Lê um perfil de JSON (formato 1 ou 2): confere a versão do formato antes
+/// do resto, converte e valida. Num arquivo do formato 1, os problemas citam
+/// os campos dele (`auth.local_id`, não `auth.local[0].id`).
 ///
 /// # Errors
 /// JSON inválido, versão não suportada ou perfil inválido.
 pub fn parse_profile(json: &str) -> Result<Profile, ProfileError> {
-    let value: serde_json::Value = serde_json::from_str(json)?;
-    let version = value
-        .get("schema_version")
-        .and_then(serde_json::Value::as_u64)
-        .ok_or(ProfileError::MissingSchemaVersion)?;
-    if version != u64::from(SCHEMA_VERSION) {
-        return Err(ProfileError::UnsupportedVersion(version));
-    }
-    // Migrações de versões antigas entram aqui quando houver schema 2.
-    let profile: Profile = serde_json::from_value(value)?;
-    let issues = validate(&profile);
+    let (profile, version) = from_json(json)?;
+    let mut issues = validate(&profile);
     if issues.is_empty() {
-        Ok(profile)
-    } else {
-        Err(ProfileError::Invalid(issues))
+        return Ok(profile);
     }
-}
-
-/// Serializa o perfil em JSON legível.
-///
-/// # Errors
-/// Só falha em casos patológicos do serde.
-pub fn to_json(profile: &Profile) -> Result<String, ProfileError> {
-    let mut json = serde_json::to_string_pretty(profile)?;
-    json.push('\n');
-    Ok(json)
+    if version == 1 {
+        for issue in &mut issues {
+            issue.field = v1_field(&issue.field);
+        }
+    }
+    Err(ProfileError::Invalid(issues))
 }
 
 /// Diretório de perfis no disco.

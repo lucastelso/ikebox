@@ -19,6 +19,7 @@ import type { Messages } from '@/i18n/messages';
 function fieldSpecs(
   t: Messages['credentials'],
   groupPsk: boolean,
+  otp: boolean,
 ): Record<
   CredentialField,
   { label: string; secret: boolean; key: keyof CredentialsInput; placeholder: string }
@@ -30,7 +31,7 @@ function fieldSpecs(
       : { label: t.pskOnly, secret: true, key: 'psk', placeholder: t.pskOnlyPlaceholder },
     xauthUser: { label: t.user, secret: false, key: 'xauthUser', placeholder: t.userPlaceholder },
     xauthPassword: {
-      label: t.password,
+      label: otp ? t.otpCode : t.password,
       secret: true,
       key: 'xauthPassword',
       placeholder: t.passwordPlaceholder,
@@ -68,6 +69,7 @@ export function CredentialsDialog({
   profileName,
   fields,
   groupPsk = true,
+  otp = false,
   keyringAvailable,
   onSubmit,
 }: {
@@ -77,11 +79,13 @@ export function CredentialsDialog({
   fields: CredentialField[];
   /** The profile uses XAuth, so the PSK is the group's. */
   groupPsk?: boolean;
+  /** The XAuth password is a one-time code: never stored. */
+  otp?: boolean;
   keyringAvailable: boolean;
   onSubmit: (input: CredentialsInput, remember: boolean) => void;
 }) {
   const t = useT().credentials;
-  const FIELDS = fieldSpecs(t, groupPsk);
+  const FIELDS = fieldSpecs(t, groupPsk, otp);
   const baseId = useId();
   const [values, setValues] = useState<CredentialsInput>({});
   const [remember, setRemember] = useState(keyringAvailable);
@@ -147,6 +151,7 @@ export function CredentialsDialog({
             <div className="grid gap-1">
               <Label htmlFor={`${baseId}-remember`}>{t.remember}</Label>
               {!keyringAvailable && <p className="text-xs text-muted-foreground">{t.noKeyring}</p>}
+              {otp && <p className="text-xs text-muted-foreground">{t.otpHint}</p>}
             </div>
           </div>
 

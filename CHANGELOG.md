@@ -7,6 +7,18 @@ and the project uses [Semantic Versioning](https://semver.org/).
 
 ## [Unreleased]
 
+### Added
+
+- **Profile schema 2** ([ADR-0022](docs/adr/0022-profile-schema-2.md)):
+  authentication as rounds (`auth.local`, `auth.remote`). The app reads
+  schema 1 and 2 and writes the lowest schema that expresses the profile, so
+  exported profiles keep opening on 0.5 and older unless they use something
+  new.
+- **One-time XAuth passwords:** `"otp": true` on the XAuth round. The code is
+  asked at every connection and never stored; one stored before is removed.
+  The credentials dialog says "One-time code" and why it is not remembered.
+- The gateway identity (`remote_id`) is masked in logs too.
+
 ## [0.5.0] - 2026-11-17
 
 IPsec modes, phase 6 of the program: every mode the profile accepts is now

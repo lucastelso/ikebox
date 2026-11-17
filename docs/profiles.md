@@ -25,7 +25,15 @@ keyring.
 | `presets/` (in the repository) | Generic examples, with documentation addresses only |
 | `presets.local/` (in the repository, **ignored by git**) | A place for your profiles with real data, before importing them |
 
-## Format (schema 1)
+## Format
+
+There are two schemas. The app reads both and **writes the lowest one that
+expresses the profile**: almost every profile is still written as schema 1,
+so a colleague on an older version (0.5 or before) can import what you
+export. Only a profile that uses something new (today: a one-time XAuth
+password) is written as schema 2 ([ADR-0022](adr/0022-profile-schema-2.md)).
+
+### Schema 1
 
 ```jsonc
 {
@@ -68,8 +76,37 @@ keyring.
 }
 ```
 
-Unknown fields are refused. That way, a typo, or an attempt to put the
-`"psk"` in the file, does not go unnoticed.
+### Schema 2
+
+The same file, except for `auth`, which lists the authentication rounds of
+the client and how the gateway authenticates:
+
+```jsonc
+{
+  "schema_version": 2,
+  // id, name, gateway, ike, child and network as in schema 1
+  "auth": {
+    "local": [
+      { "method": "psk", "id": "keyid:group" },   // round 1: PSK, with its identity
+      { "method": "xauth", "otp": true }          // round 2 (IKEv1): XAuth username and password
+    ],
+    "remote": { "method": "psk", "id": "vpn.example.com" }  // "id" optional
+  }
+}
+```
+
+- `"otp": true` says the XAuth password is a **one-time code** (a token or an
+  app on the phone): the app asks for it at every connection and never
+  stores it in the keyring.
+- Schema 1 `"method": "psk"` is `local: [psk]`; `"psk-xauth"` is
+  `local: [psk, xauth]`; `local_id` is the `id` of the PSK round and
+  `remote_id` the `id` of `remote`.
+- Rounds and gateway methods for EAP and certificates come with phases 8 and
+  9 ([ADR-0023](adr/0023-ikev2-eap-mschapv2.md),
+  [ADR-0024](adr/0024-client-certificates.md)).
+
+Unknown fields are refused, in both schemas. That way, a typo, or an attempt
+to put the `"psk"` in the file, does not go unnoticed.
 
 ## Supported modes
 

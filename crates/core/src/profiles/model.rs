@@ -1,22 +1,24 @@
-//! Modelo do perfil de conexão (ADR-0008), serializado em JSON.
+//! Modelo do perfil de conexão (ADR-0008, ADR-0022), serializado em JSON.
 //!
 //! Um perfil descreve a VPN (gateway, propostas, rotas, DNS) e **nunca** contém
 //! credenciais: nem PSK, nem usuário ou senha XAuth (ADR-0007). Assim ele pode
 //! ser passado a colegas, e cada pessoa informa as próprias credenciais.
+//!
+//! Em memória o perfil tem a forma do formato 2 (rodadas de autenticação). O
+//! formato 1 é lido e convertido, e o perfil é gravado no formato mais baixo
+//! que o expressa (ver `schema.rs`).
 
 use std::net::IpAddr;
 
 use serde::{Deserialize, Serialize};
 
-/// Versão atual do formato do perfil.
-pub const SCHEMA_VERSION: u32 = 1;
+/// Versão mais nova do formato do perfil.
+pub const SCHEMA_VERSION: u32 = 2;
 
 /// Perfil de conexão.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct Profile {
-    /// Versão do formato (ver [`SCHEMA_VERSION`]).
-    pub schema_version: u32,
     /// Identificador (`[a-z0-9-]`): nome do arquivo, da conexão no charon e
     /// chave no chaveiro.
     pub id: String,
@@ -57,28 +59,126 @@ pub struct IkeSettings {
     pub dpd_delay_secs: Option<u32>,
 }
 
-/// Método de autenticação do cliente.
+/// Método de uma rodada de autenticação do cliente.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "kebab-case")]
-pub enum AuthMethod {
-    /// Só PSK.
+pub enum LocalMethod {
+    /// Chave pré-compartilhada (muitas vezes a do grupo).
     Psk,
-    /// PSK (de grupo) + XAuth (usuário e senha pessoais), IKEv1.
-    PskXauth,
+    /// Usuário e senha XAuth (IKEv1, segunda rodada).
+    Xauth,
 }
 
-/// Autenticação.
+/// Uma rodada de autenticação do cliente.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct LocalRound {
+    /// Método.
+    pub method: LocalMethod,
+    /// Identidade enviada nesta rodada (ex.: `keyid:nome-do-grupo` na rodada
+    /// PSK). Ausente = o endereço do computador.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub id: Option<String>,
+    /// A senha é um código de uso único: nunca é guardada no chaveiro e é
+    /// pedida a cada conexão (só XAuth; ADR-0025).
+    #[serde(default, skip_serializing_if = "is_false")]
+    pub otp: bool,
+}
+
+impl LocalRound {
+    /// Rodada sem identidade nem OTP.
+    #[must_use]
+    pub fn new(method: LocalMethod) -> Self {
+        Self {
+            method,
+            id: None,
+            otp: false,
+        }
+    }
+}
+
+#[allow(clippy::trivially_copy_pass_by_ref)] // assinatura exigida pelo serde
+fn is_false(value: &bool) -> bool {
+    !*value
+}
+
+/// Como o gateway prova quem é.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "kebab-case")]
+pub enum RemoteMethod {
+    /// A mesma PSK do cliente.
+    Psk,
+}
+
+/// Autenticação do gateway.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct RemoteAuth {
+    /// Método.
+    pub method: RemoteMethod,
+    /// Identidade que o gateway deve apresentar (ausente = qualquer).
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub id: Option<String>,
+}
+
+/// Autenticação: as rodadas do cliente, em ordem, e a do gateway.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct AuthSettings {
-    /// Método.
-    pub method: AuthMethod,
-    /// Identidade local da rodada PSK (ex.: `keyid:nome-do-grupo`).
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub local_id: Option<String>,
-    /// Identidade esperada do gateway (ausente = qualquer).
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub remote_id: Option<String>,
+    /// Rodadas do cliente (1 ou 2).
+    pub local: Vec<LocalRound>,
+    /// Gateway.
+    pub remote: RemoteAuth,
+}
+
+impl AuthSettings {
+    /// PSK (com a identidade `psk_id`), opcionalmente seguida de XAuth, e o
+    /// gateway autenticado pela mesma PSK.
+    #[must_use]
+    pub fn psk(psk_id: Option<String>, xauth: bool, remote_id: Option<String>) -> Self {
+        let mut local = vec![LocalRound {
+            id: psk_id,
+            ..LocalRound::new(LocalMethod::Psk)
+        }];
+        if xauth {
+            local.push(LocalRound::new(LocalMethod::Xauth));
+        }
+        Self {
+            local,
+            remote: RemoteAuth {
+                method: RemoteMethod::Psk,
+                id: remote_id,
+            },
+        }
+    }
+
+    fn round(&self, method: LocalMethod) -> Option<&LocalRound> {
+        self.local.iter().find(|r| r.method == method)
+    }
+
+    /// Identidade da rodada PSK (ex.: id do grupo).
+    #[must_use]
+    pub fn psk_id(&self) -> Option<&str> {
+        self.round(LocalMethod::Psk).and_then(|r| r.id.as_deref())
+    }
+
+    /// Identidade esperada do gateway.
+    #[must_use]
+    pub fn remote_id(&self) -> Option<&str> {
+        self.remote.id.as_deref()
+    }
+
+    /// Há uma rodada XAuth?
+    #[must_use]
+    pub fn uses_xauth(&self) -> bool {
+        self.round(LocalMethod::Xauth).is_some()
+    }
+
+    /// A senha XAuth é de uso único?
+    #[must_use]
+    pub fn otp(&self) -> bool {
+        self.round(LocalMethod::Xauth).is_some_and(|r| r.otp)
+    }
 }
 
 /// Ação do CHILD_SA após DPD ou fechamento pelo gateway.
@@ -203,16 +303,29 @@ impl CredentialKind {
 }
 
 impl Profile {
-    /// Credenciais necessárias para conectar.
+    /// Credenciais necessárias para conectar, na ordem das rodadas.
     #[must_use]
     pub fn required_credentials(&self) -> Vec<CredentialKind> {
-        match self.auth.method {
-            AuthMethod::Psk => vec![CredentialKind::Psk],
-            AuthMethod::PskXauth => vec![
-                CredentialKind::Psk,
-                CredentialKind::XauthUser,
-                CredentialKind::XauthPassword,
-            ],
+        let mut kinds = Vec::new();
+        for round in &self.auth.local {
+            match round.method {
+                LocalMethod::Psk => kinds.push(CredentialKind::Psk),
+                LocalMethod::Xauth => {
+                    kinds.extend([CredentialKind::XauthUser, CredentialKind::XauthPassword]);
+                }
+            }
         }
+        kinds
+    }
+
+    /// Credenciais que podem ficar no chaveiro: todas, menos a senha de uso
+    /// único (`otp`), que é pedida a cada conexão.
+    #[must_use]
+    pub fn storable_credentials(&self) -> Vec<CredentialKind> {
+        let otp = self.auth.otp();
+        self.required_credentials()
+            .into_iter()
+            .filter(|kind| !(otp && *kind == CredentialKind::XauthPassword))
+            .collect()
     }
 }

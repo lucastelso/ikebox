@@ -15,7 +15,7 @@ use std::collections::BTreeSet;
 
 use serde::Serialize;
 
-use super::model::{AuthMethod, Profile};
+use super::model::{LocalMethod, Profile};
 
 /// Overall level of a profile: the worst of its findings.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash, Serialize)]
@@ -118,7 +118,7 @@ impl Profile {
     pub fn security(&self) -> SecurityReport {
         let mut findings = Vec::new();
         let ike = &self.ike;
-        let uses_psk = matches!(self.auth.method, AuthMethod::Psk | AuthMethod::PskXauth);
+        let uses_psk = self.auth.local.iter().any(|r| r.method == LocalMethod::Psk);
 
         if ike.version == 1 && ike.aggressive && uses_psk {
             findings.push(SecurityFinding {
@@ -137,7 +137,7 @@ impl Profile {
                 .to_owned(),
             });
         }
-        if self.auth.method == AuthMethod::PskXauth {
+        if uses_psk && self.auth.uses_xauth() {
             findings.push(SecurityFinding {
                 kind: FindingKind::GroupPskXauth,
                 level: SecurityLevel::Legacy,

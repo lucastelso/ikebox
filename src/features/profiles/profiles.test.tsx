@@ -36,6 +36,7 @@ describe('ImportDialog', () => {
           name: 'VPN do trabalho',
           gateway: '203.0.113.10',
           usesXauth: true,
+          otp: false,
           remoteTs: [],
         };
       }
@@ -111,6 +112,7 @@ describe('ProfilesScreen', () => {
         name: 'VPN do trabalho',
         gateway: '203.0.113.10',
         usesXauth: true,
+        otp: false,
         remoteTs: [],
         security: 'weak',
       },

@@ -110,7 +110,8 @@ pub async fn credentials_status(profile_id: String) -> Result<CredentialsStatus,
         let mut stored = Vec::new();
         let mut masked_user = None;
         if let Some(store) = &keyring {
-            for kind in &required {
+            // A one-time password (otp) is never stored: always asked.
+            for kind in &profile.storable_credentials() {
                 if let Some(value) = store.get(&profile.id, *kind)? {
                     if !kind.is_secret() {
                         masked_user = Some(mask(value.expose_secret()));
