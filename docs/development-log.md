@@ -1647,3 +1647,30 @@ published.
 GNOME (libadwaita look); B, the whole screen colored by the connection state,
 with big numbers and tabs at the bottom; C, compact and technical, with the
 log always visible. Recommended: B. Waiting for the maintainer's choice.
+
+### Step 42: phase 5b, direction B and release 0.4.0
+
+**The maintainer chose direction B** (the screen colored by the state).
+
+**Implementation** (`feat/ui-state-color`, ADR-0021): a "hero" at the top of
+the connection screen, colored by state through CSS variables (one gradient
+per state, in `src/index.css`), with the profile picker, the state as a
+heading, one sentence and the one action to take now; below, numbered
+first-use steps, the error card, tiles for the connection and the log; tabs
+at the bottom. The palette was chosen with the contrast computed for every
+text/background pair (all ≥ 4.5:1, both themes) before writing the CSS.
+
+**Error messages** from Rust come as "what happened: what to check", so the
+card splits them at the first ": " (`splitMessage`, unit tested); without a
+colon the message is the title. The action that fixes it (enter credentials,
+install or update the component) lives in the hero, so it is never shown
+twice; the tests caught the first version showing "No profiles yet" twice.
+
+**Accessibility fixes from the review:** focus rings on every hand-made
+control, the dialog close label and the diagnostic levels translated (with
+tests), `prefers-reduced-motion` honored. The screenshots at 380 px showed
+the virtual IP cut by an ellipsis; it wraps now.
+
+**Release 0.4.0:** only the interface changes. The network component is the
+same, but its bundle carries the version, so the app offers "Update" — said
+in the notes.

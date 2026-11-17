@@ -7,6 +7,36 @@ and the project uses [Semantic Versioning](https://semver.org/).
 
 ## [Unreleased]
 
+## [0.4.0] - 2026-11-17
+
+A new look, chosen by the maintainer from three directions
+([ADR-0021](docs/adr/0021-interface-state-color.md)). The network component
+does not change, but it carries the new version number: the app offers to
+update it, which is quick.
+
+### Changed
+
+- **The connection screen is colored by the state:** slate when
+  disconnected, amber while connecting, green when connected, red when it did
+  not connect. The top holds the profile, the state in large type and the one
+  action to take now; the details come below in big tiles.
+- Errors say what happened and what to do, with the technical details folded.
+- The tabs moved to the bottom of the window.
+- First use numbers its two steps (install the network component, import the
+  profile).
+
+### Fixed
+
+Accessibility, found in the interface review:
+
+- Text contrast in the light theme reaches WCAG AA everywhere (the
+  "Preparing…" text was at 2.18:1).
+- Every control shows keyboard focus.
+- The dialogs' close button and the diagnostic levels speak the interface
+  language to screen readers (the close button said "Fechar" in English).
+- The system's "reduce motion" setting stops the spinning and pulsing.
+- The title no longer wraps in the header at the default window width.
+
 ## [0.3.0] - 2026-11-17
 
 Fixes from the [audit of 0.2.0](docs/audits/v0.2.0.md) (credentials,
