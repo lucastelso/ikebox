@@ -16,20 +16,20 @@ RUN set -eux; \
     if command -v dnf >/dev/null 2>&1; then \
         dnf -y install --setopt=install_weak_deps=False \
             systemd systemd-resolved dbus-broker dbus-libs iproute iputils gawk python3 util-linux \
-            procps-ng gzip tar findutils; \
+            procps-ng gzip tar findutils polkit; \
         dnf clean all; \
     elif command -v apt-get >/dev/null 2>&1; then \
         export DEBIAN_FRONTEND=noninteractive; \
         apt-get update; \
         apt-get install -y --no-install-recommends \
             systemd systemd-sysv dbus libdbus-1-3 iproute2 iputils-ping gawk python3 util-linux \
-            procps gzip tar findutils; \
+            procps gzip tar findutils polkitd; \
         apt-get install -y --no-install-recommends systemd-resolved || true; \
         rm -rf /var/lib/apt/lists/*; \
     elif command -v zypper >/dev/null 2>&1; then \
         zypper -n install --no-recommends \
             systemd systemd-resolved dbus-1 libdbus-1-3 iproute2 iputils gawk python3 util-linux \
-            procps gzip tar findutils shadow; \
+            procps gzip tar findutils shadow polkit; \
         zypper clean -a; \
     else \
         echo "unknown package manager in the base image" >&2; exit 1; \

@@ -301,5 +301,27 @@ reply=$(helper alice '{"op":"stop"}')
 [[ $reply == *'"was_running":true'* ]] || fail "stop failed: $reply"
 host_is_clean
 
+step "Authorization by the real polkit of this distribution"
+# Until here the helper used a uid list. Without it, every request goes to
+# polkit: the policy must be known to it, and the question the helper asks
+# (process, start time, uid) must be understood by this polkit version.
+rm /etc/systemd/system/ipsec-client-helper.service.d/test.conf
+systemctl daemon-reload
+systemctl stop ipsec-client-helper.service 2>/dev/null || true
+# The output decides: pkaction 0.105 (Ubuntu 22.04) exits with 1 even when it
+# finds the action.
+out=$(pkaction --action-id io.github.lucastelso.ipsecclient.connect 2>&1 || true)
+[[ $out == io.github.lucastelso.ipsecclient.connect* ]] ||
+    fail "polkit does not know the action of the installed policy: $out"
+# alice has no local active session here (no login manager): a clean "no"
+# from polkit, not a failure to ask.
+reply=$(helper alice '{"op":"status"}')
+[[ $reply == *'"result":"error"'* && $reply == *"only the user of the active local session"* ]] ||
+    fail "polkit should have refused alice (no active session): $reply"
+# root is always authorized by polkit.
+reply=$(python3 -I /test/helper_client.py '{"op":"status"}')
+[[ $reply == *'"result":"status"'* && $reply == *'"running":false'* ]] || fail "polkit should have authorized root: $reply"
+ok "polkit $(pkaction --version | awk '{ print $NF }'): policy registered, a user without an active session is refused, root is authorized"
+
 step "Result"
 ok "embedded engine with systemd: tunnel, sandbox, user isolation and attack blocked"
