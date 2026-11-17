@@ -7,8 +7,12 @@ and the project uses [Semantic Versioning](https://semver.org/).
 
 ## [Unreleased]
 
-Fixes from the [audit of 0.2.0](docs/audits/v0.2.0.md). They change the
-network component: after updating the app, click "Update" on it.
+## [0.3.0] - 2026-11-17
+
+Fixes from the [audit of 0.2.0](docs/audits/v0.2.0.md) (credentials,
+privilege boundaries, compatibility) and the optimizations of
+[ADR-0020](docs/adr/0020-static-engine-and-lighter-builds.md). They change
+the network component: after updating the app, click "Update" on it.
 
 ### Security
 
