@@ -29,6 +29,7 @@ impl Lang {
             || lower.starts_with("pt_")
             || lower.starts_with("pt-")
             || lower.starts_with("pt.")
+            || lower.starts_with("pt@")
         {
             Self::Pt
         } else {
@@ -36,14 +37,33 @@ impl Lang {
         }
     }
 
-    /// Language of the session, from `LC_ALL`, `LC_MESSAGES` and `LANG`
-    /// (the first one set wins, as in POSIX).
+    /// Language of the session, as gettext (and the webview) decide it:
+    /// `LC_ALL`, `LC_MESSAGES` and `LANG` give the locale (the first one set
+    /// wins), and `LANGUAGE`, a priority list such as `pt_BR:en`, replaces it
+    /// unless the locale is `C`/`POSIX`. Ubuntu sets `LANGUAGE` for the
+    /// language chosen in its settings.
     #[must_use]
     pub fn from_env() -> Self {
-        ["LC_ALL", "LC_MESSAGES", "LANG"]
+        Self::from_vars(|var| std::env::var(var).ok())
+    }
+
+    fn from_vars(get: impl Fn(&str) -> Option<String>) -> Self {
+        let set = |var: &str| get(var).filter(|value| !value.is_empty());
+        let locale = ["LC_ALL", "LC_MESSAGES", "LANG"]
             .iter()
-            .find_map(|var| std::env::var(var).ok().filter(|v| !v.is_empty()))
-            .map_or(Self::En, |locale| Self::from_locale(&locale))
+            .find_map(|var| set(var));
+        let is_c = locale.as_deref().is_none_or(|l| {
+            let name = l.split(['.', '@']).next().unwrap_or(l);
+            name == "C" || name == "POSIX"
+        });
+        if !is_c
+            && let Some(first) = set("LANGUAGE")
+                .as_deref()
+                .and_then(|list| list.split(':').find(|entry| !entry.is_empty()))
+        {
+            return Self::from_locale(first);
+        }
+        locale.map_or(Self::En, |locale| Self::from_locale(&locale))
     }
 }
 
@@ -105,11 +125,58 @@ mod tests {
 
     #[test]
     fn locales() {
-        for pt in ["pt_BR.UTF-8", "pt-BR", "pt", "PT_pt", "pt.UTF-8"] {
+        for pt in ["pt_BR.UTF-8", "pt-BR", "pt", "PT_pt", "pt.UTF-8", "pt@euro"] {
             assert_eq!(Lang::from_locale(pt), Lang::Pt, "{pt}");
         }
         for en in ["en_US.UTF-8", "C", "POSIX", "", "es_ES", "ptx"] {
             assert_eq!(Lang::from_locale(en), Lang::En, "{en}");
+        }
+    }
+
+    #[test]
+    fn session_language_follows_gettext_rules() {
+        let env = |pairs: &'static [(&'static str, &'static str)]| {
+            move |var: &str| {
+                pairs
+                    .iter()
+                    .find(|(name, _)| *name == var)
+                    .map(|(_, value)| (*value).to_owned())
+            }
+        };
+        let cases: &[(&[(&str, &str)], Lang)] = &[
+            (&[], Lang::En),
+            (&[("LANG", "pt_BR.UTF-8")], Lang::Pt),
+            (&[("LANG", "pt_PT.UTF-8")], Lang::Pt),
+            (&[("LANG", "pt_PT@euro")], Lang::Pt),
+            (&[("LANG", "C.UTF-8")], Lang::En),
+            (&[("LANG", "en_US.UTF-8")], Lang::En),
+            // The first of LC_ALL, LC_MESSAGES and LANG that is set wins.
+            (
+                &[("LANG", "en_US.UTF-8"), ("LC_MESSAGES", "pt_BR.UTF-8")],
+                Lang::Pt,
+            ),
+            (
+                &[("LANG", "pt_BR.UTF-8"), ("LC_ALL", "en_US.UTF-8")],
+                Lang::En,
+            ),
+            (&[("LANG", "pt_BR.UTF-8"), ("LC_ALL", "")], Lang::Pt),
+            // LANGUAGE (Ubuntu sets it) goes first, unless the locale is C.
+            (
+                &[("LANG", "en_US.UTF-8"), ("LANGUAGE", "pt_BR:pt:en")],
+                Lang::Pt,
+            ),
+            (
+                &[("LANG", "pt_BR.UTF-8"), ("LANGUAGE", "en_US:en")],
+                Lang::En,
+            ),
+            (&[("LANG", "pt_BR.UTF-8"), ("LANGUAGE", "")], Lang::Pt),
+            (&[("LANG", "pt_BR.UTF-8"), ("LANGUAGE", ":pt")], Lang::Pt),
+            (&[("LANG", "C.UTF-8"), ("LANGUAGE", "pt_BR")], Lang::En),
+            (&[("LANG", "POSIX"), ("LANGUAGE", "pt_BR")], Lang::En),
+            (&[("LANGUAGE", "pt_BR")], Lang::En),
+        ];
+        for (vars, expected) in cases {
+            assert_eq!(Lang::from_vars(env(vars)), *expected, "{vars:?}");
         }
     }
 

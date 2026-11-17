@@ -11,6 +11,9 @@
 # - Saída: target/release-artifacts/<versão>/ com os três pacotes e o
 #   SHA256SUMS, depois de conferidos por scripts/verify-release.sh e varridos
 #   por scripts/check-private.sh --artifacts (dados privados, no host).
+#   Built from anything that is not the version tag (HEAD, a commit), the
+#   output goes to target/release-artifacts/<version>-dev-<commit>/: a test
+#   build never replaces the packages of a published version.
 #
 # Ver docs/release.md para publicar no GitHub.
 
@@ -58,7 +61,11 @@ if ! docker image inspect "$image" >/dev/null 2>&1; then
     docker build --build-arg "RUST_VERSION=$rust" -t "$image" packaging/release
 fi
 
-out="$repo/target/release-artifacts/$version"
+if [[ $ref == "v$version" ]]; then
+    out="$repo/target/release-artifacts/$version"
+else
+    out="$repo/target/release-artifacts/$version-dev-${commit:0:12}"
+fi
 rm -rf "$out"
 mkdir -p "$out"
 
