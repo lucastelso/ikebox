@@ -122,10 +122,20 @@ start_engine() {
     else
         env_args=(-e IPSEC_CLIENT_SOCKET_GID="$(id -g)")
     fi
+    # The same security options the app gives its Docker engine
+    # (HostSecurity in crates/core/src/engine/spec.rs, ADR-0005). Under
+    # Docker's AppArmor profile (Ubuntu, the CI runner), only processes of
+    # that same profile may read the container's /proc: systemd-resolved
+    # cannot see that the updown's resolvectl is root and answers "Access
+    # denied", so the VPN DNS is never applied.
+    local security_args=(--security-opt label=disable)
+    if [[ -d /sys/kernel/security/apparmor ]]; then
+        security_args+=(--security-opt apparmor=unconfined)
+    fi
     docker run -d --name "$ENGINE" \
         "${net_args[@]}" \
         --cap-add NET_ADMIN \
-        --security-opt label=disable \
+        "${security_args[@]}" \
         -v "$rundir:/run/ipsec-client" \
         -v "$confdir:/test:ro" \
         -e IPSEC_CLIENT_IFACE="$IFACE" \
@@ -270,7 +280,11 @@ main() {
     dns=$(resolvectl dns "$IFACE")
     domains=$(resolvectl domain "$IFACE")
     default_route=$(resolvectl default-route "$IFACE")
-    [[ $dns == *192.0.2.54* ]] || fail "static DNS missing: $dns"
+    if [[ $dns != *192.0.2.54* ]]; then
+        grep -q "Access denied" < <(docker logs "$ENGINE" 2>&1) &&
+            fail "systemd-resolved refused the engine's DNS (Access denied): see the security options in start_engine"
+        fail "static DNS missing: $dns"
+    fi
     [[ $dns == *192.0.2.53* ]] || fail "DNS received from the gateway missing: $dns"
     [[ $domains == *"~ipsec-client.test"* ]] || fail "domain missing: $domains"
     [[ $default_route == *no ]] || fail "default-route should be 'no': $default_route"

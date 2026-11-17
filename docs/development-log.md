@@ -1750,3 +1750,29 @@ details phases 7 to 10.
 fix), so "Update" on the component is needed, as the notes say. The engine
 tarball (strongSwan 6.1.0) is the same as in 0.3.0 and 0.4.0.
 
+### Step 44: CI fixes after the 0.5.0 push
+
+The first CI run after the push failed in three jobs:
+
+- **Checks:** the runner's shellcheck is 0.9 (Ubuntu 24.04), ours 0.11. The
+  "unreachable function" warning is SC2317 in 0.9 and SC2329 in 0.11, so the
+  disable in `engine/entrypoint.sh` only worked here. Both codes are
+  disabled now, and `scripts/lint-sh.sh` uses the system shellcheck only
+  when it is the pinned version (0.11.0); otherwise the pinned Docker image.
+- **Engine and embedded engine E2E:** the tunnel came up, but
+  systemd-resolved answered "Access denied" to the `updown`'s resolvectl,
+  so the DNS assertion failed. Reproduced the runner as far as possible
+  without it: Ubuntu 24.04 (systemd 255, dbus-daemon) with real systemd,
+  resolvectl as root with and without capabilities, without polkit, in other
+  namespaces and from a Docker container with the engine image: resolved
+  accepted every time. The one difference left is AppArmor: the runner
+  confines containers with Docker's `docker-default` profile, which lets
+  only processes of that profile read the container's `/proc`, so resolved
+  cannot see that the caller is root and falls back to polkit, which cannot
+  either. The app already gives its Docker engine `apparmor=unconfined` on
+  AppArmor hosts (`HostSecurity`, ADR-0005); `tests/engine/e2e.sh` started
+  the engine container by hand without it. It now does the same, and an
+  "Access denied" in the engine log turns into a message that points there.
+  The production engine is a systemd unit, not a container: users were not
+  affected. Confirmation comes with the next CI run.
+
