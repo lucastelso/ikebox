@@ -29,6 +29,23 @@ export const commands = {
 	/**  Apaga as credenciais guardadas do perfil. */
 	forgetCredentials: (profileId: string, options?: InvokeOptions) => typedError<null, UiError>(__TAURI_INVOKE("forget_credentials", { profileId }, options)),
 	/**
+	 *  Opens the native dialog to pick a `.p12`/`.pfx`. `None` when cancelled.
+	 * 
+	 *  # Errors
+	 *  The chosen file is not local.
+	 */
+	chooseP12File: (options?: InvokeOptions) => typedError<P12Choice | null, UiError>(__TAURI_INVOKE("choose_p12_file", undefined, options)),
+	/**
+	 *  Opens the picked `.p12` with `password`, checks it and stores the key and
+	 *  the certificate in the keyring for the profile. The token stays valid
+	 *  after a wrong password, so the person can try again.
+	 * 
+	 *  # Errors
+	 *  Unknown token, no keyring, unreadable file, wrong password, or a
+	 *  certificate the app cannot use (the message says why).
+	 */
+	importClientCertificate: (profileId: string, token: string, password: string, options?: InvokeOptions) => typedError<ClientCertSummary, UiError>(__TAURI_INVOKE("import_client_certificate", { profileId, token, password }, options)),
+	/**
 	 *  Log ready to copy or attach to a bug report: besides the identities, the
 	 *  gateway, the profile's DNS servers and domains and every IP address become
 	 *  placeholders (`<gateway>`, `<ip-1>`, `<domain-1>`). Text copied in the app
@@ -136,6 +153,20 @@ export type CheckLevel =
 /**  Impede a conexão. */
 "fail";
 
+/**  O que se mostra de um certificado do cliente (nada secreto). */
+export type ClientCertSummary = {
+	/**  Titular. */
+	subject: string,
+	/**  Emissor. */
+	issuer: string,
+	/**  Último dia de validade (`YYYY-MM-DD`). */
+	notAfter: string,
+	/**  Dias até vencer (negativo: vencido). */
+	daysLeft: number,
+	/**  `RSA` ou `Ed25519`. */
+	key: string,
+};
+
 /**  Componente de rede: o que está instalado e o que dá para fazer. */
 export type ComponentInfo = {
 	/**  Situação. */
@@ -200,7 +231,12 @@ export type CredentialField =
 /**  Usuário EAP. */
 "eapIdentity" | 
 /**  Senha EAP. */
-"eapPassword";
+"eapPassword" | 
+/**
+ *  Certificado do cliente e a chave dele: importados de um `.p12`,
+ *  nunca digitados.
+ */
+"clientCertificate";
 
 /**
  *  Credenciais digitadas na UI (vazias = usar as guardadas). O `Debug` não
@@ -229,6 +265,8 @@ export type CredentialsStatus = {
 	maskedUser: string | null,
 	/**  O chaveiro do sistema está disponível ("lembrar" possível)? */
 	keyringAvailable: boolean,
+	/**  Certificado do cliente guardado (perfis com certificado). */
+	clientCertificate: ClientCertSummary | null,
 };
 
 /**  Uma verificação do diagnóstico (o `doctor` do CLI). */
@@ -242,6 +280,18 @@ export type DiagnosticCheck = {
 	/**  Como corrigir. */
 	hint: string | null,
 };
+
+/**  How the person signs in. */
+export type DraftAuth = 
+/**  Pre-shared key (and XAuth in IKEv1). */
+"psk" | 
+/**  Username and password by EAP (IKEv2). */
+"eap" | 
+/**
+ *  The person's certificate (IKEv2, or IKEv1 main mode; XAuth optional
+ *  in IKEv1).
+ */
+"certificate";
 
 /**  The draft as Rust sees it: problems, security and file schema. */
 export type DraftCheck = {
@@ -322,6 +372,14 @@ export type ImportPreview = {
 	security: Security | null,
 };
 
+/**  A `.p12` picked in the dialog. */
+export type P12Choice = {
+	/**  Opaque token for [`import_client_certificate`]. */
+	token: string,
+	/**  File name, without the directory. */
+	fileName: string,
+};
+
 /**  Detalhes de um perfil (somente leitura; não há credenciais no perfil). */
 export type ProfileDetails = {
 	/**  Resumo. */
@@ -378,11 +436,11 @@ export type ProfileDraft = {
 	/**  The XAuth password is a one-time code. */
 	otp: boolean,
 	/**
-	 *  Username and password by EAP (IKEv2), the gateway proven by its
-	 *  certificate.
+	 *  How the person signs in. With EAP or a certificate, the gateway is
+	 *  proven by its certificate.
 	 */
-	eap: boolean,
-	/**  CA certificates (PEM) of the gateway's certificate (EAP). */
+	auth: DraftAuth,
+	/**  CA certificates (PEM) of the gateway's certificate (EAP, certificate). */
 	ca: string[],
 	/**  Identity of the PSK round (group id); empty = the computer's address. */
 	localId: string,
@@ -442,6 +500,8 @@ export type ProfileTemplate =
 "ikev2Psk" | 
 /**  IKEv2 with a username and password (EAP), gateway certificate. */
 "ikev2Eap" | 
+/**  IKEv2 with the person's certificate, gateway certificate. */
+"ikev2Cert" | 
 /**  Nothing suggested. */
 "blank";
 

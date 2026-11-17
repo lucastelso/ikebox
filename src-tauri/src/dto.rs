@@ -137,6 +137,9 @@ pub enum CredentialField {
     EapIdentity,
     /// Senha EAP.
     EapPassword,
+    /// Certificado do cliente e a chave dele: importados de um `.p12`,
+    /// nunca digitados.
+    ClientCertificate,
 }
 
 impl From<CredentialKind> for CredentialField {
@@ -147,6 +150,35 @@ impl From<CredentialKind> for CredentialField {
             CredentialKind::XauthPassword => Self::XauthPassword,
             CredentialKind::EapIdentity => Self::EapIdentity,
             CredentialKind::EapPassword => Self::EapPassword,
+            CredentialKind::ClientCert | CredentialKind::ClientKey => Self::ClientCertificate,
+        }
+    }
+}
+
+/// O que se mostra de um certificado do cliente (nada secreto).
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Type)]
+#[serde(rename_all = "camelCase")]
+pub struct ClientCertSummary {
+    /// Titular.
+    pub subject: String,
+    /// Emissor.
+    pub issuer: String,
+    /// Último dia de validade (`YYYY-MM-DD`).
+    pub not_after: String,
+    /// Dias até vencer (negativo: vencido).
+    pub days_left: i32,
+    /// `RSA` ou `Ed25519`.
+    pub key: String,
+}
+
+impl From<&ipsec_client_core::secrets::ClientCertInfo> for ClientCertSummary {
+    fn from(info: &ipsec_client_core::secrets::ClientCertInfo) -> Self {
+        Self {
+            subject: info.subject.clone(),
+            issuer: info.issuer.clone(),
+            not_after: info.not_after.clone(),
+            days_left: i32::try_from(info.days_left()).unwrap_or(i32::MIN),
+            key: info.key.to_owned(),
         }
     }
 }
@@ -163,6 +195,8 @@ pub struct CredentialsStatus {
     pub masked_user: Option<String>,
     /// O chaveiro do sistema está disponível ("lembrar" possível)?
     pub keyring_available: bool,
+    /// Certificado do cliente guardado (perfis com certificado).
+    pub client_certificate: Option<ClientCertSummary>,
 }
 
 /// Credenciais digitadas na UI (vazias = usar as guardadas). O `Debug` não
@@ -754,18 +788,40 @@ impl From<&Profile> for ProfileDetails {
             (1, false) => tr!("IKEv1 (main mode)", "IKEv1 (modo principal)").to_owned(),
             (v, _) => format!("IKEv{v}"),
         };
-        let auth = match (p.auth.uses_xauth(), p.auth.otp()) {
-            (false, _) => "PSK".to_owned(),
-            (true, false) => tr!(
-                "group PSK + username and password (XAuth)",
-                "PSK do grupo + usuário e senha (XAuth)"
+        let xauth = match (p.auth.uses_xauth(), p.auth.otp()) {
+            (false, _) => None,
+            (true, false) => Some(tr!(
+                "username and password (XAuth)",
+                "usuário e senha (XAuth)"
+            )),
+            (true, true) => Some(tr!(
+                "username and one-time code (XAuth)",
+                "usuário e código de uso único (XAuth)"
+            )),
+        };
+        let auth = if p.auth.uses_eap() {
+            tr!(
+                "username and password (EAP), gateway certificate",
+                "usuário e senha (EAP), certificado do gateway"
             )
-            .to_owned(),
-            (true, true) => tr!(
-                "group PSK + username and one-time code (XAuth)",
-                "PSK do grupo + usuário e código de uso único (XAuth)"
-            )
-            .to_owned(),
+            .to_owned()
+        } else if p.auth.uses_client_certificate() {
+            match xauth {
+                Some(x) => trf!(
+                    "your certificate + {x}, gateway certificate",
+                    "o seu certificado + {x}, certificado do gateway"
+                ),
+                None => tr!(
+                    "your certificate, gateway certificate",
+                    "o seu certificado, certificado do gateway"
+                )
+                .to_owned(),
+            }
+        } else {
+            match xauth {
+                Some(x) => trf!("group PSK + {x}", "PSK do grupo + {x}"),
+                None => "PSK".to_owned(),
+            }
         };
         Self {
             summary: ProfileSummary::from(p),

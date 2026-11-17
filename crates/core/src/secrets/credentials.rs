@@ -7,9 +7,9 @@ use std::fmt;
 
 use secrecy::{ExposeSecret, SecretString};
 
-use super::{SecretStore, SecretsError, mask};
+use super::{ClientCertificate, SecretStore, SecretsError, mask};
 use crate::profiles::{CredentialKind, Profile};
-use crate::vici::{SecretKind, SharedSecret};
+use crate::vici::{PrivateKey, SecretKind, SharedSecret};
 
 /// Credenciais de um perfil (algumas podem faltar até o usuário informar).
 #[derive(Default, Clone)]
@@ -19,6 +19,8 @@ pub struct Credentials {
     xauth_password: Option<SecretString>,
     eap_identity: Option<SecretString>,
     eap_password: Option<SecretString>,
+    client_cert: Option<SecretString>,
+    client_key: Option<SecretString>,
 }
 
 impl fmt::Debug for Credentials {
@@ -42,6 +44,8 @@ impl fmt::Debug for Credentials {
                 &self.eap_identity.as_ref().map(|u| mask(u.expose_secret())),
             )
             .field("eap_password", &present(&self.eap_password))
+            .field("client_cert", &present(&self.client_cert))
+            .field("client_key", &present(&self.client_key))
             .finish()
     }
 }
@@ -60,6 +64,8 @@ impl Credentials {
             CredentialKind::XauthPassword => &mut self.xauth_password,
             CredentialKind::EapIdentity => &mut self.eap_identity,
             CredentialKind::EapPassword => &mut self.eap_password,
+            CredentialKind::ClientCert => &mut self.client_cert,
+            CredentialKind::ClientKey => &mut self.client_key,
         }
     }
 
@@ -72,6 +78,8 @@ impl Credentials {
             CredentialKind::XauthPassword => self.xauth_password.as_ref(),
             CredentialKind::EapIdentity => self.eap_identity.as_ref(),
             CredentialKind::EapPassword => self.eap_password.as_ref(),
+            CredentialKind::ClientCert => self.client_cert.as_ref(),
+            CredentialKind::ClientKey => self.client_key.as_ref(),
         }
     }
 
@@ -90,6 +98,47 @@ impl Credentials {
     #[must_use]
     pub fn eap_identity(&self) -> Option<&str> {
         self.eap_identity.as_ref().map(ExposeSecret::expose_secret)
+    }
+
+    /// Usa o certificado e a chave lidos de um `.p12` (ver
+    /// [`ClientCertificate`]).
+    pub fn set_client_certificate(&mut self, cert: &ClientCertificate) {
+        self.set(
+            CredentialKind::ClientCert,
+            SecretString::from(cert.cert_pem().to_owned()),
+        );
+        self.set(
+            CredentialKind::ClientKey,
+            SecretString::from(cert.key_pem().to_owned()),
+        );
+    }
+
+    /// O certificado do cliente, conferido de novo contra a chave (o que
+    /// estiver no chaveiro pode ter sido trocado por fora).
+    ///
+    /// # Errors
+    /// Par incompleto ou inválido.
+    pub fn client_certificate(&self) -> Option<Result<ClientCertificate, String>> {
+        let cert = self.get(CredentialKind::ClientCert)?;
+        let key = self.get(CredentialKind::ClientKey)?;
+        Some(ClientCertificate::from_pem(
+            cert.expose_secret(),
+            key.expose_secret(),
+        ))
+    }
+
+    /// Certificado do cliente em PEM (para o `load-conn`).
+    #[must_use]
+    pub fn client_cert_pem(&self) -> Option<&str> {
+        self.get(CredentialKind::ClientCert)
+            .map(ExposeSecret::expose_secret)
+    }
+
+    /// A chave privada do cliente, para o `load-key`.
+    #[must_use]
+    pub fn private_key(&self) -> Option<PrivateKey> {
+        self.get(CredentialKind::ClientKey)
+            .map(|key| PrivateKey::new(key.expose_secret().as_bytes()))
     }
 
     /// Credenciais que o perfil exige e ainda faltam.
@@ -145,6 +194,8 @@ impl Credentials {
             CredentialKind::XauthPassword,
             CredentialKind::EapIdentity,
             CredentialKind::EapPassword,
+            CredentialKind::ClientCert,
+            CredentialKind::ClientKey,
         ] {
             store.delete(&profile.id, kind)?;
         }
@@ -206,7 +257,12 @@ impl Credentials {
                         password.expose_secret().as_bytes(),
                     ));
                 }
-                CredentialKind::XauthUser | CredentialKind::EapIdentity => {}
+                // The key goes by load-key (private_key) and the certificate
+                // in the connection: neither is a shared secret.
+                CredentialKind::XauthUser
+                | CredentialKind::EapIdentity
+                | CredentialKind::ClientCert
+                | CredentialKind::ClientKey => {}
             }
         }
         Ok(secrets)

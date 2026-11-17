@@ -24,7 +24,7 @@ const fortigate: ProfileDraft = {
   espProposals: ['aes256-sha256-modp2048', 'aes128-sha256-modp2048'],
   xauth: true,
   otp: false,
-  eap: false,
+  auth: 'psk',
   ca: [],
   localId: '',
   remoteId: '',
@@ -87,17 +87,20 @@ function mockEditor(list: ProfileList = { profiles: [], broken: [] }) {
     switch (cmd) {
       case 'list_profiles':
         return list;
-      case 'new_profile_draft':
-        return (args as { template: string }).template === 'ikev2Eap'
-          ? {
-              ...fortigate,
-              template: 'ikev2Eap',
-              ikeVersion: 2,
-              aggressive: false,
-              xauth: false,
-              eap: true,
-            }
-          : fortigate;
+      case 'new_profile_draft': {
+        const template = (args as { template: string }).template;
+        if (template === 'ikev2Eap' || template === 'ikev2Cert') {
+          return {
+            ...fortigate,
+            template,
+            ikeVersion: 2,
+            aggressive: false,
+            xauth: false,
+            auth: template === 'ikev2Eap' ? 'eap' : 'certificate',
+          };
+        }
+        return fortigate;
+      }
       case 'ca_entries':
         return ['-----BEGIN CERTIFICATE-----\nMIIB\n-----END CERTIFICATE-----\n'];
       case 'edit_profile_draft':
@@ -116,7 +119,7 @@ function mockEditor(list: ProfileList = { profiles: [], broken: [] }) {
           security: d.aggressive ? 'weak' : 'good',
           notes: d.aggressive ? [{ level: 'weak', message: 'Aggressive mode with a PSK…' }] : [],
           preset: null,
-          schema: d.otp || d.eap ? 2 : 1,
+          schema: d.otp || d.auth !== 'psk' ? 2 : 1,
           cas: d.ca.map(() => ({
             subject: 'CN=IPsec Client Test CA (RSA),O=Example',
             notAfter: '2076-11-04',
@@ -235,7 +238,7 @@ describe('ProfileEditor', () => {
     expect(screen.getByText(/valid until 2076-11-04/)).toBeInTheDocument();
     await waitFor(() =>
       expect(lastDraft(calls, 'check_profile_draft')).toMatchObject({
-        eap: true,
+        auth: 'eap',
         remoteId: 'vpn.example.com',
         ca: ['-----BEGIN CERTIFICATE-----\nMIIB\n-----END CERTIFICATE-----\n'],
       }),
@@ -246,11 +249,40 @@ describe('ProfileEditor', () => {
     await userEvent.click(await screen.findByRole('option', { name: 'Pre-shared key (PSK)' }));
     expect(screen.queryByRole('button', { name: 'Choose file…' })).not.toBeInTheDocument();
     await waitFor(() =>
-      expect(lastDraft(calls, 'check_profile_draft')).toMatchObject({ eap: false, ca: [] }),
+      expect(lastDraft(calls, 'check_profile_draft')).toMatchObject({ auth: 'psk', ca: [] }),
     );
   });
 
-  it('offers the five templates', async () => {
+  it('IKEv2 with your certificate: the certificate stays out of the profile, IKEv1 has no EAP', async () => {
+    const calls = mockEditor();
+    render(<ProfilesScreen onImport={() => {}} />);
+    await userEvent.click(await screen.findByRole('button', { name: 'New' }));
+    await userEvent.click(screen.getByRole('button', { name: /IKEv2 with your certificate/ }));
+
+    expect(await screen.findByText(/it never goes in the profile/)).toBeInTheDocument();
+    expect(screen.getByLabelText("Name in the gateway's certificate")).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Choose file…' })).toBeInTheDocument();
+
+    // IKEv1: main mode with a certificate, XAuth allowed, no EAP option.
+    await userEvent.click(screen.getByLabelText('IKE version'));
+    await userEvent.click(await screen.findByRole('option', { name: 'IKEv1' }));
+    expect(screen.getByLabelText('Username and password (XAuth)')).toBeInTheDocument();
+    await userEvent.click(screen.getByLabelText('How you sign in'));
+    expect(screen.queryByRole('option', { name: 'Username and password (EAP)' })).toBeNull();
+    expect(
+      await screen.findByRole('option', { name: 'Your certificate (.p12)' }),
+    ).toBeInTheDocument();
+    await userEvent.keyboard('{Escape}');
+    await waitFor(() =>
+      expect(lastDraft(calls, 'check_profile_draft')).toMatchObject({
+        auth: 'certificate',
+        ikeVersion: 1,
+        aggressive: false,
+      }),
+    );
+  });
+
+  it('offers the six templates', async () => {
     mockEditor();
     render(<ProfilesScreen onImport={() => {}} />);
     await userEvent.click(await screen.findByRole('button', { name: 'New' }));
@@ -260,6 +292,7 @@ describe('ProfileEditor', () => {
       /Cisco Easy VPN/,
       /IKEv2 with a PSK/,
       /IKEv2 with username and password/,
+      /IKEv2 with your certificate/,
       /Blank/,
     ]) {
       expect(within(dialog).getByRole('button', { name })).toBeInTheDocument();

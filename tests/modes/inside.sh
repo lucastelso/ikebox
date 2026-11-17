@@ -24,6 +24,12 @@ eap-password=senha-de-teste'
 # CA certificates made by tests/systemd/run.sh for this run (public, fake).
 readonly CA=/test/pki/client/ca.pem
 readonly OTHER_CA=/test/pki/client/other-ca.pem
+# The person's certificate as .p12 files from the same run (FAKE keys), and
+# the password of the files.
+readonly P12=/test/pki/client
+readonly P12_CREDS='p12-password=senha-p12-teste'
+# Extra arguments for `connect` (e.g. --client-p12 FILE); empty by default.
+connect_args=()
 
 declare -A GW
 for arg in "$@"; do
@@ -40,7 +46,8 @@ connect() {
     shift 2
     python3 -I /test/modes/make_profile.py "/tmp/modes/$id.json" id="$id" "$@"
     as alice "$CLI" profiles import /tmp/modes/"$id".json >/dev/null
-    out=$(as alice "$CLI" connect "$id" --detach --credentials-stdin <<<"$creds" 2>&1) || {
+    out=$(as alice "$CLI" connect "$id" --detach --credentials-stdin "${connect_args[@]}" \
+        <<<"$creds" 2>&1) || {
         printf '%s\n' "$out"
         as alice "$CLI" logs -n 80 || true
         fail "$id: connect failed"
@@ -115,7 +122,8 @@ expect_failure() {
     shift 3
     python3 -I /test/modes/make_profile.py "/tmp/modes/$id.json" id="$id" "$@"
     as alice "$CLI" profiles import --force /tmp/modes/"$id".json >/dev/null
-    if out=$(as alice "$CLI" connect "$id" --detach --credentials-stdin <<<"$creds" 2>&1); then
+    if out=$(as alice "$CLI" connect "$id" --detach --credentials-stdin "${connect_args[@]}" \
+        <<<"$creds" 2>&1); then
         as alice "$CLI" disconnect >/dev/null || true
         fail "$id: should not connect"
     fi
@@ -284,6 +292,44 @@ ok "EAP-MSCHAPv2 over the gateway's RSA certificate (checked against the profile
 disconnect
 
 # ---------------------------------------------------------------------------
+step "IKEv2 with your certificate (.p12 in memory), gateway certificate checked"
+gw=${GW[ikev2-cert]}
+cert=(gateway="$gw" version=2 method=cert remote_id=gw.ipsec-client.test ca="$CA"
+    ike=aes256-sha256-modp2048 esp=aes256-sha256 remote_ts=192.0.2.0/24)
+connect_args=(--client-p12 "$P12/alice.p12")
+connect v2-cert "$P12_CREDS" "${cert[@]}"
+expect_ike 2 ""
+expect_vip yes
+expect_routes split
+traffic
+log=$(as alice "$CLI" logs -n 300)
+[[ $log == *"(myself) with RSA_EMSA_PKCS1"*"successful"* ]] ||
+    fail "the log does not show the client authenticated by its RSA certificate"
+[[ $log != *"Alice Teste"* && $log != *alice@example.com* ]] ||
+    fail "the names in the client certificate are not masked in the log"
+journal=$(journalctl -u ipsec-client-engine --no-pager)
+[[ $journal != *senha-p12-teste* && $journal != *"PRIVATE KEY"* ]] ||
+    fail "the .p12 password or the private key is in the system journal"
+ok "IKEv2: client and gateway RSA certificates from the test CA, names masked, nothing secret in the journal"
+disconnect
+
+step "IKEv1 main mode: your certificate + XAuth, from an old .p12 (3DES/SHA-1)"
+gw=${GW[ikev1-cert]}
+connect_args=(--client-p12 "$P12/alice-legacy.p12")
+connect v1-cert-xauth "$P12_CREDS
+xauth-user=usuario.teste
+xauth-password=senha-de-teste" gateway="$gw" version=1 method=cert-xauth \
+    remote_id=gw.ipsec-client.test ca="$CA" ike=aes256-sha256-modp2048 \
+    esp=aes256-sha256-modp2048 remote_ts=192.0.2.0/24
+expect_ike 1 Main
+expect_vip yes
+expect_esp native MODP_2048
+traffic
+ok "IKEv1 main mode with RSA certificates then XAuth (mutual RSA + XAuth), legacy .p12 read"
+disconnect
+connect_args=()
+
+# ---------------------------------------------------------------------------
 step "Failures are diagnosed (IKEv2 and IKEv1 main mode)"
 gw=${GW[ikev2-psk]}
 v2=(gateway="$gw" version=2 method=psk remote_ts=192.0.2.0/24
@@ -312,6 +358,14 @@ expect_failure v2-eap-other-ca "$EAP" "certificate could not be verified" \
     "${eap[@]/#ca=*/ca=$OTHER_CA}"
 expect_failure v2-eap-bad-gateway-id "$EAP" "check the gateway's name" \
     "${eap[@]/#remote_id=*/remote_id=other.ipsec-client.test}"
+gw=${GW[ikev2-cert]}
+cert=(gateway="$gw" version=2 method=cert remote_id=gw.ipsec-client.test ca="$CA"
+    ike=aes256-sha256-modp2048 esp=aes256-sha256 remote_ts=192.0.2.0/24)
+connect_args=(--client-p12 "$P12/mallory.p12")
+expect_failure v2-cert-rejected "$P12_CREDS" "did not accept your certificate" "${cert[@]}"
+connect_args=(--client-p12 "$P12/alice.p12")
+expect_failure v2-cert-bad-p12-password "p12-password=wrong" "wrong password" "${cert[@]}"
+connect_args=()
 ((wrong_diagnoses == 0)) || fail "$wrong_diagnoses failures without the right diagnosis"
 
 step "Result"

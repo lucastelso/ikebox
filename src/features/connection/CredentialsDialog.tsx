@@ -1,6 +1,6 @@
-import { Eye, EyeOff, KeyRound } from 'lucide-react';
+import { Eye, EyeOff, FileKey, KeyRound } from 'lucide-react';
 import { type FormEvent, useEffect, useId, useState } from 'react';
-import type { CredentialField, CredentialsInput } from '@/bindings';
+import { type CredentialField, type CredentialsInput, commands, type P12Choice } from '@/bindings';
 import { Button } from '@/components/ui/button';
 import { Checkbox } from '@/components/ui/checkbox';
 import {
@@ -16,12 +16,15 @@ import { Label } from '@/components/ui/label';
 import { useT } from '@/i18n';
 import type { Messages } from '@/i18n/messages';
 
+/** Fields typed by the person (the certificate is imported from a file). */
+type TypedField = Exclude<CredentialField, 'clientCertificate'>;
+
 function fieldSpecs(
   t: Messages['credentials'],
   groupPsk: boolean,
   otp: boolean,
 ): Record<
-  CredentialField,
+  TypedField,
   { label: string; secret: boolean; key: keyof CredentialsInput; placeholder: string }
 > {
   return {
@@ -52,13 +55,7 @@ function fieldSpecs(
   };
 }
 
-const ORDER: CredentialField[] = [
-  'eapIdentity',
-  'eapPassword',
-  'xauthUser',
-  'xauthPassword',
-  'psk',
-];
+const ORDER: TypedField[] = ['eapIdentity', 'eapPassword', 'xauthUser', 'xauthPassword', 'psk'];
 
 function SecretInput({ id, ...props }: React.ComponentProps<typeof Input>) {
   const t = useT().credentials;
@@ -85,6 +82,7 @@ function SecretInput({ id, ...props }: React.ComponentProps<typeof Input>) {
 export function CredentialsDialog({
   open,
   onOpenChange,
+  profileId,
   profileName,
   fields,
   groupPsk = true,
@@ -94,6 +92,7 @@ export function CredentialsDialog({
 }: {
   open: boolean;
   onOpenChange: (open: boolean) => void;
+  profileId: string;
   profileName: string;
   fields: CredentialField[];
   /** The profile uses XAuth, so the PSK is the group's. */
@@ -108,19 +107,51 @@ export function CredentialsDialog({
   const baseId = useId();
   const [values, setValues] = useState<CredentialsInput>({});
   const [remember, setRemember] = useState(keyringAvailable);
+  // The client certificate: a .p12 picked in Rust's dialog (a token, not a
+  // path) and its password, imported into the keyring before connecting.
+  const needsCert = fields.includes('clientCertificate');
+  const [p12, setP12] = useState<P12Choice | null>(null);
+  const [p12Password, setP12Password] = useState('');
+  const [certError, setCertError] = useState<string | null>(null);
+  const [busy, setBusy] = useState(false);
 
   // Ao fechar, apaga o que foi digitado.
   useEffect(() => {
-    if (!open) setValues({});
+    if (!open) {
+      setValues({});
+      setP12Password('');
+      setCertError(null);
+    }
   }, [open]);
   useEffect(() => setRemember(keyringAvailable), [keyringAvailable]);
 
   const ordered = ORDER.filter((f) => fields.includes(f));
-  const complete = ordered.every((f) => (values[FIELDS[f].key] ?? '').length > 0);
+  const typedComplete = ordered.every((f) => (values[FIELDS[f].key] ?? '').length > 0);
+  const certComplete = !needsCert || (keyringAvailable && p12 !== null && p12Password.length > 0);
+  const complete = typedComplete && certComplete && !busy;
 
-  function submit(e: FormEvent) {
+  async function chooseP12() {
+    const result = await commands.chooseP12File();
+    if (result.status === 'error') setCertError(result.error.message);
+    else if (result.data) {
+      setP12(result.data);
+      setCertError(null);
+    }
+  }
+
+  async function submit(e: FormEvent) {
     e.preventDefault();
     if (!complete) return;
+    if (needsCert && p12) {
+      setBusy(true);
+      const result = await commands.importClientCertificate(profileId, p12.token, p12Password);
+      setBusy(false);
+      setP12Password('');
+      if (result.status === 'error') {
+        setCertError(result.error.message);
+        return;
+      }
+    }
     onSubmit(values, remember && keyringAvailable);
     setValues({});
   }
@@ -128,7 +159,7 @@ export function CredentialsDialog({
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent>
-        <form onSubmit={submit} className="grid gap-5">
+        <form onSubmit={(e) => void submit(e)} className="grid gap-5">
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2">
               <KeyRound className="size-5 text-primary" aria-hidden />
@@ -158,21 +189,64 @@ export function CredentialsDialog({
                 </div>
               );
             })}
+            {needsCert && (
+              <fieldset className="grid gap-2">
+                <legend className="mb-1 text-sm font-medium">{t.certTitle}</legend>
+                {keyringAvailable ? (
+                  <>
+                    <Button
+                      type="button"
+                      variant="secondary"
+                      className="w-fit"
+                      onClick={() => void chooseP12()}
+                    >
+                      <FileKey />
+                      {t.certChoose}
+                    </Button>
+                    {p12 && (
+                      <p className="break-all text-xs text-muted-foreground" data-selectable>
+                        {t.certChosen(p12.fileName)}
+                      </p>
+                    )}
+                    <Label htmlFor={`${baseId}-p12`}>{t.certPassword}</Label>
+                    <SecretInput
+                      id={`${baseId}-p12`}
+                      value={p12Password}
+                      autoComplete="off"
+                      spellCheck={false}
+                      onChange={(e) => setP12Password(e.target.value)}
+                    />
+                    <p className="text-xs text-muted-foreground">{t.certHint}</p>
+                  </>
+                ) : (
+                  <p className="text-xs text-destructive">{t.certNeedsKeyring}</p>
+                )}
+                {certError && (
+                  <p role="alert" className="text-xs text-destructive">
+                    {certError}
+                  </p>
+                )}
+              </fieldset>
+            )}
           </div>
 
-          <div className="flex items-start gap-2">
-            <Checkbox
-              id={`${baseId}-remember`}
-              checked={remember && keyringAvailable}
-              disabled={!keyringAvailable}
-              onCheckedChange={(c) => setRemember(c === true)}
-            />
-            <div className="grid gap-1">
-              <Label htmlFor={`${baseId}-remember`}>{t.remember}</Label>
-              {!keyringAvailable && <p className="text-xs text-muted-foreground">{t.noKeyring}</p>}
-              {otp && <p className="text-xs text-muted-foreground">{t.otpHint}</p>}
+          {ordered.length > 0 && (
+            <div className="flex items-start gap-2">
+              <Checkbox
+                id={`${baseId}-remember`}
+                checked={remember && keyringAvailable}
+                disabled={!keyringAvailable}
+                onCheckedChange={(c) => setRemember(c === true)}
+              />
+              <div className="grid gap-1">
+                <Label htmlFor={`${baseId}-remember`}>{t.remember}</Label>
+                {!keyringAvailable && (
+                  <p className="text-xs text-muted-foreground">{t.noKeyring}</p>
+                )}
+                {otp && <p className="text-xs text-muted-foreground">{t.otpHint}</p>}
+              </div>
             </div>
-          </div>
+          )}
 
           <DialogFooter>
             <Button type="button" variant="ghost" onClick={() => onOpenChange(false)}>

@@ -44,6 +44,8 @@ readonly HOST_IMAGE=ipsec-client-systemd-test:$DISTRO
 readonly BASE=${IPSEC_CLIENT_TEST_BASE:-}
 readonly BIN_DIR=${IPSEC_CLIENT_TEST_BIN_DIR:-}
 readonly SUITE=${IPSEC_CLIENT_TEST_SUITE:-systemd}
+# Password of the test client certificates (.p12): FAKE.
+readonly P12_PASSWORD=senha-p12-teste
 
 step() { printf '\n\033[1;36m==> %s\033[0m\n' "$*"; }
 ok() { printf '  \033[0;32m✔\033[0m %s\n' "$*"; }
@@ -73,10 +75,13 @@ remove_mode_gateways() {
 }
 
 # make_pki DIR: a test CA, the gateway certificate it signs (RSA, SAN
-# gw.ipsec-client.test) and a second, unrelated CA, for the IKEv2 + EAP mode.
-# DIR/gateway/{x509ca,x509,private} goes to the gateway; DIR/client/ has the
-# CA certificates a profile may carry. The CA keys are deleted right away.
-# Fake, short-lived, made at test time: nothing of it is kept.
+# gw.ipsec-client.test) and a second, unrelated CA, for the certificate
+# modes (EAP, client certificates). DIR/gateway/{x509ca,x509,private} goes to
+# the gateway; DIR/client/ has the CA certificates a profile may carry and
+# the person's certificate as .p12 files (password P12_PASSWORD): alice.p12
+# (modern), alice-legacy.p12 (3DES/SHA-1, as older Windows exports) and
+# mallory.p12, signed by the unrelated CA. The CA keys are deleted right
+# away. Fake, short-lived, made at test time: nothing of it is kept.
 make_pki() {
     local dir=$1 ca_ext=(-addext "basicConstraints=critical,CA:TRUE"
         -addext "keyUsage=critical,keyCertSign,cRLSign")
@@ -95,6 +100,26 @@ make_pki() {
         -subj "/O=Example/CN=IPsec Client Unrelated Test CA" "${ca_ext[@]}" \
         -out "$dir/client/other-ca.pem" 2>/dev/null
     cp "$dir/gateway/x509ca/ca.pem" "$dir/client/ca.pem"
+    # client_p12 NAME CN CA: a client certificate signed by CA, as NAME.p12.
+    client_p12() {
+        openssl req -newkey rsa:2048 -nodes -keyout "$dir/tmp/$1.key" \
+            -subj "/O=Example Org/CN=$2" -out "$dir/tmp/$1.csr" 2>/dev/null
+        printf 'subjectAltName=email:%s@example.com\nextendedKeyUsage=clientAuth\n' "$1" \
+            >"$dir/tmp/$1.ext"
+        openssl x509 -req -in "$dir/tmp/$1.csr" -CA "$dir/$3.pem" -CAkey "$dir/tmp/$3.key" \
+            -CAcreateserial -days 2 -extfile "$dir/tmp/$1.ext" -out "$dir/tmp/$1.pem" 2>/dev/null
+        openssl pkcs12 -export -inkey "$dir/tmp/$1.key" -in "$dir/tmp/$1.pem" \
+            -passout "pass:$P12_PASSWORD" "${@:4}" -out "$dir/client/$1.p12" 2>/dev/null
+    }
+    cp "$dir/gateway/x509ca/ca.pem" "$dir/ca.pem"
+    cp "$dir/client/other-ca.pem" "$dir/other.pem"
+    client_p12 alice "Alice Teste" ca
+    client_p12 alice-legacy "Alice Teste" ca \
+        -certpbe PBE-SHA1-3DES -keypbe PBE-SHA1-3DES -macalg sha1
+    client_p12 mallory "Mallory Teste" other
+    [[ -s $dir/client/alice.p12 && -s $dir/client/alice-legacy.p12 && -s $dir/client/mallory.p12 ]] ||
+        fail "could not make the test client certificates"
+    rm -f "$dir/ca.pem" "$dir/other.pem"
     rm -rf "$dir/tmp"
     chmod -R a+rX "$dir/client"
 }

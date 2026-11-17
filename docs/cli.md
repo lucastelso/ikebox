@@ -48,11 +48,13 @@ ipsec-client-cli connect vpn                              # Ctrl+C disconnects
 | `profiles delete <id>` | Removes the profile (the credentials stay in the keyring) |
 | `profiles path` | Shows the profiles directory |
 | `secrets set <id> [--credentials-stdin]` | Asks for (passwords without echo) and stores the credentials in the keyring. Enter keeps the current value |
-| `secrets status <id>` | Shows what is stored, without revealing values; the username is masked |
+| `secrets import-p12 <id> <file> [--password-stdin]` | Imports your certificate (`.p12`/`.pfx`, modern or old) into the keyring: the private key and the certificate. The file's password is asked (or read from the first line of standard input) and never stored |
+| `secrets status <id>` | Shows what is stored, without revealing values; the username is masked, and a client certificate shows its key type and how many days it is still valid |
 | `secrets forget <id>` | Deletes the credentials from the keyring |
 | `connect <id>` | Connects in the foreground. **Ctrl+C disconnects.** Tunnel drops and recoveries show up on screen |
 | `connect <id> --detach` | Connects and returns to the terminal; the tunnel stays up |
 | `connect <id> --remember` | Stores the credentials asked now in the keyring |
+| `connect <id> --client-p12 <file>` | Uses that certificate for this connection only, in memory (with `--remember`, also in the keyring). The file's password is asked, or read from the `p12-password` line of `--credentials-stdin` |
 | `connect <id> --timeout N` | Maximum negotiation time (default 30 s) |
 | `connect <id> --privileged` | Fallback privileged container mode, Docker engine only (avoid it; see SECURITY.md) |
 | `status` | Shows the active connection: gateway, virtual IP, networks, time and traffic. Exits with **3** when disconnected |
@@ -67,8 +69,9 @@ Lookup order in `connect`:
 1. the system keyring (`secrets set`, or `--remember`);
 2. whatever is missing, it asks in the terminal;
 3. with `--credentials-stdin`, it reads `key=value` lines from standard input.
-   The keys are `psk`, `xauth-user` and `xauth-password`, and for a profile
-   with EAP `eap-identity` and `eap-password`. It is for
+   The keys are `psk`, `xauth-user` and `xauth-password`, for a profile
+   with EAP `eap-identity` and `eap-password`, and `p12-password` with
+   `--client-p12`. It is for
    automation; the keyring is not used in this mode.
 
 Never pass secrets as arguments or environment variables: they show up in

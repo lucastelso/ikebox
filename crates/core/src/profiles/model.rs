@@ -70,6 +70,9 @@ pub enum LocalMethod {
     /// Usuário e senha por EAP-MSCHAPv2 (IKEv2; o gateway se autentica por
     /// certificado, ADR-0023).
     EapMschapv2,
+    /// Certificado do cliente (IKEv2, ou IKEv1 em modo principal): chave e
+    /// certificado vêm do chaveiro, nunca do perfil (ADR-0024).
+    Certificate,
 }
 
 /// Uma rodada de autenticação do cliente.
@@ -185,6 +188,39 @@ impl AuthSettings {
     #[must_use]
     pub fn uses_eap(&self) -> bool {
         self.round(LocalMethod::EapMschapv2).is_some()
+    }
+
+    /// A pessoa se autentica com certificado?
+    #[must_use]
+    pub fn uses_client_certificate(&self) -> bool {
+        self.round(LocalMethod::Certificate).is_some()
+    }
+
+    /// Certificado do cliente (com XAuth opcional no IKEv1), e o gateway
+    /// autenticado pelo certificado dele, da identidade `gateway_id` e
+    /// emitido por uma das `ca`.
+    #[must_use]
+    pub fn certificate(
+        local_id: Option<String>,
+        xauth: bool,
+        gateway_id: Option<String>,
+        ca: Vec<String>,
+    ) -> Self {
+        let mut local = vec![LocalRound {
+            id: local_id,
+            ..LocalRound::new(LocalMethod::Certificate)
+        }];
+        if xauth {
+            local.push(LocalRound::new(LocalMethod::Xauth));
+        }
+        Self {
+            local,
+            remote: RemoteAuth {
+                method: RemoteMethod::Certificate,
+                id: gateway_id,
+                ca,
+            },
+        }
     }
 
     fn round(&self, method: LocalMethod) -> Option<&LocalRound> {
@@ -320,6 +356,10 @@ pub enum CredentialKind {
     EapIdentity,
     /// Senha EAP.
     EapPassword,
+    /// Certificado do cliente (PEM): público, mas com o nome da pessoa.
+    ClientCert,
+    /// Chave privada do cliente (PEM, PKCS#8).
+    ClientKey,
 }
 
 impl CredentialKind {
@@ -332,6 +372,8 @@ impl CredentialKind {
             Self::XauthPassword => "xauth-password",
             Self::EapIdentity => "eap-identity",
             Self::EapPassword => "eap-password",
+            Self::ClientCert => "client-cert",
+            Self::ClientKey => "client-key",
         }
     }
 
@@ -339,7 +381,13 @@ impl CredentialKind {
     /// mascarado na exibição.
     #[must_use]
     pub fn is_secret(self) -> bool {
-        !matches!(self, Self::XauthUser | Self::EapIdentity)
+        !matches!(self, Self::XauthUser | Self::EapIdentity | Self::ClientCert)
+    }
+
+    /// Typed by the person (as opposed to imported from a certificate file).
+    #[must_use]
+    pub fn is_typed(self) -> bool {
+        !matches!(self, Self::ClientCert | Self::ClientKey)
     }
 }
 
@@ -356,6 +404,9 @@ impl Profile {
                 }
                 LocalMethod::EapMschapv2 => {
                     kinds.extend([CredentialKind::EapIdentity, CredentialKind::EapPassword]);
+                }
+                LocalMethod::Certificate => {
+                    kinds.extend([CredentialKind::ClientCert, CredentialKind::ClientKey]);
                 }
             }
         }

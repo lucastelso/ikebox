@@ -7,6 +7,30 @@ and the project uses [Semantic Versioning](https://semver.org/).
 
 ## [Unreleased]
 
+### Added
+
+- **Your certificate (client certificates)**
+  ([ADR-0024](docs/adr/0024-client-certificates.md)): profiles where you
+  sign in with a certificate from your company, in IKEv2, or in IKEv1 main
+  mode with optional XAuth after it ("mutual RSA + XAuth"). The first time
+  you connect, the app asks for the `.p12`/`.pfx` file and its password,
+  opens it in memory and stores the private key and the certificate in the
+  system keyring; the file's password is never stored. Modern and old files
+  (3DES/RC2 with SHA-1, as older Windows exports) are read; keys must be RSA
+  or Ed25519. The gateway is always proven by its certificate, as with EAP.
+- The "IKEv2 with your certificate" template, and the certificate choice
+  for IKEv1 and IKEv2 in the editor.
+- The connection screen warns 30 days before your certificate expires.
+- CLI: `secrets import-p12 <profile> <file>`, and `connect --client-p12
+  <file>` to use a certificate for one connection only, in memory;
+  `secrets status` shows how many days the certificate is still valid.
+
+### Fixed
+
+- The editor's profile details said "PSK" for EAP profiles.
+- A certificate subject between brackets in the log (`address[O=..., CN=...]`)
+  was not masked.
+
 ## [0.7.0] - 2026-11-17
 
 IKEv2 with a username and password, phase 8 of the program. The network

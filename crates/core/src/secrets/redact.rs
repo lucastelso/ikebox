@@ -298,8 +298,11 @@ fn bracket_identity(line: &str, open: usize) -> Option<(usize, String)> {
     let inner = &line[open + 1..];
     let len = inner.find(']')?;
     let content = &inner[..len];
+    // A certificate subject (`O=Example Org, CN=Name`) has spaces; any other
+    // spaced content is not an identity.
+    let distinguished_name = content.contains('=');
     if content.is_empty()
-        || content.contains(char::is_whitespace)
+        || (content.contains(char::is_whitespace) && !distinguished_name)
         || content.chars().all(|c| c.is_ascii_digit())
     {
         return None;
@@ -674,6 +677,23 @@ rota 0.0.0.0/1 via ipsc0; fe80::1 e 2001:db8::7 vistos; versão 6.1.0; hora 15:3
         ] {
             assert_eq!(r.redact(line), line);
         }
+    }
+
+    #[test]
+    fn masks_certificate_subjects_in_every_shape() {
+        let r = Redactor::new([]);
+        let line = "IKE_SA v2-cert[1] established between \
+                    172.19.0.7[O=Example Org, CN=Alice Teste]...172.19.0.6[gw.example.com]\n\
+                    authentication of 'O=Example Org, CN=Alice Teste' (myself) with RSA\n\
+                    sending end entity cert \"O=Example Org, CN=Alice Teste\"\n";
+        let out = r.redact(line);
+        assert!(!out.contains("Alice"), "{out}");
+        assert!(!out.contains("Example Org"), "{out}");
+        // Other spaced brackets after an address stay as they are.
+        assert_eq!(
+            r.redact("from 192.0.2.1[not an id]"),
+            "from 192.0.2.1[not an id]"
+        );
     }
 
     #[test]

@@ -1,8 +1,9 @@
 # ADR-0024: Client certificates: PKCS#12 import, key only in the keyring, sent as data
 
-- **Status:** Accepted (design). Phase 6 of the post-0.2.0 program (step 43).
-  Implemented in phase 7+ ("client certificates"), on top of profile
-  schema 2 (ADR-0022).
+- **Status:** Accepted. Designed in phase 6 (step 43), implemented in phase 9
+  (step 47, release 0.8.0) with the decisions taken at its start: IKEv2 and
+  IKEv1 main mode (XAuth may follow the certificate in IKEv1), old `.p12`
+  files (3DES/RC2, SHA-1) accepted, RSA and Ed25519 keys only.
 - **Date:** 2026-11-17
 
 ## Context
@@ -30,11 +31,13 @@ the client (ADR-0019, `0002` patch, audit P9).
     shareable profile.
   The `.p12` password is not stored. The original file is not copied; the
   app tells the person it can delete it.
-- **Connecting:** the key goes to charon by VICI `load-key` and the
-  certificate by `load-cert`, both **as data** (the same memory → keyring →
-  VICI path as the PSK, buffers zeroed on drop), and the round is
-  `local-1 { auth = pubkey; certs = <loaded> }`. The gateway side follows
-  ADR-0022 (certificate with CA and `remote.id`, or PSK).
+- **Connecting:** the key goes to charon by VICI `load-key` (`type =
+  any`) **as data** (the same memory → keyring → VICI path as the PSK,
+  buffers zeroed on drop), and the certificate in the connection itself,
+  `local-1 { auth = pubkey; certs = [<PEM>] }`, also as data (simpler than
+  the `load-cert` of the design, like the gateway CAs of ADR-0023). The
+  gateway side is always a certificate, with CA and `remote.id`
+  (ADR-0022).
 - **Algorithms:** the engine verifies and signs RSA (`gmp`) and Ed25519
   (`curve25519`) today. **ECDSA (P-256/P-384) needs a crypto library:**
   - **chosen:** start with RSA and Ed25519 (no new library), and refuse an

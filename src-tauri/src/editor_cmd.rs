@@ -35,6 +35,8 @@ pub enum ProfileTemplate {
     Ikev2Psk,
     /// IKEv2 with a username and password (EAP), gateway certificate.
     Ikev2Eap,
+    /// IKEv2 with the person's certificate, gateway certificate.
+    Ikev2Cert,
     /// Nothing suggested.
     Blank,
 }
@@ -46,9 +48,23 @@ impl From<ProfileTemplate> for Template {
             ProfileTemplate::CiscoEzvpn => Self::CiscoEzvpn,
             ProfileTemplate::Ikev2Psk => Self::Ikev2Psk,
             ProfileTemplate::Ikev2Eap => Self::Ikev2Eap,
+            ProfileTemplate::Ikev2Cert => Self::Ikev2Cert,
             ProfileTemplate::Blank => Self::Blank,
         }
     }
+}
+
+/// How the person signs in.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, Type)]
+#[serde(rename_all = "camelCase")]
+pub enum DraftAuth {
+    /// Pre-shared key (and XAuth in IKEv1).
+    Psk,
+    /// Username and password by EAP (IKEv2).
+    Eap,
+    /// The person's certificate (IKEv2, or IKEv1 main mode; XAuth optional
+    /// in IKEv1).
+    Certificate,
 }
 
 /// A named set of proposals.
@@ -126,10 +142,10 @@ pub struct ProfileDraft {
     pub xauth: bool,
     /// The XAuth password is a one-time code.
     pub otp: bool,
-    /// Username and password by EAP (IKEv2), the gateway proven by its
-    /// certificate.
-    pub eap: bool,
-    /// CA certificates (PEM) of the gateway's certificate (EAP).
+    /// How the person signs in. With EAP or a certificate, the gateway is
+    /// proven by its certificate.
+    pub auth: DraftAuth,
+    /// CA certificates (PEM) of the gateway's certificate (EAP, certificate).
     pub ca: Vec<String>,
     /// Identity of the PSK round (group id); empty = the computer's address.
     pub local_id: String,
@@ -209,7 +225,13 @@ impl ProfileDraft {
             esp_proposals: p.child.esp_proposals.clone(),
             xauth: p.auth.uses_xauth(),
             otp: p.auth.otp(),
-            eap: p.auth.uses_eap(),
+            auth: if p.auth.uses_eap() {
+                DraftAuth::Eap
+            } else if p.auth.uses_client_certificate() {
+                DraftAuth::Certificate
+            } else {
+                DraftAuth::Psk
+            },
             ca: p.auth.remote.ca.clone(),
             local_id: p.auth.psk_id().unwrap_or_default().to_owned(),
             remote_id: p.auth.remote_id().unwrap_or_default().to_owned(),
@@ -251,17 +273,24 @@ impl ProfileDraft {
         p.ike.encap = self.encap;
         p.ike.proposals = list(&self.ike_proposals);
         p.ike.dpd_delay_secs = self.dpd_delay_secs;
-        p.auth = if self.eap {
-            let mut auth =
-                AuthSettings::eap(optional(&self.local_id), String::new(), self.ca.clone());
-            auth.remote.id = optional(&self.remote_id);
-            auth
-        } else {
-            AuthSettings::psk(
+        p.auth = match self.auth {
+            DraftAuth::Eap => {
+                let mut auth =
+                    AuthSettings::eap(optional(&self.local_id), String::new(), self.ca.clone());
+                auth.remote.id = optional(&self.remote_id);
+                auth
+            }
+            DraftAuth::Certificate => AuthSettings::certificate(
                 optional(&self.local_id),
                 self.xauth,
                 optional(&self.remote_id),
-            )
+                self.ca.clone(),
+            ),
+            DraftAuth::Psk => AuthSettings::psk(
+                optional(&self.local_id),
+                self.xauth,
+                optional(&self.remote_id),
+            ),
         };
         if let Some(round) = p
             .auth
@@ -675,7 +704,7 @@ mod tests {
     #[test]
     fn an_eap_draft_needs_the_gateway_name_and_a_usable_ca() {
         let mut d = filled(ProfileTemplate::Ikev2Eap);
-        assert!(d.eap);
+        assert_eq!(d.auth, DraftAuth::Eap);
         let (_, c) = checked(&d);
         let fields: Vec<_> = c.issues.iter().map(|i| i.field.as_str()).collect();
         assert_eq!(fields, ["remoteId", "ca"]);
@@ -701,11 +730,39 @@ mod tests {
         assert!(p.auth.uses_eap());
         assert_eq!(p.auth.remote_id(), Some("vpn.example.com"));
         // Back to a PSK: the CAs no longer apply.
-        d.eap = false;
+        d.auth = DraftAuth::Psk;
         d.ca.clear();
         let (p, c) = checked(&d);
         assert!(c.issues.is_empty(), "{:?}", c.issues);
         assert!(!p.auth.uses_eap());
+    }
+
+    #[test]
+    fn a_certificate_draft_needs_main_mode_in_ikev1_and_the_gateway_ca() {
+        let mut d = filled(ProfileTemplate::Ikev2Cert);
+        assert_eq!(d.auth, DraftAuth::Certificate);
+        d.remote_id = "vpn.example.com".to_owned();
+        d.ca = vec![RSA_CA.to_owned()];
+        let (p, c) = checked(&d);
+        assert!(c.issues.is_empty(), "{:?}", c.issues);
+        assert!(p.auth.uses_client_certificate());
+        assert_eq!(c.schema, 2);
+        assert_eq!(c.security, Security::Good);
+
+        // IKEv1: main mode only, XAuth allowed after the certificate.
+        d.ike_version = 1;
+        d.aggressive = true;
+        d.xauth = true;
+        let (_, c) = checked(&d);
+        let fields: Vec<_> = c.issues.iter().map(|i| i.field.as_str()).collect();
+        assert_eq!(fields, ["auth"], "{:?}", c.issues);
+        d.aggressive = false;
+        let (p, c) = checked(&d);
+        assert!(c.issues.is_empty(), "{:?}", c.issues);
+        assert!(p.auth.uses_xauth());
+        let again = ProfileDraft::from_profile(&p, Some(p.id.clone()), ProfileTemplate::Blank);
+        assert_eq!(again.auth, DraftAuth::Certificate);
+        assert!(again.xauth);
     }
 
     #[test]

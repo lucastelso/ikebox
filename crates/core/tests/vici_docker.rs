@@ -105,6 +105,7 @@ async fn scenario(spec: EngineSpec, gateway_ip: String) {
             if_id: IF_ID,
             xauth_user: Some(TEST_XAUTH_USER),
             eap_identity: None,
+            client_cert: None,
         })
         .expect("load-conn gerado pelo perfil");
     let redactor = Redactor::new([TEST_XAUTH_USER, TEST_GROUP_ID]);

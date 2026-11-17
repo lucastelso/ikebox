@@ -1877,3 +1877,60 @@ script silently. It now ignores the pipe status and tries a few times.
 the EAP plugins), so updating it is required for EAP profiles; the notes say
 so.
 
+### Step 47: phase 9, client certificates
+
+Decisions taken at the start: IKEv2 **and** IKEv1 main mode (XAuth may
+follow the certificate in IKEv1, "mutual RSA + XAuth"), old `.p12` files
+(3DES/RC2, SHA-1) accepted, release 0.8.0 at the end.
+
+An interruption on the way: the editor crashed in the middle of the step,
+and for a while two Claude sessions edited the same tree and branch, which
+left `crates/cli/src/prompt.rs` with code from both and the workspace not
+building. The maintainer chose one session to go on alone; it cleaned the
+mixed code up before continuing. Nothing had been committed in between.
+
+**Reading the `.p12`** (`secrets/client_cert.rs`): `p12-keystore` (pure
+Rust, MIT/Apache; PBES2 and, through its default `pbes1` feature, 3DES and
+RC2) opens the file in memory. Exactly one private key; its certificate is
+the one whose public key matches (RSA: same modulus, with `pkcs1`; Ed25519:
+same public key when the PKCS#8 carries it), then the one with the same
+local key id, then the only non-CA certificate. ECDSA and other keys are
+refused with the reason, as is a certificate not valid today. The pair is
+kept as two PEM texts (the key zeroed on drop) and checked again whenever
+it is read back from the keyring. The tests make their `.p12` files with
+the `openssl` command in a temporary directory (modern, 3DES/SHA-1, RC2
+with the legacy provider, Ed25519, ECDSA): no private key is kept in the
+repository.
+
+**Profile and engine:** a `certificate` round (first, IKEv2 or IKEv1 main
+mode), the gateway always by certificate; new credentials `client-cert`
+and `client-key`, never typed. The key reaches charon by `load-key` as data
+(`type = any`), the certificate in the connection's own `certs`, like the
+gateway CAs. Its subject values and alternative names join the masking;
+the run showed a subject between brackets (`address[O=..., CN=...]`)
+passing unmasked, because that rule skipped values with spaces: it now
+accepts them when they look like a subject (contain `=`).
+
+**App:** the credentials dialog asks for the `.p12` (picked in Rust's
+dialog: the UI only gets a token and the file name) and its password,
+imports it into the keyring and then connects; a wrong password is said
+in place and the token stays valid. The keyring is required: there is no
+other safe place for the key. The connection screen warns 30 days before
+the certificate expires. The editor gained the certificate choice for IKEv1
+and IKEv2 (`auth` replaces the draft's `eap` flag) and the "IKEv2 with your
+certificate" template. The profile details said "PSK" for EAP profiles;
+fixed with the new methods.
+
+**CLI:** `secrets import-p12` and `connect --client-p12` (in memory for one
+connection; the password from a `p12-password` line or asked without echo).
+
+**End to end:** the test PKI now also makes the person's certificate as
+`.p12` (modern and 3DES/SHA-1) and one from the unrelated CA. Two new
+gateways: IKEv2 with certificates on both sides, and IKEv1 main mode with
+certificates then XAuth. A certificate the gateway does not trust is
+refused with the same `AUTHENTICATION_FAILED` as a wrong PSK, right after
+the client signed: `diagnose` now takes the profile's method
+(`ProfileAuth`), and for a certificate profile that line says "the gateway
+did not accept your certificate". A wrong `.p12` password stops in the CLI,
+before the engine.
+

@@ -40,6 +40,8 @@ const connection: Connection = {
 };
 
 interface Backend {
+  /** Passwords the fake .p12 accepts (anything else: wrong password). */
+  p12Password?: string;
   credentials?: Partial<CredentialsStatus>;
   connectError?: UiError;
   list?: ProfileList;
@@ -59,8 +61,15 @@ const missingComponent: ComponentInfo = {
 };
 
 /** Fakes Rust and records the `connect` calls. */
-function mockBackend({ credentials, connectError, list = profiles, component }: Backend = {}) {
+function mockBackend({
+  credentials,
+  connectError,
+  list = profiles,
+  component,
+  p12Password,
+}: Backend = {}) {
   const connectCalls: Array<Record<string, unknown>> = [];
+  const importCalls: Array<Record<string, unknown>> = [];
   let connected = false;
   let componentInfo = component;
   mockIPC((cmd, args) => {
@@ -80,8 +89,27 @@ function mockBackend({ credentials, connectError, list = profiles, component }: 
           stored: ['psk', 'xauthUser', 'xauthPassword'],
           maskedUser: 'us***lo',
           keyringAvailable: true,
+          clientCertificate: null,
           ...credentials,
         } satisfies CredentialsStatus;
+      case 'choose_p12_file':
+        return { token: 'p12-0', fileName: 'fulana.p12' };
+      case 'import_client_certificate':
+        importCalls.push(args as Record<string, unknown>);
+        if ((args as { password: string }).password !== p12Password) {
+          throw {
+            kind: 'profile',
+            message: 'could not open the file: wrong password',
+            details: [],
+          } satisfies UiError;
+        }
+        return {
+          subject: 'CN=Fulana de Teste,O=Example Org',
+          issuer: 'CN=Test CA',
+          notAfter: '2027-11-17',
+          daysLeft: 365,
+          key: 'RSA',
+        };
       case 'connect':
         connectCalls.push(args as Record<string, unknown>);
         if (connectError) throw connectError;
@@ -94,7 +122,7 @@ function mockBackend({ credentials, connectError, list = profiles, component }: 
         return null;
     }
   });
-  return { connectCalls };
+  return { connectCalls, importCalls };
 }
 
 describe('HomeScreen', () => {
@@ -187,6 +215,50 @@ describe('HomeScreen', () => {
 
     await waitFor(() => expect(connectCalls).toHaveLength(1));
     expect(connectCalls[0]).toMatchObject({ credentials: { xauthPassword: '123456' } });
+  });
+
+  it('a certificate profile imports the .p12 (wrong password says so) and then connects', async () => {
+    const { connectCalls, importCalls } = mockBackend({
+      credentials: { required: ['clientCertificate'], stored: [] },
+      p12Password: 'certa',
+    });
+    render(<HomeScreen />);
+    await userEvent.click(await screen.findByRole('button', { name: 'Connect' }));
+
+    await screen.findByRole('dialog');
+    expect(screen.queryByLabelText('Remember in the system keyring')).not.toBeInTheDocument();
+    await userEvent.click(screen.getByRole('button', { name: 'Choose file (.p12/.pfx)…' }));
+    expect(await screen.findByText('File: fulana.p12')).toBeInTheDocument();
+
+    await userEvent.type(screen.getByLabelText('Password of the file'), 'errada');
+    await userEvent.click(screen.getByRole('button', { name: 'Connect', hidden: false }));
+    expect(await screen.findByRole('alert')).toHaveTextContent('wrong password');
+    expect(connectCalls).toEqual([]);
+
+    await userEvent.type(screen.getByLabelText('Password of the file'), 'certa');
+    await userEvent.click(screen.getByRole('button', { name: 'Connect', hidden: false }));
+    await waitFor(() => expect(connectCalls).toHaveLength(1));
+    expect(importCalls.at(-1)).toEqual({
+      profileId: 'trabalho',
+      token: 'p12-0',
+      password: 'certa',
+    });
+  });
+
+  it('warns on the connection screen when the certificate is about to expire', async () => {
+    mockBackend({
+      credentials: {
+        clientCertificate: {
+          subject: 'CN=Fulana de Teste',
+          issuer: 'CN=Test CA',
+          notAfter: '2026-12-01',
+          daysLeft: 14,
+          key: 'RSA',
+        },
+      },
+    });
+    render(<HomeScreen />);
+    expect(await screen.findByText('Your certificate expires in 14 days')).toBeInTheDocument();
   });
 
   it('shows the likely cause and offers to fix the credentials', async () => {

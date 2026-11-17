@@ -13,7 +13,9 @@ mod charon;
 mod client;
 mod message;
 
-pub use charon::{Charon, CharonEvent, ChildSa, IkeSa, SecretKind, SharedSecret, VersionInfo};
+pub use charon::{
+    Charon, CharonEvent, ChildSa, IkeSa, PrivateKey, SecretKind, SharedSecret, VersionInfo,
+};
 pub use client::{MAX_PACKET, ViciClient, ViciEvents};
 pub use message::{Message, Value};
 

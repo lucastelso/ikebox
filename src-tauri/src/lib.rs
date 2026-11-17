@@ -4,6 +4,7 @@
 //! ([`dto`]) e o `ipsec-client-core`, onde fica toda a lógica. O webview só
 //! enxerga os comandos registrados aqui; não há plugins de shell/fs.
 
+pub mod certificate_cmd;
 pub mod commands;
 pub mod component_cmd;
 pub mod desktop;
@@ -29,6 +30,8 @@ pub fn specta_builder() -> Builder<tauri::Wry> {
             commands::disconnect,
             commands::status,
             commands::forget_credentials,
+            certificate_cmd::choose_p12_file,
+            certificate_cmd::import_client_certificate,
             commands::anonymize_log,
             commands::set_language,
             profiles_cmd::choose_import_file,
@@ -68,6 +71,7 @@ pub fn run() {
         .plugin(tauri_plugin_dialog::init())
         .manage(commands::ConnectionLock::default())
         .manage(profiles_cmd::PendingImports::default())
+        .manage(certificate_cmd::PendingP12::default())
         .invoke_handler(builder.invoke_handler())
         .setup(move |app| {
             if !desktop::acquire_single_instance(app.handle()) {

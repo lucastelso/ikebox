@@ -3,6 +3,7 @@ import { type ReactNode, useEffect, useId, useRef, useState } from 'react';
 import { toast } from 'sonner';
 import {
   commands,
+  type DraftAuth,
   type DraftCheck,
   type ProfileDraft,
   type ProfileSummary,
@@ -193,13 +194,27 @@ export function ProfileEditor({
     setDraft((d) => ({
       ...d,
       ikeVersion: version,
-      // Aggressive mode and XAuth only exist in IKEv1, EAP only in IKEv2.
-      ...(version === 2 ? { aggressive: false, xauth: false, otp: false } : { eap: false, ca: [] }),
+      // Aggressive mode and XAuth only exist in IKEv1, EAP only in IKEv2; a
+      // certificate in IKEv1 needs main mode.
+      ...(version === 2
+        ? { aggressive: false, xauth: false, otp: false }
+        : d.auth === 'eap'
+          ? { auth: 'psk' as const, ca: [] }
+          : d.auth === 'certificate'
+            ? { aggressive: false }
+            : {}),
     }));
   }
 
-  function setEap(eap: boolean) {
-    setDraft((d) => ({ ...d, eap, xauth: false, otp: false, ...(eap ? {} : { ca: [] }) }));
+  function setAuth(auth: DraftAuth) {
+    setDraft((d) => ({
+      ...d,
+      auth,
+      // EAP has no XAuth after it; the gateway CAs only apply with a certificate.
+      ...(auth === 'eap' ? { xauth: false, otp: false } : {}),
+      ...(auth === 'psk' ? { ca: [] } : {}),
+      ...(auth === 'certificate' ? { aggressive: false } : {}),
+    }));
   }
 
   /** Adds CA entries that are not there yet (Rust splits and later checks them). */
@@ -263,6 +278,8 @@ export function ProfileEditor({
     />
   );
   const general = issuesFor('general');
+  // With EAP or a client certificate, the gateway is proven by its own.
+  const gatewayCert = draft.auth !== 'psk';
   const presetInfo = presets.find((p) => p.preset === mode);
   const blocked = attempted && (check?.issues.length ?? 0) > 0;
 
@@ -319,26 +336,37 @@ export function ProfileEditor({
             </Field>
           )}
         </div>
-        {draft.ikeVersion === 2 && (
-          <Field id={id('authMethod')} label={t.authMethod} issues={[]}>
-            <Select value={draft.eap ? 'eap' : 'psk'} onValueChange={(v) => setEap(v === 'eap')}>
-              <SelectTrigger id={id('authMethod')}>
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="psk">{t.authPsk}</SelectItem>
-                <SelectItem value="eap">{t.authEap}</SelectItem>
-              </SelectContent>
-            </Select>
-          </Field>
+        <Field id={id('authMethod')} label={t.authMethod} issues={[]}>
+          <Select value={draft.auth} onValueChange={(v) => setAuth(v as DraftAuth)}>
+            <SelectTrigger id={id('authMethod')}>
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="psk">{t.authPsk}</SelectItem>
+              {draft.ikeVersion === 2 && <SelectItem value="eap">{t.authEap}</SelectItem>}
+              <SelectItem value="certificate">{t.authCert}</SelectItem>
+            </SelectContent>
+          </Select>
+        </Field>
+        {draft.auth === 'certificate' && (
+          <p className="flex gap-1.5 text-xs text-muted-foreground">
+            <Info className="mt-0.5 size-3.5 shrink-0" aria-hidden />
+            {t.certNote}
+          </p>
         )}
         <Field
           id={id('localId')}
-          label={draft.eap ? t.localIdEap : t.localId}
-          hint={draft.eap ? t.localIdEapHint : t.localIdHint}
+          label={draft.auth === 'psk' ? t.localId : t.localIdEap}
+          hint={
+            draft.auth === 'psk'
+              ? t.localIdHint
+              : draft.auth === 'eap'
+                ? t.localIdEapHint
+                : t.localIdCertHint
+          }
           issues={issuesFor('localId')}
         >
-          {text('localId', draft.eap ? undefined : 'keyid:…')}
+          {text('localId', draft.auth === 'psk' ? 'keyid:…' : undefined)}
         </Field>
         {draft.ikeVersion === 1 && (
           <>
@@ -369,13 +397,13 @@ export function ProfileEditor({
         ))}
         <Field
           id={id('remoteId')}
-          label={draft.eap ? t.remoteIdCert : t.remoteId}
-          hint={draft.eap ? t.remoteIdCertHint : t.remoteIdHint}
+          label={gatewayCert ? t.remoteIdCert : t.remoteId}
+          hint={gatewayCert ? t.remoteIdCertHint : t.remoteIdHint}
           issues={issuesFor('remoteId')}
         >
-          {text('remoteId', draft.eap ? t.gatewayPlaceholder : undefined)}
+          {text('remoteId', gatewayCert ? t.gatewayPlaceholder : undefined)}
         </Field>
-        {draft.eap && (
+        {gatewayCert && (
           <Field id={id('ca')} label={t.ca} hint={t.caHint} issues={issuesFor('ca')}>
             {draft.ca.length > 0 && (
               <ul className="grid gap-2">

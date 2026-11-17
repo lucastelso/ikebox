@@ -8,7 +8,7 @@ import {
   ShieldCheck,
   X,
 } from 'lucide-react';
-import { type ReactNode, useState } from 'react';
+import { type ReactNode, useEffect, useState } from 'react';
 import { type CredentialField, type CredentialsInput, commands, type UiError } from '@/bindings';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
@@ -61,6 +61,22 @@ export function HomeScreen({ onImport }: { onImport?: () => void }) {
   const component = useComponent();
   const [dialog, setDialog] = useState<DialogState | null>(null);
   const [localError, setLocalError] = useState<UiError | null>(null);
+  // Days until the client certificate of the selected profile expires, when
+  // it is 30 or fewer (ADR-0024); null otherwise.
+  const [certDays, setCertDays] = useState<number | null>(null);
+  const selectedId = selected?.id;
+  useEffect(() => {
+    setCertDays(null);
+    if (!selectedId) return;
+    let cancelled = false;
+    void commands.credentialsStatus(selectedId).then((result) => {
+      const cert = result.status === 'ok' ? result.data.clientCertificate : null;
+      if (!cancelled && cert && cert.daysLeft <= 30) setCertDays(cert.daysLeft);
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, [selectedId]);
 
   const error = localError ?? state.error ?? listError;
   const phase = state.phase;
@@ -243,6 +259,11 @@ export function HomeScreen({ onImport }: { onImport?: () => void }) {
               {selected && selected.security !== 'good' && (
                 <SecurityBadge level={selected.security} onHero className="mt-1.5" />
               )}
+              {certDays !== null && (
+                <p className="mt-1.5 w-fit rounded-full bg-white/15 px-2 py-0.5 text-xs font-semibold">
+                  {certDays < 0 ? t.home.certExpired : t.home.certExpires(certDays)}
+                </p>
+              )}
             </div>
           </div>
 
@@ -298,6 +319,7 @@ export function HomeScreen({ onImport }: { onImport?: () => void }) {
         <CredentialsDialog
           open
           onOpenChange={(open) => !open && setDialog(null)}
+          profileId={selected.id}
           profileName={selected.name}
           fields={dialog.fields}
           groupPsk={selected.usesXauth}

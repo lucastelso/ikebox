@@ -9,7 +9,14 @@ import {
 } from '@/components/ui/dialog';
 import { useT } from '@/i18n';
 
-const TEMPLATES: ProfileTemplate[] = ['fortigate', 'ciscoEzvpn', 'ikev2Psk', 'ikev2Eap', 'blank'];
+const TEMPLATES: ProfileTemplate[] = [
+  'fortigate',
+  'ciscoEzvpn',
+  'ikev2Psk',
+  'ikev2Eap',
+  'ikev2Cert',
+  'blank',
+];
 
 /** Where a new profile starts from: a vendor template or blank. */
 export function TemplateDialog({
