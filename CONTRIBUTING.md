@@ -65,7 +65,11 @@ the Rust side.
    `build`, `perf`, `style`, `revert`. commitlint checks the message. (The
    history up to v0.1.1 is in Portuguese.)
 3. Before merging, `npm run check` must be green.
-4. Merge into `main` with `git merge --no-ff`. The branch is kept.
+4. Merge into `main` with `git merge --no-ff`, then **delete the branch**,
+   locally and on the remote (`git branch -d <branch>`,
+   `git push origin --delete <branch>`). The merge commit keeps the branch
+   name and its commits in the history; only `main` and the branches still
+   being worked on live in the repository.
 5. Versions follow [SemVer](https://semver.org/).
 
 ## Checks
