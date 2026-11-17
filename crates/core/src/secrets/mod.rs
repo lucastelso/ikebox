@@ -11,7 +11,7 @@ mod redact;
 mod store;
 
 pub use credentials::Credentials;
-pub use redact::{Anonymizer, Redactor, mask};
+pub use redact::{Anonymizer, Redactor, mask, printable};
 pub use store::{KEYRING_SERVICE, KeyringStore, MemoryStore, SecretStore, keyring_key};
 
 use crate::profiles::CredentialKind;

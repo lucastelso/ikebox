@@ -40,6 +40,27 @@ pub fn mask(value: &str) -> String {
     }
 }
 
+/// Makes a log line safe to show: control characters (escape sequences, line
+/// breaks, backspace) and bidirectional overrides become U+FFFD. Tabs stay.
+///
+/// The engine log carries text chosen by the other end of the tunnel (the
+/// XAuth message of the gateway, for one, is logged as it came). Printed raw,
+/// it could drive the user's terminal (move the cursor, rewrite lines, set
+/// the window title) or fake lines of the log.
+#[must_use]
+pub fn printable(text: &str) -> String {
+    let unsafe_char = |c: char| {
+        (c.is_control() && c != '\t')
+            || matches!(c, '\u{202a}'..='\u{202e}' | '\u{2066}'..='\u{2069}')
+    };
+    if !text.contains(unsafe_char) {
+        return text.to_owned();
+    }
+    text.chars()
+        .map(|c| if unsafe_char(c) { '\u{fffd}' } else { c })
+        .collect()
+}
+
 /// Troca identidades conhecidas por versões mascaradas.
 #[derive(Debug, Clone, Default)]
 pub struct Redactor {
@@ -446,6 +467,22 @@ fn replace_ips(text: &str, known: &[(IpAddr, String)]) -> String {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn printable_neutralizes_terminal_control() {
+        // Text a gateway can put in the log (XAuth message).
+        let hostile =
+            "XAuth message: ok\u{1b}[2J\u{1b}]0;title\u{7}\r\n[engine] ready\u{8}\u{9b}31m";
+        let safe = printable(hostile);
+        assert!(!safe.chars().any(char::is_control), "{safe:?}");
+        assert!(safe.starts_with("XAuth message: ok\u{fffd}[2J"));
+        assert_eq!(safe.chars().count(), hostile.chars().count());
+        // Bidirectional overrides can reorder what is displayed.
+        assert_eq!(printable("a\u{202e}b\u{2066}c"), "a\u{fffd}b\u{fffd}c");
+        // Ordinary lines are untouched, tabs and non-ASCII text included.
+        let plain = "09[IKE] <vpn|1>\tconexão estabelecida — ok";
+        assert_eq!(printable(plain), plain);
+    }
 
     #[test]
     fn masks_by_length() {

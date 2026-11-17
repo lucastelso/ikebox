@@ -25,7 +25,7 @@ pub use failure::{FailureKind, diagnose};
 use crate::diagnostics::{self, Check, CheckStatus};
 use crate::engine::{Backend, BuildProgress, EngineError, RunningEngine};
 use crate::profiles::{Profile, ProfileError};
-use crate::secrets::{Anonymizer, Credentials, Redactor, SecretsError};
+use crate::secrets::{Anonymizer, Credentials, Redactor, SecretsError, printable};
 use crate::vici::{Charon, CharonEvent, IkeSa, ViciClient, ViciError, ViciEvents};
 
 /// Linhas de log guardadas para diagnóstico de falhas.
@@ -363,7 +363,7 @@ async fn forward_events(
         };
         match CharonEvent::parse(&name, &message) {
             CharonEvent::Log { message, .. } => {
-                let line = redactor.redact(&message);
+                let line = redactor.redact(&printable(&message));
                 if let Ok(mut buffer) = logs.lock() {
                     if buffer.len() == LOG_BUFFER {
                         buffer.pop_front();
@@ -432,7 +432,10 @@ pub async fn disconnect() -> Result<bool, SessionError> {
 /// # Errors
 /// Engine inacessível.
 pub async fn engine_logs(tail: usize) -> Result<Vec<String>, SessionError> {
-    Ok(Backend::detect()?.logs(tail).await?)
+    let lines = Backend::detect()?.logs(tail).await?;
+    // The log has text chosen by the gateway: nothing in it may reach a
+    // terminal or the screen as a control character.
+    Ok(lines.iter().map(|line| printable(line)).collect())
 }
 
 /// Perfil do engine em execução, se houver.

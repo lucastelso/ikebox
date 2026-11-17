@@ -5,7 +5,7 @@
 //! organização). A gravação é atômica (arquivo temporário + rename).
 
 use std::fs;
-use std::io::Write;
+use std::io::{Read, Write};
 use std::os::unix::fs::{DirBuilderExt, OpenOptionsExt, PermissionsExt};
 use std::path::{Path, PathBuf};
 
@@ -225,10 +225,35 @@ impl ProfileStore {
     }
 }
 
-fn read_limited(path: &Path) -> Result<String, ProfileError> {
-    let meta = fs::metadata(path)?;
-    if meta.len() > MAX_PROFILE_BYTES {
+/// Reads a file that should be a profile (or a `swanctl.conf` to import): a
+/// regular file of at most [`MAX_PROFILE_BYTES`].
+///
+/// The size is enforced while reading, not taken from the file's metadata: a
+/// device or a pipe reports size zero and never ends (`/dev/zero` picked in
+/// the import dialog would fill the memory), and a file can grow after being
+/// measured.
+///
+/// # Errors
+/// Not a regular file, too large, unreadable or not UTF-8.
+pub fn read_profile_file(path: &Path) -> Result<String, ProfileError> {
+    // Checked before opening too: opening a pipe would block.
+    let not_a_file =
+        || std::io::Error::other(crate::tr!("not a regular file", "não é um arquivo comum"));
+    if !fs::metadata(path)?.is_file() {
+        return Err(not_a_file().into());
+    }
+    let file = fs::File::open(path)?;
+    if !file.metadata()?.is_file() {
+        return Err(not_a_file().into());
+    }
+    let mut text = String::new();
+    file.take(MAX_PROFILE_BYTES + 1).read_to_string(&mut text)?;
+    if text.len() as u64 > MAX_PROFILE_BYTES {
         return Err(ProfileError::TooLarge);
     }
-    Ok(fs::read_to_string(path)?)
+    Ok(text)
+}
+
+fn read_limited(path: &Path) -> Result<String, ProfileError> {
+    read_profile_file(path)
 }
