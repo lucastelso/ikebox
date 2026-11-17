@@ -51,8 +51,10 @@ In **Connection**, click **Connect**. The first time, the app asks for:
 - **Password:** your VPN password.
 
 Check **Remember in the system keyring** so you do not have to type them
-again. When **Connected** shows up, the VPN is on: open Remmina (or whatever
-you use) as usual.
+again. The top of the window shows the state by its color: amber while
+connecting, **green** with **Connected** when the VPN is on (open Remmina, or
+whatever you use, as usual), and **red** when it did not connect: the card
+below says what to do.
 
 **To disconnect:** the **Disconnect** button (or the tray icon). Closing the
 window does not disconnect.

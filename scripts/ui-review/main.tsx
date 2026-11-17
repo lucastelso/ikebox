@@ -174,7 +174,7 @@ const navTo = (index: number) =>
 async function play() {
   await sleep(250);
   if (scenario === 'credentials' || scenario === 'error' || scenario === 'connecting') {
-    click('main button.rounded-full');
+    click('section.hero > div > button');
     if (scenario === 'connecting') {
       await sleep(100);
       await emit('session-update', { kind: 'preparing', step: L('starting the engine', 'subindo o engine') });

@@ -1,4 +1,5 @@
 import { List, Power, Settings } from 'lucide-react';
+import type * as React from 'react';
 import { useCallback, useEffect, useState } from 'react';
 import { Toaster, toast } from 'sonner';
 import { commands, events, type ImportPreview } from './bindings';
@@ -16,6 +17,16 @@ const NAV: Array<{ view: View; icon: typeof Power }> = [
   { view: 'profiles', icon: List },
   { view: 'system', icon: Settings },
 ];
+
+/** Content of the Profiles and System tabs, with an optional page title. */
+function Page({ title, children }: { title?: string; children: React.ReactNode }) {
+  return (
+    <div className="mx-auto flex w-full max-w-md flex-col gap-4 p-5">
+      {title && <h1 className="text-xl font-bold tracking-tight">{title}</h1>}
+      {children}
+    </div>
+  );
+}
 
 /** Janela principal: navegação, telas e importação (botão ou arrastar arquivo). */
 export function App() {
@@ -51,37 +62,43 @@ export function App() {
   }, []);
 
   return (
-    <div className="flex min-h-full flex-col">
-      <header className="flex items-center gap-3 border-b px-5 py-3">
-        <img src="/logo.svg" alt="" className="size-7" />
-        <h1 className="flex-1 text-base font-semibold tracking-tight">IPsec Client</h1>
-        <nav className="flex rounded-lg bg-muted p-1" aria-label={t.nav.label}>
-          {NAV.map(({ view: v, icon: Icon }) => (
-            <button
-              key={v}
-              type="button"
-              onClick={() => setView(v)}
-              aria-current={view === v ? 'page' : undefined}
-              className={cn(
-                'flex items-center gap-1.5 rounded-md px-3 py-1.5 text-xs font-medium text-muted-foreground transition-colors',
-                view === v && 'bg-card text-foreground shadow-sm',
-              )}
-            >
-              <Icon className="size-3.5" aria-hidden />
-              {t.nav[v]}
-            </button>
-          ))}
-        </nav>
-      </header>
-      <main className="mx-auto flex w-full max-w-md flex-1 flex-col items-center gap-6 p-5">
+    <div className="flex h-full flex-col">
+      <main className="flex min-h-0 flex-1 flex-col overflow-y-auto">
         {view === 'connection' && (
           <HomeScreen key={revision} onImport={() => setView('profiles')} />
         )}
         {view === 'profiles' && (
-          <ProfilesScreen key={revision} onImport={() => void chooseFile()} />
+          <Page>
+            <ProfilesScreen key={revision} onImport={() => void chooseFile()} />
+          </Page>
         )}
-        {view === 'system' && <SystemScreen />}
+        {view === 'system' && (
+          <Page title={t.nav.system}>
+            <SystemScreen />
+          </Page>
+        )}
       </main>
+      <nav
+        className="grid grid-cols-3 gap-1 border-t bg-card px-3 pb-2 pt-1.5"
+        aria-label={t.nav.label}
+      >
+        {NAV.map(({ view: v, icon: Icon }) => (
+          <button
+            key={v}
+            type="button"
+            onClick={() => setView(v)}
+            aria-current={view === v ? 'page' : undefined}
+            className={cn(
+              'flex flex-col items-center gap-0.5 rounded-xl py-1.5 text-xs font-semibold text-muted-foreground transition-colors hover:text-foreground',
+              'outline-none focus-visible:ring-2 focus-visible:ring-ring',
+              view === v && 'bg-primary/12 text-primary hover:text-primary',
+            )}
+          >
+            <Icon className="size-5" aria-hidden />
+            {t.nav[v]}
+          </button>
+        ))}
+      </nav>
       {preview && (
         <ImportDialog
           preview={preview}
@@ -95,7 +112,7 @@ export function App() {
           }}
         />
       )}
-      <Toaster position="bottom-center" richColors closeButton />
+      <Toaster position="top-center" richColors closeButton />
     </div>
   );
 }

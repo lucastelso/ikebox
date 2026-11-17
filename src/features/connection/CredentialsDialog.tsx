@@ -46,7 +46,7 @@ function SecretInput({ id, ...props }: React.ComponentProps<typeof Input>) {
         type="button"
         onClick={() => setVisible((v) => !v)}
         aria-label={visible ? t.hide : t.show}
-        className="absolute inset-y-0 right-0 flex w-10 items-center justify-center text-muted-foreground hover:text-foreground"
+        className="absolute inset-y-0 right-0 flex w-10 items-center justify-center rounded-r-lg text-muted-foreground outline-none hover:text-foreground focus-visible:ring-2 focus-visible:ring-ring"
       >
         {visible ? <EyeOff className="size-4" /> : <Eye className="size-4" />}
       </button>

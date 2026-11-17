@@ -4,6 +4,9 @@
  * Messages that come from Rust (errors, diagnostics) are translated there.
  */
 export const en = {
+  common: {
+    close: 'Close',
+  },
   nav: {
     label: 'Sections',
     connection: 'Connection',
@@ -22,6 +25,8 @@ export const en = {
     noProfilesBody:
       'To connect, import the profile (.json) you got from your team, or the swanctl.conf of a VPN that already works.',
     importProfile: 'Import profile',
+    importToConnect: 'Import a profile to connect',
+    step: (n: number) => `Step ${n}`,
   },
   phase: {
     action: {
@@ -40,6 +45,16 @@ export const en = {
       reconnecting: 'Reconnecting…',
       disconnecting: 'Disconnecting…',
     },
+    subtitle: {
+      idle: 'Your traffic does not go through the VPN',
+      preparing: 'Preparing the connection',
+      negotiating: 'Authenticating with the gateway',
+      connected: (name: string) => `Your traffic to ${name} is protected`,
+      reconnecting: 'The connection dropped; trying again',
+      disconnecting: 'Closing the tunnel',
+    },
+    failed: 'Not connected',
+    failedSubtitle: 'The connection did not go through',
   },
   status: {
     firstRun: ' (first use: it may take about 1 minute)',
@@ -50,6 +65,8 @@ export const en = {
     traffic: 'Traffic',
     received: 'received',
     sent: 'sent',
+    receivedTile: 'Received',
+    sentTile: 'Sent',
   },
   credentials: {
     title: 'Credentials',
@@ -207,6 +224,11 @@ export const en = {
     themeDark: 'Dark',
     language: 'Language',
     languageSystem: 'System',
+    level: {
+      ok: 'OK',
+      warn: 'Warning',
+      fail: 'Problem',
+    },
   },
 } as const;
 
@@ -220,6 +242,9 @@ type Widen<T> = T extends string
 export type Messages = Widen<typeof en>;
 
 export const pt: Messages = {
+  common: {
+    close: 'Fechar',
+  },
   nav: {
     label: 'Seções',
     connection: 'Conexão',
@@ -238,6 +263,8 @@ export const pt: Messages = {
     noProfilesBody:
       'Para conectar, importe o perfil (.json) que você recebeu da sua equipe, ou o swanctl.conf de uma VPN que já funciona.',
     importProfile: 'Importar perfil',
+    importToConnect: 'Importe um perfil para conectar',
+    step: (n) => `Passo ${n}`,
   },
   phase: {
     action: {
@@ -256,6 +283,16 @@ export const pt: Messages = {
       reconnecting: 'Reconectando…',
       disconnecting: 'Desconectando…',
     },
+    subtitle: {
+      idle: 'Seu tráfego não passa pela VPN',
+      preparing: 'Preparando a conexão',
+      negotiating: 'Autenticando no gateway',
+      connected: (name) => `Seu tráfego para ${name} está protegido`,
+      reconnecting: 'A conexão caiu; tentando de novo',
+      disconnecting: 'Encerrando o túnel',
+    },
+    failed: 'Não conectou',
+    failedSubtitle: 'A conexão não se completou',
   },
   status: {
     firstRun: ' (primeiro uso: pode levar cerca de 1 minuto)',
@@ -266,6 +303,8 @@ export const pt: Messages = {
     traffic: 'Tráfego',
     received: 'recebido',
     sent: 'enviado',
+    receivedTile: 'Recebido',
+    sentTile: 'Enviado',
   },
   credentials: {
     title: 'Credenciais',
@@ -421,5 +460,10 @@ export const pt: Messages = {
     themeDark: 'Escuro',
     language: 'Idioma',
     languageSystem: 'Sistema',
+    level: {
+      ok: 'OK',
+      warn: 'Aviso',
+      fail: 'Problema',
+    },
   },
 };

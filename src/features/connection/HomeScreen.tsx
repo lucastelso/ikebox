@@ -1,5 +1,14 @@
-import { FileUp, Network } from 'lucide-react';
-import { useState } from 'react';
+import {
+  FileUp,
+  KeyRound,
+  LoaderCircle,
+  Network,
+  Shield,
+  ShieldAlert,
+  ShieldCheck,
+  X,
+} from 'lucide-react';
+import { type ReactNode, useState } from 'react';
 import { type CredentialField, type CredentialsInput, commands, type UiError } from '@/bindings';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
@@ -13,9 +22,10 @@ import {
 import { useT } from '@/i18n';
 import { SetupBanner } from '../component/SetupBanner';
 import { useComponent } from '../component/useComponent';
-import { ConnectButton } from './ConnectButton';
+import { HeroAction } from './ConnectButton';
 import { CredentialsDialog } from './CredentialsDialog';
-import { ErrorBanner, isCredentialError } from './ErrorBanner';
+import type { Phase } from './connectionReducer';
+import { ErrorBanner, isComponentError, isCredentialError } from './ErrorBanner';
 import { LogPanel } from './LogPanel';
 import { StatusDetails } from './StatusDetails';
 import { useConnection } from './useConnection';
@@ -26,7 +36,23 @@ interface DialogState {
   keyringAvailable: boolean;
 }
 
-/** Tela principal: perfil, botão de conexão, estado, erros e log. */
+/** Color of the top of the screen (see `.hero` in index.css). */
+type Tone = 'idle' | 'busy' | 'ok' | 'bad';
+
+function toneOf(phase: Phase, failed: boolean): Tone {
+  if (phase === 'connected') return 'ok';
+  if (phase === 'idle') return failed ? 'bad' : 'idle';
+  return 'busy';
+}
+
+const TONE_ICON: Record<Tone, typeof Shield> = {
+  idle: Shield,
+  busy: LoaderCircle,
+  ok: ShieldCheck,
+  bad: ShieldAlert,
+};
+
+/** Tela principal: o topo colorido pelo estado, a ação principal e os detalhes. */
 export function HomeScreen({ onImport }: { onImport?: () => void }) {
   const t = useT();
   const { list, error: listError, selected, select } = useProfiles();
@@ -36,8 +62,11 @@ export function HomeScreen({ onImport }: { onImport?: () => void }) {
   const [localError, setLocalError] = useState<UiError | null>(null);
 
   const error = localError ?? state.error ?? listError;
-  const idle = state.phase === 'idle';
+  const phase = state.phase;
+  const idle = phase === 'idle';
   const activeProfile = state.connection?.profileId;
+  const noProfiles = list !== null && list.profiles.length === 0;
+  const tone = toneOf(phase, error !== null);
 
   async function startConnect(askAll = false) {
     if (!selected) return;
@@ -79,95 +108,187 @@ export function HomeScreen({ onImport }: { onImport?: () => void }) {
     return result.status === 'ok' ? result.data : null;
   }
 
-  const setup =
-    idle && component.info ? (
-      <SetupBanner
-        info={component.info}
-        busy={component.busy === 'install'}
-        onInstall={() => void installComponent()}
-      />
-    ) : null;
+  const profileName = selected?.name ?? activeProfile ?? '';
+  const headline = tone === 'bad' ? t.phase.failed : t.phase.headline[phase];
+  let subtitle: string;
+  if (tone === 'bad') subtitle = t.phase.failedSubtitle;
+  else if (noProfiles && idle) subtitle = t.home.importToConnect;
+  else if (phase === 'connected') subtitle = t.phase.subtitle.connected(profileName);
+  else if (phase === 'preparing' && state.step)
+    subtitle = state.step + (state.building ? t.status.firstRun : '');
+  else subtitle = t.phase.subtitle[phase];
 
-  if (list && list.profiles.length === 0) {
+  /** The one thing to do now, in the colored top. */
+  function action(): ReactNode {
+    if (phase === 'preparing' || phase === 'negotiating') {
+      return (
+        <HeroAction
+          label={t.phase.action[phase]}
+          solid={false}
+          icon={<X aria-hidden />}
+          onClick={() => void disconnect()}
+        />
+      );
+    }
+    if (phase === 'connected' || phase === 'reconnecting') {
+      return (
+        <HeroAction label={t.phase.action[phase]} solid={false} onClick={() => void disconnect()} />
+      );
+    }
+    if (phase === 'disconnecting') {
+      return (
+        <HeroAction
+          label={t.phase.action.disconnecting}
+          solid={false}
+          busy
+          disabled
+          onClick={() => {}}
+        />
+      );
+    }
+    if (error && isCredentialError(error)) {
+      return (
+        <HeroAction
+          label={t.error.enterCredentials}
+          solid
+          icon={<KeyRound aria-hidden />}
+          onClick={() => void startConnect(true)}
+        />
+      );
+    }
+    if (error && isComponentError(error) && component.info?.canInstall) {
+      const installing = component.busy === 'install';
+      const label = installing
+        ? t.error.installing
+        : error.kind === 'componentOutdated'
+          ? t.error.updateComponent
+          : t.error.installComponent;
+      return (
+        <HeroAction
+          label={label}
+          solid
+          busy={installing}
+          disabled={installing}
+          onClick={() => void installComponent()}
+        />
+      );
+    }
+    if (noProfiles) return null;
     return (
-      <div className="flex w-full flex-col gap-4">
-        {setup}
-        <Card className="w-full">
-          <CardHeader>
-            <CardTitle className="flex items-center gap-2">
-              <FileUp className="size-5 text-primary" aria-hidden />
-              {t.home.noProfilesTitle}
-            </CardTitle>
-            <CardDescription>{t.home.noProfilesBody}</CardDescription>
-          </CardHeader>
-          <CardContent>
-            <Button onClick={onImport}>
-              <FileUp />
-              {t.home.importProfile}
-            </Button>
-          </CardContent>
-        </Card>
-      </div>
+      <HeroAction
+        label={t.phase.action.idle}
+        solid
+        disabled={!selected}
+        onClick={() => void startConnect()}
+      />
     );
   }
 
+  const ToneIcon = TONE_ICON[tone];
+  const setupNeeded =
+    idle && component.info?.canInstall === true && component.info.state !== 'ready';
+  const numbered = setupNeeded && noProfiles;
+
   return (
-    <div className="flex w-full flex-col items-center gap-6">
-      {setup}
-      <div className="w-full">
-        <Select
-          value={selected?.id ?? ''}
-          onValueChange={select}
-          disabled={!idle || !list || list.profiles.length === 0}
-        >
-          <SelectTrigger aria-label={t.home.profileSelect}>
-            <span className="flex min-w-0 items-center gap-2">
-              <Network className="size-4 shrink-0 text-muted-foreground" aria-hidden />
-              <SelectValue placeholder={t.home.chooseProfile} />
-            </span>
-          </SelectTrigger>
-          <SelectContent>
-            {list?.profiles.map((p) => (
-              <SelectItem key={p.id} value={p.id}>
-                {p.name}
-              </SelectItem>
-            ))}
-          </SelectContent>
-        </Select>
-        {!idle && activeProfile && activeProfile !== selected?.id && (
-          <p className="mt-2 text-xs text-muted-foreground">
-            {t.home.activeProfile(activeProfile)}
-          </p>
+    <div className="flex w-full flex-col">
+      <section
+        className="hero rounded-b-[28px] px-5 pb-6 pt-4"
+        data-state={tone}
+        aria-labelledby="connection-state"
+      >
+        <div className="mx-auto flex max-w-md flex-col gap-4">
+          <div className="flex items-center gap-2">
+            <img src="/logo.svg" alt="" className="size-6" />
+            <span className="text-sm font-bold">IPsec Client</span>
+            {!noProfiles && (
+              <div className="ml-auto min-w-0 max-w-[62%]">
+                <Select value={selected?.id ?? ''} onValueChange={select} disabled={!idle || !list}>
+                  <SelectTrigger
+                    aria-label={t.home.profileSelect}
+                    className="h-9 rounded-full border-0 bg-white/15 text-white focus-visible:ring-white disabled:opacity-80 [&_svg]:text-white"
+                  >
+                    <span className="flex min-w-0 items-center gap-1.5">
+                      <Network className="size-4 shrink-0" aria-hidden />
+                      <SelectValue placeholder={t.home.chooseProfile} />
+                    </span>
+                  </SelectTrigger>
+                  <SelectContent>
+                    {list?.profiles.map((p) => (
+                      <SelectItem key={p.id} value={p.id}>
+                        {p.name}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+            )}
+          </div>
+
+          <div className="flex items-center gap-4" aria-live="polite">
+            <div className="grid size-16 shrink-0 place-items-center rounded-[20px] bg-white/15">
+              <ToneIcon
+                className={tone === 'busy' ? 'size-8 animate-spin' : 'size-8'}
+                aria-hidden
+              />
+            </div>
+            <div className="min-w-0">
+              <h1
+                id="connection-state"
+                className="text-[26px] font-extrabold leading-tight tracking-tight"
+              >
+                {headline}
+              </h1>
+              <p className="text-sm text-white/85">{subtitle}</p>
+            </div>
+          </div>
+
+          {action()}
+        </div>
+      </section>
+
+      <div className="mx-auto flex w-full max-w-md flex-col gap-3 p-5">
+        {setupNeeded && component.info && (
+          <SetupBanner
+            info={component.info}
+            busy={component.busy === 'install'}
+            onInstall={() => void installComponent()}
+            step={numbered ? 1 : undefined}
+          />
         )}
+
+        {noProfiles && (
+          <Card className="w-full">
+            <CardHeader>
+              {numbered && (
+                <p className="text-xs font-semibold text-muted-foreground">{t.home.step(2)}</p>
+              )}
+              <CardTitle className="flex items-center gap-2">
+                <FileUp className="size-5 text-primary" aria-hidden />
+                {t.home.noProfilesTitle}
+              </CardTitle>
+              <CardDescription>{t.home.noProfilesBody}</CardDescription>
+            </CardHeader>
+            <CardContent>
+              <Button onClick={onImport}>
+                <FileUp />
+                {t.home.importProfile}
+              </Button>
+            </CardContent>
+          </Card>
+        )}
+
+        {error && <ErrorBanner error={error} onDismiss={dismiss} />}
+
+        {state.connection && (phase === 'connected' || phase === 'reconnecting') && (
+          <StatusDetails connection={state.connection} />
+        )}
+
+        {!idle && activeProfile && activeProfile !== selected?.id && (
+          <p className="text-xs text-muted-foreground">{t.home.activeProfile(activeProfile)}</p>
+        )}
+
+        {!noProfiles && <LogPanel lines={state.logs} anonymize={anonymizeLog} />}
       </div>
-
-      <ConnectButton
-        phase={state.phase}
-        disabled={idle && !selected}
-        onConnect={() => void startConnect()}
-        onDisconnect={() => void disconnect()}
-      />
-
-      <StatusDetails
-        phase={state.phase}
-        step={state.step}
-        connection={state.connection}
-        building={state.building}
-      />
-
-      {error && (
-        <ErrorBanner
-          error={error}
-          onDismiss={dismiss}
-          onFixCredentials={isCredentialError(error) ? () => void startConnect(true) : undefined}
-          onInstallComponent={
-            component.info?.canInstall ? () => void installComponent() : undefined
-          }
-          installing={component.busy === 'install'}
-        />
-      )}
-
-      <LogPanel lines={state.logs} anonymize={anonymizeLog} />
 
       {selected && dialog && (
         <CredentialsDialog

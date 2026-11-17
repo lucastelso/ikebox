@@ -26,6 +26,9 @@ describe('SystemScreen', () => {
     render(<SystemScreen />);
     expect(await screen.findByText('1 problem prevents connecting.')).toBeInTheDocument();
     expect(screen.getByText('→ another IPsec VPN is using the ports')).toBeInTheDocument();
+    // Screen readers hear the level in the interface language, not "fail".
+    expect(screen.getByLabelText('Problem')).toBeInTheDocument();
+    expect(screen.queryByLabelText('fail')).toBeNull();
     expect(await screen.findByText(/engine:teste/)).toBeInTheDocument();
   });
 
