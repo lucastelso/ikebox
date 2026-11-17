@@ -6,10 +6,12 @@ Cliente de VPN IPsec para **Linux**, feito para VPNs **legadas**: IKEv1, modo
 agressivo, PSK de grupo + XAuth, grupos DH antigos. É o tipo de VPN corporativa
 que os clientes atuais do Linux já não conseguem conectar.
 
-> **Status: v0.4.0 (pré-alfa).** O app desktop, instalado pelo `.rpm` e com o
+> **Status: v0.5.0 (pré-alfa).** O app desktop, instalado pelo `.rpm` e com o
 > strongSwan embutido (**sem Docker**), conecta de ponta a ponta numa VPN
-> FortiGate real. A interface fala português e inglês, e a cor dela mostra o
-> estado da conexão num relance. Vindo da 0.2.0 ou anterior, atualize o app
+> FortiGate real, e todos os modos de IPsec que os perfis aceitam (IKEv1
+> principal ou agressivo, PSK com ou sem XAuth, IKEv2 com PSK) são testados
+> pelo mesmo caminho. Cada perfil mostra o seu nível de segurança. A
+> interface fala português e inglês. Vindo da 0.2.0 ou anterior, atualize o app
 > **e** o componente de rede (ver o [CHANGELOG](CHANGELOG.md), em inglês). Os
 > pacotes (AppImage, rpm e deb) estão na página
 > [Releases](https://github.com/lucastelso/ipsec-client/releases). O roadmap e
@@ -205,7 +207,7 @@ npm install                 # ferramentas, dependências do frontend e git hooks
 npm run dev:app             # abre o app desktop em modo de desenvolvimento (com o engine em Docker como reserva)
 npm run check               # tudo o que precisa estar verde antes de um merge
 npm run bundle -- --bundles rpm   # gera o pacote instalável (rpm, deb ou appimage)
-npm run release:build -- v0.4.0   # pacotes de release (os três) num container Ubuntu 22.04
+npm run release:build -- v0.5.0   # pacotes de release (os três) num container Ubuntu 22.04
 npm run test:engine         # teste ponta a ponta do engine com um gateway IPsec local
 npm run test:docker         # integração do núcleo Rust com o Docker real (engine, VICI, sessão)
 npm run test:cli            # fluxo completo do CLI contra o gateway de teste

@@ -1746,3 +1746,7 @@ ADR-0025 defers XAuth with a second exchange (one-time codes appended to
 the password already work) and leaves L2TP/IPsec out. The roadmap now
 details phases 7 to 10.
 
+**Release 0.5.0:** the network component changes this time (the `updown`
+fix), so "Update" on the component is needed, as the notes say. The engine
+tarball (strongSwan 6.1.0) is the same as in 0.3.0 and 0.4.0.
+
