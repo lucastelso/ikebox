@@ -131,6 +131,28 @@ src_args=()
 
 is_full_tunnel() { [[ $peer_client == "0.0.0.0/0" || $peer_client == "::/0" ]]; }
 
+# ipv4_int A.B.C.D: the address as a 32-bit integer (already validated).
+ipv4_int() {
+    local IFS=. a b c d
+    read -r a b c d <<<"$1"
+    echo $(((10#$a << 24) | (10#$b << 16) | (10#$c << 8) | 10#$d))
+}
+
+# Is the gateway inside the remote TS? Then the route of the TS would carry
+# the tunnel's own packets (IKE, ESP) into the tunnel, as in the full tunnel
+# (audit of 0.2.0, P11). IPv4 only: an IPv6 remote network that contains the
+# gateway is not handled yet.
+ts_contains_peer() {
+    local net=${peer_client%/*} prefix=${peer_client##*/} mask
+    is_ipv4 "$peer" && is_ipv4 "$net" || return 1
+    mask=$(((0xFFFFFFFF << (32 - 10#$prefix)) & 0xFFFFFFFF))
+    ((($(ipv4_int "$peer") & mask) == ($(ipv4_int "$net") & mask)))
+}
+
+# The gateway needs a host route of its own: full tunnel, or a remote network
+# that contains it.
+needs_gateway_route() { is_full_tunnel || ts_contains_peer; }
+
 # --- rotas ------------------------------------------------------------------
 
 # No túnel completo, o próprio gateway precisa continuar alcançável pelo
@@ -158,8 +180,11 @@ route_up() {
         log "the remote TS is the gateway itself ($peer_client): route skipped"
         return 0
     fi
-    if is_full_tunnel; then
+    # Before the routes that would capture it.
+    if needs_gateway_route; then
         add_gateway_host_route
+    fi
+    if is_full_tunnel; then
         local r
         for r in "${full_tunnel_routes[@]}"; do
             ip "$family" route replace "$r" dev "$iface" "${src_args[@]}" proto "$RT_PROTO"
@@ -178,11 +203,11 @@ route_down() {
         for r in "${full_tunnel_routes[@]}"; do
             ip "$family" route del "$r" dev "$iface" proto "$RT_PROTO" 2>/dev/null || true
         done
-        if is_ip "$peer"; then
-            ip "$family" route del "$peer/$host_prefix" proto "$RT_PROTO" 2>/dev/null || true
-        fi
     else
         ip "$family" route del "$peer_client" dev "$iface" proto "$RT_PROTO" 2>/dev/null || true
+    fi
+    if needs_gateway_route && is_ip "$peer"; then
+        ip "$family" route del "$peer/$host_prefix" proto "$RT_PROTO" 2>/dev/null || true
     fi
     log "route $peer_client removed"
 }

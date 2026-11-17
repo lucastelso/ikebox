@@ -10,10 +10,11 @@
   },
   "scripts": {
     "prepare": "lefthook install",
-    "check": "npm run check:private && npm run lint:sh && npm run lint:web && npm run typecheck && npm run test:web && npm run check:rust",
+    "check": "npm run check:private && npm run lint:sh && npm run test:updown && npm run lint:web && npm run typecheck && npm run test:web && npm run check:rust",
     "check:private": "scripts/check-private.sh --tracked",
     "lint:sh": "scripts/lint-sh.sh",
     "test:engine": "tests/engine/e2e.sh",
+    "test:updown": "tests/engine/updown-test.sh",
     "check:rust": "scripts/check-rust.sh",
     "test:docker": "scripts/check-rust.sh --docker-tests",
     "test:cli": "tests/cli/e2e.sh",
