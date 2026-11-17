@@ -1,7 +1,9 @@
 # ADR-0022: Profile schema 2: authentication rounds, trust anchors, new credentials
 
-- **Status:** Accepted (design). Phase 6 of the post-0.2.0 program (step 43).
-  Implemented with the first mode that needs it (phase 7+).
+- **Status:** Accepted. Designed in phase 6 (step 43); the format, the
+  migration and the lowest-schema writer are implemented in phase 7 (step
+  45), with the `psk` and `xauth` rounds and a `psk` gateway. The EAP and
+  certificate methods come with phases 8 and 9.
 - **Date:** 2026-11-17
 
 ## Context
@@ -48,6 +50,9 @@ command runs as root (ADR-0019).
   "network": { ... }                    // unchanged
 }
 ```
+
+A round can also say `"otp": true` (XAuth only, phase 7, ADR-0025): its
+password is a one-time code, asked at every connection and never stored.
 
 Local round methods:
 

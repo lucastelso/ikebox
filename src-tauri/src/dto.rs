@@ -10,7 +10,7 @@ use ipsec_client_core::component::{self, Bundle, ComponentError, Origin};
 use ipsec_client_core::diagnostics::{COMPONENT_CHECK, CheckStatus};
 use ipsec_client_core::engine::EngineError;
 use ipsec_client_core::profiles::{
-    AuthMethod, CredentialKind, Profile, ProfileError, SecurityFinding, SecurityLevel,
+    CredentialKind, Profile, ProfileError, SecurityFinding, SecurityLevel,
 };
 use ipsec_client_core::secrets::SecretsError;
 use ipsec_client_core::session::{ConnectionInfo, SessionError, SessionEvent, SessionState};
@@ -40,6 +40,8 @@ pub struct ProfileSummary {
     pub gateway: String,
     /// Usa XAuth (pede usuário e senha)?
     pub uses_xauth: bool,
+    /// A senha é um código de uso único (nunca guardada).
+    pub otp: bool,
     /// Redes acessadas pelo túnel.
     pub remote_ts: Vec<String>,
     /// Nível de segurança (selo); o motivo vem nos detalhes.
@@ -52,7 +54,8 @@ impl From<&Profile> for ProfileSummary {
             id: p.id.clone(),
             name: p.name.clone(),
             gateway: p.gateway.clone(),
-            uses_xauth: p.auth.method == AuthMethod::PskXauth,
+            uses_xauth: p.auth.uses_xauth(),
+            otp: p.auth.otp(),
             remote_ts: p.child.remote_ts.clone(),
             security: p.security().level.into(),
         }
@@ -731,11 +734,16 @@ impl From<&Profile> for ProfileDetails {
             (1, false) => tr!("IKEv1 (main mode)", "IKEv1 (modo principal)").to_owned(),
             (v, _) => format!("IKEv{v}"),
         };
-        let auth = match p.auth.method {
-            AuthMethod::Psk => "PSK".to_owned(),
-            AuthMethod::PskXauth => tr!(
+        let auth = match (p.auth.uses_xauth(), p.auth.otp()) {
+            (false, _) => "PSK".to_owned(),
+            (true, false) => tr!(
                 "group PSK + username and password (XAuth)",
                 "PSK do grupo + usuário e senha (XAuth)"
+            )
+            .to_owned(),
+            (true, true) => tr!(
+                "group PSK + username and one-time code (XAuth)",
+                "PSK do grupo + usuário e código de uso único (XAuth)"
             )
             .to_owned(),
         };
@@ -745,7 +753,7 @@ impl From<&Profile> for ProfileDetails {
             ike_proposals: p.ike.proposals.clone(),
             esp_proposals: p.child.esp_proposals.clone(),
             auth,
-            local_id: p.auth.local_id.clone(),
+            local_id: p.auth.psk_id().map(str::to_owned),
             dns_servers: p
                 .network
                 .dns

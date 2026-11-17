@@ -1776,3 +1776,25 @@ The first CI run after the push failed in three jobs:
   The production engine is a systemd unit, not a container: users were not
   affected. Confirmation comes with the next CI run.
 
+### Step 45: phase 7, profile schema 2 in the code
+
+Decisions taken at the start of the phase: the editor offers proposal
+presets ("modern", "compatible", "legacy") plus an advanced mode with the
+raw proposals; templates for FortiGate (IKEv1 + XAuth), Cisco EzVPN, a
+generic IKEv2 + PSK and a blank one; the one-time password lives in the
+profile; release 0.6.0 at the end.
+
+**Schema 2** (`feat/profile-schema-2`): the in-memory `Profile` now has the
+shape of schema 2 (`auth.local` rounds, `auth.remote`), and
+`profiles/schema.rs` reads both schemas and writes the lowest that
+expresses the profile. A schema 1 profile is written back byte for byte as
+0.5 wrote it (tested against the preset), so nothing changes for profiles
+that do not use anything new. Validation speaks in rounds; for a schema 1
+file the field names are mapped back (`auth.local[0].id` →
+`auth.local_id`), so the message names a field the file has. The only new
+capability in this step is `"otp": true` on the XAuth round
+(ADR-0025): `storable_credentials()` leaves the password out, `save` also
+deletes one stored earlier, and the credentials status counts only what
+may be stored, so the dialog asks for the code every time. `test:modes`
+gained a scenario that connects through a schema 2 file with `otp`.
+

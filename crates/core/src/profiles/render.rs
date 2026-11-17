@@ -4,7 +4,7 @@
 use sha2::{Digest, Sha256};
 
 use super::ProfileError;
-use super::model::{AuthMethod, ChildAction, Profile};
+use super::model::{ChildAction, LocalMethod, Profile};
 use super::validate::{is_identity, validate};
 use crate::vici::Message;
 
@@ -99,22 +99,25 @@ impl Profile {
             conn = conn.list("vips", ["0.0.0.0"]);
         }
 
-        let mut local = Message::new().kv("auth", "psk");
-        if let Some(id) = &self.auth.local_id {
-            local = local.kv("id", id);
+        // Uma seção por rodada, na ordem do perfil (local-1, local-2).
+        for (i, round) in self.auth.local.iter().enumerate() {
+            let mut section = match round.method {
+                LocalMethod::Psk => Message::new().kv("auth", "psk"),
+                LocalMethod::Xauth => {
+                    let user = params.xauth_user.filter(|u| is_identity(u)).ok_or(
+                        ProfileError::MissingCredential(crate::tr!("XAuth user", "usuário XAuth")),
+                    )?;
+                    Message::new().kv("auth", "xauth").kv("xauth_id", user)
+                }
+            };
+            if let Some(id) = &round.id {
+                section = section.kv("id", id);
+            }
+            conn = conn.section(&format!("local-{}", i + 1), section);
         }
-        conn = conn.section("local-1", local);
-        if self.auth.method == AuthMethod::PskXauth {
-            let user = params.xauth_user.filter(|u| is_identity(u)).ok_or(
-                ProfileError::MissingCredential(crate::tr!("XAuth user", "usuário XAuth")),
-            )?;
-            conn = conn.section(
-                "local-2",
-                Message::new().kv("auth", "xauth").kv("xauth_id", user),
-            );
-        }
+        // Só PSK no lado do gateway por enquanto (certificados: ADR-0022).
         let mut remote = Message::new().kv("auth", "psk");
-        if let Some(id) = &self.auth.remote_id {
+        if let Some(id) = self.auth.remote_id() {
             remote = remote.kv("id", id);
         }
         conn = conn.section("remote", remote);

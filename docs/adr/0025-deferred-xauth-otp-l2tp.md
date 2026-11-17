@@ -28,7 +28,8 @@ IPsec. Both show up in old VPNs, and both cost more than they give today.
   its log (anonymized) to design against. Until then, the documentation
   says how to use the code appended to the password, and the app gains a
   per-profile "never remember the password" option in the profile editor
-  (phase 7).
+  (phase 7). Done in phase 7 as `"otp": true` on the XAuth round of a
+  schema 2 profile.
 
 ### L2TP/IPsec: out of scope
 

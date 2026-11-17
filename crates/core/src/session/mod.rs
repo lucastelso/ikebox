@@ -201,7 +201,8 @@ fn send(events: Option<&EventSink>, event: SessionEvent) {
 pub fn redactor_for(profile: &Profile, credentials: &Credentials) -> Redactor {
     let mut identities: Vec<&str> = Vec::new();
     identities.extend(credentials.xauth_user());
-    identities.extend(profile.auth.local_id.as_deref());
+    identities.extend(profile.auth.psk_id());
+    identities.extend(profile.auth.remote_id());
     Redactor::new(identities)
 }
 
@@ -211,7 +212,8 @@ pub fn redactor_for(profile: &Profile, credentials: &Credentials) -> Redactor {
 pub fn anonymizer_for(profile: &Profile, xauth_user: Option<&str>) -> Anonymizer {
     let mut identities: Vec<&str> = Vec::new();
     identities.extend(xauth_user);
-    identities.extend(profile.auth.local_id.as_deref());
+    identities.extend(profile.auth.psk_id());
+    identities.extend(profile.auth.remote_id());
     let dns = &profile.network.dns;
     Anonymizer::new(identities, &profile.gateway, &dns.servers, &dns.domains)
 }

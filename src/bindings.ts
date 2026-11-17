@@ -292,6 +292,8 @@ export type ProfileSummary = {
 	gateway: string,
 	/**  Usa XAuth (pede usuário e senha)? */
 	usesXauth: boolean,
+	/**  A senha é um código de uso único (nunca guardada). */
+	otp: boolean,
 	/**  Redes acessadas pelo túnel. */
 	remoteTs: string[],
 	/**  Nível de segurança (selo); o motivo vem nos detalhes. */

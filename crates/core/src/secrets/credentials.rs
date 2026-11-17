@@ -91,7 +91,7 @@ impl Credentials {
     /// Erro do armazenamento (ex.: chaveiro bloqueado).
     pub fn load(store: &dyn SecretStore, profile: &Profile) -> Result<Self, SecretsError> {
         let mut credentials = Self::new();
-        for kind in profile.required_credentials() {
+        for kind in profile.storable_credentials() {
             if let Some(value) = store.get(&profile.id, kind)? {
                 credentials.set(kind, value);
             }
@@ -104,7 +104,12 @@ impl Credentials {
     /// # Errors
     /// Erro do armazenamento.
     pub fn save(&self, store: &dyn SecretStore, profile: &Profile) -> Result<(), SecretsError> {
-        for kind in profile.required_credentials() {
+        // Uma senha de uso único nunca é guardada, e a que tiver sido
+        // guardada antes de o perfil passar a usar OTP sai do chaveiro.
+        if profile.auth.otp() {
+            store.delete(&profile.id, CredentialKind::XauthPassword)?;
+        }
+        for kind in profile.storable_credentials() {
             if let Some(value) = self.get(kind) {
                 store.set(&profile.id, kind, value)?;
             }
@@ -143,7 +148,12 @@ impl Credentials {
         for kind in profile.required_credentials() {
             match kind {
                 CredentialKind::Psk => {
-                    let owners = profile.auth.local_id.iter().cloned().collect();
+                    let owners = profile
+                        .auth
+                        .psk_id()
+                        .map(str::to_owned)
+                        .into_iter()
+                        .collect();
                     let psk = self.get(kind).ok_or(SecretsError::Missing(kind))?;
                     secrets.push(SharedSecret::new(
                         &format!("ike-{}", profile.id),
@@ -248,6 +258,32 @@ mod tests {
                 .missing(&p)
                 .len(),
             3
+        );
+    }
+
+    #[test]
+    fn a_one_time_password_is_never_stored() {
+        let store = MemoryStore::new();
+        // Stored while the profile did not use OTP...
+        complete().save(&store, &profile()).expect("save");
+        let mut otp = profile();
+        otp.auth.local[1].otp = true;
+        // ...it is not read back once the profile does, and the next save
+        // removes it from the store.
+        let loaded = Credentials::load(&store, &otp).expect("load");
+        assert_eq!(loaded.missing(&otp), [CredentialKind::XauthPassword]);
+        complete().save(&store, &otp).expect("save");
+        assert!(
+            store
+                .get(&otp.id, CredentialKind::XauthPassword)
+                .expect("get")
+                .is_none()
+        );
+        assert!(
+            store
+                .get(&otp.id, CredentialKind::Psk)
+                .expect("get")
+                .is_some()
         );
     }
 }

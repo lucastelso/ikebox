@@ -13,8 +13,7 @@ use std::net::IpAddr;
 
 use super::ProfileError;
 use super::model::{
-    AuthMethod, AuthSettings, ChildAction, ChildSettings, DnsSettings, IkeSettings,
-    NetworkSettings, Profile, SCHEMA_VERSION,
+    AuthSettings, ChildAction, ChildSettings, DnsSettings, IkeSettings, NetworkSettings, Profile,
 };
 use super::validate::{is_slug, validate};
 
@@ -332,7 +331,7 @@ pub fn import_swanctl(
     };
 
     // Rodadas de autenticação.
-    let mut method = AuthMethod::Psk;
+    let mut xauth = false;
     let mut local_id = None;
     let mut remote_id = None;
     for (name, round) in conn.sections() {
@@ -340,7 +339,7 @@ pub fn import_swanctl(
         if name.starts_with("local") {
             match auth {
                 "psk" => local_id = round.value("id").map(str::to_owned),
-                a if a.starts_with("xauth") => method = AuthMethod::PskXauth,
+                a if a.starts_with("xauth") => xauth = true,
                 other => {
                     return Err(err(crate::trf!(
                         "local authentication '{other}' is not supported yet (only psk and xauth)",
@@ -468,7 +467,6 @@ pub fn import_swanctl(
 
     let vips = conn.value("vips").map(list).unwrap_or_default();
     let profile = Profile {
-        schema_version: SCHEMA_VERSION,
         id,
         name: options.name.clone().unwrap_or_else(|| conn_name.to_owned()),
         gateway,
@@ -483,11 +481,7 @@ pub fn import_swanctl(
             rekey_time_secs: conn.value("rekey_time").and_then(duration),
             dpd_delay_secs: conn.value("dpd_delay").and_then(duration),
         },
-        auth: AuthSettings {
-            method,
-            local_id,
-            remote_id,
-        },
+        auth: AuthSettings::psk(local_id, xauth, remote_id),
         child: ChildSettings {
             name: child_slug,
             esp_proposals: child
@@ -611,8 +605,8 @@ secrets {
         );
         assert_eq!(p.ike.rekey_time_secs, Some(86_400));
         assert_eq!(p.ike.dpd_delay_secs, Some(30));
-        assert_eq!(p.auth.method, AuthMethod::PskXauth);
-        assert_eq!(p.auth.local_id.as_deref(), Some("keyid:grupo-exemplo"));
+        assert!(p.auth.uses_xauth());
+        assert_eq!(p.auth.psk_id(), Some("keyid:grupo-exemplo"));
         assert_eq!(p.child.name, "rede-interna");
         assert_eq!(
             p.child.esp_proposals,

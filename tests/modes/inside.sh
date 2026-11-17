@@ -159,6 +159,17 @@ traffic
 ok "full tunnel (0.0.0.0/1 + 128.0.0.0/1, gateway via eth0), ESP in UDP, phase 2 without DH"
 disconnect
 
+step "Profile schema 2 (authentication rounds), XAuth password as a one-time code"
+connect v1-main-xauth-v2 "$XAUTH" gateway="$gw" version=1 method=psk-xauth schema=2 otp=yes \
+    ike=aes256-sha256-modp2048 esp=aes256-sha256-modp2048 remote_ts=192.0.2.0/24
+expect_ike 1 Main
+expect_esp native MODP_2048
+traffic
+[[ $(as alice "$CLI" profiles show v1-main-xauth-v2 2>/dev/null) == *'"otp": true'* ]] ||
+    fail "the schema 2 profile lost its otp flag"
+ok "a schema 2 file connects the same way, and keeps its one-time code flag"
+disconnect
+
 # ---------------------------------------------------------------------------
 step "IKEv1 main mode + PSK only: virtual IP, PFS, plain ESP"
 gw=${GW[ikev1-main-psk]}

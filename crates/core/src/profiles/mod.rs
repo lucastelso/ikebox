@@ -9,20 +9,20 @@
 
 mod model;
 mod render;
+mod schema;
 mod security;
 mod store;
 mod swanctl;
 mod validate;
 
 pub use model::{
-    AuthMethod, AuthSettings, ChildAction, ChildSettings, CredentialKind, DnsSettings, IkeSettings,
-    NetworkSettings, Profile, SCHEMA_VERSION,
+    AuthSettings, ChildAction, ChildSettings, CredentialKind, DnsSettings, IkeSettings,
+    LocalMethod, LocalRound, NetworkSettings, Profile, RemoteAuth, RemoteMethod, SCHEMA_VERSION,
 };
 pub use render::{ConnParams, UPDOWN_PATH};
+pub use schema::{OLDEST_SCHEMA_VERSION, schema_of, to_json};
 pub use security::{FindingKind, SecurityFinding, SecurityLevel, SecurityReport};
-pub use store::{
-    MAX_PROFILE_BYTES, ProfileList, ProfileStore, parse_profile, read_profile_file, to_json,
-};
+pub use store::{MAX_PROFILE_BYTES, ProfileList, ProfileStore, parse_profile, read_profile_file};
 pub use swanctl::{SwanctlImport, SwanctlImportOptions, import_swanctl};
 pub use validate::{ValidationIssue, validate};
 
@@ -249,8 +249,87 @@ mod tests {
             ]
         );
         let mut p = legacy();
-        p.auth.method = AuthMethod::Psk;
+        p.auth.local.truncate(1);
         assert_eq!(p.required_credentials(), [CredentialKind::Psk]);
+        assert_eq!(p.storable_credentials(), [CredentialKind::Psk]);
+        // A one-time XAuth password is required but never stored.
+        let mut otp = legacy();
+        otp.auth.local[1].otp = true;
+        assert_eq!(otp.required_credentials().len(), 3);
+        assert_eq!(
+            otp.storable_credentials(),
+            [CredentialKind::Psk, CredentialKind::XauthUser]
+        );
+    }
+
+    #[test]
+    fn schema_1_reads_as_rounds_and_is_written_back_unchanged() {
+        let p = legacy();
+        assert_eq!(p.auth.local.len(), 2);
+        assert_eq!(p.auth.local[0].method, LocalMethod::Psk);
+        assert_eq!(p.auth.local[1].method, LocalMethod::Xauth);
+        assert_eq!(schema_of(&p), 1);
+        // Same file as 0.5 wrote: colleagues on older versions can import it.
+        let written = to_json(&p).expect("json");
+        assert!(
+            written.starts_with("{\n  \"schema_version\": 1,"),
+            "{written}"
+        );
+        let original: serde_json::Value = serde_json::from_str(LEGACY).expect("json");
+        let again: serde_json::Value = serde_json::from_str(&written).expect("json");
+        assert_eq!(original, again);
+        assert_eq!(parse_profile(&written).expect("parse"), p);
+    }
+
+    #[test]
+    fn what_schema_1_cannot_say_is_written_as_schema_2() {
+        let mut p = legacy();
+        p.auth.local[1].otp = true;
+        assert_eq!(schema_of(&p), 2);
+        let written = to_json(&p).expect("json");
+        assert!(
+            written.starts_with("{\n  \"schema_version\": 2,"),
+            "{written}"
+        );
+        assert!(written.contains("\"otp\": true"), "{written}");
+        assert!(!written.contains("local_id"), "{written}");
+        assert_eq!(parse_profile(&written).expect("parse"), p);
+        // A schema 2 file of a profile schema 1 can say also reads back.
+        let v2 = written.replace(",\n        \"otp\": true", "");
+        let plain = parse_profile(&v2).expect("parse");
+        assert_eq!(schema_of(&plain), 1);
+        assert_eq!(plain, legacy());
+    }
+
+    #[test]
+    fn auth_rounds_are_validated() {
+        let mut p = legacy();
+        p.auth.local.swap(0, 1);
+        let fields: Vec<_> = validate(&p).into_iter().map(|i| i.field).collect();
+        assert!(fields.contains(&"auth.local[0]".to_owned()), "{fields:?}");
+        let mut p = legacy();
+        p.auth.local[0].otp = true;
+        p.auth.local[1].id = Some("usuario".to_owned());
+        let fields: Vec<_> = validate(&p).into_iter().map(|i| i.field).collect();
+        assert!(
+            fields.contains(&"auth.local[0].otp".to_owned()),
+            "{fields:?}"
+        );
+        assert!(
+            fields.contains(&"auth.local[1].id".to_owned()),
+            "{fields:?}"
+        );
+        let mut p = legacy();
+        p.ike.version = 2;
+        p.ike.aggressive = false;
+        let fields: Vec<_> = validate(&p).into_iter().map(|i| i.field).collect();
+        assert_eq!(fields, ["auth.local[1]"]);
+        // In a schema 1 file the problem names the field of that file.
+        let bad = LEGACY.replacen("\"keyid:", "\" keyid:", 1);
+        let Err(ProfileError::Invalid(issues)) = parse_profile(&bad) else {
+            panic!("should be invalid");
+        };
+        assert_eq!(issues[0].field, "auth.local_id");
     }
 
     #[test]
@@ -275,7 +354,7 @@ mod tests {
             "id",
             "gateway",
             "ike.aggressive",
-            "auth.method",
+            "auth.local[1]",
             "child.remote_ts[0]",
             "network.dns.domains[0]",
             "network.mtu",
@@ -300,10 +379,16 @@ mod tests {
             parse_profile(&with_psk),
             Err(ProfileError::Json(_))
         ));
-        let v2 = LEGACY.replacen("\"schema_version\": 1", "\"schema_version\": 2", 1);
+        let v3 = LEGACY.replacen("\"schema_version\": 1", "\"schema_version\": 3", 1);
         assert!(matches!(
-            parse_profile(&v2),
-            Err(ProfileError::UnsupportedVersion(2))
+            parse_profile(&v3),
+            Err(ProfileError::UnsupportedVersion(3))
+        ));
+        // Schema 1 fields in a schema 2 file are refused, and the other way.
+        let v2_with_v1_auth = LEGACY.replacen("\"schema_version\": 1", "\"schema_version\": 2", 1);
+        assert!(matches!(
+            parse_profile(&v2_with_v1_auth),
+            Err(ProfileError::Json(_))
         ));
         assert!(matches!(
             parse_profile("{}"),

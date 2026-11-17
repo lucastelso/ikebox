@@ -7,7 +7,7 @@
 use std::fmt;
 use std::net::IpAddr;
 
-use super::model::{AuthMethod, Profile, SCHEMA_VERSION};
+use super::model::{LocalMethod, Profile};
 
 /// Um problema encontrado num campo.
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -47,14 +47,6 @@ impl Issues {
 pub fn validate(p: &Profile) -> Vec<ValidationIssue> {
     let mut v = Issues::default();
 
-    v.check(
-        p.schema_version == SCHEMA_VERSION,
-        "schema_version",
-        crate::tr!(
-            "unsupported format version",
-            "versão de formato não suportada"
-        ),
-    );
     v.check(
         is_slug(&p.id),
         "id",
@@ -107,24 +99,7 @@ pub fn validate(p: &Profile) -> Vec<ValidationIssue> {
     }
 
     // Autenticação.
-    if p.auth.method == AuthMethod::PskXauth && ike.version != 1 {
-        v.add(
-            "auth.method",
-            crate::tr!("XAuth only exists in IKEv1", "XAuth só existe no IKEv1"),
-        );
-    }
-    for (field, id) in [
-        ("auth.local_id", &p.auth.local_id),
-        ("auth.remote_id", &p.auth.remote_id),
-    ] {
-        if let Some(id) = id {
-            v.check(
-                is_identity(id),
-                field,
-                crate::tr!("invalid identity (1 to 255 characters, no leading/trailing spaces or control characters)", "identidade inválida (1 a 255 caracteres, sem espaços nas pontas nem controle)"),
-            );
-        }
-    }
+    check_auth(&mut v, p);
 
     // Fase 2.
     let child = &p.child;
@@ -200,6 +175,80 @@ pub fn validate(p: &Profile) -> Vec<ValidationIssue> {
     }
 
     v.0
+}
+
+fn check_auth(v: &mut Issues, p: &Profile) {
+    let local = &p.auth.local;
+    if local.is_empty() || local.len() > 2 {
+        v.add(
+            "auth.local",
+            crate::tr!(
+                "use one or two authentication rounds",
+                "use uma ou duas rodadas de autenticação"
+            ),
+        );
+    }
+    for (i, round) in local.iter().enumerate() {
+        let field = format!("auth.local[{i}]");
+        match (i, round.method) {
+            (0, LocalMethod::Psk) => {}
+            (1, LocalMethod::Xauth) => {
+                if p.ike.version != 1 {
+                    v.add(
+                        field.clone(),
+                        crate::tr!("XAuth only exists in IKEv1", "XAuth só existe no IKEv1"),
+                    );
+                }
+            }
+            (_, LocalMethod::Xauth) => v.add(
+                field.clone(),
+                crate::tr!(
+                    "XAuth only comes after a PSK round",
+                    "XAuth só vem depois de uma rodada PSK"
+                ),
+            ),
+            (_, LocalMethod::Psk) => v.add(
+                field.clone(),
+                crate::tr!(
+                    "the PSK round must be the first",
+                    "a rodada PSK deve ser a primeira"
+                ),
+            ),
+        }
+        if round.otp && round.method != LocalMethod::Xauth {
+            v.add(
+                format!("{field}.otp"),
+                crate::tr!(
+                    "only an XAuth password can be a one-time code",
+                    "só a senha XAuth pode ser um código de uso único"
+                ),
+            );
+        }
+        if let Some(id) = &round.id {
+            if round.method == LocalMethod::Xauth {
+                v.add(
+                    format!("{field}.id"),
+                    crate::tr!(
+                        "the XAuth username is a credential, not part of the profile",
+                        "o usuário XAuth é uma credencial, não faz parte do perfil"
+                    ),
+                );
+            } else {
+                v.check(
+                    is_identity(id),
+                    format!("{field}.id"),
+                    crate::tr!("invalid identity (1 to 255 characters, no leading/trailing spaces or control characters)", "identidade inválida (1 a 255 caracteres, sem espaços nas pontas nem controle)"),
+                );
+            }
+        }
+    }
+    if let Some(id) = &p.auth.remote.id {
+        v.check(
+            is_identity(id),
+            "auth.remote.id",
+            crate::tr!("invalid identity (1 to 255 characters, no leading/trailing spaces or control characters)", "identidade inválida (1 a 255 caracteres, sem espaços nas pontas nem controle)"),
+        );
+    }
 }
 
 fn check_proposals(v: &mut Issues, field: &str, proposals: &[String]) {
