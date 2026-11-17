@@ -20,12 +20,40 @@ network component: after updating the app, click "Update" on it.
 - **No core dumps.** The app, the CLI, the network component and charon no
   longer leave a core dump on a crash, which could put credentials and
   session keys on disk.
+- **The network component only touches the VPN's own interface.** A user of
+  the active session could make it delete another program's network interface
+  (`docker0`, `wg0`, a bridge) or reset its DNS, by asking for that name. Only
+  `ipsc<N>` is accepted now, and a link with that name that is not the VPN's
+  is left alone.
+- **Another user's session no longer shows up in the log.** On a shared
+  computer, a user who connected after someone else received the end of that
+  person's log (gateway, group id, VPN username). Each session now gets only
+  its own lines.
+- **Text sent by the gateway cannot drive the terminal.** The gateway's XAuth
+  message goes into the log as it comes, and the CLI printed it unchanged:
+  escape sequences could rewrite the terminal or fake log lines. Control
+  characters are replaced in every log line.
+- **Installing from the `.rpm`/`.deb` no longer runs a user file as root.**
+  The installer runs from the app's root-owned directory instead of a copy in
+  the user's runtime directory, which a program running as the user could
+  swap after the password prompt. The AppImage still needs the copy.
+- Network component hardening: a slow client can no longer hold it (deadline
+  for the whole request, limit per user), the client process is checked
+  again before polkit is asked, and its unit has a syscall filter.
+- Imported files are read with a real size limit (a device or a pipe is
+  refused), and `IPSEC_CLIENT_HELPER_SOCKET` only works in development
+  builds.
 
 ### Changed
 
 - `npm run test:systemd` has a canary sweep: it looks for the test
   credentials in every file, process, journal entry, unit property and CLI
   output while connected and after disconnecting.
+- `npm run test:systemd` also covers idle and slow clients (the old scenario
+  never held a connection), the log of a second user, interface names that
+  are not the VPN's, and the sandbox of the helper unit.
+- SECURITY.md says what a group PSK does not protect against: whoever holds
+  it can pose as the gateway.
 
 ## [0.2.0] - 2026-11-16
 

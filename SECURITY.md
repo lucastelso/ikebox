@@ -16,12 +16,12 @@ a vulnerability"). Do not open public issues for vulnerabilities.
 | PSK, XAuth username and password | Kept in memory (`secrecy`/`zeroize`) or in the system keyring. They go from the app straight to charon through the VICI socket; the network component (root) never receives them. They never go to disk, environment, arguments or logs (ADR-0007) |
 | VICI control socket | Unix socket `0600`, owned by the session uid, in `/run/ipsec-client/<uid>` (`0711`, owned by root). Only the session owner talks to charon (ADRs 0003, 0014 and 0019) |
 | Commands run as root | Whoever talks VICI **does not choose** the `updown` or the `if_id`: the embedded charon carries a patch that forces them to the values set by root, and the `updown` arguments go in a file, never through a shell (ADR-0019) |
-| Network component (root) | Minimal socket API: accepts only validated numbers, the profile id and the DNS settings, never paths, commands or secrets. Every request is authorized by polkit (`allow_active`: only the active local session) and the uid comes from the kernel (`SO_PEERCRED`). Stopping the VPN and reading its log is limited to the session owner; connections are served in parallel, with a limit (ADRs 0014 and 0019) |
+| Network component (root) | Minimal socket API: accepts only validated numbers, the profile id and the DNS settings, never paths, commands or secrets. Every request is authorized by polkit (`allow_active`: only the active local session) and the uid comes from the kernel (`SO_PEERCRED`). The only interface it creates or removes is the session's (`ipsc<N>`, and only if it is an XFRM interface). Stopping the VPN and reading its log is limited to the session owner, and the log has only the lines of that session; connections are served in parallel, with a limit per user and a deadline (ADRs 0014 and 0019) |
 | Host during the connection | charon runs as a sandboxed transient systemd service: read-only system, read-only `/proc/sys` and `/sys`, no real devices, no view of other processes, a syscall filter, network capabilities only and no new privileges (ADRs 0014 and 0019) |
-| Component installation | The installer checks `SHA256SUMS` on a root-only copy and refuses links and out-of-place paths; removal only runs the root-owned installer (ADR-0018) |
+| Component installation | The installer checks `SHA256SUMS` on a root-only copy and refuses links and out-of-place paths. With the `.rpm`/`.deb`, it runs from the app's own root-owned directory: no file the user can change is executed as root. Removal only runs the root-owned installer (ADR-0018) |
 | Host network | Routes, VIP and DNS only on the dedicated `ipsc0` interface, no global XFRM flush and the physical interface is not touched (ADR-0004) |
 | The user's organization data | Never enters the repository; an automatic guard checks commits, the history and the inside of release packages (ADR-0010) |
-| Shared logs | Identities (XAuth username, group id, gateway identity) are masked wherever charon prints them, whether or not the app knows them. "Copy anonymized" also replaces the gateway, IPs and domains with placeholders before the text leaves the app |
+| Shared logs | Identities (XAuth username, group id, gateway identity) are masked wherever charon prints them, whether or not the app knows them. "Copy anonymized" also replaces the gateway, IPs and domains with placeholders before the text leaves the app. Control characters in the log (the gateway can put text there) are replaced before it is shown or printed |
 | Memory of a crashed process | No core dumps: the app, the CLI, the network component and charon run with the core limit at zero, so a crash does not write credentials or session keys to disk |
 
 ### Known and accepted risks
@@ -45,9 +45,19 @@ a vulnerability"). Do not open public issues for vulnerabilities.
    limitation **of the legacy VPN**, not of the app: the app can only use what
    the gateway accepts. Recommend that your organization's IT team move to
    IKEv2 with certificates or EAP.
+
+   **A group PSK does not prove who the gateway is.** Everyone in the group
+   has the same PSK, and whoever has it can pose as the gateway to another
+   member: receive the XAuth username and password, and push routes and DNS
+   servers. This is how IKEv1 with a group PSK and XAuth works, in any
+   client. Treat the group PSK as a secret, and be wary of connecting from
+   networks where someone could intercept the traffic to the gateway.
 4. **AppImage.** The downloaded file is the root of trust. A malicious
    program running as the user could swap files during the component
-   installation (ADR-0018). The AppImage also carries its own libraries (such
+   installation (ADR-0018): root cannot read the AppImage, so the installer
+   runs from a copy in the user's runtime directory. The `.rpm` and the
+   `.deb` do not have that window. The AppImage also carries its own
+   libraries (such
    as WebKitGTK), which do not get the distribution's security updates. Prefer
    the `.rpm` or the `.deb`.
 5. **Docker engine (development and tests only).** Without the network

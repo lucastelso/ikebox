@@ -28,10 +28,17 @@ straight from inside the AppImage.
   - Development builds do not carry the bundle. To test, point to one with
     `IPSEC_CLIENT_COMPONENT_BUNDLE`, which only works in debug builds.
 - **Installation by the app** (`ipsec-client-core::component`):
-  1. The app copies the bundle to a new directory, mode 0700, in
-     `$XDG_RUNTIME_DIR` (tmpfs, the user's only). In the copy, it sets the
-     permissions and checks the hashes.
-  2. It runs `pkexec <copy>/install-native.sh install --bundle <copy>
+  1. Where the installer runs from:
+     - **in place**, when the bundle, its files and every directory above
+       them belong to root and nobody else can write to them (the app
+       installed by a `.rpm`/`.deb`). Nothing root executes passes through a
+       file the user can change (audit of 0.2.0, part 2);
+     - otherwise (the AppImage, whose mount root cannot read), from a copy in
+       a new directory, mode 0700, in `$XDG_RUNTIME_DIR` (tmpfs, the user's
+       only). In the copy, the app sets the permissions and checks the
+       hashes. A program running as the user could swap that copy before root
+       runs it: a known risk of the AppImage (SECURITY.md).
+  2. It runs `pkexec <dir>/install-native.sh install --bundle <dir>
      --origin app`, with a clean environment: no `LD_LIBRARY_PATH` from the
      AppImage reaches root. The system asks for the administrator password
      once.
