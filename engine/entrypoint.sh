@@ -296,8 +296,9 @@ wait_for_socket() {
     die "the VICI socket did not show up within 10 s"
 }
 
-# Chamada pelo trap de TERM/INT (docker stop).
-# shellcheck disable=SC2329
+# Chamada pelo trap de TERM/INT (docker stop). Só o trap a chama: o shellcheck
+# acha que é código morto (SC2329 no 0.11, SC2317 nas versões anteriores).
+# shellcheck disable=SC2317,SC2329
 shutdown() {
     trap - TERM INT
     log "shutting down..."
