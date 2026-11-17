@@ -40,13 +40,18 @@
   ([roadmap](roadmap.md#post-020-program-decided-on-2026-11-16)): audit I
   (credentials, private data, supply chain) → audit II (privilege boundaries)
   → compatibility → optimization and base images → interface → IPsec modes.
-  **Phases 1 and 2 are done** (steps 37 and 38,
+  **Phases 1, 2 and 3 are done** (steps 37 to 39,
   [audit report](audits/v0.2.0.md)). Their fixes are merged, not released:
   username masking and core dumps (phase 1); the helper boundary, the log
-  text coming from the gateway and the in-place installer (phase 2).
-  **Next: phase 3 (compatibility).** Each phase ends by updating this line.
-- **Waiting for the maintainer, from phase 2:** test `initiator_only` on the
-  real VPN (audit P8) and decide the other proposals (P9 to P13).
+  text coming from the gateway and the in-place installer (phase 2); the
+  package dependencies, image-based distributions, the systemd-resolved
+  diagnostics and the compatibility matrix (phase 3).
+  **Next: phase 4 (optimization and base images).** Each phase ends by
+  updating this line.
+- **Waiting for the maintainer:** test `initiator_only` on the real VPN
+  (audit P8, step by step in the report) and decide P9 to P13 (phase 2);
+  the desktop checks that containers cannot do (P15) and P14, P16 and P17
+  (phase 3).
 - **Still open from before:** `chore/release` (CI builds the packages on the
   tag, rpm/deb post-install with `--origin package`, signed `SHA256SUMS`,
   acceptance on a clean VM); running charon without root (ADR-0019).
@@ -56,7 +61,15 @@
      from before the email rewrite;
   2. before making the repository public: ask GitHub Support to purge the old
      commits (still reachable by hash) and scan the history
-     (`scripts/check-private.sh --history` + gitleaks).
+     (`scripts/check-private.sh --history` + gitleaks);
+  3. delete the old branches on GitHub (all of them are merged into `main`,
+     and only `main` exists locally since 2026-11-17). After
+     `git push origin main`:
+     ```bash
+     git fetch --prune origin
+     git branch -r --merged main | grep -vE 'origin/(HEAD|main)$' |
+         sed 's#^ *origin/##' | xargs -r git push origin --delete
+     ```
 
 ## Set up the environment (once)
 
@@ -76,6 +89,7 @@ npm run test:cli       # full CLI flow
 npm run test:native    # compiled strongSwan (embedded engine) + E2E (includes the ADR-0019 attack)
 npm run test:systemd   # embedded engine with real systemd (privileged container)
 npm run test:packaging # network component installer, as root in a container
+npm run test:compat    # test:systemd on seven distributions (~4 min after the first run)
 ```
 
 While the network component installed on this computer is older than the

@@ -49,7 +49,7 @@ the host, started by the privileged helper.
 | `crates/proto` | JSON-per-line protocol (`ping`, `start`, `stop`, `status`, `logs`) and the **validation rules shared** with `core` (interface, `if_id`, MTU, log level, profile id, DNS). The interface must be `ipsc<N>`: the engine removes and recreates it as root. Unknown fields are refused, so the client cannot pass paths or commands |
 | `crates/helper` | Root, socket activated. Uses `SO_PEERCRED` and asks polkit (`io.github.lucastelso.ipsecclient.connect`, `allow_active=yes`, non-interactive). Creates `/run/ipsec-client/<uid>` (0711 root:root) and starts the engine with `systemd-run --unit=ipsec-client-engine` and a sandbox, passing the profile DNS (validated). Waits until the VICI socket is handed over to the user (0600, owned by the uid) and replies with its path. Refuses when the engine belongs to another user; `stop` and `logs` only for the owner, and `logs` returns only the lines of the running session (selected by the unit's invocation ID). Before asking polkit, checks that the client pid still belongs to the client uid. Serves up to 8 connections in parallel, 4 per uid, with a 3 s deadline for the whole request (ADR-0019). Messages in English |
 | Engine sandbox | Capabilities `NET_ADMIN`, `NET_BIND_SERVICE`, `NET_RAW` and `CHOWN`; `NoNewPrivileges`, `ProtectSystem=strict`, `ProtectHome`, `PrivateTmp`, `PrivateDevices`, `PrivateIPC`, `ProtectKernelModules`, `ProtectKernelTunables`, `ProtectKernelLogs`, `ProtectProc=invisible`, `SystemCallFilter=@system-service`, `RestrictAddressFamilies` (unix, inet, inet6, netlink), `MemoryDenyWriteExecute`, `UMask=0077`; only `RuntimeDirectory` and the user's socket directory are writable |
-| `packaging/` | Units `ipsec-client-helper.{socket,service}` (the helper is hardened too), the polkit policy and `install-native.sh`. The installer takes a bundle (`--bundle`), checks `SHA256SUMS` on a root-only copy, installs into `/opt/ipsec-client`, records `VERSION`/`SHA256SUMS`/`ORIGIN` and runs `restorecon` for SELinux. Its lines are tagged `[network component]` |
+| `packaging/` | Units `ipsec-client-helper.{socket,service}` (the helper is hardened too, with no capability at all), the polkit policy and `install-native.sh`. The installer takes a bundle (`--bundle`), checks `SHA256SUMS` on a root-only copy (the engine tarball may only hold files and directories under `opt/ipsec-client/engine`), installs into `/opt/ipsec-client` (keeping `/opt` when it is a link, as on Fedora Atomic), records `VERSION`/`SHA256SUMS`/`ORIGIN` and runs `restorecon` for SELinux. The policy goes to `/usr/share/polkit-1/actions`, or to `/etc/polkit-1/actions` when `/usr` is read-only (polkit ≥ 124). Its lines are tagged `[network component]` |
 | `core::component` (ADR-0018) | Component bundle (`scripts/stage-network-component.sh`, shipped in `<resources>/network` in release builds; the helper goes compressed, because the AppImage's linuxdeploy rewrites ELF executables), state (not installed, ready, outdated or broken), installation via `pkexec`, in place when the bundle is root-owned (`.rpm`/`.deb`) or from a private copy in `$XDG_RUNTIME_DIR` (AppImage), and removal through root's installer |
 | `core::engine::Backend` | `Native` (helper) when installed, or `Docker` as a fallback. `IPSEC_CLIENT_BACKEND=native\|docker` forces one. An old helper that refuses the new request becomes `EngineError::HelperOutdated` ("update the network component") |
 
@@ -163,12 +163,22 @@ Disconnected ─connect─► Preparing (preflight, engine)
   MTU, VIP, route, split DNS, socket, no secrets in logs, ping, full cleanup),
   `SIGKILL` recovery, full tunnel in an isolated namespace, modp768 PFS and,
   for the embedded engine, the ADR-0019 attack.
-- [`tests/systemd/run.sh`](../tests/systemd/run.sh): a Fedora container with
-  real systemd; the real installer, the CLI through the helper, the applied
-  sandbox, two users and the attack.
+- [`tests/systemd/run.sh`](../tests/systemd/run.sh): a container with real
+  systemd (Fedora by default); the real installer, the CLI through the
+  helper, the canary sweep, the applied sandbox, two users, slow clients,
+  foreign interfaces, the attack, a session without systemd-resolved and,
+  last, authorization by the real polkit.
+- [`tests/compat/run.sh`](../tests/compat/run.sh): the same test on every
+  distribution of [`tests/compat/distros.txt`](../tests/compat/distros.txt)
+  (Ubuntu 22.04/24.04, Debian 12/13, Fedora 45, openSUSE Tumbleweed,
+  AlmaLinux 10), with the
+  helper and the CLI built in the release image.
+  [`tests/compat/packages.sh`](../tests/compat/packages.sh) installs the built
+  `.deb`/`.rpm` on the same distributions with their package managers.
 - [`tests/cli/e2e.sh`](../tests/cli/e2e.sh): the full CLI flow, including
   `logs --anonymize`.
 - [`tests/packaging/install-test.sh`](../tests/packaging/install-test.sh): the
-  installer as root, including tampered bundles.
+  installer as root, including tampered bundles and an image-based system
+  (read-only policy directory, `/opt` as a link).
 
 No test uses a real VPN. IPv6 in `updown` has no automated test yet.

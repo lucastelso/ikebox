@@ -20,7 +20,7 @@ precisa de Docker, Rust, Node nem terminal para usar.
 
 | Sua distribuição | Arquivo | Exemplo |
 |---|---|---|
-| Fedora, RHEL, Rocky, AlmaLinux, openSUSE | **.rpm** | `ipsec-client-0.2.0-1.x86_64.rpm` |
+| Fedora, openSUSE, RHEL/Rocky/AlmaLinux 10 | **.rpm** | `ipsec-client-0.2.0-1.x86_64.rpm` |
 | Ubuntu, Debian, Linux Mint, Pop!_OS | **.deb** | `ipsec-client_0.2.0_amd64.deb` |
 | Outras (Arch, etc.) | **.AppImage** | `ipsec-client_0.2.0_amd64.AppImage` |
 
@@ -35,6 +35,36 @@ arquivos de quem te passou o perfil.
 > pacotes e as bibliotecas dele (como o WebKitGTK) recebem as atualizações de
 > segurança da sua distribuição. O AppImage leva cópias próprias.
 
+### Distribuições testadas
+
+Os pacotes são instalados e o motor da VPN é testado, de forma automática, em:
+
+| Distribuição | Pacote | DNS da VPN (nomes internos) |
+|---|---|---|
+| Ubuntu 22.04 e 24.04 | `.deb` | funciona sem ajuste |
+| Debian 12 e 13 | `.deb` | precisa do `systemd-resolved` (veja abaixo) |
+| Fedora 45 | `.rpm` | funciona sem ajuste |
+| openSUSE Tumbleweed | `.rpm` | precisa do `systemd-resolved` (veja abaixo) |
+| AlmaLinux 10 (também Rocky Linux e RHEL 10) | `.rpm`, com EPEL | confira em **Sistema → Diagnóstico** |
+
+Requisitos em qualquer distribuição: **systemd** (248 ou mais novo),
+**polkit**, glibc 2.35 ou mais nova, WebKitGTK 4.1 e x86 de 64 bits. Sem
+systemd o app não funciona. **RHEL, Rocky e AlmaLinux 9 não são
+suportados**: não têm o WebKitGTK 4.1 nem uma glibc nova o bastante, então
+nem o `.rpm` nem o AppImage rodam neles.
+
+**DNS da VPN.** Os nomes internos da VPN (`servidor.empresa.example`) são
+resolvidos pelo **systemd-resolved**. O Ubuntu e o Fedora o usam por padrão.
+O Debian e o openSUSE não: neles o túnel funciona, por endereço IP, e
+**Sistema → Diagnóstico** avisa. Para ter os nomes, instale e ative-o (isso
+muda quem resolve nomes no sistema inteiro, não só na VPN):
+
+```bash
+sudo apt install systemd-resolved                        # Debian
+sudo zypper install systemd-resolved && sudo systemctl enable --now systemd-resolved   # openSUSE
+sudo dnf install systemd-resolved && sudo systemctl enable --now systemd-resolved      # AlmaLinux, Rocky, RHEL
+```
+
 ## 2. Instalar
 
 ### Fedora e afins (.rpm)
@@ -47,6 +77,27 @@ Ou pelo terminal, na pasta onde está o arquivo:
 ```bash
 sudo dnf install ./ipsec-client-*.x86_64.rpm
 ```
+
+No **openSUSE**: `sudo zypper install --allow-unsigned-rpm ./ipsec-client-*.x86_64.rpm`
+(o pacote ainda não é assinado; confira o download com o `SHA256SUMS`).
+
+No **AlmaLinux e no Rocky Linux 10**, o WebKitGTK e a biblioteca da bandeja
+vêm do EPEL. Ative-o uma vez e depois instale:
+
+```bash
+sudo dnf install epel-release
+sudo dnf config-manager --set-enabled crb
+sudo dnf install ./ipsec-client-*.x86_64.rpm
+```
+
+No próprio RHEL 10, ative o EPEL e o CodeReady Builder como a documentação do
+EPEL indica para o RHEL e instale do mesmo jeito.
+
+No **Fedora Silverblue, Kinoite e outros sistemas baseados em imagem**:
+`rpm-ostree install ./ipsec-client-*.x86_64.rpm` e reinicie. O componente de
+rede trata o que é diferente ali (`/usr` somente leitura, `/opt` como link
+para `/var/opt`); isso foi testado numa simulação, ainda não numa instalação
+de verdade, então avise se algo der errado.
 
 ### Ubuntu, Debian e afins (.deb)
 
@@ -201,6 +252,7 @@ veja [como gerar e publicar uma versão](../release.md) (em inglês).
 |---|---|
 | O app não aparece no menu | Espere alguns segundos ou saia e entre na sessão. No AppImage, confira o atalho em `~/.local/share/applications/` |
 | O ícone da bandeja não aparece (GNOME) | Instale e ative a extensão AppIndicator (seção 3) |
+| Os nomes internos da VPN não resolvem, mas os endereços IP funcionam | O `systemd-resolved` não está ativo (Debian, openSUSE): veja "DNS da VPN" na seção 1 |
 | "O pkexec não foi encontrado" | Instale o `pkexec`: pacote `pkexec` no Debian, no Ubuntu e no openSUSE, `polkit` no Fedora. O `.rpm` e o `.deb` já o trazem como dependência |
 | "Autorização cancelada" | A janela de senha foi fechada. Clique em instalar de novo |
 | "Não foi possível obter a autorização de administrador" | A sua conta não é de administrador, ou a senha estava errada. Peça para alguém com `sudo` instalar o componente uma vez: depois, qualquer usuário conecta |

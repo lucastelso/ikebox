@@ -20,7 +20,7 @@ applications menu, with an icon, and opens like any other program. You do
 
 | Your distribution | File | Example |
 |---|---|---|
-| Fedora, RHEL, Rocky, AlmaLinux, openSUSE | **.rpm** | `ipsec-client-0.2.0-1.x86_64.rpm` |
+| Fedora, openSUSE, RHEL/Rocky/AlmaLinux 10 | **.rpm** | `ipsec-client-0.2.0-1.x86_64.rpm` |
 | Ubuntu, Debian, Linux Mint, Pop!_OS | **.deb** | `ipsec-client_0.2.0_amd64.deb` |
 | Others (Arch, etc.) | **.AppImage** | `ipsec-client_0.2.0_amd64.AppImage` |
 
@@ -36,6 +36,37 @@ the files from whoever gave you the profile.
 > manager, and its libraries (such as WebKitGTK) get your distribution's
 > security updates. The AppImage carries its own copies.
 
+### Tested distributions
+
+The packages are installed and the VPN engine is tested, automatically, on:
+
+| Distribution | Package | VPN DNS (internal names) |
+|---|---|---|
+| Ubuntu 22.04 and 24.04 | `.deb` | works out of the box |
+| Debian 12 and 13 | `.deb` | needs `systemd-resolved` (see below) |
+| Fedora 45 | `.rpm` | works out of the box |
+| openSUSE Tumbleweed | `.rpm` | needs `systemd-resolved` (see below) |
+| AlmaLinux 10 (also Rocky Linux and RHEL 10) | `.rpm`, with EPEL | check **System → Diagnostics** |
+
+Requirements on any distribution: **systemd** (248 or newer), **polkit**,
+glibc 2.35 or newer, WebKitGTK 4.1 and 64-bit x86. Without systemd the app
+does not work. **RHEL, Rocky and AlmaLinux 9 are not supported**: they have
+neither WebKitGTK 4.1 nor a recent enough glibc, so neither the `.rpm` nor
+the AppImage runs there.
+
+**VPN DNS.** Internal names of the VPN (`server.company.example`) are
+resolved through **systemd-resolved**. Ubuntu and Fedora use it by default.
+Debian and openSUSE do not: there the tunnel works, by IP address, and
+**System → Diagnostics** warns about it. To have the names, install and
+enable it (this changes who resolves names on the whole system, not only for
+the VPN):
+
+```bash
+sudo apt install systemd-resolved                        # Debian
+sudo zypper install systemd-resolved && sudo systemctl enable --now systemd-resolved   # openSUSE
+sudo dnf install systemd-resolved && sudo systemctl enable --now systemd-resolved      # AlmaLinux, Rocky, RHEL
+```
+
 ## 2. Install
 
 ### Fedora and similar (.rpm)
@@ -48,6 +79,27 @@ Or from the terminal, in the folder where the file is:
 ```bash
 sudo dnf install ./ipsec-client-*.x86_64.rpm
 ```
+
+On **openSUSE**: `sudo zypper install --allow-unsigned-rpm ./ipsec-client-*.x86_64.rpm`
+(the package is not signed yet; check the download with `SHA256SUMS`).
+
+On **AlmaLinux and Rocky Linux 10**, WebKitGTK and the tray library come from
+EPEL. Enable it once, then install:
+
+```bash
+sudo dnf install epel-release
+sudo dnf config-manager --set-enabled crb
+sudo dnf install ./ipsec-client-*.x86_64.rpm
+```
+
+On RHEL 10 itself, enable EPEL and CodeReady Builder as the EPEL
+documentation says for RHEL, then install the same way.
+
+On **Fedora Silverblue, Kinoite and other image-based systems**:
+`rpm-ostree install ./ipsec-client-*.x86_64.rpm`, then restart. The network
+component handles what is different there (a read-only `/usr`, `/opt` as a
+link to `/var/opt`); this was tested in a simulation, not yet on a real
+installation, so please report any problem.
 
 ### Ubuntu, Debian and similar (.deb)
 
@@ -204,6 +256,7 @@ test a change. Release packages are built another way: see
 |---|---|
 | The app does not show up in the menu | Wait a few seconds or log out and back in. For the AppImage, check the shortcut in `~/.local/share/applications/` |
 | The tray icon does not show up (GNOME) | Install and enable the AppIndicator extension (section 3) |
+| Internal names of the VPN do not resolve, but IP addresses work | `systemd-resolved` is not active (Debian, openSUSE): see "VPN DNS" in section 1 |
 | "pkexec was not found" | Install `pkexec`: the `pkexec` package on Debian, Ubuntu and openSUSE, `polkit` on Fedora. The `.rpm` and the `.deb` bring it as a dependency |
 | "Authorization cancelled" | The password window was closed. Click install again |
 | "Could not get administrator authorization" | Your account is not an administrator, or the password was wrong. Ask someone with `sudo` to install the component once: after that, any user can connect |
