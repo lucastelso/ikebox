@@ -6,7 +6,9 @@
 use std::fs;
 use std::path::Path;
 
-use crate::engine::{DockerEngine, NativeEngine, default_runtime_dir};
+use crate::engine::NativeEngine;
+#[cfg(feature = "docker")]
+use crate::engine::{DockerEngine, default_runtime_dir};
 
 /// Resultado de uma verificação.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -265,6 +267,7 @@ fn check_dbus_socket() -> Check {
     }
 }
 
+#[cfg(feature = "docker")]
 fn check_runtime_dir() -> Check {
     const ID: &str = "runtime-dir";
     let name = crate::tr!("Runtime directory", "Diretório de runtime");
@@ -306,6 +309,7 @@ fn check_not_root() -> Check {
     }
 }
 
+#[cfg(feature = "docker")]
 async fn check_docker() -> Check {
     const ID: &str = "docker";
     let result = match DockerEngine::connect() {
@@ -380,31 +384,35 @@ async fn check_engine() -> Vec<Check> {
             ),
         }];
     }
-    let docker = check_docker().await;
-    if docker.status == CheckStatus::Ok {
-        vec![
-            Check::bad(
-                COMPONENT_CHECK,
-                name,
-                CheckStatus::Warn,
-                crate::tr!(
-                    "not installed; using the Docker engine",
-                    "não instalado; usando o engine em Docker"
+    // Development builds fall back to the Docker engine; release builds
+    // have none and need the network component.
+    #[cfg(feature = "docker")]
+    {
+        let docker = check_docker().await;
+        if docker.status == CheckStatus::Ok {
+            return vec![
+                Check::bad(
+                    COMPONENT_CHECK,
+                    name,
+                    CheckStatus::Warn,
+                    crate::tr!(
+                        "not installed; using the Docker engine",
+                        "não instalado; usando o engine em Docker"
+                    ),
+                    component_hint(),
                 ),
-                component_hint(),
-            ),
-            check_runtime_dir(),
-            docker,
-        ]
-    } else {
-        vec![Check::bad(
-            COMPONENT_CHECK,
-            name,
-            CheckStatus::Fail,
-            crate::tr!("not installed", "não instalado"),
-            component_hint(),
-        )]
+                check_runtime_dir(),
+                docker,
+            ];
+        }
     }
+    vec![Check::bad(
+        COMPONENT_CHECK,
+        name,
+        CheckStatus::Fail,
+        crate::tr!("not installed", "não instalado"),
+        component_hint(),
+    )]
 }
 
 /// Checks that prevent or limit a connection (run before `connect`). The
@@ -450,6 +458,7 @@ pub async fn doctor() -> Vec<Check> {
             ),
         ),
     });
+    #[cfg(feature = "docker")]
     if !NativeEngine::default().installed() {
         let image = crate::engine::context::image_tag();
         let name = crate::tr!("Engine image", "Imagem do engine");

@@ -248,7 +248,7 @@ pub async fn connect(
         return Err(SessionError::Preflight(checks));
     }
 
-    if matches!(backend, Backend::Docker(_)) {
+    if backend.is_docker() {
         send(
             events.as_ref(),
             SessionEvent::State(SessionState::Preparing(

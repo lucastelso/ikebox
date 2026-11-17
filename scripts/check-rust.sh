@@ -28,8 +28,12 @@ fi
 cargo fmt --all --check
 [[ ${1:-} == --fmt ]] && exit 0
 
+# Both builds: the release one (no Docker engine, the default) and the
+# development one (feature docker). Each must compile without warnings.
+cargo clippy --workspace --all-targets --locked -- -D warnings
 cargo clippy --workspace --all-targets --all-features --locked -- -D warnings
 cargo test --workspace --locked
+cargo test --workspace --locked --features ipsec-client-core/docker,ipsec-client-cli/docker,ipsec-client-app/docker
 
 if command -v cargo-deny >/dev/null 2>&1; then
     cargo deny --log-level error check

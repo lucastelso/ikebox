@@ -1,24 +1,44 @@
-//! Engine: o container com o strongSwan 5.8.2 (ADRs 0001, 0002, 0005 e 0006).
+//! Engines: the embedded one, through the network component (ADRs 0013, 0014
+//! and 0019), and, with the `docker` feature only, the container with the
+//! strongSwan of the distribution (ADRs 0001, 0002, 0005 and 0006), for
+//! development and tests. Release builds never have the second.
 //!
-//! - [`context`]: arquivos de `engine/` embutidos, hash e tar do build;
-//! - [`EngineSpec`]: configuração de uma instância (pura, testável);
-//! - [`DockerEngine`]: build da imagem e ciclo de vida do container.
+//! - [`Backend`]: which engine this computer uses;
+//! - [`NativeEngine`]: client of the network component;
+//! - `context`, `EngineSpec`, `DockerEngine` (feature `docker`): the files of
+//!   `engine/` embedded for the image build, the container configuration and
+//!   its lifecycle.
 
 mod backend;
+#[cfg(feature = "docker")]
 pub mod context;
+#[cfg(feature = "docker")]
 mod docker;
 mod native;
+#[cfg(feature = "docker")]
 mod spec;
 
 use std::path::PathBuf;
 
-pub use backend::{Backend, RunningEngine};
-pub use docker::{BuildProgress, DockerEngine, READY_LINE, READY_TIMEOUT, STOP_TIMEOUT_SECS};
+pub use backend::{Backend, BuildProgress, RunningEngine};
+#[cfg(feature = "docker")]
+pub use docker::{DockerEngine, READY_LINE, READY_TIMEOUT, STOP_TIMEOUT_SECS};
 pub use native::NativeEngine;
+#[cfg(feature = "docker")]
 pub use spec::{
-    CONTAINER_NAME, CONTAINER_SOCKET_DIR, DBUS_SYSTEM_SOCKET, DEFAULT_IFACE, DEFAULT_MTU,
-    EngineSpec, HostSecurity, MANAGED_LABEL, PROFILE_LABEL, SOCKET_FILE,
+    CONTAINER_NAME, CONTAINER_SOCKET_DIR, EngineSpec, HostSecurity, MANAGED_LABEL, PROFILE_LABEL,
+    SOCKET_FILE,
 };
+
+/// Nome padrão da interface XFRM.
+pub const DEFAULT_IFACE: &str = "ipsc0";
+/// MTU padrão da interface XFRM (evita blackhole em Wi-Fi, ADR-0004).
+pub const DEFAULT_MTU: u16 = 1400;
+/// Caminho do socket D-Bus do sistema no host.
+pub const DBUS_SYSTEM_SOCKET: &str = "/run/dbus/system_bus_socket";
+
+/// Whether this build carries the Docker engine (the `docker` feature).
+pub const HAS_DOCKER_ENGINE: bool = cfg!(feature = "docker");
 
 /// Engine errors. Messages are for the end user (English or Portuguese, see
 /// [`crate::i18n`]).
@@ -73,11 +93,28 @@ pub enum EngineError {
 
     /// Error returned by the Docker API.
     #[error("{}", crate::trf!("Docker error: {}", "erro do Docker: {}", .0))]
-    Docker(#[from] bollard::errors::Error),
+    Docker(String),
+
+    /// This build has no Docker engine (release builds), and it was asked
+    /// for (`IPSEC_CLIENT_BACKEND=docker`).
+    #[error("{}", crate::tr!(
+        "this build of IPsec Client has no Docker engine; install the network \
+         component (System tab)",
+        "esta versão do IPsec Client não tem o engine em Docker; instale o \
+         componente de rede (aba Sistema)"
+    ))]
+    NoDockerEngine,
 
     /// Local I/O error.
     #[error(transparent)]
     Io(#[from] std::io::Error),
+}
+
+#[cfg(feature = "docker")]
+impl From<bollard::errors::Error> for EngineError {
+    fn from(e: bollard::errors::Error) -> Self {
+        Self::Docker(e.to_string())
+    }
 }
 
 /// Diretório padrão do socket VICI: `$XDG_RUNTIME_DIR/ipsec-client`.
