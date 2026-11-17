@@ -177,25 +177,34 @@ fn check_ip_command(dirs: &[&Path]) -> Check {
     }
 }
 
+/// Varlink socket of systemd-resolved (systemd 247 and newer). Any process can
+/// connect to it: nss-resolve does.
+const RESOLVED_SOCKET: &str = "/run/systemd/resolve/io.systemd.Resolve";
+
 fn check_resolved() -> Check {
+    check_resolved_at(Path::new(RESOLVED_SOCKET))
+}
+
+/// systemd-resolved is running if its socket accepts a connection. Files in
+/// `/run/systemd/resolve` are no proof: they stay after the service stops
+/// (the socket included), and then the VPN DNS is silently not applied.
+fn check_resolved_at(socket: &Path) -> Check {
     const ID: &str = "resolved";
-    if Path::new("/run/systemd/resolve/io.systemd.Resolve").exists()
-        || Path::new("/run/systemd/resolve/stub-resolv.conf").exists()
-    {
+    if std::os::unix::net::UnixStream::connect(socket).is_ok() {
         Check::ok(ID, "systemd-resolved", crate::tr!("active", "ativo"))
     } else {
         Check::bad(
             ID,
             "systemd-resolved",
             CheckStatus::Warn,
-            crate::tr!("not found", "não encontrado"),
+            crate::tr!("not running", "não está em execução"),
             crate::tr!(
                 "without systemd-resolved, the VPN DNS (internal domains) is not configured; \
-                 the tunnel works by IP. Debian does not enable it by default: install the \
-                 systemd-resolved package",
+                 the tunnel works by IP. Debian and openSUSE do not use it by default: install \
+                 the systemd-resolved package and enable it",
                 "sem o systemd-resolved, o DNS da VPN (domínios internos) não é configurado; \
-                 o túnel funciona por IP. O Debian não o ativa por padrão: instale o pacote \
-                 systemd-resolved"
+                 o túnel funciona por IP. O Debian e o openSUSE não o usam por padrão: instale \
+                 o pacote systemd-resolved e ative-o"
             ),
         )
     }
@@ -440,6 +449,25 @@ mod tests {
   432: 00000000:1194 00000000:0000 07 00000000:00000000 00:00000000 00000000     0        0 1 2 0000000000000000 0
   433: 3500007F:0035 00000000:0000 07 00000000:00000000 00:00000000 00000000   991        0 1 2 0000000000000000 0
 ";
+
+    #[test]
+    fn resolved_is_active_only_if_its_socket_answers() {
+        let dir = tempfile::tempdir().expect("tempdir");
+        let socket = dir.path().join("io.systemd.Resolve");
+        assert_eq!(
+            check_resolved_at(&socket).status,
+            CheckStatus::Warn,
+            "no socket"
+        );
+        let listener = std::os::unix::net::UnixListener::bind(&socket).expect("bind");
+        assert_eq!(check_resolved_at(&socket).status, CheckStatus::Ok);
+        // Stopped service: the socket file stays, nobody listens.
+        drop(listener);
+        assert!(socket.exists());
+        let stale = check_resolved_at(&socket);
+        assert_eq!(stale.status, CheckStatus::Warn);
+        assert!(stale.hint.is_some());
+    }
 
     #[test]
     fn ip_command_is_looked_up_in_the_engine_path() {

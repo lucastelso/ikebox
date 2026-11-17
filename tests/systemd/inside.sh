@@ -301,6 +301,33 @@ reply=$(helper alice '{"op":"stop"}')
 [[ $reply == *'"was_running":true'* ]] || fail "stop failed: $reply"
 host_is_clean
 
+step "Without systemd-resolved (the default on Debian and openSUSE)"
+out=$(as alice "$CLI" doctor 2>&1 || true)
+grep -q '^✔ systemd-resolved: ' <<<"$out" || {
+    printf '%s\n' "$out"
+    fail "doctor does not see systemd-resolved running"
+}
+# Masked, so that resolvectl cannot start it again through D-Bus. Its files
+# in /run/systemd/resolve stay: the diagnostics must not trust them.
+systemctl mask --now systemd-resolved.service >/dev/null 2>&1
+out=$(as alice "$CLI" doctor 2>&1 || true)
+grep -q '^⚠ systemd-resolved: ' <<<"$out" || {
+    printf '%s\n' "$out"
+    fail "doctor does not warn that systemd-resolved is missing"
+}
+ok "doctor warns: $(grep '^⚠ systemd-resolved: ' <<<"$out" | head -n 1)"
+out=$(as alice "$CLI" connect gateway-teste --detach --credentials-stdin <<<"$CREDS" 2>&1) || {
+    printf '%s\n' "$out"
+    fail "connect failed without systemd-resolved"
+}
+ping -c 2 -W 2 -q 192.0.2.1 >/dev/null || fail "no traffic through the tunnel without systemd-resolved"
+out=$(as alice "$CLI" logs -n 500)
+grep -q "warning: failed to set the DNS servers" <<<"$out" ||
+    fail "the log does not say that the VPN DNS was not applied"
+as alice "$CLI" disconnect >/dev/null
+host_is_clean
+ok "the tunnel works by IP, the log says the DNS was not applied, and nothing is left"
+
 step "Authorization by the real polkit of this distribution"
 # Until here the helper used a uid list. Without it, every request goes to
 # polkit: the policy must be known to it, and the question the helper asks
