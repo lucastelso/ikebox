@@ -8,7 +8,10 @@
 #
 # Scenarios: install, reinstall with another origin, remove, and refuse a
 # tampered bundle, a symlink, an incomplete bundle, a tarball outside
-# /opt/ipsec-client/engine and running without root.
+# /opt/ipsec-client/engine and running without root. In a second container,
+# with a read-only policy directory (as on image-based distributions): the
+# policy goes to /etc with a new enough polkit, and an old polkit is refused
+# before anything is installed.
 
 set -euo pipefail
 
@@ -128,6 +131,55 @@ STUB
     ok "without root: refused"
 }
 
+# Read-only /usr/share/polkit-1/actions (mounted read-only by the host part).
+inside_readonly() {
+    cat >/usr/local/bin/systemctl <<'STUB'
+#!/bin/sh
+echo "$*" >>/tmp/systemctl.log
+STUB
+    chmod 0755 /usr/local/bin/systemctl
+    mkdir -p /etc/systemd/system
+    local policy=io.github.lucastelso.ipsecclient.policy out version
+    if touch /usr/share/polkit-1/actions/probe 2>/dev/null; then
+        fail "the test needs a read-only /usr/share/polkit-1/actions"
+    fi
+    # Fake pkaction: prints the version in /tmp/polkit-version.
+    cat >/usr/local/bin/pkaction <<'STUB'
+#!/bin/sh
+echo "pkaction version $(cat /tmp/polkit-version)"
+STUB
+    chmod 0755 /usr/local/bin/pkaction
+
+    step "read-only policy directory, polkit that only reads /usr/share"
+    for version in 0.105 122; do
+        echo "$version" >/tmp/polkit-version
+        if out=$(bash /bundle/install-native.sh install --bundle /bundle --origin app 2>&1); then
+            fail "polkit $version: the installer went ahead"
+        fi
+        grep -q "polkit 124 or newer is needed" <<<"$out" || fail "polkit $version: unexpected message: $out"
+        [[ ! -e /opt/ipsec-client && ! -e /etc/polkit-1/actions/$policy ]] ||
+            fail "polkit $version: something was installed"
+    done
+    ok "polkit 0.105 and 122: refused with the reason, nothing installed"
+
+    step "read-only policy directory, polkit 124 or newer"
+    for version in 124 127; do
+        echo "$version" >/tmp/polkit-version
+        bash /bundle/install-native.sh install --bundle /bundle --origin app >/tmp/install.log 2>&1 || {
+            cat /tmp/install.log
+            fail "polkit $version: the installer failed"
+        }
+        [[ -f /etc/polkit-1/actions/$policy ]] || fail "polkit $version: policy not in /etc/polkit-1/actions"
+        [[ $(stat -c '%a %U' "/etc/polkit-1/actions/$policy") == "644 root" ]] ||
+            fail "polkit $version: wrong mode or owner of the policy"
+        grep -q "goes to /etc/polkit-1/actions" /tmp/install.log || fail "polkit $version: the log does not say where the policy went"
+        bash /opt/ipsec-client/libexec/install-native.sh uninstall >/dev/null
+        [[ ! -e /opt/ipsec-client && ! -e /etc/polkit-1/actions/$policy ]] ||
+            fail "polkit $version: something was left behind"
+    done
+    ok "polkit 124 and 127: policy installed in /etc/polkit-1/actions and removed with the component"
+}
+
 # --- On the host ---------------------------------------------------------------
 
 main() {
@@ -161,11 +213,17 @@ main() {
         -v "$work/bundle:/bundle:ro" \
         -v "$repo/tests/packaging/install-test.sh:/test.sh:ro" \
         "$IMAGE" bash /test.sh --inside
+    mkdir -p "$work/readonly-actions"
+    docker run --rm --network none --security-opt label=disable \
+        -v "$work/bundle:/bundle:ro" \
+        -v "$work/readonly-actions:/usr/share/polkit-1/actions:ro" \
+        -v "$repo/tests/packaging/install-test.sh:/test.sh:ro" \
+        "$IMAGE" bash /test.sh --inside-readonly
     printf '\n\033[1;32m✔ network component installer OK\033[0m\n'
 }
 
-if [[ ${1:-} == --inside ]]; then
-    inside
-else
-    main
-fi
+case ${1:-} in
+--inside) inside ;;
+--inside-readonly) inside_readonly ;;
+*) main ;;
+esac

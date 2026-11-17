@@ -17,12 +17,18 @@
 #   /opt/ipsec-client/{VERSION,SHA256SUMS,ORIGIN}
 #   /etc/systemd/system/             ipsec-client-helper.{socket,service}
 #   /usr/share/polkit-1/actions/     io.github.lucastelso.ipsecclient.policy
+#                                    (/etc/polkit-1/actions/ when /usr is
+#                                    read-only: image-based distributions)
 
 set -euo pipefail
 
 readonly PREFIX=/opt/ipsec-client
 readonly UNIT_DIR=/etc/systemd/system
 readonly POLKIT_DIR=/usr/share/polkit-1/actions
+# Where polkit 124 and newer also read actions from: used when /usr is
+# read-only (Fedora Silverblue/Kinoite, openSUSE MicroOS and the like).
+readonly POLKIT_ETC_DIR=/etc/polkit-1/actions
+readonly POLKIT_ETC_SINCE=124
 readonly POLICY=io.github.lucastelso.ipsecclient.policy
 # Required bundle files (the app checks the same list).
 readonly REQUIRED=(
@@ -55,7 +61,7 @@ do_uninstall() {
     systemctl disable --now ipsec-client-helper.socket 2>/dev/null || true
     systemctl stop ipsec-client-helper.service 2>/dev/null || true
     rm -f "$UNIT_DIR/ipsec-client-helper.socket" "$UNIT_DIR/ipsec-client-helper.service"
-    rm -f "$POLKIT_DIR/$POLICY"
+    rm -f "$POLKIT_DIR/$POLICY" "$POLKIT_ETC_DIR/$POLICY" 2>/dev/null || true
     rm -rf "${PREFIX:?}"
     systemctl daemon-reload
     log "removed"
@@ -86,8 +92,26 @@ verify_bundle() {
     fi
 }
 
+# Directory for the polkit policy (printed). The usual one if it can be
+# written; on a read-only /usr, the one in /etc, which only polkit 124 or
+# newer reads. Decided before anything is installed.
+choose_polkit_dir() {
+    if [[ -d $POLKIT_DIR && -w $POLKIT_DIR ]]; then
+        printf '%s' "$POLKIT_DIR"
+        return 0
+    fi
+    [[ -d $POLKIT_DIR ]] || die "$POLKIT_DIR does not exist; install polkit first"
+    local version
+    version=$(pkaction --version 2>/dev/null | grep -oE '[0-9]+' | head -n 1 || true)
+    if [[ -n $version ]] && ((10#$version >= POLKIT_ETC_SINCE)); then
+        printf '%s' "$POLKIT_ETC_DIR"
+        return 0
+    fi
+    die "$POLKIT_DIR is read-only, and this polkit (version ${version:-unknown}) only reads policies from there; polkit $POLKIT_ETC_SINCE or newer is needed on a system with a read-only /usr"
+}
+
 do_install() {
-    local bundle="" origin=manual work
+    local bundle="" origin=manual work polkit_dir
     while (($# > 0)); do
         case $1 in
         --bundle) bundle=${2:?}; shift 2 ;;
@@ -105,6 +129,7 @@ do_install() {
     # shellcheck disable=SC2064 # the path is fixed now, on purpose
     trap "rm -rf '$work'" EXIT
     verify_bundle "$bundle" "$work"
+    polkit_dir=$(choose_polkit_dir)
 
     log "installing in $PREFIX"
     systemctl stop ipsec-client-engine.service 2>/dev/null || true
@@ -128,13 +153,17 @@ do_install() {
 
     install -m 0644 "$work/packaging/systemd/ipsec-client-helper.socket" "$UNIT_DIR/"
     install -m 0644 "$work/packaging/systemd/ipsec-client-helper.service" "$UNIT_DIR/"
-    install -m 0644 "$work/packaging/polkit/$POLICY" "$POLKIT_DIR/$POLICY"
+    if [[ $polkit_dir != "$POLKIT_DIR" ]]; then
+        log "$POLKIT_DIR is read-only: the polkit policy goes to $polkit_dir"
+        install -d -m 0755 "$polkit_dir"
+    fi
+    install -m 0644 "$work/packaging/polkit/$POLICY" "$polkit_dir/$POLICY"
 
     # SELinux: default labels on the copied files (otherwise they may inherit
     # the label of the temporary directory they came from).
     if command -v restorecon >/dev/null 2>&1; then
         restorecon -RF "$PREFIX" "$UNIT_DIR/ipsec-client-helper.socket" \
-            "$UNIT_DIR/ipsec-client-helper.service" "$POLKIT_DIR/$POLICY" 2>/dev/null || true
+            "$UNIT_DIR/ipsec-client-helper.service" "$polkit_dir/$POLICY" 2>/dev/null || true
     fi
 
     systemctl daemon-reload
