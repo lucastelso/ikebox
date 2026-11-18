@@ -66,6 +66,22 @@ component_ok() {
     ok "$name: network component intact ($(grep -h '^version=' "$net/VERSION"), strongSwan with the patches, static: GMP $(sed -n 's/^gmp=\([^ ]*\).*/\1/p' <<<"$info"), musl $(sed -n 's/^musl=\([^ ]*\).*/\1/p' <<<"$info"))"
 }
 
+# The command line the .rpm/.deb carry: the binary (same version as the
+# component), its manual page and the shell completions.
+cli_ok() {
+    local root=$1 name=$2 version
+    [[ -x $root/usr/bin/ipsec-client-cli ]] || fail "$name: ipsec-client-cli missing"
+    version=$(sed -n 's/^version=//p' "$root/usr/lib/ipsec-client/network/VERSION")
+    [[ $("$root/usr/bin/ipsec-client-cli" --version) == "ipsec-client-cli $version" ]] ||
+        fail "$name: ipsec-client-cli is not version $version"
+    gzip -t "$root/usr/share/man/man1/ipsec-client-cli.1.gz" ||
+        fail "$name: manual page missing or corrupted"
+    [[ -s $root/usr/share/bash-completion/completions/ipsec-client-cli &&
+        -s $root/usr/share/fish/vendor_completions.d/ipsec-client-cli.fish ]] ||
+        fail "$name: shell completions missing"
+    ok "$name: ipsec-client-cli $version, manual page and completions"
+}
+
 mkdir "$work/appimage" "$work/deb" "$work/rpm"
 (cd "$work/appimage" && "${appimages[0]}" --appimage-extract >/dev/null) ||
     fail "AppImage: could not extract the package"
@@ -83,10 +99,20 @@ ok "AppImage: requires glibc $glibc, counting the bundled libraries (limit $MAX_
 (cd "$work/deb" && ar x "${debs[0]}" && tar -xf data.tar.*) ||
     fail "deb: could not extract the package"
 component_ok "$work/deb" "deb"
+cli_ok "$work/deb" "deb"
+# The maintainer scripts that install and remove the component (ADR-0018).
+(cd "$work/deb" && tar -xf control.tar.* ./postinst ./prerm 2>/dev/null) ||
+    fail "deb: postinst/prerm missing"
+if ! grep -q 'install-native.sh" install --bundle' "$work/deb/postinst" ||
+    ! grep -q 'install-native.sh" uninstall' "$work/deb/prerm"; then
+    fail "deb: postinst/prerm do not manage the network component"
+fi
+ok "deb: postinst installs and prerm removes the network component"
 
-# O rpm2cpio do Ubuntu 22.04 extrai os pacotes do Tauri por inteiro, mas sai
-# com 1. Quem decide é a conferência do componente logo abaixo: uma extração
-# incompleta falha nela.
+# Ubuntu 22.04's rpm2cpio extracts Tauri's packages completely but exits
+# with 1. The component check right below decides: an incomplete extraction
+# fails there.
 (cd "$work/rpm" && { rpm2cpio "${rpms[0]}" || true; } | cpio -idm --quiet) ||
     fail "rpm: could not extract the package"
 component_ok "$work/rpm" "rpm"
+cli_ok "$work/rpm" "rpm"

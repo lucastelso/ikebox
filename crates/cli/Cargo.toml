@@ -23,6 +23,8 @@ docker = ["ipsec-client-core/docker"]
 [dependencies]
 anyhow = "1.0.104"
 clap = { version = "4.6.7", features = ["derive"] }
+clap_complete = "4.6.12"
+clap_mangen = "0.3.4"
 ipsec-client-core = { path = "../core" }
 rpassword = "7.5.5"
 secrecy = "0.10.3"

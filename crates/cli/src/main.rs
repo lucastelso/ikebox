@@ -23,7 +23,7 @@ use std::process::ExitCode;
 use std::time::Duration;
 
 use anyhow::{Context, bail};
-use clap::{Parser, Subcommand};
+use clap::{CommandFactory, Parser, Subcommand};
 use ipsec_client_core::diagnostics::{self, CheckStatus};
 use ipsec_client_core::profiles::{
     CredentialKind, DnsSettings, LegacyFormat, Profile, ProfileError, ProfileStore, SecurityLevel,
@@ -105,6 +105,14 @@ enum Command {
         #[arg(long)]
         anonymize: bool,
     },
+    /// Prints the shell completion script (bash, zsh, fish, elvish, powershell).
+    Completions {
+        /// Shell.
+        shell: clap_complete::Shell,
+    },
+    /// Prints the manual page (roff), used to build the packages.
+    #[command(hide = true)]
+    Manpage,
 }
 
 #[derive(Debug, Subcommand)]
@@ -379,6 +387,19 @@ async fn run(cli: Cli) -> anyhow::Result<ExitCode> {
             lines,
             anonymize,
         } => logs(follow, lines, anonymize).await,
+        Command::Completions { shell } => {
+            clap_complete::generate(
+                shell,
+                &mut Cli::command(),
+                "ipsec-client-cli",
+                &mut std::io::stdout(),
+            );
+            Ok(ExitCode::SUCCESS)
+        }
+        Command::Manpage => {
+            clap_mangen::Man::new(Cli::command()).render(&mut std::io::stdout())?;
+            Ok(ExitCode::SUCCESS)
+        }
     }
 }
 
