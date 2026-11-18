@@ -64,11 +64,18 @@
   CI fixes of step 44. The release pages of 0.1.0–0.9.0 are recreated from
   `docs/releases/` and the local packages (checked against their
   `SHA256SUMS` and with `check-private.sh --artifacts`, all clean).
-  **Next: phase A.**
+  **Phase A is done** (step 50): P2, P3 and P4 closed, every download of
+  the release build pinned, CI hygiene. **Next: phase B** (complete
+  packages: rpm/deb scripts that manage the network component, the CLI in
+  the packages, AppStream, third-party licenses).
 - **Waiting for the maintainer:**
-  1. After the switch, `git config --unset remote.origin.tagOpt` (it kept a
+  1. A quick look at the app after the Tauri update (phase A): open it,
+     connect, check the tray. A development build is in
+     `target/release-artifacts/0.9.0-dev-1871e2428f69/`; `npm run
+     release:build` from `main` makes a newer one.
+  2. After the switch, `git config --unset remote.origin.tagOpt` (it kept a
      fetch from the old repository from bringing `v0.1.1` back).
-  2. P8 (`initiator_only`) is not concluded: it needs a session longer than
+  3. P8 (`initiator_only`) is not concluded: it needs a session longer than
      the gateway's phase 1 lifetime (the [audit report](audits/v0.2.0.md)
      has the steps). It is outside 1.0.
 
