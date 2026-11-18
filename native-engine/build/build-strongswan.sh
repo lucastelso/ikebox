@@ -83,6 +83,9 @@ configure_flags=(
     # single DES and MD4 stay in strongSwan's own plugins (OpenSSL 3 has them
     # only in its legacy provider, which a static build cannot load).
     --enable-openssl
+    # charon runs without root with ambient capabilities (ADR-0028): it must
+    # see them (capget, no libcap), or it disables its sockets and netlink.
+    --with-capabilities=native
     --enable-pem --enable-pkcs1 --enable-pkcs8 --enable-x509 --enable-pubkey
     --enable-xauth-generic --enable-updown --enable-unity
     # IKEv2 + EAP-MSCHAPv2 (ADR-0023): the EAP identity exchange, MSCHAPv2
@@ -106,7 +109,11 @@ CFLAGS="$cflags" LDFLAGS="-static" ./configure "${configure_flags[@]}" >/build/c
 log "make -j$(nproc)"
 # -all-static: libtool's way of linking the executables fully static (its
 # -static would still take libc as a shared library).
-make -j"$(nproc)" LDFLAGS="-all-static" >/build/make.log 2>&1 || { tail -n 60 /build/make.log; exit 1; }
+# capget/capset declarations for the native capability backend (ADR-0028),
+# only when compiling (CPPFLAGS adds to configure's flags): in configure they
+# would clash with its own test of capset.
+make -j"$(nproc)" LDFLAGS="-all-static" \
+    CPPFLAGS="-include /usr/local/include/musl-capabilities.h" >/build/make.log 2>&1 || { tail -n 60 /build/make.log; exit 1; }
 make install DESTDIR="$STAGE" >/build/install.log 2>&1 || { tail -n 30 /build/install.log; exit 1; }
 
 root="$STAGE$PREFIX"

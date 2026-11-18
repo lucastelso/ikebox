@@ -8,6 +8,13 @@
 #    ou root:<gid>, 0660, no engine Docker).
 # 5. No SIGTERM (docker stop): encerra o charon e desfaz tudo.
 #
+# Embedded engine (ADR-0028): this script stays root, inside the sandbox, for
+# what needs it (the interface, handing the socket over, DNS, cleanup), and
+# charon runs as IPSEC_CLIENT_ENGINE_USER with only the network capabilities.
+# DNS needs root (systemd-resolved does not accept CAP_NET_ADMIN), so the
+# updown, unprivileged, only asks for it through a FIFO; this script checks
+# the request and applies it to the session's interface only.
+#
 # Variables (see docs/architecture.md):
 #   IPSEC_CLIENT_IFACE       nome da interface XFRM          (padrão: ipsc0)
 #   IPSEC_CLIENT_IF_ID       if_id das SAs/políticas, 1..2^32-1 (obrigatória)
@@ -30,6 +37,8 @@
 #   IPSEC_CLIENT_DNS_SERVERS IPs dos DNS fixos, separados por vírgula
 #   IPSEC_CLIENT_DNS_DOMAINS domínios (~dominio, ~.), separados por vírgula
 #   IPSEC_CLIENT_DNS_FLAGS   use-received e/ou default-route, por vírgula
+#   IPSEC_CLIENT_ENGINE_USER system user charon runs as (embedded engine,
+#                            ADR-0028); empty: charon runs as root (Docker)
 
 set -euo pipefail
 
@@ -52,11 +61,19 @@ UPDOWN=${IPSEC_CLIENT_UPDOWN:-}
 DNS_SERVERS=${IPSEC_CLIENT_DNS_SERVERS:-}
 DNS_DOMAINS=${IPSEC_CLIENT_DNS_DOMAINS:-}
 DNS_FLAGS=${IPSEC_CLIENT_DNS_FLAGS:-}
+ENGINE_USER=${IPSEC_CLIENT_ENGINE_USER:-}
+ENGINE_UID=""
+ENGINE_GID=""
 # Argumentos do updown forçado (diretório só do root).
 ARGS_DIR=${IPSEC_CLIENT_STATE_DIR:-/run/ipsec-client-engine}
 UPDOWN_ARGS="$ARGS_DIR/updown.args"
+# DNS requests from the unprivileged updown (ADR-0028).
+DNS_FIFO="$ARGS_DIR/dns.requests"
+# Capabilities charon keeps when it does not run as root.
+readonly CHARON_CAPS=net_admin,net_bind_service,net_raw
 
 charon_pid=""
+dns_fd=""
 
 log() { printf '[engine] %s\n' "$*" >&2; }
 die() {
@@ -99,6 +116,16 @@ validate_env() {
     if [[ -n $UPDOWN ]]; then
         [[ -f $UPDOWN && -x $UPDOWN ]] || die "updown not found: $UPDOWN"
         validate_dns_env
+    fi
+    if [[ -n $ENGINE_USER ]]; then
+        [[ $ENGINE_USER =~ ^[a-z_][a-z0-9_-]{0,31}$ ]] || die "invalid IPSEC_CLIENT_ENGINE_USER"
+        [[ -n $STATE_DIR && -n $SOCKET_UID && -n $UPDOWN ]] ||
+            die "IPSEC_CLIENT_ENGINE_USER needs the embedded engine (state dir, socket uid, updown)"
+        command -v setpriv >/dev/null || die "setpriv (util-linux) is needed to run charon without root"
+        ENGINE_UID=$(id -u "$ENGINE_USER" 2>/dev/null) ||
+            die "user $ENGINE_USER does not exist; reinstall the network component"
+        ENGINE_GID=$(id -g "$ENGINE_USER")
+        ((ENGINE_UID != 0)) || die "$ENGINE_USER must not be root"
     fi
     # Normaliza zeros à esquerda.
     IF_ID=$((10#$IF_ID))
@@ -148,8 +175,16 @@ write_updown_args() {
         if [[ ,$DNS_FLAGS, == *,default-route,* ]]; then
             printf '%s\n' --dns-default-route
         fi
+        if [[ -n $ENGINE_USER ]]; then
+            printf '%s\n' --dns-fifo "$DNS_FIFO"
+        fi
     } >"$UPDOWN_ARGS.tmp"
     chmod 0600 "$UPDOWN_ARGS.tmp"
+    # Still root's file (the updown checks it), readable by charon's group.
+    if [[ -n $ENGINE_USER ]]; then
+        chgrp "$ENGINE_GID" "$UPDOWN_ARGS.tmp"
+        chmod 0640 "$UPDOWN_ARGS.tmp"
+    fi
     mv -f "$UPDOWN_ARGS.tmp" "$UPDOWN_ARGS"
 }
 
@@ -237,6 +272,12 @@ cleanup() {
     ip -6 route flush proto "$RT_PROTO" >/dev/null 2>&1 || true
     flush_stale_xfrm
     rm -f "$SOCKET" "$UPDOWN_ARGS"
+    if [[ -n $ENGINE_USER ]]; then
+        rm -f "$DNS_FIFO"
+        # Back to what the helper made: only root writes there.
+        chgrp 0 "$SOCKET_DIR" 2>/dev/null || true
+        chmod 0711 "$SOCKET_DIR" 2>/dev/null || true
+    fi
 }
 
 create_iface() {
@@ -280,10 +321,135 @@ write_runtime_conf() {
         # base e sobrescreve o que depende da sessão.
         printf '# Gerado pelo entrypoint do ipsec-client. Não editar.\ninclude %s\n%s\n' \
             "$BASE_CONF" "$overrides" >"$STATE_DIR/strongswan.conf"
+        if [[ -n $ENGINE_USER ]]; then
+            chgrp "$ENGINE_GID" "$STATE_DIR/strongswan.conf"
+            chmod 0640 "$STATE_DIR/strongswan.conf"
+        fi
         export STRONGSWAN_CONF="$STATE_DIR/strongswan.conf"
     else
         printf '# Gerado pelo entrypoint do ipsec-client. Não editar.\n%s\n' "$overrides" >"$RUNTIME_CONF"
     fi
+}
+
+# --- charon without root (ADR-0028) -----------------------------------------
+
+is_ipv4() {
+    local IFS=. octet
+    [[ $1 =~ ^[0-9]{1,3}(\.[0-9]{1,3}){3}$ ]] || return 1
+    # shellcheck disable=SC2086 # split on the dots on purpose
+    for octet in $1; do
+        ((10#$octet <= 255)) || return 1
+    done
+}
+is_ipv6() { [[ $1 =~ ^[0-9A-Fa-f:.]{2,45}$ && $1 == *:* ]]; }
+is_ip() { is_ipv4 "$1" || is_ipv6 "$1"; }
+
+# What charon, as ENGINE_USER, may touch: its runtime directory (sticky:
+# it creates its pid file, but cannot remove or replace root's files there),
+# the socket directory (to create the VICI socket; the session user still
+# only traverses it), and the FIFO where the updown asks for DNS. The FIFO is
+# opened here before charon starts, so a writer never blocks and the reads
+# never see an end of file.
+prepare_engine_access() {
+    chgrp "$ENGINE_GID" "$STATE_DIR" "$SOCKET_DIR"
+    chmod 1770 "$STATE_DIR"
+    chmod 1731 "$SOCKET_DIR"
+    rm -f "$DNS_FIFO"
+    mkfifo -m 0600 "$DNS_FIFO"
+    chgrp "$ENGINE_GID" "$DNS_FIFO"
+    chmod 0620 "$DNS_FIFO"
+    exec {dns_fd}<>"$DNS_FIFO"
+}
+
+# charon as ENGINE_USER, with the network capabilities only, also for every
+# program it starts (the updown, ip): they are ambient, and the bounding set
+# keeps the others from ever coming back.
+start_charon() {
+    if [[ -n $ENGINE_USER ]]; then
+        local caps
+        caps=+${CHARON_CAPS//,/,+}
+        setpriv --reuid="$ENGINE_UID" --regid="$ENGINE_GID" --clear-groups \
+            --inh-caps=-all,"$caps" --ambient-caps="$caps" --bounding-set=-all,"$caps" \
+            -- "$CHARON" &
+    else
+        "$CHARON" &
+    fi
+    charon_pid=$!
+}
+
+# The socket is charon's (ENGINE_USER, 0660). Root here has CAP_CHOWN but not
+# CAP_FOWNER: the mode is changed as its owner first, then root hands it to
+# the session user (0600).
+hand_over_socket() {
+    if [[ -n $ENGINE_USER ]]; then
+        setpriv --reuid="$ENGINE_UID" --regid="$ENGINE_GID" --clear-groups \
+            --inh-caps=-all --bounding-set=-all -- chmod 0600 "$SOCKET"
+    else
+        chmod 0600 "$SOCKET"
+    fi
+    chown "$SOCKET_UID:0" "$SOCKET"
+}
+
+# The DNS the updown asked for, applied as root to the session's interface
+# only. The request carries just a verb and the servers the gateway sent;
+# the static servers, the domains and the flags come from this script's own
+# validated environment, never from the request.
+apply_dns() {
+    local -a servers=() received=() domains=() list
+    local item
+    IFS=, read -r -a list <<<"$DNS_SERVERS"
+    servers+=("${list[@]}")
+    if [[ ,$DNS_FLAGS, == *,use-received,* ]]; then
+        read -r -a received <<<"$1"
+        for item in "${received[@]:0:16}"; do
+            if is_ip "$item"; then
+                servers+=("$item")
+            else
+                log "warning: invalid received DNS ignored"
+            fi
+        done
+    fi
+    IFS=, read -r -a domains <<<"$DNS_DOMAINS"
+    ((${#servers[@]} > 0 || ${#domains[@]} > 0)) || return 0
+    # A DNS failure does not bring the tunnel down: it is only logged.
+    if ((${#servers[@]} > 0)); then
+        resolvectl dns "$IFACE" "${servers[@]}" || log "warning: failed to set the DNS servers"
+    fi
+    if ((${#domains[@]} > 0)); then
+        resolvectl domain "$IFACE" "${domains[@]}" || log "warning: failed to set the DNS domains"
+    fi
+    if [[ ,$DNS_FLAGS, == *,default-route,* ]]; then
+        resolvectl default-route "$IFACE" yes || true
+    else
+        resolvectl default-route "$IFACE" no || true
+    fi
+    resolvectl flush-caches || true
+    log "DNS on $IFACE: servers [${servers[*]}] domains [${domains[*]}]"
+}
+
+revert_dns() {
+    # With several networks per connection, only when the last route is gone.
+    if [[ -z "$(ip -4 route show dev "$IFACE" proto "$RT_PROTO" 2>/dev/null)$(ip -6 route show dev "$IFACE" proto "$RT_PROTO" 2>/dev/null)" ]]; then
+        resolvectl revert "$IFACE" 2>/dev/null || true
+        resolvectl flush-caches 2>/dev/null || true
+        log "DNS of $IFACE reverted"
+    fi
+}
+
+# Serves the updown's DNS requests while charon runs. One line per request,
+# at most 1 KiB: "up <servers received from the gateway>" or "down".
+serve_dns_requests() {
+    local line verb rest
+    while kill -0 "$charon_pid" 2>/dev/null; do
+        if IFS= read -r -t 1 -n 1024 -u "$dns_fd" line; then
+            read -r verb rest <<<"$line"
+            case $verb in
+            up) apply_dns "$rest" ;;
+            down) revert_dns ;;
+            *) log "warning: unknown DNS request ignored" ;;
+            esac
+        fi
+    done
 }
 
 wait_for_socket() {
@@ -326,24 +492,24 @@ main() {
     create_iface
     write_runtime_conf
     rm -f /var/run/charon.pid /run/charon.pid 2>/dev/null || true
+    [[ -z $ENGINE_USER ]] || prepare_engine_access
 
-    "$CHARON" &
-    charon_pid=$!
+    start_charon
 
     wait_for_socket
     if [[ -n $SOCKET_UID ]]; then
         # Só o dono da sessão conecta (o diretório do socket é do root). O
         # chmod vem antes: depois do chown, o root sem CAP_FOWNER (sandbox do
         # engine embutido) não pode mais mudar a permissão.
-        chmod 0600 "$SOCKET"
-        chown "$SOCKET_UID:0" "$SOCKET"
-        log "ready: VICI socket handed over to uid $SOCKET_UID"
+        hand_over_socket
+        log "ready: VICI socket handed over to uid $SOCKET_UID${ENGINE_USER:+ (charon runs as $ENGINE_USER)}"
     else
         chgrp "$SOCKET_GID" "$SOCKET"
         chmod 0660 "$SOCKET"
         log "ready: VICI socket handed over to gid $SOCKET_GID"
     fi
 
+    [[ -z $ENGINE_USER ]] || serve_dns_requests
     local status=0
     wait "$charon_pid" || status=$?
     # Só chega aqui se o charon morrer sozinho (o SIGTERM sai pelo trap).

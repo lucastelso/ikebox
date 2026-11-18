@@ -9,6 +9,8 @@ and the project uses [Semantic Versioning](https://semver.org/).
 
 ### Added
 
+- `npm run test:modes` has the gateway renew phase 1 and phase 2 while
+  connected (IKEv1): the client answers and keeps the tunnel.
 - **ECDSA certificates and ECP groups** ([ADR-0027](docs/adr/0027-openssl-in-the-engine.md)):
   the embedded engine links OpenSSL, so gateway CAs and your own `.p12`
   may be ECDSA, and the ECP Diffie-Hellman groups (ecp256, ecp384, ecp521)
@@ -39,6 +41,11 @@ and the project uses [Semantic Versioning](https://semver.org/).
 
 ### Changed
 
+- **charon runs without root** ([ADR-0028](docs/adr/0028-charon-without-root.md)):
+  as the new `ipsec-client-engine` system user, with only `NET_ADMIN`; the
+  VPN DNS is applied by the engine's root part, on the session's interface
+  only. The packages now require `setpriv` (util-linux). The network
+  component changes: update it.
 - strongSwan maintenance policy recorded ([ADR-0026](docs/adr/0026-strongswan-maintenance-policy.md)):
   when upstream removes IKEv1, the engine stays on the last release with it
   and receives upstream's security fixes (audit P1).

@@ -89,7 +89,7 @@ inside() {
         { echo "RESULT bundle=FAILED"; exit 1; }
 
     # Called by the app (pkexec), the installer and the engine scripts.
-    for tool in pkexec ip systemctl systemd-run journalctl bash tar gzip sha256sum install \
+    for tool in pkexec ip systemctl systemd-run journalctl setpriv bash tar gzip sha256sum install \
         mktemp find awk grep sed stat seq cp chmod chown id; do
         PATH=/usr/sbin:/usr/bin:/sbin:/bin command -v "$tool" >/dev/null 2>&1 || missing+=("$tool")
     done
@@ -107,6 +107,7 @@ inside() {
         { echo "RESULT component-version=FAILED"; exit 1; }
     [[ -L $units/sockets.target.wants/ipsec-client-helper.socket ]] ||
         { echo "RESULT socket-enabled=FAILED"; exit 1; }
+    id -u ipsec-client-engine >/dev/null 2>&1 || { echo "RESULT engine-user=FAILED"; exit 1; }
 
     # Removing the package removes the component: no root helper, unit,
     # enabled socket or polkit policy may be left behind.

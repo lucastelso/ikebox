@@ -17,12 +17,23 @@ pub const ENGINE_RUNTIME_DIR: &str = "/run/ipsec-client-engine";
 /// engine runs at a time, so one value is enough.
 pub const ENGINE_IF_ID: u32 = 0x4950_4331;
 
-/// Capabilities que o engine pode ter:
-/// - `NET_ADMIN`: XFRM, rotas, endereços e interface;
-/// - `NET_BIND_SERVICE`: portas UDP 500/4500;
-/// - `NET_RAW`: sockets do charon;
-/// - `CHOWN`: entregar o socket VICI ao usuário.
-const CAPABILITIES: &str = "CAP_NET_ADMIN CAP_NET_BIND_SERVICE CAP_NET_RAW CAP_CHOWN";
+/// System user charon runs as (ADR-0028), created by the installer.
+pub const ENGINE_USER: &str = "ipsec-client-engine";
+
+/// Capabilities the engine unit may have. charon itself keeps only the first
+/// three (ambient, and its bounding set reduced to them by the entrypoint);
+/// the others are for the entrypoint, which stays root:
+/// - `NET_ADMIN`: XFRM, routes, addresses and the interface;
+/// - `NET_BIND_SERVICE`: UDP ports 500/4500;
+/// - `NET_RAW`: charon's sockets;
+/// - `CHOWN`: hand the VICI socket over to the user, and give charon's group
+///   its directories;
+/// - `SETUID`, `SETGID`, `SETPCAP`: start charon as [`ENGINE_USER`] with
+///   only the network capabilities;
+/// - `KILL`: signal charon, which is another user's process (stop it
+///   gracefully, check that it is alive).
+const CAPABILITIES: &str = "CAP_NET_ADMIN CAP_NET_BIND_SERVICE CAP_NET_RAW CAP_CHOWN \
+                            CAP_SETUID CAP_SETGID CAP_SETPCAP CAP_KILL";
 
 /// Quem pede e onde estão os arquivos do engine.
 #[derive(Debug, Clone)]
@@ -82,7 +93,7 @@ pub fn engine_run_args(launch: &Launch<'_>) -> Vec<String> {
         "MemoryDenyWriteExecute=yes".to_owned(),
         "SystemCallArchitectures=native".to_owned(),
         "RestrictAddressFamilies=AF_UNIX AF_INET AF_INET6 AF_NETLINK".to_owned(),
-        // O engine roda como root: sem /dev de verdade (discos), sem gravar
+        // The entrypoint runs as root: sem /dev de verdade (discos), sem gravar
         // em /proc/sys e /sys (core_pattern, modprobe), sem ver outros
         // processos nem o log do kernel (ADR-0019).
         "PrivateDevices=yes".to_owned(),
@@ -141,6 +152,7 @@ pub fn engine_run_args(launch: &Launch<'_>) -> Vec<String> {
         ),
         ("IPSEC_CLIENT_PROFILE", p.profile_id.clone()),
         ("IPSEC_CLIENT_OWNER_UID", launch.uid.to_string()),
+        ("IPSEC_CLIENT_ENGINE_USER", ENGINE_USER.to_owned()),
         ("PATH", "/usr/sbin:/usr/bin:/sbin:/bin".to_owned()),
     ];
     for (key, value) in env {
@@ -330,7 +342,8 @@ mod tests {
         assert!(has("--property=NoNewPrivileges=yes"));
         assert!(has("--property=LimitCORE=0"));
         assert!(has(
-            "--property=CapabilityBoundingSet=CAP_NET_ADMIN CAP_NET_BIND_SERVICE CAP_NET_RAW CAP_CHOWN"
+            "--property=CapabilityBoundingSet=CAP_NET_ADMIN CAP_NET_BIND_SERVICE CAP_NET_RAW \
+             CAP_CHOWN CAP_SETUID CAP_SETGID CAP_SETPCAP CAP_KILL"
         ));
         assert!(has("--property=ReadWritePaths=/run/ipsec-client/1000"));
         assert!(has(
@@ -343,6 +356,7 @@ mod tests {
         assert!(has(&format!("--setenv=IPSEC_CLIENT_IF_ID={ENGINE_IF_ID}")));
         assert!(!args.iter().any(|a| a.contains("IF_ID=4096")));
         assert!(has("--setenv=IPSEC_CLIENT_SOCKET_UID=1000"));
+        assert!(has("--setenv=IPSEC_CLIENT_ENGINE_USER=ipsec-client-engine"));
         assert!(has(
             "--setenv=IPSEC_CLIENT_UPDOWN=/opt/ipsec-client/libexec/updown"
         ));
