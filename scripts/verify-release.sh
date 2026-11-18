@@ -80,6 +80,11 @@ cli_ok() {
         -s $root/usr/share/fish/vendor_completions.d/ipsec-client-cli.fish ]] ||
         fail "$name: shell completions missing"
     ok "$name: ipsec-client-cli $version, manual page and completions"
+    local meta=$root/usr/share/metainfo/io.github.lucastelso.ipsecclient.metainfo.xml
+    [[ -f $meta ]] || fail "$name: AppStream metainfo missing"
+    grep -q "<release version=\"$version\"" "$meta" ||
+        fail "$name: the AppStream metainfo has no <release> for $version (docs/release.md)"
+    ok "$name: AppStream metainfo with release $version"
 }
 
 mkdir "$work/appimage" "$work/deb" "$work/rpm"

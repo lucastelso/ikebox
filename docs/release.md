@@ -17,6 +17,10 @@ them on **GitHub Releases**. To install the app, see the
    ```
 
 2. In `CHANGELOG.md`, add the `## [X.Y.Z] - YYYY-MM-DD` section.
+   Add the same version to the AppStream metadata
+   (`src-tauri/linux/io.github.lucastelso.ipsecclient.metainfo.xml`, a
+   `<release>` at the top of `<releases>`); `verify-release.sh` refuses
+   packages without it.
 3. Write the release notes in `docs/releases/vX.Y.Z.md` (English) and
    `docs/releases/vX.Y.Z.pt-BR.md` (Portuguese): they are the text of the
    release page. Use the previous ones as a template.

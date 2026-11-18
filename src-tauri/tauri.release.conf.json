@@ -14,7 +14,8 @@
           "/usr/share/man/man1/ipsec-client-cli.1.gz": "../target/cli-assets/ipsec-client-cli.1.gz",
           "/usr/share/bash-completion/completions/ipsec-client-cli": "../target/cli-assets/ipsec-client-cli.bash",
           "/usr/share/fish/vendor_completions.d/ipsec-client-cli.fish": "../target/cli-assets/ipsec-client-cli.fish",
-          "/usr/share/zsh/vendor-completions/_ipsec-client-cli": "../target/cli-assets/_ipsec-client-cli"
+          "/usr/share/zsh/vendor-completions/_ipsec-client-cli": "../target/cli-assets/_ipsec-client-cli",
+          "/usr/share/metainfo/io.github.lucastelso.ipsecclient.metainfo.xml": "linux/io.github.lucastelso.ipsecclient.metainfo.xml"
         }
       },
       "rpm": {
@@ -23,7 +24,8 @@
           "/usr/share/man/man1/ipsec-client-cli.1.gz": "../target/cli-assets/ipsec-client-cli.1.gz",
           "/usr/share/bash-completion/completions/ipsec-client-cli": "../target/cli-assets/ipsec-client-cli.bash",
           "/usr/share/fish/vendor_completions.d/ipsec-client-cli.fish": "../target/cli-assets/ipsec-client-cli.fish",
-          "/usr/share/zsh/site-functions/_ipsec-client-cli": "../target/cli-assets/_ipsec-client-cli"
+          "/usr/share/zsh/site-functions/_ipsec-client-cli": "../target/cli-assets/_ipsec-client-cli",
+          "/usr/share/metainfo/io.github.lucastelso.ipsecclient.metainfo.xml": "linux/io.github.lucastelso.ipsecclient.metainfo.xml"
         }
       }
     }

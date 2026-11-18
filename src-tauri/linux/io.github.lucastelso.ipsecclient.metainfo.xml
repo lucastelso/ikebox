@@ -1,0 +1,91 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!-- AppStream metadata: what GNOME Software, Discover and other software
+     centres show for the installed app and for a downloaded .rpm/.deb.
+     Installed in /usr/share/metainfo/ by the packages. Add a <release> for
+     every version (docs/release.md). -->
+<component type="desktop-application">
+  <id>io.github.lucastelso.ipsecclient</id>
+  <metadata_license>CC0-1.0</metadata_license>
+  <project_license>GPL-3.0-or-later</project_license>
+
+  <name>IPsec Client</name>
+  <summary>Connect to IPsec VPNs, including legacy ones</summary>
+  <summary xml:lang="pt-BR">Conecte a VPNs IPsec, inclusive as legadas</summary>
+
+  <description>
+    <p>
+      IPsec Client connects to corporate IPsec VPNs that current Linux tools
+      can no longer reach: IKEv1 in aggressive or main mode, group PSK with
+      XAuth, old algorithms. It also connects to IKEv2 with a PSK, a username
+      and password (EAP-MSCHAPv2) or your own certificate.
+    </p>
+    <p xml:lang="pt-BR">
+      O IPsec Client conecta a VPNs IPsec corporativas que as ferramentas
+      atuais do Linux já não alcançam: IKEv1 em modo agressivo ou principal,
+      PSK de grupo com XAuth, algoritmos antigos. Também conecta a IKEv2 com
+      PSK, usuário e senha (EAP-MSCHAPv2) ou o seu próprio certificado.
+    </p>
+    <p>
+      It ships its own strongSwan, so nothing in the system is weakened, and
+      keeps credentials in the system keyring.
+    </p>
+    <p xml:lang="pt-BR">
+      Ele traz o próprio strongSwan, sem enfraquecer nada no sistema, e guarda
+      as credenciais no chaveiro do sistema.
+    </p>
+    <ul>
+      <li>Profiles imported from a file or from other VPN clients, or created in the app</li>
+      <li xml:lang="pt-BR">Perfis importados de um arquivo ou de outros clientes de VPN, ou criados no app</li>
+      <li>A security level for every profile, with the reasons</li>
+      <li xml:lang="pt-BR">Um nível de segurança para cada perfil, com os motivos</li>
+      <li>Clear diagnosis of connection failures</li>
+      <li xml:lang="pt-BR">Diagnóstico claro das falhas de conexão</li>
+      <li>Tray icon, notifications and a command line</li>
+      <li xml:lang="pt-BR">Ícone na bandeja, notificações e linha de comando</li>
+    </ul>
+  </description>
+
+  <launchable type="desktop-id">ipsec-client.desktop</launchable>
+
+  <categories>
+    <category>Network</category>
+  </categories>
+  <keywords>
+    <keyword>VPN</keyword>
+    <keyword>IPsec</keyword>
+    <keyword>IKE</keyword>
+    <keyword>XAuth</keyword>
+    <keyword>strongSwan</keyword>
+  </keywords>
+
+  <url type="homepage">https://github.com/lucastelso/ipsec-client</url>
+  <url type="bugtracker">https://github.com/lucastelso/ipsec-client/issues</url>
+  <url type="vcs-browser">https://github.com/lucastelso/ipsec-client</url>
+
+  <developer id="io.github.lucastelso">
+    <name>IPsec Client contributors</name>
+  </developer>
+
+  <provides>
+    <binary>ipsec-client</binary>
+    <binary>ipsec-client-cli</binary>
+  </provides>
+
+  <requires>
+    <display_length compare="ge">360</display_length>
+  </requires>
+  <supports>
+    <control>pointing</control>
+    <control>keyboard</control>
+  </supports>
+
+  <content_rating type="oars-1.1"/>
+
+  <releases>
+    <release version="0.9.0" date="2026-11-17">
+      <description>
+        <p>Import profiles from other VPN clients.</p>
+      </description>
+    </release>
+  </releases>
+</component>
