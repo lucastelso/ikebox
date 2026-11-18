@@ -2226,3 +2226,43 @@ lab data for P8, which still needs a long session on the real gateway.
 entrypoint's unit gained SETUID, SETGID, SETPCAP and KILL, while the
 process exposed to the network went from root to an unprivileged uid with
 `NET_ADMIN`.
+
+### Step 54: phase E1, smartcards and tokens (engine, core, CLI)
+
+**The study and the gate.** strongSwan's `pkcs11` plugin loads the token's
+module with `dlopen`, impossible in the static musl engine, and charon (no
+longer root, in no session) would be refused by pcscd anyway. The `agent`
+plugin signs over the ssh-agent protocol and needs only a socket, but VICI
+cannot load such a key. The design keeps the token in the person's own
+process (the app or the CLI), which serves a small ssh-agent; root only
+creates a directory. The maintainer chose to implement it for 1.0
+(ADR-0029).
+
+**What the tests found, in order:**
+
+1. The agent directory was meant to be setgid (`2750`): the engine unit's
+   `RestrictSUIDSGID=yes` refused the `chmod`, rightly. It is `0750`
+   (user, charon's group) with a `0666` socket inside, and the agent
+   checks `SO_PEERCRED`.
+2. SoftHSM always keeps one slot with an uninitialized token; the listing
+   gave up at the first slot it could not open. Slots that do not open are
+   skipped now (real readers can have them too).
+3. The `agent` plugin refused to load without `CAP_DAC_OVERRIDE`,
+   `CAP_SETUID` and `CAP_SETGID` (to open other users' sockets as root):
+   with the socket set by root it loads without them.
+4. ECDSA in IKEv2: the plugin knew only the classic schemes, not RFC
+   7427's DER ones, and, once taught them, still failed: for ECDSA it never
+   read the signature type in the agent's response and took it for the
+   signature. An upstream bug that kept every agent ECDSA signature from
+   working; fixed in the same patch.
+5. IKEv1 RSA signs a hash charon already computed, which no ssh-agent
+   does: a private flag asks IPsec Client's own agent (the only one charon
+   can reach) to sign the data as it is, bounded to a SHA-512 hash.
+6. The foreground CLI left its agent socket behind when the engine stopped
+   under it: `session::stop_token_agent` is called on that path.
+
+**Result:** `test:modes` passes with an emulated token holding alice's keys
+(imported from the test PKI): IKEv2 with RSA and with ECDSA, IKEv1 main
+mode with RSA then XAuth, a wrong PIN said as such, and the PIN absent from
+the journal and the files. `test:compat` (the agent directory on the seven
+distributions), `test:native` and `npm run check` pass.

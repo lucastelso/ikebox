@@ -73,8 +73,10 @@
   groups), ADR-0026 is the strongSwan maintenance policy; validated by the
   maintainer on the real VPN. **Phase D is done** (step 53): charon runs
   without root (ADR-0028), and `test:modes` has the gateway renew phases 1
-  and 2. **Next: phase E** (PKCS#11: study and ADR, implemented only if it
-  passes the gate).
+  and 2. **Phase E1 is done** (step 54): smartcards and tokens
+  (ADR-0029) in the engine, the core and the CLI, tested with an emulated
+  token. **Next: phase E2** (the app's screens for tokens: choose the
+  module and the certificate, the PIN dialog; profiles.md and SECURITY.md).
 - **Waiting for the maintainer:**
   1. A quick look at the app after the Tauri update (phase A): open it,
      connect, check the tray. A development build is in
