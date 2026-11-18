@@ -92,6 +92,17 @@ export const en = {
     certHint:
       'The file is opened here and its key goes to the system keyring; its password is not kept.',
     certNeedsKeyring: 'A client certificate needs the system keyring, which is not available.',
+    tokenTitle: 'Your certificate on the smartcard or token',
+    tokenSearch: 'Look on the connected tokens',
+    tokenOtherModule: 'Other module…',
+    tokenModule: (name: string) => `Module: ${name}`,
+    tokenNone: 'No certificate found. Connect the smartcard or token, or choose its module.',
+    tokenFrom: (label: string) => `On “${label}”`,
+    tokenUnusable: (why: string) => `Cannot be used: ${why}`,
+    tokenPin: 'PIN of the smartcard or token',
+    tokenPinHint: 'Used to unlock the token for this connection; never stored.',
+    tokenKeepOpen:
+      'Keep IPsec Client open while connected: it signs for the VPN with your token when the keys are renewed.',
     otpHint: 'This VPN uses a one-time code: it is asked at every connection and never stored.',
     noKeyring: 'Keyring unavailable: the credentials will be asked on every connection.',
     cancel: 'Cancel',
@@ -207,6 +218,9 @@ export const en = {
       'Optional: the identity the gateway expects. Empty: the subject of your certificate.',
     certNote:
       'Your certificate is imported when you first connect: it never goes in the profile, so the profile can still be shared.',
+    certOnToken: 'The key is on a smartcard or token',
+    certOnTokenHint:
+      'The key never leaves the device; you choose the certificate and type the PIN when connecting.',
     localIdEap: 'Your IKE identity',
     localIdEapHint: "Optional: the identity the gateway expects. Empty: the computer's address.",
     remoteIdCert: "Name in the gateway's certificate",
@@ -468,6 +482,18 @@ export const pt: Messages = {
       'O arquivo é aberto aqui e a chave vai para o chaveiro do sistema; a senha dele não é guardada.',
     certNeedsKeyring:
       'O certificado do cliente precisa do chaveiro do sistema, que não está disponível.',
+    tokenTitle: 'O seu certificado no smartcard ou token',
+    tokenSearch: 'Procurar nos tokens conectados',
+    tokenOtherModule: 'Outro módulo…',
+    tokenModule: (name) => `Módulo: ${name}`,
+    tokenNone:
+      'Nenhum certificado encontrado. Conecte o smartcard ou token, ou escolha o módulo dele.',
+    tokenFrom: (label) => `Em “${label}”`,
+    tokenUnusable: (why) => `Não pode ser usado: ${why}`,
+    tokenPin: 'PIN do smartcard ou token',
+    tokenPinHint: 'Usado para destravar o token nesta conexão; nunca é guardado.',
+    tokenKeepOpen:
+      'Mantenha o IPsec Client aberto enquanto estiver conectado: ele assina pela VPN com o seu token quando as chaves são renovadas.',
     otpHint: 'Esta VPN usa um código de uso único: ele é pedido a cada conexão e nunca é guardado.',
     noKeyring: 'Chaveiro indisponível: as credenciais serão pedidas a cada conexão.',
     cancel: 'Cancelar',
@@ -581,6 +607,9 @@ export const pt: Messages = {
       'Opcional: a identidade que o gateway espera. Vazio: o titular do seu certificado.',
     certNote:
       'O seu certificado é importado na primeira conexão: ele nunca entra no perfil, que continua podendo ser compartilhado.',
+    certOnToken: 'A chave está num smartcard ou token',
+    certOnTokenHint:
+      'A chave nunca sai do dispositivo; você escolhe o certificado e digita o PIN ao conectar.',
     localIdEap: 'Sua identidade IKE',
     localIdEapHint: 'Opcional: a identidade que o gateway espera. Vazio: o endereço do computador.',
     remoteIdCert: 'Nome no certificado do gateway',

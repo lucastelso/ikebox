@@ -230,6 +230,11 @@ pub struct CredentialsInput {
     #[serde(default)]
     #[specta(optional)]
     pub eap_password: Option<String>,
+    /// PIN of the smartcard or token (ADR-0029): used for the login on the
+    /// token and dropped, never stored.
+    #[serde(default)]
+    #[specta(optional)]
+    pub token_pin: Option<String>,
 }
 
 impl fmt::Debug for CredentialsInput {
@@ -241,6 +246,7 @@ impl fmt::Debug for CredentialsInput {
             .field("xauth_password", &given(&self.xauth_password))
             .field("eap_identity", &given(&self.eap_identity))
             .field("eap_password", &given(&self.eap_password))
+            .field("token_pin", &given(&self.token_pin))
             .finish()
     }
 }
@@ -584,8 +590,10 @@ mod tests {
             xauth_password: Some(String::new()),
             eap_identity: Some("usuario.eap".into()),
             eap_password: Some("senha-eap".into()),
+            token_pin: Some("pin-token-9".into()),
         };
         let debug = format!("{input:?}");
+        assert!(!debug.contains("pin-token-9"), "{debug}");
         assert!(
             !debug.contains("psk-secreta")
                 && !debug.contains("usuario")

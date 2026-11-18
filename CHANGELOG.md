@@ -14,8 +14,10 @@ and the project uses [Semantic Versioning](https://semver.org/).
   p11-kit or any module), RSA or ECDSA, in IKEv2 and in IKEv1 main mode
   (with XAuth after it). The token, its module and the PIN stay in your own
   process, which signs for charon; the PIN is never stored. In the CLI:
-  `secrets token-list`, `secrets token-use`, `connect --token-module`; the
-  app's screens come next. The network component changes: update it.
+  `secrets token-list`, `secrets token-use`, `connect --token-module`. In
+  the app, the editor's "The key is on a smartcard or token", and the
+  connection dialog lists the certificates on the connected tokens and asks
+  for the PIN. The network component changes: update it.
 - `npm run test:modes` has the gateway renew phase 1 and phase 2 while
   connected (IKEv1): the client answers and keeps the tunnel.
 - **ECDSA certificates and ECP groups** ([ADR-0027](docs/adr/0027-openssl-in-the-engine.md)):

@@ -349,10 +349,19 @@ export function ProfileEditor({
           </Select>
         </Field>
         {draft.auth === 'certificate' && (
-          <p className="flex gap-1.5 text-xs text-muted-foreground">
-            <Info className="mt-0.5 size-3.5 shrink-0" aria-hidden />
-            {t.certNote}
-          </p>
+          <>
+            <Toggle
+              id={id('token')}
+              label={t.certOnToken}
+              hint={t.certOnTokenHint}
+              checked={draft.token === true}
+              onChange={(v) => setDraft((d) => ({ ...d, token: v }))}
+            />
+            <p className="flex gap-1.5 text-xs text-muted-foreground">
+              <Info className="mt-0.5 size-3.5 shrink-0" aria-hidden />
+              {t.certNote}
+            </p>
+          </>
         )}
         <Field
           id={id('localId')}

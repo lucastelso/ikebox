@@ -105,8 +105,16 @@ a vulnerability"). Do not open public issues for vulnerabilities.
    as a file. The `.p12` password is not stored; the app no longer needs the
    file, and you can delete it. Its names (yours, your e-mail, the
    organization) are masked in the log. RSA, ECDSA and Ed25519 keys are
-   accepted; no smartcards or tokens (PKCS#11) yet
-   ([ADR-0024](docs/adr/0024-client-certificates.md)).
+   accepted ([ADR-0024](docs/adr/0024-client-certificates.md)).
+
+   **With a smartcard or token**, the key never leaves the device: the app
+   (or the CLI) opens it with its PKCS#11 module, in your own session, and
+   signs for the VPN when asked; charon never sees the key or the PIN, and
+   the PIN is never stored. While connected, charon can ask for signatures,
+   as any VPN client authenticating you can, and only through the app's
+   agent, which answers only charon and you. Keep the app open while
+   connected: renewing the keys may need a new signature
+   ([ADR-0029](docs/adr/0029-smartcards-and-tokens.md)).
 
 ### Out of scope
 

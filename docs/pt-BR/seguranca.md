@@ -107,8 +107,16 @@ vulnerabilidades.
    arquivo. A senha do `.p12` não é guardada; o app não precisa mais do
    arquivo, e você pode apagá-lo. Os nomes dele (o seu, o seu e-mail, a
    organização) são mascarados no log. Chaves RSA, ECDSA e Ed25519 são
-   aceitas; ainda sem smartcards ou tokens (PKCS#11)
-   ([ADR-0024](../adr/0024-client-certificates.md), em inglês).
+   aceitas ([ADR-0024](../adr/0024-client-certificates.md), em inglês).
+
+   **Com smartcard ou token**, a chave nunca sai do dispositivo: o app (ou a
+   CLI) o abre com o módulo PKCS#11, na sua própria sessão, e assina pela
+   VPN quando pedido; o charon nunca vê a chave nem o PIN, e o PIN nunca é
+   guardado. Enquanto conectado, o charon pode pedir assinaturas, como
+   qualquer cliente de VPN que autentica você, e só pelo agente do app, que
+   só responde ao charon e a você. Mantenha o app aberto enquanto estiver
+   conectado: a renovação das chaves pode precisar de uma nova assinatura
+   ([ADR-0029](../adr/0029-smartcards-and-tokens.md), em inglês).
 
 ### Fora do escopo
 

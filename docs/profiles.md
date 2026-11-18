@@ -133,6 +133,17 @@ the client and how the gateway authenticates:
   `connect --client-p12`). Modern and old files (3DES/RC2 with SHA-1) are
   read; the key must be **RSA, ECDSA or Ed25519**, and the file's password is never
   stored.
+- **Your certificate on a smartcard or token** (since 1.0,
+  [ADR-0029](adr/0029-smartcards-and-tokens.md)): the same round with
+  `"token": true` (`{ "method": "certificate", "token": true }`). The key
+  stays on the device. When you first connect, the app lists the
+  certificates on the connected tokens (through p11-kit, which offers
+  OpenSC, YubiKey and vendor modules; another module file can be chosen) and
+  remembers your choice in the keyring; the PIN is asked at every
+  connection and never stored. In the CLI: `secrets token-list`,
+  `secrets token-use`, or `connect --token-module`. RSA works in IKEv2 and
+  in IKEv1 main mode (with XAuth after it); ECDSA in IKEv2. Keep the app
+  (or the CLI) open while connected: it signs when the keys are renewed.
 
 Unknown fields are refused, in both schemas. That way, a typo, or an attempt
 to put the `"psk"` in the file, does not go unnoticed.

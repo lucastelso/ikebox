@@ -142,6 +142,10 @@ pub struct ProfileDraft {
     pub xauth: bool,
     /// The XAuth password is a one-time code.
     pub otp: bool,
+    /// With a certificate: its key is on a smartcard or token (ADR-0029).
+    #[serde(default)]
+    #[specta(optional)]
+    pub token: Option<bool>,
     /// How the person signs in. With EAP or a certificate, the gateway is
     /// proven by its certificate.
     pub auth: DraftAuth,
@@ -225,6 +229,7 @@ impl ProfileDraft {
             esp_proposals: p.child.esp_proposals.clone(),
             xauth: p.auth.uses_xauth(),
             otp: p.auth.otp(),
+            token: Some(p.auth.uses_token()),
             auth: if p.auth.uses_eap() {
                 DraftAuth::Eap
             } else if p.auth.uses_client_certificate() {
@@ -280,12 +285,16 @@ impl ProfileDraft {
                 auth.remote.id = optional(&self.remote_id);
                 auth
             }
-            DraftAuth::Certificate => AuthSettings::certificate(
-                optional(&self.local_id),
-                self.xauth,
-                optional(&self.remote_id),
-                self.ca.clone(),
-            ),
+            DraftAuth::Certificate => {
+                let mut auth = AuthSettings::certificate(
+                    optional(&self.local_id),
+                    self.xauth,
+                    optional(&self.remote_id),
+                    self.ca.clone(),
+                );
+                auth.local[0].token = self.token.unwrap_or(false);
+                auth
+            }
             DraftAuth::Psk => AuthSettings::psk(
                 optional(&self.local_id),
                 self.xauth,
@@ -769,6 +778,15 @@ mod tests {
         let again = ProfileDraft::from_profile(&p, Some(p.id.clone()), ProfileTemplate::Blank);
         assert_eq!(again.auth, DraftAuth::Certificate);
         assert!(again.xauth);
+
+        // The key on a smartcard or token (ADR-0029): kept through the
+        // profile and back.
+        d.token = Some(true);
+        let (p, c) = checked(&d);
+        assert!(c.issues.is_empty(), "{:?}", c.issues);
+        assert!(p.auth.uses_token());
+        let again = ProfileDraft::from_profile(&p, Some(p.id.clone()), ProfileTemplate::Blank);
+        assert_eq!(again.token, Some(true));
     }
 
     #[test]
