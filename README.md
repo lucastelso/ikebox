@@ -29,7 +29,7 @@ on seven distributions.
 
 Downloads: [Releases](https://github.com/lucastelso/ikebox/releases)
 (AppImage, `.deb`, `.rpm`, signed). What changed: [CHANGELOG](CHANGELOG.md).
-Release key ([packaging/keys](packaging/keys/)): `<FINGERPRINT>`.
+Release key ([packaging/keys](packaging/keys/)): `6F3F 99EA 25FA F76F CF98  655C B357 4751 2185 8FC5`.
 
 ---
 

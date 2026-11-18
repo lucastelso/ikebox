@@ -6,5 +6,12 @@
 to check a download: [docs/release.md](../../docs/release.md#signing-key-once)
 and [docs/installation.md](../../docs/installation.md#check-the-download).
 
-Its fingerprint is also on the README and on every release page, so a key
-swapped here would not go unnoticed.
+Fingerprint of the primary key (certification only, kept off-line):
+
+```
+6F3F 99EA 25FA F76F CF98  655C B357 4751 2185 8FC5
+```
+
+It signs through an Ed25519 subkey (`195A 22CA 60B6 974F AB6B  20A5 ABCD D98A
+70AF 682D`), the only part CI holds. The fingerprint is also on the README
+and on every release page, so a key swapped here would not go unnoticed.

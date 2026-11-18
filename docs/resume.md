@@ -24,24 +24,17 @@
   0.9.0 is tested on the seven distributions and on the real VPN (the
   maintainer's computer moved its profile and credentials and connected);
   the version is **1.0.0**, with its notes in `docs/releases/v1.0.0*.md`
-  (step 60). Left for the maintainer: the release key, the repository made
-  public, the tag and the publication (below).
+  (step 60); the release key exists. Left for the maintainer: the GitHub
+  environment, the repository made public, the tag and the publication
+  (below).
 - **Waiting for the maintainer:**
-  0. **The release signing key and the `release` environment** (phase G),
-     then the key's fingerprint in place of `<FINGERPRINT>` in both READMEs
-     and in `docs/releases/v1.0.0*.md` (the release workflow refuses
-     otherwise):
-     the steps are in [release.md](release.md#signing-key-once) ("Signing
-     key" and "GitHub setup"); commit `packaging/keys/ikebox-release.asc`
-     and run a rehearsal (**Actions → Release → Run workflow** on `main`).
-     Until then the signing job of a tag fails, by design.
-  1. A development build on the real VPN (phases A, D, F): connect, check
-     that the DNS of the VPN's domains resolves (it is applied by the
-     engine's root part now), the tray and closing to the tray.
-     `npm run release:build` from `main` makes one.
-  2. `git config --unset remote.origin.tagOpt` (it kept a fetch from the
-     old repository from bringing `v0.1.1` back).
-  3. P8 (`initiator_only`) is not concluded: it needs a session longer than
+  0. **The `release` environment on GitHub** (the key exists since
+     2026-11-18, fingerprint `6F3F 99EA 25FA F76F CF98  655C B357 4751 2185
+     8FC5`, public key in `packaging/keys/`): the secrets and the variable
+     from [release.md](release.md#github-setup-once), then a rehearsal
+     (**Actions → Release → Run workflow** on `main`). Then: the repository
+     made public, the tag `v1.0.0`, the approval and the publication.
+  1. P8 (`initiator_only`) is not concluded: it needs a session longer than
      the gateway's phase 1 lifetime (the [audit report](audits/v0.2.0.md)
      has the steps). It is outside 1.0.
 
