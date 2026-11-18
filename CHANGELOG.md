@@ -9,6 +9,9 @@ and the project uses [Semantic Versioning](https://semver.org/).
 
 ### Added
 
+- The `.rpm` and the `.deb` carry the command line, `ipsec-client-cli`, with
+  a manual page and bash, zsh and fish completions
+  (`ipsec-client-cli completions <shell>` prints them).
 - The `.rpm` and the `.deb` install and update the network component
   themselves, and removing the package removes it: no administrator
   password in the app, no root helper left behind after uninstalling

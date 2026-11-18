@@ -4,11 +4,17 @@ The CLI has the same logic as the desktop app, without a GUI. It is for using
 the VPN from a terminal, in scripts, and for validating the core. It speaks
 English.
 
-## Installation (from source)
+## Installation
+
+The `.rpm` and the `.deb` install it in `/usr/bin`, with a manual page
+(`man ipsec-client-cli`) and completions for bash, zsh and fish. With the
+AppImage, build it from source:
 
 ```bash
 cargo build --release -p ipsec-client-cli
 install -Dm755 target/release/ipsec-client-cli ~/.local/bin/ipsec-client-cli
+# completions, for example for bash:
+ipsec-client-cli completions bash > ~/.local/share/bash-completion/completions/ipsec-client-cli
 ```
 
 Usage prerequisites: the network component installed (by the app or with

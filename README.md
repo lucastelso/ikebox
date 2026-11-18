@@ -165,15 +165,16 @@ behind each choice is in the [ADRs](docs/adr/README.md).
 
 ## Command line
 
-`ipsec-client-cli` does the same as the app, from the terminal. For now, it is
-built from source:
+`ipsec-client-cli` does the same as the app, from the terminal. The `.rpm` and
+the `.deb` install it, with a manual page (`man ipsec-client-cli`) and shell
+completions; with the AppImage, build it from source (see the
+[CLI guide](docs/cli.md)):
 
 ```bash
-cargo build --release -p ipsec-client-cli
-target/release/ipsec-client-cli doctor             # is this computer ready?
-target/release/ipsec-client-cli profiles import my-vpn.json
-target/release/ipsec-client-cli secrets set my-vpn
-target/release/ipsec-client-cli connect my-vpn     # Ctrl+C disconnects
+ipsec-client-cli doctor             # is this computer ready?
+ipsec-client-cli profiles import my-vpn.json
+ipsec-client-cli secrets set my-vpn
+ipsec-client-cli connect my-vpn     # Ctrl+C disconnects
 ```
 
 A profile is a JSON file without credentials: see

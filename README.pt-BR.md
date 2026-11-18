@@ -163,15 +163,16 @@ cada escolha está nos [ADRs](docs/adr/README.md).
 
 ## Linha de comando
 
-O `ipsec-client-cli` faz o mesmo que o app, pelo terminal. Por enquanto, ele é
-compilado a partir do código:
+O `ipsec-client-cli` faz o mesmo que o app, pelo terminal. O `.rpm` e o `.deb`
+o instalam, com página de manual (`man ipsec-client-cli`) e completions do
+shell; com o AppImage, compile-o a partir do código (ver o
+[guia da CLI](docs/cli.md), em inglês):
 
 ```bash
-cargo build --release -p ipsec-client-cli
-target/release/ipsec-client-cli doctor             # o ambiente está pronto?
-target/release/ipsec-client-cli profiles import minha-vpn.json
-target/release/ipsec-client-cli secrets set minha-vpn
-target/release/ipsec-client-cli connect minha-vpn  # Ctrl+C desconecta
+ipsec-client-cli doctor             # o ambiente está pronto?
+ipsec-client-cli profiles import minha-vpn.json
+ipsec-client-cli secrets set minha-vpn
+ipsec-client-cli connect minha-vpn  # Ctrl+C desconecta
 ```
 
 O perfil é um JSON sem credenciais: ver [docs/profiles.md](docs/profiles.md) (em inglês),
