@@ -34,10 +34,12 @@ vulnerabilidades.
    NetworkManager. O charon ainda roda como root dentro do sandbox. O próximo
    passo é rodá-lo com um usuário próprio e só as capabilities de rede
    (ADR-0019).
-2. **O strongSwan é compilado por nós, com um patch nosso.** O código-fonte
-   é verificado por SHA-256 e pela assinatura GPG dos autores (ADR-0016). O
-   único patch, pequeno e de segurança (ADR-0019), é aplicado depois dessa
-   conferência. As correções de
+2. **O strongSwan é compilado por nós, com dois patches nossos.** O
+   código-fonte é verificado por SHA-256 e pela assinatura GPG dos autores
+   (ADR-0016). Os dois patches são pequenos e de segurança, aplicados depois
+   dessa conferência: o cliente VICI não escolhe o `updown` nem o `if_id`
+   (ADR-0019), nem faz o charon abrir um arquivo de certificado ou um token
+   pelo caminho (ADR-0020). As correções de
    segurança chegam quando o projeto publica uma versão nova, e não pelo
    gerenciador de pacotes da distribuição. O daemon fica exposto (UDP
    500/4500) **só enquanto a VPN está conectada**.
@@ -119,5 +121,9 @@ vulnerabilidades.
 - Dependências fixadas: Rust via `Cargo.lock` + `cargo deny`, npm via
   `package-lock.json`, imagens base por digest, código-fonte do strongSwan
   embutido por SHA-256 + GPG, pacotes do strongSwan do engine Docker por
-  versão exata.
+  versão exata, e tudo o que o build de release baixa (rustup-init, Node.js,
+  ferramentas do AppImage) por SHA-256.
 - A CI roda um scanner de segredos (gitleaks) em todo push.
+- Os pacotes de release são conferidos antes de publicar: integridade do
+  componente de rede, patches de segurança do strongSwan, limite de glibc e
+  dados privados (`scripts/verify-release.sh`, `scripts/check-private.sh --artifacts`).

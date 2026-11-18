@@ -9,12 +9,17 @@ and the project uses [Semantic Versioning](https://semver.org/).
 
 ### Fixed
 
+- SECURITY.md said the embedded strongSwan carries one patch of ours; it
+  carries two.
 - With "remember" checked, the credentials are stored in the keyring only
   after the connection succeeds, in the app and in the CLI: a mistyped
   password is no longer stored (audit P2).
 
 ### Changed
 
+- Release builds: every download is pinned by SHA-256 (rustup-init, Node.js
+  and the AppImage tools, which Tauri used to download unpinned), and GMP and
+  musl are pinned to their versions in the engine builder (audit P4).
 - Tauri 2.12.6, `@tauri-apps/api` and `@tauri-apps/cli` 2.12.5 (audit P3).
 - The release guide pushes tags by name only, never `--tags`.
 
