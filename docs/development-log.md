@@ -2030,3 +2030,12 @@ only sends objects reachable from the pushed refs.
 **Scans before the push:** `check-private.sh --history` clean; gitleaks
 8.30.1 over the history: no leaks; every author, committer and tagger
 address in every ref is the GitHub noreply one.
+
+**New repository.** The maintainer renamed the old repository, created the
+new one and pushed `main` and the tags by name; the first CI run passed (the
+first one since 0.5.0, so the step 44 fixes are confirmed). The new
+repository had tags but no release pages: they are recreated from the notes
+in `docs/releases/` (English, then Portuguese) and the packages kept in
+`target/release-artifacts/`, after checking every set against its
+`SHA256SUMS` and with `check-private.sh --artifacts` (all nine clean). From
+1.0 on, the release workflow of phase G creates them.
