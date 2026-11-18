@@ -65,9 +65,12 @@
   `docs/releases/` and the local packages (checked against their
   `SHA256SUMS` and with `check-private.sh --artifacts`, all clean).
   **Phase A is done** (step 50): P2, P3 and P4 closed, every download of
-  the release build pinned, CI hygiene. **Next: phase B** (complete
-  packages: rpm/deb scripts that manage the network component, the CLI in
-  the packages, AppStream, third-party licenses).
+  the release build pinned, CI hygiene. **Phase B is done** (step 51): the
+  `.rpm`/`.deb` install, update and remove the network component, carry the
+  CLI (man page, completions), AppStream metadata and every license text;
+  the engine's corresponding source has its own script. **Next: phase C**
+  (engine with OpenSSL: ECDSA and ECP groups, and the ADR on the strongSwan
+  maintenance policy, audit P1).
 - **Waiting for the maintainer:**
   1. A quick look at the app after the Tauri update (phase A): open it,
      connect, check the tray. A development build is in
