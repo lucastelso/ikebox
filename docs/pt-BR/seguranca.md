@@ -4,9 +4,42 @@ Português · **[English](../../SECURITY.md)**
 
 ## Reportando vulnerabilidades
 
-Quando o repositório for público, use o recurso **Security Advisories** do
-GitHub ("Report a vulnerability"). Não abra issue pública para
-vulnerabilidades.
+**Relate em privado:** [Report a vulnerability](https://github.com/lucastelso/ipsec-client/security/advisories/new)
+(o relato privado de vulnerabilidades do GitHub, na aba **Security**). Não
+abra issue, discussão nem pull request públicos sobre o assunto.
+
+- Diga o que é afetado (o app, a CLI, o componente de rede, o strongSwan
+  embutido ou os patches dele, os pacotes, o processo de release), a versão
+  e como reproduzir. Nunca inclua credenciais reais nem o gateway da sua
+  organização: use endereços de documentação (`192.0.2.0/24`,
+  `example.com`) e o log anonimizado ("Copiar anonimizado"). Pode escrever
+  em português.
+- **O que esperar:** confirmação em até 7 dias; uma primeira avaliação
+  (gravidade para o modelo de ameaças deste app, abaixo) em até 14 dias; e a
+  correção, ou um plano com data, combinado com você. O aviso é publicado
+  junto com a versão corrigida, com crédito a você, a não ser que prefira o
+  contrário; quando cabe, um CVE é pedido pelo GitHub.
+- **O próprio strongSwan:** uma falha no código do strongSwan (não nos
+  patches nem na configuração deste projeto) vai também para o projeto
+  strongSwan, segundo a [política deles](https://www.strongswan.org/security.html);
+  relate aqui também quando o motor embutido é afetado, para que um motor
+  corrigido saia ([ADR-0026](../adr/0026-strongswan-maintenance-policy.md),
+  em inglês).
+- **Boa-fé:** pesquisa feita de boa-fé, nos seus próprios sistemas e
+  gateways de teste, sem tocar em dados ou VPNs de outras pessoas, é bem-vinda
+  e não será perseguida.
+
+### Versões com suporte
+
+Só a **última versão** recebe correções de segurança: atualize o app (com o
+`.rpm`/`.deb`, o componente de rede é atualizado junto; com o AppImage, o
+app oferece a atualização). Versões anteriores à 1.0 não têm suporte.
+
+| Versão | Correções de segurança |
+|---|---|
+| última 1.x | ✔ |
+| 1.x anteriores | atualize para a última |
+| 0.x | ✘ |
 
 ## Modelo de ameaças (resumo)
 

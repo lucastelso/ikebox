@@ -1,5 +1,5 @@
 /**
- * Conventional Commits, messages in English (until v0.1.1 the history is in Portuguese).
+ * Conventional Commits, messages in English (the commits before 0.2.0 are in Portuguese).
  * @see https://commitlint.js.org
  * @type {import('@commitlint/types').UserConfig}
  */

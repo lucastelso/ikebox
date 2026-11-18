@@ -4,8 +4,40 @@
 
 ## Reporting vulnerabilities
 
-Once the repository is public, use GitHub's **Security Advisories** ("Report
-a vulnerability"). Do not open public issues for vulnerabilities.
+**Report privately:** [Report a vulnerability](https://github.com/lucastelso/ipsec-client/security/advisories/new)
+(GitHub's private vulnerability reporting, under the **Security** tab). Do
+not open a public issue, a discussion or a pull request about it.
+
+- Say what is affected (the app, the CLI, the network component, the
+  embedded strongSwan or its patches, the packages, the release process),
+  the version, and how to reproduce it. Never include real credentials or
+  your organization's gateway: use documentation addresses
+  (`192.0.2.0/24`, `example.com`) and the anonymized log ("Copy anonymized").
+- **What to expect:** an acknowledgment within 7 days; a first assessment
+  (severity for this app's threat model, below) within 14 days; and a fix,
+  or a plan with a date, agreed with you. The advisory is published with the
+  fixed release, crediting you unless you prefer otherwise; a CVE is
+  requested through GitHub when it applies.
+- **strongSwan itself:** a flaw in upstream strongSwan code (not in this
+  project's patches or configuration) goes to the strongSwan project too,
+  following [their policy](https://www.strongswan.org/security.html); report
+  it here as well when the embedded engine is affected, so a fixed engine
+  ships ([ADR-0026](docs/adr/0026-strongswan-maintenance-policy.md)).
+- **Good faith:** research done in good faith, on your own systems and test
+  gateways, without touching other people's data or VPNs, is welcome, and
+  will not be pursued.
+
+### Supported versions
+
+Only the **latest release** gets security fixes: update the app (with the
+`.rpm`/`.deb` the network component updates with it; with the AppImage, the
+app offers to update it). Releases before 1.0 are not supported.
+
+| Version | Security fixes |
+|---|---|
+| latest 1.x | ✔ |
+| older 1.x | update to the latest |
+| 0.x | ✘ |
 
 ## Threat model (summary)
 

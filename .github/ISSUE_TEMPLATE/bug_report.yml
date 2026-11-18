@@ -1,0 +1,81 @@
+name: Bug report
+description: Something does not work (the app, the CLI, installing, connecting)
+labels: [bug]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        **Privacy first.** Never paste a PSK, a password, a PIN, a certificate, your organization's gateway or internal names. Use **Copy anonymized** (or `ipsec-client-cli logs --anonymize`) for logs. Security problems go to [private reporting](https://github.com/lucastelso/ipsec-client/security/advisories/new), not here.
+        Pode escrever em português.
+  - type: textarea
+    id: what
+    attributes:
+      label: What happened, and what did you expect?
+    validations:
+      required: true
+  - type: textarea
+    id: steps
+    attributes:
+      label: Steps to reproduce
+      placeholder: "1. Import the profile… 2. Connect… 3. …"
+    validations:
+      required: true
+  - type: input
+    id: version
+    attributes:
+      label: IPsec Client version
+      description: System tab, or `ipsec-client-cli --version`
+      placeholder: "1.0.0"
+    validations:
+      required: true
+  - type: dropdown
+    id: package
+    attributes:
+      label: Installed from
+      options: [".rpm", ".deb", "AppImage", "built from source"]
+    validations:
+      required: true
+  - type: input
+    id: distro
+    attributes:
+      label: Distribution and desktop
+      placeholder: "Fedora 45, GNOME (Wayland)"
+    validations:
+      required: true
+  - type: dropdown
+    id: mode
+    attributes:
+      label: VPN mode (if it is about connecting)
+      options:
+        - IKEv1 aggressive, group PSK + XAuth
+        - IKEv1 main mode, PSK (with or without XAuth)
+        - IKEv1 main mode, certificate (+ XAuth)
+        - IKEv2, PSK
+        - IKEv2, username and password (EAP)
+        - IKEv2, certificate (file)
+        - Certificate on a smartcard or token
+        - Not about connecting
+  - type: input
+    id: gateway
+    attributes:
+      label: Gateway vendor and model (not its address)
+      placeholder: "FortiGate 100F, FortiOS 7.4"
+  - type: textarea
+    id: diagnostics
+    attributes:
+      label: Diagnostics
+      description: System → Diagnostics, or `ipsec-client-cli doctor`
+      render: text
+  - type: textarea
+    id: log
+    attributes:
+      label: Anonymized log
+      description: "**Copy anonymized** in the app, or `ipsec-client-cli logs --anonymize`. Check it before posting."
+      render: text
+  - type: checkboxes
+    id: privacy
+    attributes:
+      label: Before posting
+      options:
+        - label: I removed every credential and my organization's gateway and internal names.
+          required: true

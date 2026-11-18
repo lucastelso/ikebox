@@ -1,0 +1,23 @@
+name: Feature request
+description: An idea, or a VPN mode or gateway the app does not handle yet
+labels: [enhancement]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Never include credentials or your organization's gateway. Pode escrever em português.
+  - type: textarea
+    id: need
+    attributes:
+      label: What do you need, and why?
+    validations:
+      required: true
+  - type: input
+    id: gateway
+    attributes:
+      label: Gateway vendor, model and VPN mode, if it is about a VPN
+      placeholder: "Cisco ASA, IKEv1 main mode with certificates"
+  - type: textarea
+    id: alternatives
+    attributes:
+      label: How do you do it today (another client, a workaround)?
