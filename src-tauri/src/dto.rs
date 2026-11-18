@@ -140,6 +140,10 @@ pub enum CredentialField {
     /// Certificado do cliente e a chave dele: importados de um `.p12`,
     /// nunca digitados.
     ClientCertificate,
+    /// The certificate on a smartcard or token, chosen once (ADR-0029).
+    TokenCertificate,
+    /// The PIN of the smartcard or token: asked at every connection.
+    TokenPin,
 }
 
 impl From<CredentialKind> for CredentialField {
@@ -151,6 +155,8 @@ impl From<CredentialKind> for CredentialField {
             CredentialKind::EapIdentity => Self::EapIdentity,
             CredentialKind::EapPassword => Self::EapPassword,
             CredentialKind::ClientCert | CredentialKind::ClientKey => Self::ClientCertificate,
+            CredentialKind::TokenKey => Self::TokenCertificate,
+            CredentialKind::TokenPin => Self::TokenPin,
         }
     }
 }

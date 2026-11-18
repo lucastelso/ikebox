@@ -10,11 +10,16 @@ mod client_cert;
 mod credentials;
 mod redact;
 mod store;
+pub(crate) mod token;
 
 pub use client_cert::{ClientCertInfo, ClientCertificate, MAX_PKCS12_BYTES, describe_pem};
 pub use credentials::Credentials;
 pub use redact::{Anonymizer, Redactor, mask, printable};
 pub use store::{KEYRING_SERVICE, KeyringStore, MemoryStore, SecretStore, keyring_key};
+pub use token::{
+    AgentPublicKey, TokenCertificate, TokenError, TokenRef, TokenSigner, default_module,
+    list_certificates,
+};
 
 use crate::profiles::CredentialKind;
 
@@ -81,5 +86,12 @@ pub fn describe(kind: CredentialKind) -> &'static str {
             "client certificate's private key",
             "chave privada do certificado do cliente"
         ),
+        CredentialKind::TokenKey => crate::tr!(
+            "certificate on the smartcard or token",
+            "certificado no smartcard ou token"
+        ),
+        CredentialKind::TokenPin => {
+            crate::tr!("smartcard or token PIN", "PIN do smartcard ou token")
+        }
     }
 }

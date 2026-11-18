@@ -21,6 +21,8 @@ pub struct Credentials {
     eap_password: Option<SecretString>,
     client_cert: Option<SecretString>,
     client_key: Option<SecretString>,
+    token_key: Option<SecretString>,
+    token_pin: Option<SecretString>,
 }
 
 impl fmt::Debug for Credentials {
@@ -46,6 +48,8 @@ impl fmt::Debug for Credentials {
             .field("eap_password", &present(&self.eap_password))
             .field("client_cert", &present(&self.client_cert))
             .field("client_key", &present(&self.client_key))
+            .field("token_key", &present(&self.token_key))
+            .field("token_pin", &present(&self.token_pin))
             .finish()
     }
 }
@@ -66,6 +70,8 @@ impl Credentials {
             CredentialKind::EapPassword => &mut self.eap_password,
             CredentialKind::ClientCert => &mut self.client_cert,
             CredentialKind::ClientKey => &mut self.client_key,
+            CredentialKind::TokenKey => &mut self.token_key,
+            CredentialKind::TokenPin => &mut self.token_pin,
         }
     }
 
@@ -80,6 +86,8 @@ impl Credentials {
             CredentialKind::EapPassword => self.eap_password.as_ref(),
             CredentialKind::ClientCert => self.client_cert.as_ref(),
             CredentialKind::ClientKey => self.client_key.as_ref(),
+            CredentialKind::TokenKey => self.token_key.as_ref(),
+            CredentialKind::TokenPin => self.token_pin.as_ref(),
         }
     }
 
@@ -196,6 +204,7 @@ impl Credentials {
             CredentialKind::EapPassword,
             CredentialKind::ClientCert,
             CredentialKind::ClientKey,
+            CredentialKind::TokenKey,
         ] {
             store.delete(&profile.id, kind)?;
         }
@@ -257,12 +266,15 @@ impl Credentials {
                         password.expose_secret().as_bytes(),
                     ));
                 }
-                // The key goes by load-key (private_key) and the certificate
-                // in the connection: neither is a shared secret.
+                // The key goes by load-key (private_key, or the token's key
+                // agent) and the certificate in the connection; the PIN stays
+                // in this process: none is a shared secret.
                 CredentialKind::XauthUser
                 | CredentialKind::EapIdentity
                 | CredentialKind::ClientCert
-                | CredentialKind::ClientKey => {}
+                | CredentialKind::ClientKey
+                | CredentialKind::TokenKey
+                | CredentialKind::TokenPin => {}
             }
         }
         Ok(secrets)

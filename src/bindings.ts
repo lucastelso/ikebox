@@ -236,7 +236,11 @@ export type CredentialField =
  *  Certificado do cliente e a chave dele: importados de um `.p12`,
  *  nunca digitados.
  */
-"clientCertificate";
+"clientCertificate" | 
+/**  The certificate on a smartcard or token, chosen once (ADR-0029). */
+"tokenCertificate" | 
+/**  The PIN of the smartcard or token: asked at every connection. */
+"tokenPin";
 
 /**
  *  Credenciais digitadas na UI (vazias = usar as guardadas). O `Debug` não

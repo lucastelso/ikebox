@@ -17,7 +17,8 @@ import { useT } from '@/i18n';
 import type { Messages } from '@/i18n/messages';
 
 /** Fields typed by the person (the certificate is imported from a file). */
-type TypedField = Exclude<CredentialField, 'clientCertificate'>;
+// The token fields (ADR-0029) get their own controls in the dialog (phase E2).
+type TypedField = Exclude<CredentialField, 'clientCertificate' | 'tokenCertificate' | 'tokenPin'>;
 
 function fieldSpecs(
   t: Messages['credentials'],

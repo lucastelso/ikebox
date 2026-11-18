@@ -6,7 +6,7 @@ use std::time::Duration;
 
 use super::SessionError;
 use crate::profiles::{ConnParams, Profile};
-use crate::secrets::Credentials;
+use crate::secrets::{AgentPublicKey, Credentials};
 use crate::vici::{Charon, ViciError};
 
 /// Carrega os segredos (sempre antes da conexão), a conexão, e inicia o
@@ -37,7 +37,17 @@ pub async fn establish<C: Charon>(
     for secret in &secrets {
         charon.load_shared(secret).await?;
     }
-    if let Some(key) = credentials.private_key() {
+    if profile.auth.uses_token() {
+        // The key stays on the token: charon asks the key agent of this
+        // process to sign (ADR-0029), so only the public key goes.
+        let cert = credentials
+            .client_cert_pem()
+            .ok_or(crate::secrets::SecretsError::Missing(
+                crate::profiles::CredentialKind::ClientCert,
+            ))?;
+        let public = AgentPublicKey::from_cert_pem(cert)?;
+        charon.load_agent_key(&public.spki_pem).await?;
+    } else if let Some(key) = credentials.private_key() {
         charon.load_key(&key).await?;
     }
     charon.load_conn(profile.conn_name(), &conn).await?;
@@ -83,6 +93,11 @@ pub(crate) mod tests {
         }
         async fn load_key(&mut self, _key: &PrivateKey) -> Result<(), ViciError> {
             self.calls.push("load-key".into());
+            Ok(())
+        }
+        async fn load_agent_key(&mut self, pem: &str) -> Result<(), ViciError> {
+            assert!(pem.starts_with("-----BEGIN PUBLIC KEY-----"));
+            self.calls.push("load-key agent".into());
             Ok(())
         }
         async fn load_conn(&mut self, name: &str, conn: &Message) -> Result<(), ViciError> {

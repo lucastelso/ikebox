@@ -10,7 +10,7 @@ use secrecy::SecretString;
 
 /// Lê credenciais da entrada padrão, uma por linha no formato `chave=valor`
 /// (chaves: `psk`, `xauth-user`, `xauth-password`, `eap-identity`,
-/// `eap-password`, e `p12-password`, a senha do arquivo de `--client-p12`;
+/// `eap-password`, `token-pin`, e `p12-password`, a senha do arquivo de `--client-p12`;
 /// `#` comenta). Para automação, como o `docker login --password-stdin`:
 /// nunca passe segredos por argumento ou variável de ambiente (aparecem em
 /// `ps` e no histórico). Devolve a senha do `.p12`, se veio.
@@ -28,6 +28,7 @@ fn parse_credentials(
         CredentialKind::XauthPassword,
         CredentialKind::EapIdentity,
         CredentialKind::EapPassword,
+        CredentialKind::TokenPin,
     ];
     let mut p12_password = None;
     for (n, line) in input.lines().enumerate() {
@@ -46,7 +47,7 @@ fn parse_credentials(
         let Some(kind) = kinds.iter().find(|k| k.key() == key.trim()) else {
             bail!(
                 "input line {}: unknown key (use psk, xauth-user, xauth-password, eap-identity, \
-                 eap-password or p12-password)",
+                 eap-password, token-pin or p12-password)",
                 n + 1
             );
         };
@@ -78,6 +79,8 @@ fn label(kind: CredentialKind) -> &'static str {
         CredentialKind::EapIdentity => "Username (EAP)",
         CredentialKind::EapPassword => "Password (EAP)",
         CredentialKind::ClientCert | CredentialKind::ClientKey => "Client certificate",
+        CredentialKind::TokenKey => "Certificate on the smartcard or token",
+        CredentialKind::TokenPin => "PIN of the smartcard or token",
     }
 }
 

@@ -9,6 +9,7 @@
 //! conectado, [`status`] e [`disconnect`] funcionam a partir de qualquer
 //! processo (por exemplo, outro terminal ou a GUI).
 
+pub mod agent;
 mod establish;
 mod failure;
 
@@ -16,6 +17,7 @@ use std::collections::VecDeque;
 use std::sync::{Arc, Mutex};
 use std::time::Duration;
 
+use secrecy::ExposeSecret;
 use tokio::sync::mpsc::UnboundedSender;
 use tracing::{debug, warn};
 
@@ -25,7 +27,10 @@ pub use failure::{FailureKind, ProfileAuth, diagnose};
 use crate::diagnostics::{self, Check, CheckStatus};
 use crate::engine::{Backend, BuildProgress, EngineError, RunningEngine};
 use crate::profiles::{Profile, ProfileError};
-use crate::secrets::{Anonymizer, Credentials, Redactor, SecretStore, SecretsError, printable};
+use crate::secrets::{
+    Anonymizer, Credentials, Redactor, SecretStore, SecretsError, TokenError, TokenRef,
+    TokenSigner, printable,
+};
 use crate::vici::{Charon, CharonEvent, IkeSa, ViciClient, ViciError, ViciEvents};
 
 /// Linhas de log guardadas para diagnóstico de falhas.
@@ -169,6 +174,23 @@ pub enum SessionError {
     /// Erro de credenciais.
     #[error(transparent)]
     Secrets(#[from] SecretsError),
+    /// Smartcard or token (ADR-0029).
+    #[error(transparent)]
+    Token(#[from] TokenError),
+    /// The key agent of a token could not start.
+    #[error("{}", crate::trf!(
+        "the smartcard/token key agent could not start: {}",
+        "o agente de chaves do smartcard/token não pôde iniciar: {}",
+        .0
+    ))]
+    TokenAgent(String),
+    /// Tokens need the embedded engine (the Docker engine is only for
+    /// development).
+    #[error("{}", crate::tr!(
+        "a smartcard or token needs the network component (not the Docker engine)",
+        "um smartcard ou token precisa do componente de rede (não do engine Docker)"
+    ))]
+    TokenNeedsNativeEngine,
 }
 
 fn describe_failures(checks: &[Check]) -> String {
@@ -263,6 +285,9 @@ pub async fn connect(
     credentials.shared_secrets(profile)?;
 
     let backend = Backend::detect()?;
+    if profile.auth.uses_token() && !matches!(backend, Backend::Native(_)) {
+        return Err(SessionError::TokenNeedsNativeEngine);
+    }
     if let Some(active) = backend.running_profile().await? {
         return Err(SessionError::AlreadyConnected(active));
     }
@@ -303,10 +328,11 @@ pub async fn connect(
     let engine = backend.start(profile, options.privileged).await?;
 
     let result = negotiate(&engine, profile, credentials, options, events).await;
-    if result.is_err()
-        && let Err(e) = backend.stop().await
-    {
-        warn!("failed to stop the engine after an error: {e}");
+    if result.is_err() {
+        set_token_agent(None);
+        if let Err(e) = backend.stop().await {
+            warn!("failed to stop the engine after an error: {e}");
+        }
     }
     result
 }
@@ -331,6 +357,9 @@ async fn negotiate(
         events.clone(),
     ));
 
+    if profile.auth.uses_token() {
+        start_token_agent(std::path::Path::new(&socket), credentials).await?;
+    }
     let mut charon = ViciClient::connect(&socket).await?;
     send(
         events.as_ref(),
@@ -413,6 +442,56 @@ async fn forward_events(
     }
 }
 
+/// The key agent of the current session, when its key is on a token
+/// (ADR-0029). It lives in this process as long as the VPN: dropping it stops
+/// the agent and removes its socket.
+static TOKEN_AGENT: Mutex<Option<agent::AgentHandle>> = Mutex::new(None);
+
+fn set_token_agent(handle: Option<agent::AgentHandle>) {
+    if let Ok(mut slot) = TOKEN_AGENT.lock() {
+        *slot = handle;
+    }
+}
+
+/// Stops the token's key agent of this process, if one runs (for a process
+/// that ends while the VPN is going down: the CLI in the foreground, the app
+/// on quit).
+pub fn stop_token_agent() {
+    set_token_agent(None);
+}
+
+/// Opens the token with the PIN and starts the key agent next to the VICI
+/// socket, before charon is told about the key.
+async fn start_token_agent(
+    socket: &std::path::Path,
+    credentials: &Credentials,
+) -> Result<(), SessionError> {
+    use crate::profiles::CredentialKind as K;
+    let missing = |kind| SessionError::Secrets(SecretsError::Missing(kind));
+    let reference = credentials
+        .get(K::TokenKey)
+        .ok_or_else(|| missing(K::TokenKey))?;
+    let reference = TokenRef::from_json(reference.expose_secret())?;
+    let pin = credentials
+        .get(K::TokenPin)
+        .ok_or_else(|| missing(K::TokenPin))?
+        .clone();
+    let cert = credentials
+        .client_cert_pem()
+        .ok_or_else(|| missing(K::ClientCert))?
+        .to_owned();
+    let signer = tokio::task::spawn_blocking(move || TokenSigner::open(&reference, &pin, &cert))
+        .await
+        .map_err(|e| SessionError::TokenAgent(e.to_string()))??;
+    let dir = socket
+        .parent()
+        .ok_or_else(|| SessionError::TokenAgent("socket without a directory".to_owned()))?;
+    let handle = agent::start(&dir.join("agent").join("agent.sock"), signer)
+        .map_err(|e| SessionError::TokenAgent(e.to_string()))?;
+    set_token_agent(Some(handle));
+    Ok(())
+}
+
 /// Estado da conexão ativa, de qualquer processo (`None` = desconectado).
 ///
 /// # Errors
@@ -453,6 +532,7 @@ pub async fn disconnect() -> Result<bool, SessionError> {
             }
         }
     }
+    set_token_agent(None);
     // Também remove um container parado que tenha sobrado (Docker).
     Ok(backend.stop().await?)
 }

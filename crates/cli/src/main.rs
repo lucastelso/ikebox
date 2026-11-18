@@ -32,7 +32,8 @@ use ipsec_client_core::profiles::{
 };
 use ipsec_client_core::secrets::{
     ClientCertInfo, ClientCertificate, Credentials, KeyringStore, MAX_PKCS12_BYTES, Redactor,
-    SecretStore, describe, describe_pem, mask,
+    SecretStore, TokenCertificate, TokenError, default_module, describe, describe_pem,
+    list_certificates, mask,
 };
 use ipsec_client_core::session::{self, ConnectOptions, SessionEvent, SessionState};
 use secrecy::SecretString;
@@ -87,6 +88,15 @@ enum Command {
         /// the `p12-password` line of --credentials-stdin.
         #[arg(long, value_name = "FILE")]
         client_p12: Option<PathBuf>,
+        /// PKCS#11 module of the smartcard or token, for a profile whose
+        /// certificate is on one: picks the certificate for this connection
+        /// only, instead of the one chosen with `secrets token-use`.
+        #[arg(long, value_name = "MODULE")]
+        token_module: Option<PathBuf>,
+        /// Key id (hexadecimal, from `secrets token-list`) when the token has
+        /// several certificates.
+        #[arg(long, value_name = "HEX", requires = "token_module")]
+        token_id: Option<String>,
     },
     /// Disconnects (tells the gateway and stops the engine).
     Disconnect,
@@ -283,6 +293,26 @@ enum SecretsCmd {
         #[arg(long)]
         password_stdin: bool,
     },
+    /// Lists the certificates on the connected smartcards and tokens (no PIN
+    /// needed).
+    TokenList {
+        /// PKCS#11 module (default: p11-kit's proxy, or OpenSC).
+        #[arg(long, value_name = "MODULE")]
+        module: Option<PathBuf>,
+    },
+    /// Chooses the certificate on a smartcard or token for a profile whose
+    /// certificate is on one, and remembers the choice in the keyring (the
+    /// certificate and where the key is; never the PIN).
+    TokenUse {
+        /// Profile id.
+        profile: String,
+        /// PKCS#11 module (default: p11-kit's proxy, or OpenSC).
+        #[arg(long, value_name = "MODULE")]
+        module: Option<PathBuf>,
+        /// Key id (hexadecimal, from `token-list`) when there are several.
+        #[arg(long, value_name = "HEX")]
+        id: Option<String>,
+    },
     /// Shows which credentials are stored (without revealing values).
     Status {
         /// Profile id.
@@ -350,6 +380,8 @@ async fn run(cli: Cli) -> anyhow::Result<ExitCode> {
             timeout,
             credentials_stdin,
             client_p12,
+            token_module,
+            token_id,
         } => {
             let options = ConnectOptions {
                 privileged,
@@ -360,6 +392,8 @@ async fn run(cli: Cli) -> anyhow::Result<ExitCode> {
                 remember,
                 credentials_stdin,
                 client_p12,
+                token_module,
+                token_id,
                 verbose: cli.verbose,
             };
             connect(&profile, &flags, &options).await
@@ -782,6 +816,54 @@ fn secrets(cmd: SecretsCmd) -> anyhow::Result<ExitCode> {
             print_certificate(cert.info());
             println!("  The .p12 file is no longer needed by the app.");
         }
+        SecretsCmd::TokenList { module } => {
+            let found = token_certificates(module.as_deref())?;
+            if found.is_empty() {
+                println!("No certificate on the connected smartcards or tokens.");
+                return Ok(ExitCode::SUCCESS);
+            }
+            for cert in &found {
+                println!(
+                    "• {} (token \"{}\", key id {})",
+                    cert.info.as_ref().map_or("?", |i| i.subject.as_str()),
+                    cert.token_label,
+                    cert.reference.id
+                );
+                match &cert.info {
+                    Ok(info) => print_certificate(info),
+                    Err(why) => println!("  cannot be used: {why}"),
+                }
+            }
+        }
+        SecretsCmd::TokenUse {
+            profile,
+            module,
+            id,
+        } => {
+            let profile = load_profile(&profile)?;
+            if !profile.auth.uses_token() {
+                bail!(
+                    "profile '{}' does not use a certificate on a smartcard or token",
+                    profile.id
+                );
+            }
+            let cert = choose_token_certificate(module.as_deref(), id.as_deref())?;
+            let store = KeyringStore::new()?;
+            let mut creds = Credentials::load(&store, &profile)?;
+            creds.set(
+                CredentialKind::ClientCert,
+                SecretString::from(cert.cert_pem.clone()),
+            );
+            creds.set(
+                CredentialKind::TokenKey,
+                SecretString::from(cert.reference.to_json()?),
+            );
+            creds.save(&store, &profile)?;
+            println!("✔ Certificate on the token chosen (the PIN is asked at every connection).");
+            if let Ok(info) = &cert.info {
+                print_certificate(info);
+            }
+        }
         SecretsCmd::Status { profile } => {
             let profile = load_profile(&profile)?;
             let store = KeyringStore::new()?;
@@ -842,7 +924,44 @@ struct ConnectFlags {
     remember: bool,
     credentials_stdin: bool,
     client_p12: Option<PathBuf>,
+    token_module: Option<PathBuf>,
+    token_id: Option<String>,
     verbose: u8,
+}
+
+/// The certificates on the tokens of `module` (or the default module).
+fn token_certificates(module: Option<&std::path::Path>) -> anyhow::Result<Vec<TokenCertificate>> {
+    let module = match module {
+        Some(m) => m.to_owned(),
+        None => default_module().ok_or(TokenError::NoModule)?,
+    };
+    Ok(list_certificates(&module)?)
+}
+
+/// One certificate of the tokens: the one with key id `id`, or the only one.
+fn choose_token_certificate(
+    module: Option<&std::path::Path>,
+    id: Option<&str>,
+) -> anyhow::Result<TokenCertificate> {
+    let found = token_certificates(module)?;
+    let mut matching: Vec<_> = found
+        .into_iter()
+        .filter(|c| id.is_none_or(|id| c.reference.id.eq_ignore_ascii_case(id)))
+        .collect();
+    match matching.len() {
+        0 => bail!("no matching certificate on the connected smartcards or tokens"),
+        1 => {
+            let cert = matching.remove(0);
+            if let Err(why) = &cert.info {
+                bail!("that certificate cannot be used: {why}");
+            }
+            Ok(cert)
+        }
+        n => bail!(
+            "{n} certificates on the tokens: choose one with its key id (see `ipsec-client-cli \
+             secrets token-list`)"
+        ),
+    }
 }
 
 /// Reads and checks a .p12 file (the path stays here, in the user's own
@@ -880,9 +999,21 @@ async fn connect(
         remember,
         credentials_stdin,
         ref client_p12,
+        ref token_module,
+        ref token_id,
         verbose,
     } = *flags;
     let profile = load_profile(id)?;
+    if profile.auth.uses_token() && detach {
+        // The token's key agent lives in this process (ADR-0029).
+        bail!(
+            "a profile with a smartcard or token cannot use --detach: this command signs for \
+             the VPN while it is up"
+        );
+    }
+    if token_module.is_some() && !profile.auth.uses_token() {
+        bail!("--token-module is for profiles whose certificate is on a smartcard or token");
+    }
     let keyring = if credentials_stdin { None } else { keyring() };
     let mut creds = match &keyring {
         Some(store) => Credentials::load(store, &profile)?,
@@ -903,8 +1034,26 @@ async fn connect(
         let cert = read_p12(file, &password)?;
         creds.set_client_certificate(&cert);
     }
+    if let Some(module) = token_module {
+        let cert = choose_token_certificate(Some(module), token_id.as_deref())?;
+        creds.set(
+            CredentialKind::ClientCert,
+            SecretString::from(cert.cert_pem),
+        );
+        creds.set(
+            CredentialKind::TokenKey,
+            SecretString::from(cert.reference.to_json()?),
+        );
+    }
     let missing = creds.missing(&profile);
     if missing.iter().any(|k| !k.is_typed()) {
+        if profile.auth.uses_token() {
+            bail!(
+                "this profile signs in with a certificate on a smartcard or token: choose it \
+                 once with `ipsec-client-cli secrets token-use {}`, or pass --token-module",
+                profile.id
+            );
+        }
         bail!(
             "this profile signs in with a client certificate: import it once with \
              `ipsec-client-cli secrets import-p12 {} <file>`, or pass --client-p12 <file>",
@@ -978,6 +1127,7 @@ async fn connect(
             }
             event = rx.recv() => match event {
                 Some(SessionEvent::EngineGone) | None => {
+                    session::stop_token_agent();
                     println!("✘ The engine stopped (disconnected by another process or an error).");
                     return Ok(ExitCode::FAILURE);
                 }
