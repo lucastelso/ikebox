@@ -120,10 +120,13 @@ component_ok "$work/deb" "deb"
 cli_ok "$work/deb" "deb"
 licenses_ok "$work/deb" "deb"
 # The maintainer scripts that install and remove the component (ADR-0018).
-(cd "$work/deb" && tar -xf control.tar.* ./postinst ./prerm 2>/dev/null) ||
+mkdir "$work/deb-control"
+tar -xf "$work"/deb/control.tar.* -C "$work/deb-control" ||
+    fail "deb: could not read the control archive"
+[[ -f $work/deb-control/postinst && -f $work/deb-control/prerm ]] ||
     fail "deb: postinst/prerm missing"
-if ! grep -q 'install-native.sh" install --bundle' "$work/deb/postinst" ||
-    ! grep -q 'install-native.sh" uninstall' "$work/deb/prerm"; then
+if ! grep -q 'install-native.sh" install --bundle' "$work/deb-control/postinst" ||
+    ! grep -q 'install-native.sh" uninstall' "$work/deb-control/prerm"; then
     fail "deb: postinst/prerm do not manage the network component"
 fi
 ok "deb: postinst installs and prerm removes the network component"
