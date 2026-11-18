@@ -69,6 +69,9 @@ ARGS_DIR=${IPSEC_CLIENT_STATE_DIR:-/run/ipsec-client-engine}
 UPDOWN_ARGS="$ARGS_DIR/updown.args"
 # DNS requests from the unprivileged updown (ADR-0028).
 DNS_FIFO="$ARGS_DIR/dns.requests"
+# Where the session user's key agent listens, for keys on a smartcard or token
+# (ADR-0029): a directory of the user, readable by charon's group.
+AGENT_DIR="$SOCKET_DIR/agent"
 # Capabilities charon keeps when it does not run as root.
 readonly CHARON_CAPS=net_admin,net_bind_service,net_raw
 
@@ -302,6 +305,10 @@ write_runtime_conf() {
         forced="
             force_updown = $UPDOWN --args-file $UPDOWN_ARGS"
     fi
+    if [[ -n $ENGINE_USER ]]; then
+        forced+="
+            force_agent_socket = $AGENT_DIR/agent.sock"
+    fi
     overrides="charon {
     install_virtual_ip_on = $IFACE
     plugins {
@@ -354,11 +361,28 @@ prepare_engine_access() {
     chgrp "$ENGINE_GID" "$STATE_DIR" "$SOCKET_DIR"
     chmod 1770 "$STATE_DIR"
     chmod 1731 "$SOCKET_DIR"
+    prepare_agent_dir
     rm -f "$DNS_FIFO"
     mkfifo -m 0600 "$DNS_FIFO"
     chgrp "$ENGINE_GID" "$DNS_FIFO"
     chmod 0620 "$DNS_FIFO"
     exec {dns_fd}<>"$DNS_FIFO"
+}
+
+# The session user's directory for the key agent (ADR-0029): the user creates
+# the agent socket there, and only the user and charon's group can enter it
+# (no setgid: the sandbox forbids it, RestrictSUIDSGID). Made once (mode
+# first, while root still owns it), then left to the user; it lives inside
+# the root-owned socket directory, so the user cannot move or replace it.
+prepare_agent_dir() {
+    if [[ ! -e $AGENT_DIR ]]; then
+        mkdir -m 0700 "$AGENT_DIR"
+        chmod 0750 "$AGENT_DIR"
+        chown "$SOCKET_UID:$ENGINE_GID" "$AGENT_DIR"
+    fi
+    if [[ -L $AGENT_DIR || $(stat -c '%u:%g:%a' "$AGENT_DIR") != "$SOCKET_UID:$ENGINE_GID:750" ]]; then
+        log "warning: $AGENT_DIR is not as expected; keys on a token will not work"
+    fi
 }
 
 # charon as ENGINE_USER, with the network capabilities only, also for every

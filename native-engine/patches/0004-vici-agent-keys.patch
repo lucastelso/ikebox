@@ -1,0 +1,263 @@
+IPsec Client: private keys held by an ssh-agent, loaded through VICI with a
+socket chosen by root (ADR-0029).
+
+Smartcards and tokens stay with the person's process (the app or the CLI),
+which answers signature requests over the ssh-agent protocol; charon never
+sees the key or the PIN. strongSwan's agent plugin can sign that way, but
+VICI cannot load such a key. With this patch, load-key accepts type
+"agent", with the public key (PEM) as data, and creates the key through the
+agent plugin on the socket set by root in
+charon.plugins.vici.force_agent_socket (written by the embedded engine's
+entrypoint). The VICI client never names the socket, and without the option
+agent keys are refused. Other key types are unchanged.
+
+The agent plugin also insists on CAP_DAC_OVERRIDE, CAP_SETUID and
+CAP_SETGID, to open any user's agent socket as root. With the socket set by
+root, charon (which no longer runs as root, ADR-0028) reaches it through the
+socket directory's permissions and never switches users: in that mode the
+plugin loads without them.
+
+Finally, the agent plugin signs ECDSA only with the classic IKE schemes,
+while IKEv2 uses the RFC 7427 ones, whose signature is DER-encoded: it now
+also accepts the RFC 7427 scheme whose hash is the one an ssh-agent uses for
+the key's curve, and encodes r and s in DER for it. For ECDSA it also
+expects the signature type in the response (ecdsa-sha2-nistp<size>): before,
+that field was not read and was taken for the signature, so no ECDSA
+signature from an agent could be parsed.
+
+IKEv1 signs with RSA over a hash charon already computed
+(RSA_EMSA_PKCS1_NULL), which no ssh-agent does: with the socket set by root,
+which is always IPsec Client's own agent, a private flag (0x40000000) asks it
+to sign the data as it is.
+
+--- a/src/libcharon/plugins/vici/vici_cred.c
++++ b/src/libcharon/plugins/vici/vici_cred.c
+@@ -211,6 +211,46 @@
+ 	return create_reply(NULL);
+ }
+ 
++/**
++ * IPsec Client (ADR-0029): a private key held by an ssh-agent, the person's
++ * process that has the smartcard or token. The VICI client sends only the
++ * public key (PEM); the agent socket is the one root configured in
++ * charon.plugins.vici.force_agent_socket, never one the client names. Without
++ * that option, agent keys are refused.
++ */
++static private_key_t *load_agent_key(chunk_t data, char **error)
++{
++	public_key_t *public;
++	private_key_t *key;
++	char *path;
++
++	path = lib->settings->get_str(lib->settings,
++								  "%s.plugins.vici.force_agent_socket", NULL,
++								  lib->ns);
++	if (!path || !*path)
++	{
++		*error = "agent keys are not enabled";
++		return NULL;
++	}
++	public = lib->creds->create(lib->creds, CRED_PUBLIC_KEY, KEY_ANY,
++								BUILD_BLOB_PEM, data, BUILD_END);
++	if (!public)
++	{
++		*error = "parsing the public key of the agent key failed";
++		return NULL;
++	}
++	key = lib->creds->create(lib->creds, CRED_PRIVATE_KEY,
++							 public->get_type(public),
++							 BUILD_AGENT_SOCKET, path,
++							 BUILD_PUBLIC_KEY, public, BUILD_END);
++	public->destroy(public);
++	if (!key)
++	{
++		*error = "the key agent does not hold that key";
++	}
++	return key;
++}
++
+ CALLBACK(load_key, vici_message_t*,
+ 	private_vici_cred_t *this, char *name, u_int id, vici_message_t *message)
+ {
+@@ -225,21 +265,35 @@
+ 	{
+ 		return create_reply("key type missing");
+ 	}
+-	if (!enum_from_name(key_type_names, str, &type))
+-	{
+-		return create_reply("invalid key type: %s", str);
+-	}
+ 	data = message->get_value(message, chunk_empty, "data");
+ 	if (!data.len)
+ 	{
+ 		return create_reply("key data missing");
+ 	}
+-	key = lib->creds->create(lib->creds, CRED_PRIVATE_KEY, type,
+-							 BUILD_BLOB_PEM, data, BUILD_END);
+-	if (!key)
++	if (streq(str, "agent"))
++	{
++		char *error = NULL;
++
++		key = load_agent_key(data, &error);
++		if (!key)
++		{
++			return create_reply("%s", error);
++		}
++		type = key->get_type(key);
++	}
++	else
+ 	{
+-		return create_reply("parsing %N private key failed",
+-							key_type_names, type);
++		if (!enum_from_name(key_type_names, str, &type))
++		{
++			return create_reply("invalid key type: %s", str);
++		}
++		key = lib->creds->create(lib->creds, CRED_PRIVATE_KEY, type,
++								 BUILD_BLOB_PEM, data, BUILD_END);
++		if (!key)
++		{
++			return create_reply("parsing %N private key failed",
++								key_type_names, type);
++		}
+ 	}
+ 	if (!key->get_fingerprint(key, KEYID_PUBKEY_SHA1, &fp))
+ 	{
+--- a/src/libstrongswan/plugins/agent/agent_plugin.c
++++ b/src/libstrongswan/plugins/agent/agent_plugin.c
+@@ -64,6 +64,14 @@
+ {
+ 	private_agent_plugin_t *this;
+ 
++	/* IPsec Client (ADR-0029): with the agent socket set by root
++	 * (charon.plugins.vici.force_agent_socket), charon reaches it through the
++	 * socket directory's permissions and never switches users, so none of
++	 * these capabilities is needed (nor given). */
++	if (!lib->settings->get_str(lib->settings,
++								"%s.plugins.vici.force_agent_socket", NULL,
++								lib->ns))
++	{
+ 	/* required to connect to ssh-agent socket */
+ 	if (!lib->caps->keep(lib->caps, CAP_DAC_OVERRIDE))
+ 	{
+@@ -77,6 +85,7 @@
+ 		DBG1(DBG_DMN, "agent plugin requires CAP_SETUID/CAP_SETGID capability");
+ 		return NULL;
+ 	}
++	}
+ 
+ 	INIT(this,
+ 		.public = {
+--- a/src/libstrongswan/plugins/agent/agent_private_key.c
++++ b/src/libstrongswan/plugins/agent/agent_private_key.c
+@@ -29,6 +29,7 @@
+ #include <errno.h>
+ 
+ #include <library.h>
++#include <asn1/asn1.h>
+ #include <utils/chunk.h>
+ #include <utils/debug.h>
+ 
+@@ -97,6 +98,9 @@
+ enum agent_signature_flags_t {
+ 	SSH_AGENT_FLAG_SHA2_256 = 2,
+ 	SSH_AGENT_FLAG_SHA2_512 = 4,
++	/** IPsec Client's agent (ADR-0029): sign the data as it is (PKCS#1 v1.5
++	 * over a hash computed by charon, for IKEv1) */
++	IPSEC_CLIENT_FLAG_RAW = 0x40000000,
+ };
+ 
+ /**
+@@ -305,6 +309,20 @@
+ 	return success;
+ }
+ 
++/**
++ * IPsec Client (ADR-0029): is this an RFC 7427 ECDSA scheme (DER-encoded
++ * signature) whose hash matches what the agent uses for the key's curve?
++ */
++static bool ecdsa_der_scheme_matches(private_agent_private_key_t *this,
++									 signature_scheme_t scheme)
++{
++	int size = this->pubkey->get_keysize(this->pubkey);
++
++	return (scheme == SIGN_ECDSA_WITH_SHA256_DER && size == 256) ||
++		   (scheme == SIGN_ECDSA_WITH_SHA384_DER && size == 384) ||
++		   (scheme == SIGN_ECDSA_WITH_SHA512_DER && size == 521);
++}
++
+ static bool scheme_supported(private_agent_private_key_t *this,
+ 							 signature_scheme_t scheme, uint32_t *flags,
+ 							 char **prefix)
+@@ -325,6 +343,19 @@
+ 					*flags |= SSH_AGENT_FLAG_SHA2_512;
+ 					*prefix = "rsa-sha2-512";
+ 					return TRUE;
++				case SIGN_RSA_EMSA_PKCS1_NULL:
++					/* IPsec Client (ADR-0029): IKEv1 signs a hash it already
++					 * computed. ssh-agents always hash, but the forced agent
++					 * socket is IPsec Client's own agent, which takes this
++					 * private flag to sign the data as it is */
++					if (!lib->settings->get_str(lib->settings,
++							"%s.plugins.vici.force_agent_socket", NULL, lib->ns))
++					{
++						return FALSE;
++					}
++					*flags |= IPSEC_CLIENT_FLAG_RAW;
++					*prefix = "ssh-rsa";
++					return TRUE;
+ 				default:
+ 					break;
+ 			}
+@@ -336,9 +367,31 @@
+ 			*prefix = "ssh-ed448";
+ 			return scheme == SIGN_ED448;
+ 		case KEY_ECDSA:
++			/* IPsec Client (ADR-0029): the response carries the signature
++			 * type first, as for the other keys; without a prefix it was not
++			 * read, and the type was taken for the signature itself */
++			switch (this->pubkey->get_keysize(this->pubkey))
++			{
++				case 256:
++					*prefix = "ecdsa-sha2-nistp256";
++					break;
++				case 384:
++					*prefix = "ecdsa-sha2-nistp384";
++					break;
++				case 521:
++					*prefix = "ecdsa-sha2-nistp521";
++					break;
++				default:
++					return FALSE;
++			}
+ 			return scheme == SIGN_ECDSA_256 ||
+ 				   scheme == SIGN_ECDSA_384 ||
+-				   scheme == SIGN_ECDSA_521;
++				   scheme == SIGN_ECDSA_521 ||
++				   /* IPsec Client (ADR-0029): the RFC 7427 schemes IKEv2 uses,
++				    * when their hash is the one an ssh-agent signs with for the
++				    * curve (RFC 5656: P-256/SHA-256, P-384/SHA-384,
++				    * P-521/SHA-512) */
++				   ecdsa_der_scheme_matches(this, scheme);
+ 		default:
+ 			return FALSE;
+ 	}
+@@ -438,7 +491,16 @@
+ 			s = read_string(&blob);
+ 			if (r.len && s.len)
+ 			{
+-				*signature = chunk_cat("cc", r, s);
++				if (ecdsa_der_scheme_matches(this, scheme))
++				{	/* IPsec Client (ADR-0029): RFC 7427 wants DER */
++					*signature = asn1_wrap(ASN1_SEQUENCE, "mm",
++										   asn1_integer("c", r),
++										   asn1_integer("c", s));
++				}
++				else
++				{
++					*signature = chunk_cat("cc", r, s);
++				}
+ 				success = TRUE;
+ 			}
+ 		}
