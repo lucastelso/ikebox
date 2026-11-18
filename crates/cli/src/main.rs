@@ -361,7 +361,7 @@ fn move_legacy_data() {
             eprintln!("Moved {n} stored credential(s) from IPsec Client to Ikebox.")
         }
         Some(Err(e)) => eprintln!(
-            "warning: the credentials stored by IPsec Client could not be moved yet ({e}); they will be on the next run"
+            "warning: the credentials stored by IPsec Client were not moved yet; trying again on the next run ({e})"
         ),
         _ => {}
     }

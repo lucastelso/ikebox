@@ -1,5 +1,8 @@
 # Roadmap
 
+> Up to 0.9 the project was called IPsec Client; the sections below keep the
+> names of their time ([ADR-0031](adr/0031-renamed-to-ikebox.md)).
+
 Each line is a branch, created from `main` and merged with `merge --no-ff`,
 with `npm run check` green. The branch is deleted after the merge; the merge
 commit keeps its name.
@@ -340,7 +343,7 @@ No 0.10 release: day-to-day testing uses development builds
 | F | App | close to the tray (on by default, a notification the first time; System → Behavior), one status monitor in Rust feeding the tray and the window (no UI polling, nothing sent to a hidden window), optional update notice (off by default, once a day, `ureq` + rustls, version-only answer, packagers can build without it) | ✅ (step 56) |
 | G | Release pipeline in CI (`chore/release`) | [ADR-0030](adr/0030-release-signing-and-provenance.md): `release.yml` (build, reproducibility, signing in the protected `release` environment, attestations, draft release), `weekly.yml` (upstream watch, advisories, reproducibility, the seven distributions with packages updated from the latest release), `scripts/sign-release.sh`, `check-reproducible.sh`, `upstream-watch.sh`; the signing key is the maintainer's step | ✅ (step 57; key and environment with the maintainer) |
 | H | Opening | SECURITY.md for a public repository (private reporting, response times, supported versions), code of conduct, SUPPORT.md, issue forms with the privacy warning and the anonymized log, README for 1.0 with screenshots, Portuguese copies in sync; every code comment in English, presets and the test fixture renamed (fake values inside the tests stay as they are) | ✅ (step 58) |
-| I | Acceptance and release | 1.0.0 version, clean-VM checklist (P15), real VPN, repository made public, tag, signed release | ⏳ |
+| I | Acceptance and release | renamed **Ikebox** ([ADR-0031](adr/0031-renamed-to-ikebox.md)), with the move from IPsec Client tested on the seven distributions; then the 1.0.0 version, clean-VM checklist (P15), real VPN, repository made public, tag, signed release | ⏳ (step 59: the name) |
 
 Out of 1.0 (kept in [After 1.0](#after-10)): P8 `initiator_only` (needs a long
 session on the real VPN), restricting 500/4500 to the gateway, several

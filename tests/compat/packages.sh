@@ -58,13 +58,21 @@ inside() {
     local legacy=0
     if [[ ${OLD_PKG:-} == ipsec-client* ]]; then
         legacy=1
+        # The 0.9 installer needs a running systemd for its last step
+        # (enabling the socket), which a container lacks: by then the files
+        # are in place, and those are what Ikebox must remove.
         bash /usr/lib/ipsec-client/network/install-native.sh install \
-            --bundle /usr/lib/ipsec-client/network --origin app >/tmp/old-component.log 2>&1 || {
+            --bundle /usr/lib/ipsec-client/network --origin app >/tmp/old-component.log 2>&1 || true
+        [[ -f /opt/ipsec-client/ORIGIN && -f /etc/systemd/system/ipsec-client-helper.socket ]] || {
             tail -n 15 /tmp/old-component.log
             echo "RESULT install-old-component=FAILED"
             exit 1
         }
-        [[ -d /opt/ipsec-client ]] || { echo "RESULT old-component-missing=FAILED"; exit 1; }
+        # Development builds after 0.9 (charon without root) also made this
+        # system user.
+        id -u ipsec-client-engine >/dev/null 2>&1 ||
+            systemd-sysusers --inline "u ipsec-client-engine - - / /usr/sbin/nologin" >/dev/null 2>&1 ||
+            useradd --system --no-create-home ipsec-client-engine
     fi
     # A development build has the same version as the release it updates:
     # dnf and zypper would see nothing to do, so it is reinstalled (which

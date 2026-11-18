@@ -6,6 +6,10 @@ is in the [roadmap](roadmap.md).
 
 > This log was written in Portuguese up to step 35 and translated to English
 > in 0.2.0 (step 36). Commit messages before 0.2.0 are in Portuguese.
+>
+> Up to step 58 the project was called **IPsec Client**, and the entries keep
+> the names of their time (paths, commands, packages). The rename is step 59
+> ([ADR-0031](adr/0031-renamed-to-ikebox.md)).
 
 ---
 
@@ -2385,3 +2389,41 @@ distributions), `test:native` and `npm run check` pass.
   so they, and the other fake values inside the tests, stay for after 1.0.
   The legacy snapshot changed only by the `if_id`, which derives from the
   profile id.
+
+### Step 59: the project becomes Ikebox (ADR-0031)
+
+- **The name:** *IKE* in a *box*, strongSwan's IKE engine running in an
+  isolated sandbox. Chosen by the maintainer for 1.0, with the title
+  "Ikebox — Sandboxed IPsec VPN client for Linux (legacy IKEv1 & IKEv2)".
+  No software of that name turned up in a web search (not a trademark
+  search).
+- **The logo:** four hand-written SVG drafts (a key in a box, a key
+  exchange in a box, an "ik" monogram, a padlock made of a box); the
+  maintainer chose the monogram, whose i has a small box for a dot. The
+  previous shield was also hand-written for the project, so both are under
+  the project's license.
+- **Everywhere:** an ordered replacement (`io.github.lucastelso.ipsecclient`,
+  `lucastelso/ipsec-client`, `IPSEC_CLIENT`, `ipsec_client`, `ipsec-client`,
+  `ipsecclient`, `IPsec Client`) over 157 files plus 8 renamed ones, leaving
+  out the records of their time (release notes, the 0.x CHANGELOG, this log,
+  the audit, the ADRs). One assertion had to go back: the fake test CA has
+  "IPsec Client Test CA" inside the certificate.
+- **strongSwan credited:** a README section (what Ikebox takes from it, what
+  it adds, where its own security problems go, and that Ikebox is
+  independent) and a line under the version on the System screen.
+- **Updating from IPsec Client:** package relations (`Conflicts`/`Replaces`,
+  `Obsoletes`, AppStream `<replaces>`); the component installer removes the
+  old component by fixed names; `ikebox_core::legacy` moves
+  `~/.config/ipsec-client` and then the keyring entries, with a marker file
+  so a locked keyring only postpones the second step. Unit tests cover the
+  move, an existing new directory, a link in place of the old one and the
+  credentials; a CLI run with the keyring unreachable moved the directory,
+  listed the profiles and left the credentials pending.
+- **Tested:** `npm run check`, the release build (the engine rebuilt: the
+  patches' comments and one constant changed), `test:engine`, `test:docker`,
+  `test:cli`, `test:systemd`, `test:modes`, `test:packaging`, `test:compat`,
+  and `tests/compat/packages.sh` updating from the published IPsec Client
+  0.9.0 on the seven distributions: the old package, component, units,
+  polkit action and system user are gone afterwards. The 0.9.0 installer
+  needs a running systemd for its last step, so in the container it stops
+  there, with its files in place, which is what Ikebox has to remove.
