@@ -2266,3 +2266,29 @@ creates a directory. The maintainer chose to implement it for 1.0
 mode with RSA then XAuth, a wrong PIN said as such, and the PIN absent from
 the journal and the files. `test:compat` (the agent directory on the seven
 distributions), `test:native` and `npm run check` pass.
+
+### Step 55: phase E2, smartcards and tokens in the app
+
+- **Editor:** for certificate profiles, "The key is on a smartcard or
+  token" (`token` in the draft, optional so older drafts still parse),
+  kept through the profile and back.
+- **Connection dialog:** with a token profile it looks on the connected
+  tokens at once (the system's module: p11-kit's proxy or OpenSC), lists
+  the certificates as radio options with the token they are on, the key
+  type and the expiry, preselects the only usable one and says why the
+  others cannot be used; "Other module…" picks a `.so` in the native
+  dialog, whose path stays in Rust behind a token, as the `.p12` does. The
+  choice is remembered in the keyring before connecting; the PIN goes in
+  the connection (`tokenPin`) and is never stored. The dialog says to keep
+  the app open while connected.
+- **Commands:** `choose_token_module`, `list_token_certificates`,
+  `remember_token_certificate` (first named `use_…`, which Biome took for a
+  React hook in the frontend).
+- **Agent lifetime in the app:** the session's agent lives in the app
+  process; the tray monitor stops it when the VPN goes from up to down
+  without the app (another process, the gateway), never during a
+  connection.
+- **Tests:** vitest (the list, the preselection, the unusable certificate,
+  the PIN reaching `connect`, the choice remembered), Rust (the editor
+  flag, the PIN in `CredentialsInput` and hidden by its `Debug`).
+- **Docs:** `profiles.md`, SECURITY.md in both languages.
