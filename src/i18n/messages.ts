@@ -380,6 +380,17 @@ export const en = {
       warn: 'Warning',
       fail: 'Problem',
     },
+    behavior: 'Behavior',
+    closeToTray: 'Closing the window keeps the app in the tray',
+    closeToTrayHint:
+      'The VPN stays connected either way. Off: closing the window quits the app (the tray icon goes too).',
+    updateCheck: 'Tell me when a new version is out',
+    updateCheckHint:
+      'Once a day, asks GitHub which version is the latest. Nothing is downloaded or installed.',
+  },
+  update: {
+    available: (version: string) => `IPsec Client ${version} is available.`,
+    view: 'See what is new',
   },
 } as const;
 
@@ -770,5 +781,16 @@ export const pt: Messages = {
       warn: 'Aviso',
       fail: 'Problema',
     },
+    behavior: 'Comportamento',
+    closeToTray: 'Fechar a janela mantém o app na bandeja',
+    closeToTrayHint:
+      'A VPN continua conectada de qualquer jeito. Desligado: fechar a janela encerra o app (e o ícone da bandeja).',
+    updateCheck: 'Avisar quando sair uma versão nova',
+    updateCheckHint:
+      'Uma vez por dia, pergunta ao GitHub qual é a última versão. Nada é baixado nem instalado.',
+  },
+  update: {
+    available: (version) => `O IPsec Client ${version} está disponível.`,
+    view: 'Ver as novidades',
   },
 };

@@ -116,6 +116,17 @@ a vulnerability"). Do not open public issues for vulnerabilities.
    connected: renewing the keys may need a new signature
    ([ADR-0029](docs/adr/0029-smartcards-and-tokens.md)).
 
+### What the app sends over the network
+
+Only the VPN itself (IKE and ESP, to the gateway of the profile), and the
+DNS queries the system makes. Nothing else, unless **System → Behavior →
+"Tell me when a new version is out"** is turned on (it is off by default):
+then, once a day, the app asks GitHub's API which release is the latest
+(`api.github.com`, with the app's name and version as the user agent; GitHub
+sees your IP address, as for any visit). Only a version number is taken from
+the answer, the release page is built by the app, and nothing is downloaded
+or installed. Packagers can build the app without this check.
+
 ### Out of scope
 
 - Protecting the user's data from an already compromised host (local root)

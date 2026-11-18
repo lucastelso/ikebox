@@ -2,9 +2,6 @@ import { useCallback, useEffect, useReducer, useRef } from 'react';
 import { type CredentialsInput, commands, events } from '@/bindings';
 import { connectionReducer, initialState, isBusy } from './connectionReducer';
 
-/** Intervalo da consulta de status (tráfego, tempo, conexões abertas pelo CLI). */
-export const STATUS_POLL_MS = 2000;
-
 /** Estado da conexão + ações, ligados aos comandos e eventos do Rust. */
 export function useConnection() {
   const [state, dispatch] = useReducer(connectionReducer, initialState);
@@ -29,20 +26,41 @@ export function useConnection() {
     };
   }, []);
 
+  // The status comes from Rust's one monitor (the same that feeds the tray),
+  // as an event while the window is visible. The window reads it itself only
+  // when it opens and when it becomes visible again.
   useEffect(() => {
     let cancelled = false;
-    const poll = async () => {
+    let unlisten: (() => void) | undefined;
+    const read = async () => {
       if (isBusy(phaseRef.current)) return;
       const result = await commands.status();
       if (!cancelled && result.status === 'ok') {
         dispatch({ type: 'statusPolled', connection: result.data });
       }
     };
-    void poll();
-    const id = setInterval(() => void poll(), STATUS_POLL_MS);
+    void read();
+    events.statusUpdate
+      .listen((event) => {
+        if (!isBusy(phaseRef.current)) {
+          dispatch({ type: 'statusPolled', connection: event.payload.connection });
+        }
+      })
+      .then((fn) => {
+        if (cancelled) fn();
+        else unlisten = fn;
+      })
+      .catch(() => {
+        // No events (tests): the reads below keep the screen up to date.
+      });
+    const onVisible = () => {
+      if (document.visibilityState === 'visible') void read();
+    };
+    document.addEventListener('visibilitychange', onVisible);
     return () => {
       cancelled = true;
-      clearInterval(id);
+      unlisten?.();
+      document.removeEventListener('visibilitychange', onVisible);
     };
   }, []);
 

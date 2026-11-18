@@ -9,6 +9,7 @@
 use std::io::{BufRead as _, BufReader, Write as _};
 use std::os::unix::net::{UnixListener, UnixStream};
 use std::path::PathBuf;
+use std::sync::atomic::{AtomicBool, Ordering};
 use std::time::Duration;
 
 use ipsec_client_core::session::{self, ConnectionInfo};
@@ -16,9 +17,54 @@ use ipsec_client_core::{tr, trf};
 use tauri::menu::{Menu, MenuItem, PredefinedMenuItem};
 use tauri::tray::{MouseButton, MouseButtonState, TrayIconBuilder, TrayIconEvent};
 use tauri::{AppHandle, Manager};
+use tauri_specta::Event as _;
 
-/// Intervalo do monitor de estado da bandeja.
-const MONITOR_INTERVAL: Duration = Duration::from_secs(3);
+use crate::dto::{Connection, StatusUpdate};
+use crate::settings::SettingsState;
+
+/// The one status monitor of the app (phase F): it updates the tray, sends
+/// notifications and feeds the window, which no longer polls on its own.
+const MONITOR_INTERVAL: Duration = Duration::from_secs(2);
+
+/// Was the tray created (an AppIndicator host may be missing, on GNOME)?
+static TRAY_AVAILABLE: AtomicBool = AtomicBool::new(false);
+
+/// Closing the main window: with "close to the tray" on, the window is only
+/// hidden and the app keeps running (the VPN, the tray, a token's key agent);
+/// it comes back from the tray or by opening the app again. The first time,
+/// a notification says so.
+pub fn handle_close(window: &tauri::Window, event: &tauri::WindowEvent) {
+    let tauri::WindowEvent::CloseRequested { api, .. } = event else {
+        return;
+    };
+    let state = window.app_handle().state::<SettingsState>();
+    if !state.get().close_to_tray {
+        return;
+    }
+    api.prevent_close();
+    let _ = window.hide();
+    if !state.get().close_notice_shown {
+        state.update(|s| s.close_notice_shown = true);
+        let body = if TRAY_AVAILABLE.load(Ordering::Relaxed) {
+            tr!(
+                "It keeps running in the tray. To quit, use \"Quit\" in the tray menu; you can change this in System.",
+                "Ele continua na bandeja. Para sair, use \"Sair do app\" no menu da bandeja; dá para mudar isso em Sistema."
+            )
+        } else {
+            tr!(
+                "It keeps running in the background: open it again from the applications menu. You can change this in System.",
+                "Ele continua rodando em segundo plano: abra de novo pelo menu de aplicativos. Dá para mudar isso em Sistema."
+            )
+        };
+        notify(
+            tr!(
+                "IPsec Client is still open",
+                "O IPsec Client continua aberto"
+            ),
+            body,
+        );
+    }
+}
 
 /// Estado da VPN visto pela bandeja.
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -283,6 +329,8 @@ pub fn start(app: &AppHandle) {
     if tray.is_none() {
         tracing::info!("tray not available in this environment");
     }
+    TRAY_AVAILABLE.store(tray.is_some(), Ordering::Relaxed);
+    let app = app.clone();
     tauri::async_runtime::spawn(async move {
         let mut previous = TrayState::Unknown;
         let mut lang = ipsec_client_core::i18n::lang();
@@ -290,10 +338,23 @@ pub fn start(app: &AppHandle) {
             let current_lang = ipsec_client_core::i18n::lang();
             let lang_changed = current_lang != lang;
             lang = current_lang;
-            let next = match session::status().await {
+            let status = session::status().await;
+            let next = match &status {
                 Ok(status) => TrayState::from_status(status.as_ref()),
                 Err(_) => TrayState::Unknown,
             };
+            // The window gets the same reading, only while it is visible.
+            if let Ok(status) = &status
+                && app
+                    .get_webview_window("main")
+                    .is_some_and(|w| w.is_visible().unwrap_or(false))
+            {
+                let _ = StatusUpdate {
+                    connection: status.as_ref().map(Connection::from),
+                }
+                .emit(&app);
+            }
+            crate::settings_cmd::check_if_due(&app);
             if let Some((summary, body)) = transition_notice(&previous, &next) {
                 notify(&summary, &body);
             }

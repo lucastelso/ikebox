@@ -179,9 +179,10 @@ The AppImage is a single file: it installs nothing in the system.
    whatever you normally use.
 
 While the app is open, the **tray** icon (near the clock) shows the state and
-has Disconnect. **Closing the window closes the app, but does not disconnect
-the VPN.** When you open it again, it shows the active connection. To
-disconnect, use the **Disconnect** button.
+has Disconnect. **Closing the window keeps the app running in the tray**
+(the first time, a notification says so); **Quit** in the tray menu closes
+it. Neither disconnects the VPN: use the **Disconnect** button. To have the
+window's close button quit the app instead: **System → Behavior**.
 
 On GNOME, the tray only shows up with the **AppIndicator** extension: on
 Fedora, `sudo dnf install gnome-shell-extension-appindicator`; then log out,

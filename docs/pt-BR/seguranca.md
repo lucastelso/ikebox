@@ -118,6 +118,17 @@ vulnerabilidades.
    conectado: a renovação das chaves pode precisar de uma nova assinatura
    ([ADR-0029](../adr/0029-smartcards-and-tokens.md), em inglês).
 
+### O que o app envia pela rede
+
+Só a própria VPN (IKE e ESP, para o gateway do perfil) e as consultas de DNS
+que o sistema faz. Nada mais, a não ser que **Sistema → Comportamento →
+"Avisar quando sair uma versão nova"** esteja ligado (vem desligado): aí,
+uma vez por dia, o app pergunta à API do GitHub qual é a última versão
+(`api.github.com`, com o nome e a versão do app como user agent; o GitHub vê
+o seu endereço IP, como em qualquer visita). Da resposta só se aproveita um
+número de versão, a página da versão é montada pelo app, e nada é baixado
+nem instalado. Quem empacota o app pode compilá-lo sem essa consulta.
+
 ### Fora do escopo
 
 - Proteger os dados do usuário de um host já comprometido (root local) ou de

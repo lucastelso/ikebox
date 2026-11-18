@@ -9,6 +9,13 @@ and the project uses [Semantic Versioning](https://semver.org/).
 
 ### Added
 
+- **Closing the window keeps the app in the tray** (a notification says so
+  the first time; **System → Behavior** turns it off). The VPN, the tray and
+  a token's key agent keep running.
+- **Optional update notice** (off by default): once a day, the app asks
+  GitHub which version is the latest and shows a link when a newer one is
+  out. Nothing is downloaded or installed; SECURITY.md says what the app
+  sends over the network.
 - **Smartcards and tokens** ([ADR-0029](docs/adr/0029-smartcards-and-tokens.md)):
   a certificate whose key stays on a smartcard or USB token (PKCS#11, through
   p11-kit or any module), RSA or ECDSA, in IKEv2 and in IKEv1 main mode
@@ -52,6 +59,8 @@ and the project uses [Semantic Versioning](https://semver.org/).
 
 ### Changed
 
+- One status monitor in Rust feeds the tray and the window: the window no
+  longer polls every 2 s, and nothing is sent to it while it is hidden.
 - **charon runs without root** ([ADR-0028](docs/adr/0028-charon-without-root.md)):
   as the new `ipsec-client-engine` system user, with only `NET_ADMIN`; the
   VPN DNS is applied by the engine's root part, on the session's interface

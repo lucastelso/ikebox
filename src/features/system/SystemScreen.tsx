@@ -18,6 +18,7 @@ import { applyTheme, readTheme, type Theme } from '@/lib/theme';
 import { cn } from '@/lib/utils';
 import { ComponentCard } from '../component/ComponentCard';
 import { useComponent } from '../component/useComponent';
+import { BehaviorCard } from '../settings/BehaviorCard';
 
 const ICON: Record<CheckLevel, typeof CircleCheck> = {
   ok: CircleCheck,
@@ -131,6 +132,8 @@ export function SystemScreen() {
           </ul>
         </CardContent>
       </Card>
+
+      <BehaviorCard />
 
       <Card>
         <CardHeader>

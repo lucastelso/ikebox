@@ -23,11 +23,16 @@ path = "src/main.rs"
 tauri-build = { version = "2", features = [] }
 
 [features]
+default = ["update-check"]
 # The Docker engine, for development and tests only (see crates/core). Release
 # builds leave it off.
 docker = ["ipsec-client-core/docker"]
+# The optional update notice (off by default at runtime; it contacts GitHub
+# once a day when the person turns it on). Packagers may build without it.
+update-check = ["dep:ureq"]
 
 [dependencies]
+ureq = { version = "3.5.2", default-features = false, features = ["rustls"], optional = true }
 dbus = "0.9.12"
 ipsec-client-core = { path = "../crates/core" }
 secrecy = "0.10.3"
@@ -40,6 +45,7 @@ tauri-specta = { version = "=2.0.0-rc.29", features = ["derive", "typescript"] }
 tokio = { version = "1.54.1", features = ["sync", "time"] }
 tracing = "0.1.44"
 zeroize = "1.9.2"
+serde_json = "1.0.154"
 
 [dev-dependencies]
 tempfile = "3.27.0"

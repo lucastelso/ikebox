@@ -337,7 +337,7 @@ No 0.10 release: day-to-day testing uses development builds
 | C | Engine with OpenSSL | [ADR-0026](adr/0026-strongswan-maintenance-policy.md) (strongSwan maintenance policy, audit P1); [ADR-0027](adr/0027-openssl-in-the-engine.md): OpenSSL replaces GMP, patch `0003`, ECDSA CAs and keys accepted, ECP in the "modern" preset; ECDSA gateway in `test:modes` | ✅ (step 52) |
 | D | charon without root | [ADR-0028](adr/0028-charon-without-root.md): charon as `ipsec-client-engine` with `NET_ADMIN` only (setpriv, native capabilities), DNS through root on the session interface (FIFO), checked on the seven distributions; gateway-initiated phase 1/2 renewal in `test:modes` | ✅ (step 53) |
 | E | PKCS#11 (gated) | study passed the gate; [ADR-0029](adr/0029-smartcards-and-tokens.md): the token stays in the person's process, charon signs through a key agent (patch `0004`). E1: engine, core, CLI, `test:modes` with SoftHSM (RSA and ECDSA, IKEv2 and IKEv1 + XAuth). E2: the app (editor option, certificate list and PIN in the connection dialog) and the user docs | ✅ (steps 54–55) |
-| F | App | close to the tray, one status monitor in Rust for the tray and the UI, optional update notice | ⏳ |
+| F | App | close to the tray (on by default, a notification the first time; System → Behavior), one status monitor in Rust feeding the tray and the window (no UI polling, nothing sent to a hidden window), optional update notice (off by default, once a day, `ureq` + rustls, version-only answer, packagers can build without it) | ✅ (step 56) |
 | G | Release pipeline in CI (`chore/release`) | `release.yml` (build, signing, attestations, draft release), reproducible network component, weekly compatibility matrix (P16) and upstream watch | ⏳ |
 | H | Opening | English leftovers (comments, presets), SECURITY.md for a public repository, code of conduct, support, issue forms, README for 1.0 with screenshots, Portuguese copies in sync | ⏳ |
 | I | Acceptance and release | 1.0.0 version, clean-VM checklist (P15), real VPN, repository made public, tag, signed release | ⏳ |
@@ -360,6 +360,3 @@ clean, gitleaks clean, the clean-VM checklist and the real VPN approved,
 - Restrict ports 500/4500 to the gateway IP during the session.
 - More languages, now that the i18n infrastructure exists.
 - Long-duration test (rekey after about 11 h).
-- Option to close the window to the tray (today, closing quits the app while
-  the VPN stays connected).
-- Unify the UI and tray status polling.
