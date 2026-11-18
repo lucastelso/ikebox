@@ -2077,3 +2077,52 @@ configuration that follows the real images.
 **Verification:** `npm run check`, `test:docker`, `test:cli`, a release
 build from the branch (`verify-release.sh` and `check-private.sh
 --artifacts` clean).
+
+### Step 51: phase B, complete packages
+
+**The packages manage the network component** (`feat/package-scripts`,
+ADR-0018 amended). A post-install and a pre-removal, shared by the `.deb`
+and the `.rpm` (`packaging/package/`), run the shipped installer with
+`--origin package` on install and upgrade, and remove the component on a
+real removal. Before, `dnf remove`/`apt remove` left the root helper in
+`/opt/ipsec-client` with its socket enabled and listening. The installer
+learned to work without a running systemd (image builds, containers: the
+socket is enabled for the next boot), and the app records the origin
+`package` when it installs from a root-owned bundle, so it can repair the
+package's component while the AppImage still cannot replace it.
+
+**The CLI in the packages** (`feat/cli-in-packages`): `/usr/bin/ipsec-client-cli`
+with a manual page and bash/zsh/fish completions generated from the clap
+definitions (`completions <shell>`, hidden `manpage`), staged by
+`scripts/stage-cli.sh`.
+
+**AppStream** (`feat/appstream`): metainfo in English and Portuguese,
+validated by `appstreamcli --pedantic` in CI; `verify-release.sh` refuses a
+package whose metadata has no `<release>` for its version.
+
+**Licenses** (`chore/third-party-licenses`): every package carries
+`/usr/lib/ipsec-client/licenses/` with the texts of the 441 crates and npm
+packages that reach the shipped binaries (walked from `cargo metadata` and
+the npm lock: normal dependencies of the app, the CLI and the helper, no
+proc-macros, no Docker engine), plus strongSwan, GMP and musl.
+`scripts/release-sources.sh` builds the engine's corresponding source, each
+download checked against hashes already in the repository; Alpine's
+packaging of GMP and musl comes from the aports commits of the exact
+revisions (looked up through GitLab's API), which also replaced the moving
+`master` link in THIRD_PARTY_NOTICES.
+
+**Verification.** A release build from `main` and the package matrix:
+
+- `verify-release.sh` stopped the first build on its own new check: Tauri
+  writes `postinst`/`prerm` into `control.tar` without a `./` prefix. Fixed.
+- The matrix (0.9.0 → this build) passed on the four Debian-family
+  distributions at once. On the RPM family the harness had two faults, not
+  the packages: a development build has the same version as 0.9.0, so dnf
+  saw nothing to do and the new scripts never ran (the test now reinstalls
+  when the versions match; newer rpm prints the epoch in `%{NEVRA}`, so the
+  comparison uses an explicit format), and openSUSE has no `cmp`. Then all
+  seven passed: the component installed by the package with origin
+  `package`, the socket enabled, and nothing left after removing the
+  package.
+- `npm run check`, `test:packaging` (new scenario without systemd),
+  `check-private.sh --artifacts` clean.

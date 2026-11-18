@@ -333,7 +333,7 @@ No 0.10 release: day-to-day testing uses development builds
 |---|---|---|---|
 | 0 | Preparation | this program; stale local `v0.1.1` tag removed; history scanned (`check-private.sh --history`, gitleaks); new private repository created and pushed by the maintainer | ✅ (step 49; first CI run green) |
 | A | Security and supply chain | P2 (store credentials only after connecting, app and CLI), P3 (Tauri 2.12.6), P4 and every unpinned build input (rustup-init, Node, AppImage tools, GMP/musl), CI hygiene, Dependabot rewritten | ✅ (step 50) |
-| B | Complete packages | rpm/deb scripts manage the network component (`--origin package`; removing the package removes it), CLI with man page and completions in the packages, AppStream metainfo, third-party licenses in the packages, corresponding source bundle | ⏳ |
+| B | Complete packages | rpm/deb scripts manage the network component (`--origin package`; removing the package removes it), CLI with man page and completions in the packages, AppStream metainfo, third-party licenses in every package, corresponding source archive (`scripts/release-sources.sh`) | ✅ (step 51) |
 | C | Engine with OpenSSL | ADR on the strongSwan maintenance policy (audit P1); ADR and build with the `openssl` plugin (ECDSA, ECP groups 19/20/21); E2E in `test:modes` | ⏳ |
 | D | charon without root | ADR, charon as its own user with network capabilities only (follow-up of ADR-0019); rekey scenario in `test:modes`; `test:compat` | ⏳ |
 | E | PKCS#11 (gated) | study and ADR; implementation only if it passes the gate above | ⏳ |
