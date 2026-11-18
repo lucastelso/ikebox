@@ -33,6 +33,8 @@ and the project uses [Semantic Versioning](https://semver.org/).
 
 ### Fixed
 
+- "Copy anonymized" masked the hint in strongSwan's IKEv1 deprecation
+  warning ("configure 've*** 2'"); it is not an identity.
 - SECURITY.md said the embedded strongSwan carries one patch of ours; it
   carries two.
 - With "remember" checked, the credentials are stored in the keyring only
