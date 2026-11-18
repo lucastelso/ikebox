@@ -53,6 +53,20 @@ inside() {
             exit 1
         }
     fi
+    # A development build has the same version as the release it updates:
+    # dnf and zypper would see nothing to do, so it is reinstalled (which
+    # runs the new package's scripts, as a real update does).
+    # Same format on both sides (newer rpm prints the epoch in %{NEVRA}).
+    local fmt='%{NAME}-%{VERSION}-%{RELEASE}.%{ARCH}'
+    if [[ $kind != deb && -n ${OLD_PKG:-} ]] &&
+        [[ $(rpm -qp --qf "$fmt" "/pkg/$PKG" 2>/dev/null) == "$(rpm -q --qf "$fmt" ipsec-client 2>/dev/null)" ]]; then
+        install_pkg() {
+            case $kind in
+            dnf | el) dnf -y reinstall "$1" ;;
+            zypper) zypper -n --no-gpg-checks install --force --no-recommends "$1" ;;
+            esac
+        }
+    fi
     install_pkg "/pkg/$PKG" >/tmp/install.log 2>&1 || {
         tail -n 15 /tmp/install.log
         echo "RESULT install=FAILED"
@@ -89,7 +103,7 @@ inside() {
     version=$(sed -n 's/^version=//p' "$net/VERSION")
     [[ $(cat "$p/ORIGIN" 2>/dev/null) == package ]] ||
         { tail -n 15 /tmp/install.log; echo "RESULT component-installed=FAILED"; exit 1; }
-    cmp -s "$net/SHA256SUMS" "$p/SHA256SUMS" ||
+    [[ $(sha256sum <"$net/SHA256SUMS") == "$(sha256sum <"$p/SHA256SUMS" 2>/dev/null)" ]] ||
         { echo "RESULT component-version=FAILED"; exit 1; }
     [[ -L $units/sockets.target.wants/ipsec-client-helper.socket ]] ||
         { echo "RESULT socket-enabled=FAILED"; exit 1; }
