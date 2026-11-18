@@ -39,7 +39,10 @@ vulnerabilidades.
    (ADR-0016). Os dois patches são pequenos e de segurança, aplicados depois
    dessa conferência: o cliente VICI não escolhe o `updown` nem o `if_id`
    (ADR-0019), nem faz o charon abrir um arquivo de certificado ou um token
-   pelo caminho (ADR-0020). As correções de
+   pelo caminho (ADR-0020). Ele liga o OpenSSL estaticamente para RSA,
+   ECDSA e os grupos Diffie-Hellman (ADR-0027); as correções do strongSwan e
+   do OpenSSL seguem a política do
+   [ADR-0026](../adr/0026-strongswan-maintenance-policy.md), em inglês. As correções de
    segurança chegam quando o projeto publica uma versão nova, e não pelo
    gerenciador de pacotes da distribuição. O daemon fica exposto (UDP
    500/4500) **só enquanto a VPN está conectada**.
@@ -81,17 +84,18 @@ vulnerabilidades.
 7. **O IKEv1 está sendo aposentado pelo strongSwan.** A versão 6.1.0 desativa
    o IKEv1 por padrão (o build embutido o habilita) e anunciou a remoção numa
    versão futura. A maioria das VPNs para as quais o app foi feito é IKEv1
-   (o IKEv2 com PSK também é aceito e testado); como manter o IKEv1
-   funcionando com correções de segurança é uma decisão em aberto (veja a
-   [auditoria da 0.2.0](../audits/v0.2.0.md), em inglês, item P1).
+   (o IKEv2 com PSK também é aceito e testado). Quando o strongSwan remover
+   o IKEv1, o motor fica na última versão que o tem, e o projeto aplica nela
+   as correções de segurança publicadas
+   ([ADR-0026](../adr/0026-strongswan-maintenance-policy.md), em inglês).
 8. **IKEv2 com usuário e senha (EAP).** O gateway sempre prova quem é pelo
    certificado, conferido contra a CA do perfil e o nome do gateway; não há
    como pular isso. Dois limites, decididos para a 0.7.0: **a revogação não
    é verificada** (nem CRL nem OCSP: isso faria o charon, como root, buscar
    URLs na internet), então um certificado de gateway revogado continua
-   funcionando até vencer; e o motor verifica **só RSA e Ed25519**, então um
-   gateway com certificado ECDSA ainda não pode ser usado
-   ([ADR-0023](../adr/0023-ikev2-eap-mschapv2.md), em inglês). O MSCHAPv2 só
+   funcionando até vencer. Certificados RSA, ECDSA e Ed25519 são conferidos
+   ([ADR-0023](../adr/0023-ikev2-eap-mschapv2.md) e
+   [ADR-0027](../adr/0027-openssl-in-the-engine.md), em inglês). O MSCHAPv2 só
    é seguro dentro desse túnel conferido: o app nunca o envia a um gateway
    não verificado.
 9. **O seu certificado (certificado de cliente, 0.8.0).** A chave privada é
@@ -101,8 +105,8 @@ vulnerabilidades.
    destravada com a sua sessão) e enviada ao charon como dado, nunca como
    arquivo. A senha do `.p12` não é guardada; o app não precisa mais do
    arquivo, e você pode apagá-lo. Os nomes dele (o seu, o seu e-mail, a
-   organização) são mascarados no log. Vale o mesmo limite RSA/Ed25519 do
-   gateway; ainda sem smartcards ou tokens (PKCS#11)
+   organização) são mascarados no log. Chaves RSA, ECDSA e Ed25519 são
+   aceitas; ainda sem smartcards ou tokens (PKCS#11)
    ([ADR-0024](../adr/0024-client-certificates.md), em inglês).
 
 ### Fora do escopo
