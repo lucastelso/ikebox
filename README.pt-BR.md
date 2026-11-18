@@ -31,7 +31,7 @@ ponta a ponta, e o motor, em sete distribuições.
 Downloads: [Releases](https://github.com/lucastelso/ikebox/releases)
 (AppImage, `.deb`, `.rpm`, assinados). O que mudou:
 [CHANGELOG](CHANGELOG.md) (em inglês). Chave das versões
-([packaging/keys](packaging/keys/)): `<FINGERPRINT>`.
+([packaging/keys](packaging/keys/)): `6F3F 99EA 25FA F76F CF98  655C B357 4751 2185 8FC5`.
 
 ---
 

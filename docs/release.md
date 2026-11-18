@@ -54,14 +54,10 @@ is still there.
 
 ## 1. Prepare the version
 
-1. Update the version everywhere:
+1. Set the version, with the real numbers (for example `1.0.1`):
 
    ```bash
-   sed -i '0,/^version = ".*"/s//version = "X.Y.Z"/' Cargo.toml          # workspace
-   sed -i 's/ikebox-proto = { version = "[^"]*"/ikebox-proto = { version = "X.Y.Z"/' crates/core/Cargo.toml
-   sed -i 's/^  "version": ".*",/  "version": "X.Y.Z",/' src-tauri/tauri.conf.json
-   npm version X.Y.Z --no-git-tag-version                                # package.json and lock
-   cargo update -w
+   scripts/set-version.sh 1.0.1
    ```
 
    The version also appears in `README.md`, `README.pt-BR.md` and the file
