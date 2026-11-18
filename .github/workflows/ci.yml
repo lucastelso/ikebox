@@ -75,7 +75,7 @@ jobs:
         run: >-
           cargo test --workspace --locked &&
           cargo test --workspace --locked
-          --features ipsec-client-core/docker,ipsec-client-cli/docker,ipsec-client-app/docker
+          --features ikebox-core/docker,ikebox-cli/docker,ikebox-app/docker
       - uses: EmbarkStudios/cargo-deny-action@3c6349835b2b7b196a839186cb8b78e02f7b5f25 # v2.1.1
 
   secrets:

@@ -1,6 +1,6 @@
 [package]
-name = "ipsec-client-proto"
-description = "Protocol between the ipsec-client app and its privileged helper"
+name = "ikebox-proto"
+description = "Protocol between the Ikebox app and its privileged helper"
 version.workspace = true
 edition.workspace = true
 rust-version.workspace = true

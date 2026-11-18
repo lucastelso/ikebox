@@ -10,7 +10,7 @@ import * as __TAURI_EVENT from "@tauri-apps/api/event";
 export const commands = {
 	/**  App and engine version. */
 	appInfo: (options?: InvokeOptions) => __TAURI_INVOKE<AppInfo>("app_info", undefined, options),
-	/**  Environment diagnostics (the same as `ipsec-client-cli doctor`). */
+	/**  Environment diagnostics (the same as `ikebox-cli doctor`). */
 	runDiagnostics: (options?: InvokeOptions) => __TAURI_INVOKE<DiagnosticCheck[]>("run_diagnostics", undefined, options),
 	/**  Available profiles. */
 	listProfiles: (options?: InvokeOptions) => typedError<ProfileList, UiError>(__TAURI_INVOKE("list_profiles", undefined, options)),
@@ -231,7 +231,7 @@ export type ClientCertSummary = {
 export type ComponentInfo = {
 	/**  State. */
 	state: ComponentState,
-	/**  Version of IPsec Client that installed the component. */
+	/**  Version of Ikebox that installed the component. */
 	installedVersion: string | null,
 	/**  Installed strongSwan. */
 	installedStrongswan: string | null,
@@ -388,7 +388,7 @@ export type DraftIssue = {
 
 /**  Kind of the imported file. */
 export type ImportKind = 
-/**  IPsec Client profile (.json). */
+/**  Ikebox profile (.json). */
 "json" | 
 /**  `swanctl.conf` of a VPN that already works. */
 "swanctl" | 

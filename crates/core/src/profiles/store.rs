@@ -1,6 +1,6 @@
 //! Reading, saving, importing and exporting profiles.
 //!
-//! Profiles live in `$XDG_CONFIG_HOME/ipsec-client/profiles/<id>.json`
+//! Profiles live in `$XDG_CONFIG_HOME/ikebox/profiles/<id>.json`
 //! (directory 0700, files 0600: they contain the organization's gateway and
 //! group id). Saving is atomic (temporary file + rename).
 
@@ -53,8 +53,8 @@ pub struct ProfileList {
 }
 
 impl ProfileStore {
-    /// Default directory: `$XDG_CONFIG_HOME/ipsec-client/profiles` or
-    /// `~/.config/ipsec-client/profiles`.
+    /// Default directory: `$XDG_CONFIG_HOME/ikebox/profiles` or
+    /// `~/.config/ikebox/profiles`.
     ///
     /// # Errors
     /// [`ProfileError::NoConfigDir`] with neither `XDG_CONFIG_HOME` nor `HOME`.
@@ -69,7 +69,7 @@ impl ProfileStore {
                     .map(|home| home.join(".config"))
             })
             .ok_or(ProfileError::NoConfigDir)?;
-        Ok(base.join("ipsec-client").join("profiles"))
+        Ok(base.join("ikebox").join("profiles"))
     }
 
     /// Store in a specific directory.

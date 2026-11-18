@@ -1,9 +1,9 @@
 {
   "$schema": "https://schema.tauri.app/config/2",
-  "productName": "ipsec-client",
-  "mainBinaryName": "ipsec-client",
+  "productName": "ikebox",
+  "mainBinaryName": "ikebox",
   "version": "0.9.0",
-  "identifier": "io.github.lucastelso.ipsecclient",
+  "identifier": "io.github.lucastelso.ikebox",
   "build": {
     "beforeDevCommand": "npm run dev",
     "devUrl": "http://127.0.0.1:1420",
@@ -14,7 +14,7 @@
     "windows": [
       {
         "label": "main",
-        "title": "IPsec Client",
+        "title": "Ikebox",
         "width": 440,
         "height": 720,
         "minWidth": 380,
@@ -36,8 +36,8 @@
       "rpm"
     ],
     "category": "Utility",
-    "shortDescription": "IPsec VPN client for Linux",
-    "longDescription": "Connects to IPsec VPNs, including legacy ones (IKEv1, group PSK + XAuth), without configuring anything in the system.",
+    "shortDescription": "Sandboxed IPsec VPN client for Linux (legacy IKEv1 & IKEv2)",
+    "longDescription": "Connects to IPsec VPNs, including legacy ones (IKEv1, group PSK + XAuth), with strongSwan running in an isolated sandbox and nothing to configure in the system.",
     "icon": [
       "icons/32x32.png",
       "icons/64x64.png",
@@ -47,11 +47,11 @@
     ],
     "license": "GPL-3.0-or-later",
     "licenseFile": "../LICENSE",
-    "copyright": "IPsec Client contributors",
-    "publisher": "IPsec Client contributors",
+    "copyright": "Ikebox contributors",
+    "publisher": "Ikebox contributors",
     "linux": {
       "deb": {
-        "desktopTemplate": "linux/ipsec-client.desktop",
+        "desktopTemplate": "linux/ikebox.desktop",
         "depends": [
           "libdbus-1-3",
           "pkexec",
@@ -59,11 +59,17 @@
           "systemd",
           "util-linux"
         ],
+        "conflicts": [
+          "ipsec-client"
+        ],
+        "replaces": [
+          "ipsec-client"
+        ],
         "postInstallScript": "../packaging/package/postinst.sh",
         "preRemoveScript": "../packaging/package/prerm.sh"
       },
       "rpm": {
-        "desktopTemplate": "linux/ipsec-client.desktop",
+        "desktopTemplate": "linux/ikebox.desktop",
         "depends": [
           "libdbus-1.so.3()(64bit)",
           "/usr/bin/pkexec",
@@ -74,6 +80,9 @@
           "tar",
           "gzip",
           "/usr/bin/setpriv"
+        ],
+        "obsoletes": [
+          "ipsec-client"
         ],
         "postInstallScript": "../packaging/package/postinst.sh",
         "preRemoveScript": "../packaging/package/prerm.sh"

@@ -19,7 +19,7 @@ use super::model::{
 /// Oldest schema still read.
 pub const OLDEST_SCHEMA_VERSION: u32 = 1;
 
-/// Schema 1, as written by IPsec Client up to 0.5.
+/// Schema 1, as written by Ikebox up to 0.5.
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 struct ProfileV1 {

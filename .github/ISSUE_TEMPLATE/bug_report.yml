@@ -5,7 +5,7 @@ body:
   - type: markdown
     attributes:
       value: |
-        **Privacy first.** Never paste a PSK, a password, a PIN, a certificate, your organization's gateway or internal names. Use **Copy anonymized** (or `ipsec-client-cli logs --anonymize`) for logs. Security problems go to [private reporting](https://github.com/lucastelso/ipsec-client/security/advisories/new), not here.
+        **Privacy first.** Never paste a PSK, a password, a PIN, a certificate, your organization's gateway or internal names. Use **Copy anonymized** (or `ikebox-cli logs --anonymize`) for logs. Security problems go to [private reporting](https://github.com/lucastelso/ikebox/security/advisories/new), not here.
         Pode escrever em português.
   - type: textarea
     id: what
@@ -23,8 +23,8 @@ body:
   - type: input
     id: version
     attributes:
-      label: IPsec Client version
-      description: System tab, or `ipsec-client-cli --version`
+      label: Ikebox version
+      description: System tab, or `ikebox-cli --version`
       placeholder: "1.0.0"
     validations:
       required: true
@@ -64,13 +64,13 @@ body:
     id: diagnostics
     attributes:
       label: Diagnostics
-      description: System → Diagnostics, or `ipsec-client-cli doctor`
+      description: System → Diagnostics, or `ikebox-cli doctor`
       render: text
   - type: textarea
     id: log
     attributes:
       label: Anonymized log
-      description: "**Copy anonymized** in the app, or `ipsec-client-cli logs --anonymize`. Check it before posting."
+      description: "**Copy anonymized** in the app, or `ikebox-cli logs --anonymize`. Check it before posting."
       render: text
   - type: checkboxes
     id: privacy

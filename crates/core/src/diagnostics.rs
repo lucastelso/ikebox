@@ -347,9 +347,9 @@ pub fn component_check_name() -> &'static str {
 pub fn component_hint() -> &'static str {
     crate::tr!(
         "in the app: System → Network component → Install (asks for the administrator \
-         password once); in a terminal: ipsec-client-cli component install --bundle <bundle>",
+         password once); in a terminal: ikebox-cli component install --bundle <bundle>",
         "no app: Sistema → Componente de rede → Instalar (pede a senha de administrador \
-         uma vez); no terminal: ipsec-client-cli component install --bundle <pacote>"
+         uma vez); no terminal: ikebox-cli component install --bundle <pacote>"
     )
 }
 

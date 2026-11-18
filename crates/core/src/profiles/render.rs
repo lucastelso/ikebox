@@ -11,7 +11,7 @@ use crate::vici::Message;
 /// Path of `updown` in the engine's Docker image. In the embedded engine, the
 /// `updown` command is fixed by root and whatever comes over VICI is ignored
 /// (ADR-0019): there, `load-conn` goes without `updown`.
-pub const UPDOWN_PATH: &str = "/usr/local/libexec/ipsec-client/updown";
+pub const UPDOWN_PATH: &str = "/usr/local/libexec/ikebox/updown";
 
 /// Session data needed to build the connection.
 #[derive(Debug, Clone, Copy)]

@@ -199,7 +199,9 @@ export function SystemScreen() {
 
       {info && (
         <p className="text-center text-xs text-muted-foreground" data-selectable>
-          IPsec Client {info.version} · engine {info.engineImage}
+          Ikebox {info.version} · engine {info.engineImage}
+          <br />
+          {t.poweredBy}
         </p>
       )}
     </div>

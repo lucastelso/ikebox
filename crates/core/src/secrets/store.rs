@@ -1,7 +1,7 @@
 //! Where credentials can be stored ("remember credentials").
 //!
 //! - [`KeyringStore`]: the system keyring through the Secret Service (GNOME
-//!   Keyring/KWallet), over libdbus. Service `ipsec-client`, key
+//!   Keyring/KWallet), over libdbus. Service `ikebox`, key
 //!   `<profile>:<field>`.
 //! - [`MemoryStore`]: in memory only (tests and sessions without "remember").
 //!
@@ -18,7 +18,7 @@ use super::SecretsError;
 use crate::profiles::CredentialKind;
 
 /// Service name in the keyring.
-pub const KEYRING_SERVICE: &str = "ipsec-client";
+pub const KEYRING_SERVICE: &str = "ikebox";
 
 /// Per-profile credential storage.
 pub trait SecretStore: Send + Sync {
@@ -67,6 +67,7 @@ pub fn keyring_key(profile: &str, kind: CredentialKind) -> String {
 /// System keyring (Secret Service).
 pub struct KeyringStore {
     store: Arc<CredentialStore>,
+    service: &'static str,
 }
 
 impl std::fmt::Debug for KeyringStore {
@@ -82,21 +83,30 @@ impl KeyringStore {
     /// [`SecretsError::Unavailable`] without a D-Bus session or a keyring service
     /// (e.g. an SSH session without GNOME Keyring).
     pub fn new() -> Result<Self, SecretsError> {
+        Self::with_service(KEYRING_SERVICE)
+    }
+
+    /// The keyring entries of the name before 1.0 (service `ipsec-client`),
+    /// only to move them ([`crate::legacy`]).
+    ///
+    /// # Errors
+    /// As [`Self::new`].
+    pub fn legacy() -> Result<Self, SecretsError> {
+        Self::with_service(crate::legacy::LEGACY_KEYRING_SERVICE)
+    }
+
+    fn with_service(service: &'static str) -> Result<Self, SecretsError> {
         let store = dbus_secret_service_keyring_store::Store::new()
             .map_err(|e| SecretsError::Unavailable(e.to_string()))?;
-        Ok(Self { store })
+        Ok(Self { store, service })
     }
 
     fn entry(&self, profile: &str, kind: CredentialKind) -> Result<Entry, SecretsError> {
         check_profile_id(profile)?;
-        let label = format!("IPsec Client: {profile} ({})", kind.key());
+        let label = format!("Ikebox: {profile} ({})", kind.key());
         let modifiers = HashMap::from([("label", label.as_str())]);
         self.store
-            .build(
-                KEYRING_SERVICE,
-                &keyring_key(profile, kind),
-                Some(&modifiers),
-            )
+            .build(self.service, &keyring_key(profile, kind), Some(&modifiers))
             .map_err(map_keyring_error)
     }
 }
@@ -255,12 +265,12 @@ mod tests {
     }
 
     /// Uses the session's REAL keyring (creates and deletes a test item).
-    /// Run with: cargo test -p ipsec-client-core keyring_real -- --ignored
+    /// Run with: cargo test -p ikebox-core keyring_real -- --ignored
     #[test]
     #[ignore = "usa o chaveiro real da sessão"]
     fn keyring_real_roundtrip() {
         let store = KeyringStore::new().expect("Secret Service");
-        let profile = "ipsec-client-teste-chaveiro";
+        let profile = "ikebox-teste-chaveiro";
         store
             .set(
                 profile,

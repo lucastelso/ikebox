@@ -37,11 +37,11 @@ allow = [
 # The project's own crates: GPL-3.0-or-later (ADR-0017). Dependencies stay
 # restricted to the permissive list above.
 exceptions = [
-    { allow = ["GPL-3.0-or-later"], crate = "ipsec-client-core" },
-    { allow = ["GPL-3.0-or-later"], crate = "ipsec-client-cli" },
-    { allow = ["GPL-3.0-or-later"], crate = "ipsec-client-app" },
-    { allow = ["GPL-3.0-or-later"], crate = "ipsec-client-proto" },
-    { allow = ["GPL-3.0-or-later"], crate = "ipsec-client-helper" },
+    { allow = ["GPL-3.0-or-later"], crate = "ikebox-core" },
+    { allow = ["GPL-3.0-or-later"], crate = "ikebox-cli" },
+    { allow = ["GPL-3.0-or-later"], crate = "ikebox-app" },
+    { allow = ["GPL-3.0-or-later"], crate = "ikebox-proto" },
+    { allow = ["GPL-3.0-or-later"], crate = "ikebox-helper" },
 ]
 
 [bans]

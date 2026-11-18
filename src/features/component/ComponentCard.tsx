@@ -31,7 +31,7 @@ const BADGE: Record<ComponentState, { icon: typeof CircleCheck; tone: string }> 
 };
 
 function versions(app: string | null, strongswan: string | null): string {
-  return `IPsec Client ${app ?? '?'} · strongSwan ${strongswan ?? '?'}`;
+  return `Ikebox ${app ?? '?'} · strongSwan ${strongswan ?? '?'}`;
 }
 
 /** Network component on the System screen: state, versions, install and remove. */

@@ -1,4 +1,4 @@
-//! Protocol between the app (user) and `ipsec-client-helper` (root), ADR-0014.
+//! Protocol between the app (user) and `ikebox-helper` (root), ADR-0014.
 //!
 //! One request and one response per connection, each on a JSON line.
 //!
@@ -12,13 +12,13 @@ use std::net::IpAddr;
 use serde::{Deserialize, Serialize};
 
 /// Helper socket (created by systemd, socket activation).
-pub const HELPER_SOCKET: &str = "/run/ipsec-client-helper.sock";
+pub const HELPER_SOCKET: &str = "/run/ikebox-helper.sock";
 /// polkit action authorized to connect and disconnect.
-pub const POLKIT_ACTION: &str = "io.github.lucastelso.ipsecclient.connect";
+pub const POLKIT_ACTION: &str = "io.github.lucastelso.ikebox.connect";
 /// Transient systemd unit that runs the engine.
-pub const ENGINE_UNIT: &str = "ipsec-client-engine";
+pub const ENGINE_UNIT: &str = "ikebox-engine";
 /// Root of the per-user VICI socket directories (`<root>/<uid>/charon.vici`).
-pub const SOCKET_ROOT: &str = "/run/ipsec-client";
+pub const SOCKET_ROOT: &str = "/run/ikebox";
 /// File name of the VICI socket.
 pub const VICI_SOCKET_FILE: &str = "charon.vici";
 /// Maximum length of a protocol line.
@@ -298,7 +298,7 @@ mod tests {
             decode::<Response>(&encode(&resp).expect("enc")).expect("dec"),
             resp
         );
-        assert_eq!(vici_socket(1000), "/run/ipsec-client/1000/charon.vici");
+        assert_eq!(vici_socket(1000), "/run/ikebox/1000/charon.vici");
     }
 
     #[test]

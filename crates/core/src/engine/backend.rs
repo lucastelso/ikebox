@@ -3,7 +3,7 @@
 
 use std::path::PathBuf;
 
-use ipsec_client_proto::{DnsParams, StartParams, vici_socket};
+use ikebox_proto::{DnsParams, StartParams, vici_socket};
 
 #[cfg(feature = "docker")]
 use super::{CONTAINER_NAME, DockerEngine, EngineSpec, current_gid, default_runtime_dir};
@@ -39,7 +39,7 @@ pub struct RunningEngine {
 /// Engine available on this computer.
 #[derive(Debug, Clone)]
 pub enum Backend {
-    /// Embedded engine, through `ipsec-client-helper`.
+    /// Embedded engine, through `ikebox-helper`.
     Native(NativeEngine),
     /// Engine in a Docker container (the `docker` feature).
     #[cfg(feature = "docker")]
@@ -47,7 +47,7 @@ pub enum Backend {
 }
 
 impl Backend {
-    /// Chooses the engine: `IPSEC_CLIENT_BACKEND=native|docker` forces one;
+    /// Chooses the engine: `IKEBOX_BACKEND=native|docker` forces one;
     /// otherwise, the embedded one. Only builds with the `docker` feature fall back
     /// to Docker when the network component is not installed; release builds say
     /// to install it (diagnostics).
@@ -57,7 +57,7 @@ impl Backend {
     /// without it.
     pub fn detect() -> Result<Self, EngineError> {
         let native = NativeEngine::default();
-        match std::env::var("IPSEC_CLIENT_BACKEND").as_deref() {
+        match std::env::var("IKEBOX_BACKEND").as_deref() {
             Ok("native") => return Ok(Self::Native(native)),
             #[cfg(feature = "docker")]
             Ok("docker") => return Ok(Self::Docker(DockerEngine::connect()?)),

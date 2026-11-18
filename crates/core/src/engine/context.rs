@@ -1,17 +1,17 @@
 //! Build context of the engine image, embedded in the binary (ADR-0006).
 //!
 //! The files of `engine/` go into the binary with `include_bytes!`. The hash
-//! of the content identifies the image (`ipsec-client-engine:6.0.1-<hash8>`),
+//! of the content identifies the image (`ikebox-engine:6.0.1-<hash8>`),
 //! so the binary and the engine always go together.
 
 use sha2::{Digest, Sha256};
 
 /// Repository (name) of the engine image.
-pub const IMAGE_REPO: &str = "ipsec-client-engine";
+pub const IMAGE_REPO: &str = "ikebox-engine";
 /// strongSwan version pinned in the Dockerfile.
 pub const STRONGSWAN_VERSION: &str = "6.0.1";
 /// Label with the full hash of the context, written into the image.
-pub const HASH_LABEL: &str = "io.github.ipsec-client.engine.hash";
+pub const HASH_LABEL: &str = "io.github.ikebox.engine.hash";
 
 /// A file of the build context.
 #[derive(Debug, Clone, Copy)]
@@ -39,7 +39,7 @@ macro_rules! engine_file {
 pub const FILES: &[ContextFile] = &[
     engine_file!("Dockerfile", 0o644),
     engine_file!("entrypoint.sh", 0o755),
-    engine_file!("strongswan.d/zz-ipsec-client.conf", 0o644),
+    engine_file!("strongswan.d/zz-ikebox.conf", 0o644),
     engine_file!("updown.sh", 0o755),
 ];
 
@@ -56,7 +56,7 @@ pub fn content_hash() -> String {
     hex::encode(hasher.finalize())
 }
 
-/// Full image name: `ipsec-client-engine:6.0.1-<first 8 of the hash>`.
+/// Full image name: `ikebox-engine:6.0.1-<first 8 of the hash>`.
 #[must_use]
 pub fn image_tag() -> String {
     let hash = content_hash();
@@ -126,7 +126,7 @@ mod tests {
         assert_eq!(hash.len(), 64);
         assert_eq!(hash, content_hash());
         let tag = image_tag();
-        assert_eq!(tag, format!("ipsec-client-engine:6.0.1-{}", &hash[..8]));
+        assert_eq!(tag, format!("ikebox-engine:6.0.1-{}", &hash[..8]));
     }
 
     #[test]

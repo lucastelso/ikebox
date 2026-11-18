@@ -53,13 +53,34 @@ inside() {
             exit 1
         }
     fi
+    # Up to 0.9 the app was IPsec Client (ADR-0031), and its packages did not
+    # install the network component: the app did, as here.
+    local legacy=0
+    if [[ ${OLD_PKG:-} == ipsec-client* ]]; then
+        legacy=1
+        # The 0.9 installer needs a running systemd for its last step
+        # (enabling the socket), which a container lacks: by then the files
+        # are in place, and those are what Ikebox must remove.
+        bash /usr/lib/ipsec-client/network/install-native.sh install \
+            --bundle /usr/lib/ipsec-client/network --origin app >/tmp/old-component.log 2>&1 || true
+        [[ -f /opt/ipsec-client/ORIGIN && -f /etc/systemd/system/ipsec-client-helper.socket ]] || {
+            tail -n 15 /tmp/old-component.log
+            echo "RESULT install-old-component=FAILED"
+            exit 1
+        }
+        # Development builds after 0.9 (charon without root) also made this
+        # system user.
+        id -u ipsec-client-engine >/dev/null 2>&1 ||
+            systemd-sysusers --inline "u ipsec-client-engine - - / /usr/sbin/nologin" >/dev/null 2>&1 ||
+            useradd --system --no-create-home ipsec-client-engine
+    fi
     # A development build has the same version as the release it updates:
     # dnf and zypper would see nothing to do, so it is reinstalled (which
     # runs the new package's scripts, as a real update does).
     # Same format on both sides (newer rpm prints the epoch in %{NEVRA}).
     local fmt='%{NAME}-%{VERSION}-%{RELEASE}.%{ARCH}'
     if [[ $kind != deb && -n ${OLD_PKG:-} ]] &&
-        [[ $(rpm -qp --qf "$fmt" "/pkg/$PKG" 2>/dev/null) == "$(rpm -q --qf "$fmt" ipsec-client 2>/dev/null)" ]]; then
+        [[ $(rpm -qp --qf "$fmt" "/pkg/$PKG" 2>/dev/null) == "$(rpm -q --qf "$fmt" ikebox 2>/dev/null)" ]]; then
         install_pkg() {
             case $kind in
             dnf | el) dnf -y reinstall "$1" ;;
@@ -72,18 +93,33 @@ inside() {
         echo "RESULT install=FAILED"
         exit 1
     }
-    out=$(ldd /usr/bin/ipsec-client | grep "not found" || true)
+    # IPsec Client is gone: its package, its component and its system user.
+    if ((legacy)); then
+        local still=""
+        case $kind in
+        deb) dpkg-query -W -f='${Status}' ipsec-client 2>/dev/null | grep -q "ok installed" && still+=" package" ;;
+        *) rpm -q ipsec-client >/dev/null 2>&1 && still+=" package" ;;
+        esac
+        [[ -e /opt/ipsec-client ]] && still+=" /opt/ipsec-client"
+        ls /etc/systemd/system/ipsec-client-helper.* \
+            /usr/share/polkit-1/actions/io.github.lucastelso.ipsecclient.policy \
+            /etc/polkit-1/actions/io.github.lucastelso.ipsecclient.policy >/dev/null 2>&1 &&
+            still+=" units-or-policy"
+        id -u ipsec-client-engine >/dev/null 2>&1 && still+=" user"
+        [[ -z $still ]] || { tail -n 15 /tmp/install.log; echo "IPsec Client left:$still"; echo "RESULT legacy-removed=FAILED"; exit 1; }
+    fi
+    out=$(ldd /usr/bin/ikebox | grep "not found" || true)
     [[ -z $out ]] || { echo "$out"; echo "RESULT ldd-app=FAILED"; exit 1; }
 
-    local net=/usr/lib/ipsec-client/network work
+    local net=/usr/lib/ikebox/network work
     work=$(mktemp -d)
-    gzip -dc "$net/ipsec-client-helper.gz" >"$work/helper" && chmod +x "$work/helper"
+    gzip -dc "$net/ikebox-helper.gz" >"$work/helper" && chmod +x "$work/helper"
     tar -xzf "$net/engine.tar.gz" -C "$work"
-    out=$(ldd "$work/helper" "$work/opt/ipsec-client/engine/libexec/ipsec/charon" | grep "not found" || true)
+    out=$(ldd "$work/helper" "$work/opt/ikebox/engine/libexec/ipsec/charon" | grep "not found" || true)
     [[ -z $out ]] || { echo "$out"; echo "RESULT ldd-component=FAILED"; exit 1; }
     "$work/helper" --version >/dev/null || { echo "RESULT helper=FAILED"; exit 1; }
-    STRONGSWAN_CONF="$work/opt/ipsec-client/engine/etc/strongswan.conf" \
-        "$work/opt/ipsec-client/engine/libexec/ipsec/charon" --version >/dev/null ||
+    STRONGSWAN_CONF="$work/opt/ikebox/engine/etc/strongswan.conf" \
+        "$work/opt/ikebox/engine/libexec/ipsec/charon" --version >/dev/null ||
         { echo "RESULT charon=FAILED"; exit 1; }
     (cd "$net" && sha256sum --check --strict --quiet SHA256SUMS) ||
         { echo "RESULT bundle=FAILED"; exit 1; }
@@ -99,30 +135,30 @@ inside() {
     # The package installs the network component itself (origin "package"),
     # also as an update from a version that did not; systemd is not running
     # here, so the socket is only enabled for the next boot.
-    local p=/opt/ipsec-client units=/etc/systemd/system version
+    local p=/opt/ikebox units=/etc/systemd/system version
     version=$(sed -n 's/^version=//p' "$net/VERSION")
     [[ $(cat "$p/ORIGIN" 2>/dev/null) == package ]] ||
         { tail -n 15 /tmp/install.log; echo "RESULT component-installed=FAILED"; exit 1; }
     [[ $(sha256sum <"$net/SHA256SUMS") == "$(sha256sum <"$p/SHA256SUMS" 2>/dev/null)" ]] ||
         { echo "RESULT component-version=FAILED"; exit 1; }
-    [[ -L $units/sockets.target.wants/ipsec-client-helper.socket ]] ||
+    [[ -L $units/sockets.target.wants/ikebox-helper.socket ]] ||
         { echo "RESULT socket-enabled=FAILED"; exit 1; }
-    id -u ipsec-client-engine >/dev/null 2>&1 || { echo "RESULT engine-user=FAILED"; exit 1; }
+    id -u ikebox-engine >/dev/null 2>&1 || { echo "RESULT engine-user=FAILED"; exit 1; }
 
     # Removing the package removes the component: no root helper, unit,
     # enabled socket or polkit policy may be left behind.
     case $kind in
-    deb) apt-get remove -y ipsec-client ;;
-    dnf | el) dnf -y remove ipsec-client ;;
-    zypper) zypper -n rm ipsec-client ;;
+    deb) apt-get remove -y ikebox ;;
+    dnf | el) dnf -y remove ikebox ;;
+    zypper) zypper -n rm ikebox ;;
     esac >/tmp/remove.log 2>&1 || { tail -n 15 /tmp/remove.log; echo "RESULT remove=FAILED"; exit 1; }
     local left
-    left=$(ls -d "$p" "$units"/ipsec-client-helper.* "$units"/sockets.target.wants/ipsec-client-helper.socket \
-        /usr/share/polkit-1/actions/io.github.lucastelso.ipsecclient.policy \
-        /etc/polkit-1/actions/io.github.lucastelso.ipsecclient.policy 2>/dev/null || true)
+    left=$(ls -d "$p" "$units"/ikebox-helper.* "$units"/sockets.target.wants/ikebox-helper.socket \
+        /usr/share/polkit-1/actions/io.github.lucastelso.ikebox.policy \
+        /etc/polkit-1/actions/io.github.lucastelso.ikebox.policy 2>/dev/null || true)
     [[ -z $left ]] || { echo "left after removal: $left"; echo "RESULT removed-clean=FAILED"; exit 1; }
     # shellcheck source=/dev/null
-    echo "RESULT ok os=\"$(. /etc/os-release && printf '%s' "$PRETTY_NAME")\" version=$version missing=\"${missing[*]:-}\" resolvectl=$resolved component=package-managed"
+    echo "RESULT ok os=\"$(. /etc/os-release && printf '%s' "$PRETTY_NAME")\" version=$version missing=\"${missing[*]:-}\" resolvectl=$resolved component=package-managed${OLD_PKG:+ from=$OLD_PKG}"
 }
 
 if [[ ${1:-} == --inside ]]; then

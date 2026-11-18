@@ -20,9 +20,9 @@ fail() {
 
 strongswan=$(git -C "$repo" show "$commit:native-engine/versions.txt" |
     grep -vE '^\s*(#|$)' | head -n 1 | awk '{print $1}')
-engine="$repo/native-engine/dist/ipsec-client-engine-$strongswan-x86_64.tar.gz"
+engine="$repo/native-engine/dist/ikebox-engine-$strongswan-x86_64.tar.gz"
 rust=$(sed -n 's/^channel = "\(.*\)"/\1/p' "$repo/rust-toolchain.toml")
-image="ipsec-client-release:rust$rust-$(sha256sum "$repo/packaging/release/Dockerfile" | cut -c1-12)"
+image="ikebox-release:rust$rust-$(sha256sum "$repo/packaging/release/Dockerfile" | cut -c1-12)"
 work=$(mktemp -d)
 trap 'rm -rf "$work"' EXIT
 
@@ -44,7 +44,7 @@ for round in 1 2; do
     git -C "$repo" archive --format=tar "$commit" |
         docker run --rm -i \
             -v "$engine:/dist/engine.tar.gz:ro" -v "$work/$round:/out" \
-            -v ipsec-client-release-cargo:/root/.cargo/registry \
+            -v ikebox-release-cargo:/root/.cargo/registry \
             -e "HOST_UID=$(id -u)" -e "HOST_GID=$(id -g)" \
             "$image" bash -euo pipefail -c '
                 tar -x -C /build

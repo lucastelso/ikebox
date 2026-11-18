@@ -12,14 +12,14 @@ signing subkey, the only part GitHub ever gets. Use a name only (no personal
 e-mail):
 
 ```bash
-gpg --quick-gen-key "IPsec Client releases" ed25519 cert 5y
-FPR=$(gpg --list-keys --with-colons "IPsec Client releases" | awk -F: '/^fpr/ {print $10; exit}')
+gpg --quick-gen-key "Ikebox releases" ed25519 cert 5y
+FPR=$(gpg --list-keys --with-colons "Ikebox releases" | awk -F: '/^fpr/ {print $10; exit}')
 gpg --quick-add-key "$FPR" ed25519 sign 2y
 SUB=$(gpg --list-keys --with-colons "$FPR" | awk -F: '/^fpr/ {n++; if (n == 2) print $10}')
 echo "primary $FPR, signing subkey $SUB"
 
 # The public key goes into the repository (commit it).
-gpg --armor --export "$FPR" >packaging/keys/ipsec-client-release.asc
+gpg --armor --export "$FPR" >packaging/keys/ikebox-release.asc
 
 # The signing subkey alone ("!"), for GitHub; delete the file afterwards.
 gpg --armor --export-secret-subkeys "$SUB!" >"$XDG_RUNTIME_DIR/release-subkey.asc"
@@ -56,7 +56,7 @@ notes, so a swapped key would show.
 
    ```bash
    sed -i '0,/^version = ".*"/s//version = "X.Y.Z"/' Cargo.toml          # workspace
-   sed -i 's/ipsec-client-proto = { version = "[^"]*"/ipsec-client-proto = { version = "X.Y.Z"/' crates/core/Cargo.toml
+   sed -i 's/ikebox-proto = { version = "[^"]*"/ikebox-proto = { version = "X.Y.Z"/' crates/core/Cargo.toml
    sed -i 's/^  "version": ".*",/  "version": "X.Y.Z",/' src-tauri/tauri.conf.json
    npm version X.Y.Z --no-git-tag-version                                # package.json and lock
    cargo update -w
@@ -66,7 +66,7 @@ notes, so a swapped key would show.
    names of `docs/installation.md` and `docs/pt-BR/instalacao.md`.
 2. In `CHANGELOG.md`, add the `## [X.Y.Z] - YYYY-MM-DD` section. Add the
    same version to the AppStream metadata
-   (`src-tauri/linux/io.github.lucastelso.ipsecclient.metainfo.xml`, a
+   (`src-tauri/linux/io.github.lucastelso.ikebox.metainfo.xml`, a
    `<release>` at the top of `<releases>`); `verify-release.sh` refuses
    packages without it.
 3. Write the release notes in `docs/releases/vX.Y.Z.md` (English) and
@@ -78,7 +78,7 @@ notes, so a swapped key would show.
 ## 2. Tag: CI builds, you approve the signature
 
 ```bash
-git tag -a vX.Y.Z -m "IPsec Client X.Y.Z"
+git tag -a vX.Y.Z -m "Ikebox X.Y.Z"
 git push origin vX.Y.Z           # by name: never --tags, --all or --mirror
 ```
 
@@ -103,12 +103,12 @@ dir=target/release-check/X.Y.Z && mkdir -p "$dir"
 gh release download vX.Y.Z --dir "$dir"
 scripts/check-private.sh --artifacts "$dir"
 (cd "$dir" && gpg --verify SHA256SUMS.asc SHA256SUMS && sha256sum -c SHA256SUMS)
-gh attestation verify "$dir"/ipsec-client-X.Y.Z-1.x86_64.rpm --repo lucastelso/ipsec-client
+gh attestation verify "$dir"/ikebox-X.Y.Z-1.x86_64.rpm --repo lucastelso/ikebox
 ```
 
 Then compare with a build of yours: `npm run release:build -- vX.Y.Z`. The
 network component must be the same (the `SHA256SUMS` inside
-`/usr/lib/ipsec-client/network` of both `.rpm`); the packages themselves carry
+`/usr/lib/ikebox/network` of both `.rpm`); the packages themselves carry
 build dates and may differ.
 
 Finally, install the package for your distribution over the current one,
@@ -150,9 +150,9 @@ release):
 
 | File | For |
 |---|---|
-| `ipsec-client_X.Y.Z_amd64.AppImage` | Any distribution |
-| `ipsec-client_X.Y.Z_amd64.deb` | Ubuntu, Debian, Mint |
-| `ipsec-client-X.Y.Z-1.x86_64.rpm` | Fedora, openSUSE, RHEL 10 |
+| `ikebox_X.Y.Z_amd64.AppImage` | Any distribution |
+| `ikebox_X.Y.Z_amd64.deb` | Ubuntu, Debian, Mint |
+| `ikebox-X.Y.Z-1.x86_64.rpm` | Fedora, openSUSE, RHEL 10 |
 | `SHA256SUMS` | Checking the downloads |
 
 Signing by hand, with the signing key on this computer:

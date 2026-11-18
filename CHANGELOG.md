@@ -7,6 +7,18 @@ and the project uses [Semantic Versioning](https://semver.org/).
 
 ## [Unreleased]
 
+### Changed (the name)
+
+- **IPsec Client is now Ikebox** ([ADR-0031](docs/adr/0031-renamed-to-ikebox.md)):
+  *IKE* in a *box*, strongSwan's IKE engine in an isolated sandbox. The
+  commands are `ikebox` and `ikebox-cli`, the packages `ikebox`, and the
+  repository `github.com/lucastelso/ikebox`; there is a new logo. Updating
+  from IPsec Client keeps everything: the `.rpm`/`.deb` replace the old
+  package, the old network component is removed, and the first start moves
+  your profiles, settings and stored credentials to the new names. The
+  README and the System screen credit strongSwan, the engine that does the
+  IPsec work.
+
 ### Added
 
 - **Opening the repository:** a security policy for a public project

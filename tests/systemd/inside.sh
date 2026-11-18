@@ -8,7 +8,7 @@
 set -euo pipefail
 
 readonly GW_IP=${1:?gateway ip}
-readonly CREDS='psk=ipsec-client-test-psk
+readonly CREDS='psk=ikebox-test-psk
 xauth-user=usuario.teste
 xauth-password=senha-de-teste'
 
@@ -18,7 +18,7 @@ xauth-password=senha-de-teste'
 # helper USER JSON [--hold SECONDS | --drip SECONDS]: raw request to the helper.
 helper() { runuser -u "$1" -- python3 -I /test/helper_client.py "${@:2}"; }
 
-engine_prop() { systemctl show ipsec-client-engine -p "$1" --value; }
+engine_prop() { systemctl show ikebox-engine -p "$1" --value; }
 
 # Canary sweep (audit of 0.2.0): the PSK and the password must exist nowhere
 # outside charon's memory, and the username only in the system journal.
@@ -26,7 +26,7 @@ engine_prop() { systemctl show ipsec-client-engine -p "$1" --value; }
 # own command line does not match. Only places are printed, never contents.
 readonly SECRETS_FILE=/dev/shm/canary-secrets
 readonly USER_FILE=/dev/shm/canary-user
-printf '%s\n' ipsec-client-test-psk senha-de-teste >"$SECRETS_FILE"
+printf '%s\n' ikebox-test-psk senha-de-teste >"$SECRETS_FILE"
 printf '%s\n' usuario.teste >"$USER_FILE"
 
 # files_with PATTERNS_FILE ROOT...: regular files under the roots that contain
@@ -61,9 +61,9 @@ step "The gateway is named, not numbered: charon resolves it through systemd-res
 # (musl, statically linked: no NSS modules).
 # A unit of its own, not a background job: later scenarios `wait` for theirs.
 systemd-run --quiet --unit=test-dns python3 -I /test/dns_responder.py 127.0.0.2 \
-    gw.ipsec-client.test "$GW_IP"
+    gw.ikebox.test "$GW_IP"
 install -d /etc/systemd/resolved.conf.d
-printf '[Resolve]\nDNS=127.0.0.2\nDomains=~ipsec-client.test\n' >/etc/systemd/resolved.conf.d/test.conf
+printf '[Resolve]\nDNS=127.0.0.2\nDomains=~ikebox.test\n' >/etc/systemd/resolved.conf.d/test.conf
 systemctl restart systemd-resolved
 printf 'nameserver 127.0.0.53\noptions edns0 trust-ad\n' >/etc/resolv.conf
 # A few tries: resolved was just restarted. `|| true`: awk stops reading at the
@@ -71,15 +71,15 @@ printf 'nameserver 127.0.0.53\noptions edns0 trust-ad\n' >/etc/resolv.conf
 # without a word (it happened once).
 resolved_ip=""
 for _ in $(seq 1 20); do
-    resolved_ip=$(resolvectl query --legend=no -4 gw.ipsec-client.test 2>/dev/null |
+    resolved_ip=$(resolvectl query --legend=no -4 gw.ikebox.test 2>/dev/null |
         awk '{print $2; exit}' || true)
     [[ $resolved_ip == "$GW_IP" ]] && break
     sleep 0.25
 done
 [[ $resolved_ip == "$GW_IP" ]] || fail "systemd-resolved does not resolve the test gateway (got '$resolved_ip')"
-ok "gw.ipsec-client.test resolves to $GW_IP through systemd-resolved"
+ok "gw.ikebox.test resolves to $GW_IP through systemd-resolved"
 
-step "alice connects with ipsec-client-cli (the profile DNS goes through the helper)"
+step "alice connects with ikebox-cli (the profile DNS goes through the helper)"
 cp /test/test-gateway.json /tmp/profile.json
 chmod 0644 /tmp/profile.json
 as alice "$CLI" profiles import /tmp/profile.json >/dev/null
@@ -93,16 +93,16 @@ ok "connected, with the gateway given by name"
 [[ $(stat -c '%a %U' "$ALICE_SOCKET") == "600 alice" ]] || fail "VICI socket without 0600/alice"
 # During the session charon's group may create files there (its socket);
 # alice only traverses it (ADR-0028). Root's again after the session.
-[[ $(stat -c '%a %U %G' "$(dirname "$ALICE_SOCKET")") == "1731 root ipsec-client-engine" ]] ||
-    fail "socket directory not 1731 root:ipsec-client-engine during the session"
+[[ $(stat -c '%a %U %G' "$(dirname "$ALICE_SOCKET")") == "1731 root ikebox-engine" ]] ||
+    fail "socket directory not 1731 root:ikebox-engine during the session"
 ok "VICI socket 0600 owned by alice, directory owned by root (charon's group may create its socket, alice only traverses)"
 
 route=$(ip -4 route show dev "$IFACE" proto "$RT_PROTO")
 [[ $route == *"192.0.2.0/24"* ]] || fail "route missing: '$route'"
-[[ $(resolvectl domain "$IFACE") == *"~ipsec-client.test"* ]] || fail "profile domain missing"
+[[ $(resolvectl domain "$IFACE") == *"~ikebox.test"* ]] || fail "profile domain missing"
 [[ $(resolvectl dns "$IFACE") == *192.0.2.53* ]] || fail "DNS received from the gateway missing"
 ping -c 2 -W 2 -q 192.0.2.1 >/dev/null || fail "ping through the tunnel failed"
-ok "route 192.0.2.0/24, DNS ~ipsec-client.test + 192.0.2.53 (through the helper) and ping through the tunnel"
+ok "route 192.0.2.0/24, DNS ~ikebox.test + 192.0.2.53 (through the helper) and ping through the tunnel"
 
 step "Canary sweep while connected: credentials only in charon's memory"
 must_be_empty "PSK or password in a file" "$(files_with "$SECRETS_FILE" /)"
@@ -110,7 +110,7 @@ must_be_empty "PSK or password in a process command line or environment" "$(proc
 ok "PSK and password: in no file and in no process command line or environment"
 journal=$(journalctl --no-pager -o cat)
 text_has "$SECRETS_FILE" "$journal" && fail "PSK or password in the journal"
-units=$(systemctl show ipsec-client-engine ipsec-client-helper.service ipsec-client-helper.socket)
+units=$(systemctl show ikebox-engine ikebox-helper.service ikebox-helper.socket)
 text_has "$SECRETS_FILE" "$units" && fail "PSK or password in the unit properties"
 text_has "$USER_FILE" "$units" && fail "username in the unit properties"
 ok "PSK and password: not in the journal nor in the unit properties (systemctl show)"
@@ -132,17 +132,17 @@ text_has "$SECRETS_FILE" "$exported" && fail "PSK or password in the exported pr
 text_has "$USER_FILE" "$exported" && fail "username in the exported profile"
 ok "CLI output (status, logs, anonymized logs, profile) and exported profile: no credentials, username masked"
 [[ $(engine_prop LimitCORE) == 0 ]] || fail "the engine can leave a core dump (LimitCORE)"
-[[ $(systemctl show ipsec-client-helper.service -p LimitCORE --value) == 0 ]] ||
+[[ $(systemctl show ikebox-helper.service -p LimitCORE --value) == 0 ]] ||
     fail "the helper can leave a core dump (LimitCORE)"
 ok "no core dumps: LimitCORE=0 in the engine and in the helper"
-helper_prop() { systemctl show ipsec-client-helper.service -p "$1" --value; }
+helper_prop() { systemctl show ikebox-helper.service -p "$1" --value; }
 for prop in ProtectKernelLogs=yes NoNewPrivileges=yes ProtectSystem=strict UMask=0077; do
     [[ $(helper_prop "${prop%%=*}") == "${prop#*=}" ]] || fail "helper: $prop not applied"
 done
 [[ -n $(helper_prop SystemCallFilter) ]] || fail "helper: SystemCallFilter not applied"
 ok "helper sandbox: ProtectKernelLogs, UMask and SystemCallFilter applied (it served the requests above)"
 # Sandbox score (information for the audit report; lower is better).
-for unit in ipsec-client-helper.service ipsec-client-engine.service; do
+for unit in ikebox-helper.service ikebox-engine.service; do
     score=$(systemd-analyze security --no-pager "$unit" 2>/dev/null | tail -n 1 || true)
     ok "systemd-analyze security: ${score:-not available}"
 done
@@ -165,13 +165,13 @@ fi
 ok "PrivateDevices, ProtectKernelTunables (read-only /proc/sys), ProtectKernelLogs, ProtectProc, PrivateIPC, SystemCallFilter"
 
 step "charon runs without root (ADR-0028), with the network capabilities only"
-engine_uid=$(id -u ipsec-client-engine) || fail "system user ipsec-client-engine missing"
+engine_uid=$(id -u ikebox-engine) || fail "system user ikebox-engine missing"
 cpid=$(pgrep -x charon | head -n 1)
 [[ -n $cpid ]] || fail "charon not found"
 # Real, effective, saved and filesystem uid all the engine user's.
 read -r _ r e sv fs < <(grep '^Uid:' "/proc/$cpid/status")
 [[ $r == "$engine_uid" && $e == "$engine_uid" && $sv == "$engine_uid" && $fs == "$engine_uid" ]] ||
-    fail "charon runs as uid $r/$e/$sv/$fs, not as ipsec-client-engine ($engine_uid)"
+    fail "charon runs as uid $r/$e/$sv/$fs, not as ikebox-engine ($engine_uid)"
 # The bounding set is NET_ADMIN (12), NET_BIND_SERVICE (10) and NET_RAW (13),
 # 0x3400: no way back to anything else. charon itself drops what it no longer
 # needs once its sockets are open, so its effective and ambient sets (the
@@ -187,15 +187,15 @@ done
 effective=$(cap_set CapEff)
 grep -q '^NoNewPrivs:[[:space:]]*1' "/proc/$cpid/status" || fail "charon may gain privileges"
 [[ $(stat -c "%U %a" "$ALICE_SOCKET") == "alice 600" ]] || fail "the VICI socket is not alice's (0600)"
-ok "charon: uid $engine_uid (ipsec-client-engine), effective capabilities $effective (network only, bounding set NET_ADMIN/NET_BIND_SERVICE/NET_RAW), no new privileges; socket handed to alice"
+ok "charon: uid $engine_uid (ikebox-engine), effective capabilities $effective (network only, bounding set NET_ADMIN/NET_BIND_SERVICE/NET_RAW), no new privileges; socket handed to alice"
 
 step "Attack: what charon's user writes to the DNS FIFO cannot reach further"
-fifo=/run/ipsec-client-engine/dns.requests
+fifo=/run/ikebox-engine/dns.requests
 [[ -p $fifo ]] || fail "no DNS FIFO"
 # As charon's user (what a compromised charon could do): shell syntax, other
 # interfaces, junk and an oversized line. Only addresses are ever read.
 # shellcheck disable=SC2016 # the $(...) must reach the FIFO unexpanded
-setpriv --reuid=ipsec-client-engine --regid=ipsec-client-engine --clear-groups bash -c '
+setpriv --reuid=ikebox-engine --regid=ikebox-engine --clear-groups bash -c '
     printf "%s\n" "up 198.51.100.250 \$(id >/tmp/fifo-pwned) lo; touch /tmp/fifo-pwned2" \
         "down lo" "revert eth0" "$(head -c 5000 /dev/zero | tr "\0" a)" >'"$fifo"
 sleep 2.5
@@ -243,7 +243,7 @@ out=$(as alice "$CLI" disconnect)
 [[ $out == *Disconnected* ]] || fail "disconnect failed"
 host_is_clean
 must_be_empty "credentials left in a file after disconnecting" "$(files_with "$SECRETS_FILE" /)"
-[[ ! -e /run/ipsec-client-engine ]] || fail "the engine runtime directory was left over"
+[[ ! -e /run/ikebox-engine ]] || fail "the engine runtime directory was left over"
 ok "after disconnecting: no credential in any file, engine runtime directory removed"
 
 step "bob connects after alice: he must not get the log of her session"
@@ -259,7 +259,7 @@ done
 text_has "$USER_FILE" "$reply" && fail "bob's log has alice's username (lines of her session)"
 [[ $reply != *"uid 1000"* && $reply != *"$GW_IP"* ]] || fail "bob's log has lines of alice's session"
 # The whole unit journal does have her session: the filter is what hides it.
-text_has "$USER_FILE" "$(journalctl -u ipsec-client-engine --no-pager -o cat)" ||
+text_has "$USER_FILE" "$(journalctl -u ikebox-engine --no-pager -o cat)" ||
     fail "the test lost its reference: alice's session is not in the unit journal"
 ok "bob's log has only his own session (alice's is in the journal, out of his reach)"
 reply=$(helper bob '{"op":"stop"}')
@@ -289,10 +289,10 @@ ip link del br-audit
 step "Attack (ADR-0019): a VICI client picks the updown and the if_id"
 sed -e "s|@GATEWAY@|$GW_IP|" -e "s|@IFACE@|$IFACE|" -e "s|@IF_ID@|999|" \
     -e "s|@REMOTE_TS@|192.0.2.0/24|" -e "s|@UPDOWN_EXTRA@||" \
-    -e "s|updown = .*|updown = /bin/touch /run/ipsec-client/1000/PWNED|" \
+    -e "s|updown = .*|updown = /bin/touch /run/ikebox/1000/PWNED|" \
     /test/initiator.conf.in >/tmp/attack.conf
 chmod 0644 /tmp/attack.conf
-reply=$(helper alice '{"op":"start","iface":"ipsc0","if_id":4242,"mtu":1400,"log_level":1,"profile_id":"attack","dns":{"servers":["192.0.2.54"],"domains":["~ipsec-client.test"],"use_received":false,"default_route":false}}')
+reply=$(helper alice '{"op":"start","iface":"ipsc0","if_id":4242,"mtu":1400,"log_level":1,"profile_id":"attack","dns":{"servers":["192.0.2.54"],"domains":["~ikebox.test"],"use_received":false,"default_route":false}}')
 [[ $reply == *'"result":"started"'* ]] || fail "start failed: $reply"
 runuser -u alice -- "$SWANCTL" --load-all --uri "unix://$ALICE_SOCKET" --file /tmp/attack.conf \
     >/tmp/load.log 2>&1 || {
@@ -304,10 +304,10 @@ runuser -u alice -- "$SWANCTL" --initiate --uri "unix://$ALICE_SOCKET" --child r
     cat /tmp/initiate.log
     fail "the negotiation failed"
 }
-[[ ! -e /run/ipsec-client/1000/PWNED ]] || fail "charon ran the client's command as root"
+[[ ! -e /run/ikebox/1000/PWNED ]] || fail "charon ran the client's command as root"
 # Read in full before grep: with pipefail, `grep -q` would exit early and
 # journalctl would die with SIGPIPE.
-journal=$(journalctl -u ipsec-client-engine --no-pager)
+journal=$(journalctl -u ikebox-engine --no-pager)
 grep -q "ignoring updown command supplied by client" <<<"$journal" ||
     fail "charon did not log that it ignored the client updown"
 ok "the client's command did not run (charon ignored its updown)"
@@ -354,7 +354,7 @@ out=$(runuser -u alice -- "$SWANCTL" --load-conns --uri "unix://$ALICE_SOCKET" -
 out=$(runuser -u alice -- "$SWANCTL" --load-authorities --uri "unix://$ALICE_SOCKET" --file /tmp/probe.conf 2>&1 || true)
 [[ $out == *"CA certificate files and tokens are not accepted"* ]] ||
     fail "charon accepted a CA certificate by path in load-authority: $out"
-journal=$(journalctl -u ipsec-client-engine --no-pager)
+journal=$(journalctl -u ikebox-engine --no-pager)
 if ! grep -q "refusing certificate file or token" <<<"$journal" ||
     ! grep -q "refusing CA certificate file or token" <<<"$journal"; then
     fail "charon did not log the refusals"
@@ -374,7 +374,7 @@ grep -q '^✔ systemd-resolved: ' <<<"$out" || {
 # in /run/systemd/resolve stay: the diagnostics must not trust them. Without
 # resolved, the gateway name comes from /etc/hosts.
 systemctl mask --now systemd-resolved.service >/dev/null 2>&1
-printf '%s gw.ipsec-client.test\n' "$GW_IP" >>/etc/hosts
+printf '%s gw.ikebox.test\n' "$GW_IP" >>/etc/hosts
 out=$(as alice "$CLI" doctor 2>&1 || true)
 grep -q '^⚠ systemd-resolved: ' <<<"$out" || {
     printf '%s\n' "$out"
@@ -397,13 +397,13 @@ step "Authorization by the real polkit of this distribution"
 # Until here the helper used a uid list. Without it, every request goes to
 # polkit: the policy must be known to it, and the question the helper asks
 # (process, start time, uid) must be understood by this polkit version.
-rm /etc/systemd/system/ipsec-client-helper.service.d/test.conf
+rm /etc/systemd/system/ikebox-helper.service.d/test.conf
 systemctl daemon-reload
-systemctl stop ipsec-client-helper.service 2>/dev/null || true
+systemctl stop ikebox-helper.service 2>/dev/null || true
 # The output decides: pkaction 0.105 (Ubuntu 22.04) exits with 1 even when it
 # finds the action.
-out=$(pkaction --action-id io.github.lucastelso.ipsecclient.connect 2>&1 || true)
-[[ $out == io.github.lucastelso.ipsecclient.connect* ]] ||
+out=$(pkaction --action-id io.github.lucastelso.ikebox.connect 2>&1 || true)
+[[ $out == io.github.lucastelso.ikebox.connect* ]] ||
     fail "polkit does not know the action of the installed policy: $out"
 # alice has no local active session here (no login manager): a clean "no"
 # from polkit, not a failure to ask.

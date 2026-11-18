@@ -10,8 +10,8 @@
 # $1: "configure" (deb, install and upgrade); 1 or 2 (rpm, install/upgrade).
 set -u
 
-bundle=/usr/lib/ipsec-client/network
-prefix=/opt/ipsec-client
+bundle=/usr/lib/ikebox/network
+prefix=/opt/ikebox
 
 case "${1:-}" in
 configure | 1 | 2) ;;
@@ -20,12 +20,12 @@ esac
 
 origin=$(cat "$prefix/ORIGIN" 2>/dev/null || echo none)
 if [ "$origin" = manual ]; then
-    echo "ipsec-client: the network component was installed by hand; left as it is"
+    echo "ikebox: the network component was installed by hand; left as it is"
     exit 0
 fi
 
 if ! bash "$bundle/install-native.sh" install --bundle "$bundle" --origin package; then
-    echo "ipsec-client: warning: the network component was not installed;" \
-        "open IPsec Client to install it" >&2
+    echo "ikebox: warning: the network component was not installed;" \
+        "open Ikebox to install it" >&2
 fi
 exit 0

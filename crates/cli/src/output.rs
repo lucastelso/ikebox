@@ -1,7 +1,7 @@
 //! Formatting of the CLI's output.
 
-use ipsec_client_core::diagnostics::{Check, CheckStatus};
-use ipsec_client_core::session::ConnectionInfo;
+use ikebox_core::diagnostics::{Check, CheckStatus};
+use ikebox_core::session::ConnectionInfo;
 
 /// Bytes in readable binary units.
 pub fn bytes(n: u64) -> String {

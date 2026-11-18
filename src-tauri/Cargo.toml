@@ -1,6 +1,6 @@
 [package]
-name = "ipsec-client-app"
-description = "IPsec Client: desktop app (Tauri)"
+name = "ikebox-app"
+description = "Ikebox: desktop app (Tauri)"
 version.workspace = true
 edition.workspace = true
 rust-version.workspace = true
@@ -12,11 +12,11 @@ repository.workspace = true
 workspace = true
 
 [lib]
-name = "ipsec_client_app"
+name = "ikebox_app"
 crate-type = ["rlib"]
 
 [[bin]]
-name = "ipsec-client"
+name = "ikebox"
 path = "src/main.rs"
 
 [build-dependencies]
@@ -26,7 +26,7 @@ tauri-build = { version = "2", features = [] }
 default = ["update-check"]
 # The Docker engine, for development and tests only (see crates/core). Release
 # builds leave it off.
-docker = ["ipsec-client-core/docker"]
+docker = ["ikebox-core/docker"]
 # The optional update notice (off by default at runtime; it contacts GitHub
 # once a day when the person turns it on). Packagers may build without it.
 update-check = ["dep:ureq"]
@@ -34,7 +34,7 @@ update-check = ["dep:ureq"]
 [dependencies]
 ureq = { version = "3.5.2", default-features = false, features = ["rustls"], optional = true }
 dbus = "0.9.12"
-ipsec-client-core = { path = "../crates/core" }
+ikebox-core = { path = "../crates/core" }
 secrecy = "0.10.3"
 serde = { version = "1.0.229", features = ["derive"] }
 specta = { version = "=2.0.0-rc.28", features = ["derive"] }

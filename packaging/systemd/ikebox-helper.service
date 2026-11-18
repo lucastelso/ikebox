@@ -1,17 +1,17 @@
-# IPsec Client: privileged helper (ADR-0014). Socket activated.
+# Ikebox: privileged helper (ADR-0014). Socket activated.
 # It only validates requests and calls systemd-run/systemctl/journalctl; the
 # engine runs in a transient unit with its own sandbox (see crates/helper).
 [Unit]
-Description=IPsec Client - network component
-Requires=ipsec-client-helper.socket
-After=ipsec-client-helper.socket
+Description=Ikebox - network component
+Requires=ikebox-helper.socket
+After=ikebox-helper.socket
 
 [Service]
 Type=simple
-ExecStart=/opt/ipsec-client/bin/ipsec-client-helper
-# /run/ipsec-client: per-user VICI socket directories (kept when the helper
+ExecStart=/opt/ikebox/bin/ikebox-helper
+# /run/ikebox: per-user VICI socket directories (kept when the helper
 # restarts, so an active session does not drop).
-RuntimeDirectory=ipsec-client
+RuntimeDirectory=ikebox
 RuntimeDirectoryMode=0755
 RuntimeDirectoryPreserve=yes
 # No capability at all: the helper only talks to systemd, polkit and the

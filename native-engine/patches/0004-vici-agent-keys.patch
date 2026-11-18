@@ -1,4 +1,4 @@
-IPsec Client: private keys held by an ssh-agent, loaded through VICI with a
+Ikebox: private keys held by an ssh-agent, loaded through VICI with a
 socket chosen by root (ADR-0029).
 
 Smartcards and tokens stay with the person's process (the app or the CLI),
@@ -27,7 +27,7 @@ signature from an agent could be parsed.
 
 IKEv1 signs with RSA over a hash charon already computed
 (RSA_EMSA_PKCS1_NULL), which no ssh-agent does: with the socket set by root,
-which is always IPsec Client's own agent, a private flag (0x40000000) asks it
+which is always Ikebox's own agent, a private flag (0x40000000) asks it
 to sign the data as it is.
 
 --- a/src/libcharon/plugins/vici/vici_cred.c
@@ -37,7 +37,7 @@ to sign the data as it is.
  }
  
 +/**
-+ * IPsec Client (ADR-0029): a private key held by an ssh-agent, the person's
++ * Ikebox (ADR-0029): a private key held by an ssh-agent, the person's
 + * process that has the smartcard or token. The VICI client sends only the
 + * public key (PEM); the agent socket is the one root configured in
 + * charon.plugins.vici.force_agent_socket, never one the client names. Without
@@ -130,7 +130,7 @@ to sign the data as it is.
  {
  	private_agent_plugin_t *this;
  
-+	/* IPsec Client (ADR-0029): with the agent socket set by root
++	/* Ikebox (ADR-0029): with the agent socket set by root
 +	 * (charon.plugins.vici.force_agent_socket), charon reaches it through the
 +	 * socket directory's permissions and never switches users, so none of
 +	 * these capabilities is needed (nor given). */
@@ -163,9 +163,9 @@ to sign the data as it is.
  enum agent_signature_flags_t {
  	SSH_AGENT_FLAG_SHA2_256 = 2,
  	SSH_AGENT_FLAG_SHA2_512 = 4,
-+	/** IPsec Client's agent (ADR-0029): sign the data as it is (PKCS#1 v1.5
++	/** Ikebox's agent (ADR-0029): sign the data as it is (PKCS#1 v1.5
 +	 * over a hash computed by charon, for IKEv1) */
-+	IPSEC_CLIENT_FLAG_RAW = 0x40000000,
++	IKEBOX_FLAG_RAW = 0x40000000,
  };
  
  /**
@@ -174,7 +174,7 @@ to sign the data as it is.
  }
  
 +/**
-+ * IPsec Client (ADR-0029): is this an RFC 7427 ECDSA scheme (DER-encoded
++ * Ikebox (ADR-0029): is this an RFC 7427 ECDSA scheme (DER-encoded
 + * signature) whose hash matches what the agent uses for the key's curve?
 + */
 +static bool ecdsa_der_scheme_matches(private_agent_private_key_t *this,
@@ -195,16 +195,16 @@ to sign the data as it is.
  					*prefix = "rsa-sha2-512";
  					return TRUE;
 +				case SIGN_RSA_EMSA_PKCS1_NULL:
-+					/* IPsec Client (ADR-0029): IKEv1 signs a hash it already
++					/* Ikebox (ADR-0029): IKEv1 signs a hash it already
 +					 * computed. ssh-agents always hash, but the forced agent
-+					 * socket is IPsec Client's own agent, which takes this
++					 * socket is Ikebox's own agent, which takes this
 +					 * private flag to sign the data as it is */
 +					if (!lib->settings->get_str(lib->settings,
 +							"%s.plugins.vici.force_agent_socket", NULL, lib->ns))
 +					{
 +						return FALSE;
 +					}
-+					*flags |= IPSEC_CLIENT_FLAG_RAW;
++					*flags |= IKEBOX_FLAG_RAW;
 +					*prefix = "ssh-rsa";
 +					return TRUE;
  				default:
@@ -214,7 +214,7 @@ to sign the data as it is.
  			*prefix = "ssh-ed448";
  			return scheme == SIGN_ED448;
  		case KEY_ECDSA:
-+			/* IPsec Client (ADR-0029): the response carries the signature
++			/* Ikebox (ADR-0029): the response carries the signature
 +			 * type first, as for the other keys; without a prefix it was not
 +			 * read, and the type was taken for the signature itself */
 +			switch (this->pubkey->get_keysize(this->pubkey))
@@ -235,7 +235,7 @@ to sign the data as it is.
  				   scheme == SIGN_ECDSA_384 ||
 -				   scheme == SIGN_ECDSA_521;
 +				   scheme == SIGN_ECDSA_521 ||
-+				   /* IPsec Client (ADR-0029): the RFC 7427 schemes IKEv2 uses,
++				   /* Ikebox (ADR-0029): the RFC 7427 schemes IKEv2 uses,
 +				    * when their hash is the one an ssh-agent signs with for the
 +				    * curve (RFC 5656: P-256/SHA-256, P-384/SHA-384,
 +				    * P-521/SHA-512) */
@@ -249,7 +249,7 @@ to sign the data as it is.
  			{
 -				*signature = chunk_cat("cc", r, s);
 +				if (ecdsa_der_scheme_matches(this, scheme))
-+				{	/* IPsec Client (ADR-0029): RFC 7427 wants DER */
++				{	/* Ikebox (ADR-0029): RFC 7427 wants DER */
 +					*signature = asn1_wrap(ASN1_SEQUENCE, "mm",
 +										   asn1_integer("c", r),
 +										   asn1_integer("c", s));

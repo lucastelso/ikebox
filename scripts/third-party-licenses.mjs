@@ -18,7 +18,7 @@ import { createHash } from 'node:crypto';
 import { readdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { dirname, join } from 'node:path';
 
-const ROOTS = ['ipsec-client-app', 'ipsec-client-cli', 'ipsec-client-helper'];
+const ROOTS = ['ikebox-app', 'ikebox-cli', 'ikebox-helper'];
 const LICENSE_FILE = /^(licen[cs]e|copying|notice|copyright|unlicense)([-._].*)?$/i;
 
 const out = process.argv[2];
@@ -113,9 +113,9 @@ for (const c of components) {
 
 const rule = '='.repeat(78);
 const lines = [
-  'IPsec Client: third-party licenses',
+  'Ikebox: third-party licenses',
   '',
-  'IPsec Client is free software under GPL-3.0-or-later (see LICENSE). The',
+  'Ikebox is free software under GPL-3.0-or-later (see LICENSE). The',
   'programs it ships are built with the components below, under their own',
   'licenses. The embedded strongSwan, GMP and musl are described in',
   'THIRD_PARTY_NOTICES.md; their texts are in the engine (share/licenses/).',

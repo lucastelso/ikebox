@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# ipsec-client updown (ADR-0004).
+# ikebox updown (ADR-0004).
 #
 # charon calls this script (through /bin/sh -c) for every pair of traffic
 # selectors that goes up or down. It runs as root in the host's network
@@ -34,7 +34,7 @@ set -euo pipefail
 # Tags the session's routes; the entrypoint removes what is left at cleanup.
 readonly RT_PROTO=241
 
-log() { printf 'ipsec-client-updown: %s\n' "$*"; }
+log() { printf 'ikebox-updown: %s\n' "$*"; }
 die() {
     log "error: $*"
     exit 1

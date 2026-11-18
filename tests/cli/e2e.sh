@@ -1,23 +1,23 @@
 #!/usr/bin/env bash
-# End-to-end test of ipsec-client-cli against the test IPsec gateway.
+# End-to-end test of ikebox-cli against the test IPsec gateway.
 #
 # Runs a real user's flow: doctor → profiles import → connect (wrong password,
 # then the right one) → status → logs → disconnect. Uses a temporary
 # XDG_CONFIG_HOME (does not touch the user's profiles) and FAKE credentials via
 # --credentials-stdin (does not touch the keyring).
 #
-# Uses the production names (ipsec-client-engine container, ipsc0 interface):
+# Uses the production names (ikebox-engine container, ipsc0 interface):
 # aborts if a connection is already active or UDP 500/4500 is in use.
 # On a computer with an older network component installed, run it with
-# IPSEC_CLIENT_BACKEND=docker.
+# IKEBOX_BACKEND=docker.
 
 set -euo pipefail
 
 repo_root=$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)
-readonly NET=ipsec-client-cli-e2e
-readonly GW=ipsec-client-cli-e2e-gw
-readonly IMAGE_LOCAL=ipsec-client-engine:e2e
-readonly TEST_SECRETS_RE='ipsec-client-test-psk|senha-de-teste'
+readonly NET=ikebox-cli-e2e
+readonly GW=ikebox-cli-e2e-gw
+readonly IMAGE_LOCAL=ikebox-engine:e2e
+readonly TEST_SECRETS_RE='ikebox-test-psk|senha-de-teste'
 
 step() { printf '\n\033[1;36m==> %s\033[0m\n' "$*"; }
 ok() { printf '  \033[0;32m✔\033[0m %s\n' "$*"; }
@@ -50,19 +50,19 @@ main() {
     if [[ -n $(ss -Hlun '( sport = :500 or sport = :4500 )') ]]; then
         fail "UDP 500/4500 in use (another IPsec VPN connected?)"
     fi
-    if docker ps -q --filter name=^ipsec-client-engine$ | grep -q .; then
-        fail "an ipsec-client connection is already active"
+    if docker ps -q --filter name=^ikebox-engine$ | grep -q .; then
+        fail "an ikebox connection is already active"
     fi
     trap cleanup EXIT
-    workdir=$(mktemp -d "${XDG_RUNTIME_DIR:-/tmp}/ipsec-client-cli-e2e.XXXXXX")
+    workdir=$(mktemp -d "${XDG_RUNTIME_DIR:-/tmp}/ikebox-cli-e2e.XXXXXX")
     export XDG_CONFIG_HOME="$workdir/config"
     ok "temporary XDG_CONFIG_HOME: $XDG_CONFIG_HOME"
 
     step "CLI build"
     # With the Docker engine (feature docker): this test runs where the
     # network component may not be installed (CI).
-    cargo build -q -p ipsec-client-cli --features docker --manifest-path "$repo_root/Cargo.toml"
-    cli="$repo_root/target/debug/ipsec-client-cli"
+    cargo build -q -p ikebox-cli --features docker --manifest-path "$repo_root/Cargo.toml"
+    cli="$repo_root/target/debug/ikebox-cli"
     ok "$("$cli" --version)"
 
     step "Test IPsec gateway"
@@ -90,12 +90,12 @@ main() {
     ok "$(tail -n 1 "$workdir/doctor.txt")"
 
     step "profiles import / list / validate"
-    sed "s/\"gw.ipsec-client.test\"/\"$gw_ip\"/" \
+    sed "s/\"gw.ikebox.test\"/\"$gw_ip\"/" \
         "$repo_root/crates/core/tests/fixtures/test-gateway.json" >"$workdir/perfil.json"
     "$cli" profiles validate "$workdir/perfil.json" >/dev/null || fail "invalid profile"
     "$cli" profiles import "$workdir/perfil.json" >/dev/null
     "$cli" profiles list | grep -q '^gateway-teste ' || fail "profile not listed"
-    [[ $(stat -c '%a' "$XDG_CONFIG_HOME/ipsec-client/profiles/gateway-teste.json") == 600 ]] ||
+    [[ $(stat -c '%a' "$XDG_CONFIG_HOME/ikebox/profiles/gateway-teste.json") == 600 ]] ||
         fail "profile without 0600 permissions"
     ok "profile imported (0600) and listed"
 
@@ -104,7 +104,7 @@ main() {
         -e "s|@REMOTE_TS@|192.0.2.0/24|" -e "s|@UPDOWN_EXTRA@||" \
         "$repo_root/tests/engine/initiator.conf.in" >"$workdir/swanctl.conf"
     "$cli" profiles import-swanctl "$workdir/swanctl.conf" --id via-swanctl \
-        --domain '~ipsec-client.test' --use-received-dns >"$workdir/import.txt" ||
+        --domain '~ikebox.test' --use-received-dns >"$workdir/import.txt" ||
         fail "import-swanctl failed"
     if grep -qE "$TEST_SECRETS_RE|usuario\.teste" < <("$cli" profiles show via-swanctl); then
         fail "secret or XAuth username copied into the profile"
@@ -113,7 +113,7 @@ main() {
 
     step "connect with a wrong password → clear message, nothing left running"
     local out rc=0
-    out=$(printf 'psk=ipsec-client-test-psk\nxauth-user=usuario.teste\nxauth-password=errada\n' |
+    out=$(printf 'psk=ikebox-test-psk\nxauth-user=usuario.teste\nxauth-password=errada\n' |
         "$cli" connect gateway-teste --detach --credentials-stdin 2>&1) || rc=$?
     ((rc != 0)) || fail "connect with a wrong password should fail"
     [[ $out == *"wrong XAuth username or password"* ]] || {
@@ -125,7 +125,7 @@ main() {
     ok "\"wrong XAuth username or password\", no identity exposed, host clean"
 
     step "connect --detach (profile imported from swanctl.conf)"
-    out=$(printf 'psk=ipsec-client-test-psk\nxauth-user=usuario.teste\nxauth-password=senha-de-teste\n' |
+    out=$(printf 'psk=ikebox-test-psk\nxauth-user=usuario.teste\nxauth-password=senha-de-teste\n' |
         "$cli" connect via-swanctl --detach --credentials-stdin 2>&1) || {
         printf '%s\n' "$out"
         fail "connect failed"
@@ -148,7 +148,7 @@ main() {
     step "logs --anonymize (for bug reports)"
     out=$("$cli" logs -n 200 --anonymize)
     [[ $out == *"<gateway>"* ]] || fail "the gateway did not become <gateway>"
-    if grep -qF -e "$gw_ip" -e "198.51.100." -e "ipsec-client.test" -e "grupo-teste" <<<"$out"; then
+    if grep -qF -e "$gw_ip" -e "198.51.100." -e "ikebox.test" -e "grupo-teste" <<<"$out"; then
         fail "gateway, VIP, domain or group in the anonymized log"
     fi
     ok "gateway, VIP, domain and group replaced with placeholders"

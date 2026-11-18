@@ -5,7 +5,7 @@ use std::path::{Path, PathBuf};
 use std::sync::{Mutex, PoisonError};
 use std::time::{Duration, Instant, SystemTime};
 
-use ipsec_client_proto::{
+use ikebox_proto::{
     EngineStatus, MAX_LOG_LINES, Request, Response, SOCKET_ROOT, StartParams, socket_dir,
     vici_socket,
 };
@@ -116,7 +116,7 @@ fn start(params: &StartParams, peer: &Peer, paths: &Paths) -> Result<Response, S
     let charon = paths.engine_dir.join("libexec/ipsec/charon");
     let entrypoint = paths.libexec_dir.join("entrypoint.sh");
     if !charon.is_file() || !entrypoint.is_file() {
-        return Err("incomplete network component; reinstall IPsec Client".to_owned());
+        return Err("incomplete network component; reinstall Ikebox".to_owned());
     }
     prepare_socket_dir(peer.uid)?;
 
@@ -134,7 +134,7 @@ fn start(params: &StartParams, peer: &Peer, paths: &Paths) -> Result<Response, S
     wait_ready(peer.uid, launched)
 }
 
-/// `/run/ipsec-client` (0755 root) and `/run/ipsec-client/<uid>` (0711
+/// `/run/ikebox` (0755 root) and `/run/ikebox/<uid>` (0711
 /// root:root), without symlinks, and without the old socket of a previous
 /// session. The socket decides the access (0600, owner = uid): the user cannot
 /// write to the directory, so they cannot swap the socket for a link.

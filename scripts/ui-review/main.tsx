@@ -15,7 +15,7 @@ const theme = q.get('theme') === 'dark' ? 'dark' : 'light';
 const pt = lang === 'pt';
 const L = (en: string, ptText: string) => (pt ? ptText : en);
 
-localStorage.setItem('ipsec-client:language', lang);
+localStorage.setItem('ikebox:language', lang);
 document.documentElement.setAttribute('data-theme', theme);
 document.documentElement.lang = lang;
 

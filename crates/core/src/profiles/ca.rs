@@ -146,6 +146,7 @@ mod tests {
     fn rsa_and_ed25519_cas_are_accepted() {
         let rsa = parse_ca(RSA_CA).expect("rsa");
         assert_eq!(rsa.key, "RSA");
+        // The fake test CA keeps the name it was made with, before 1.0.
         assert!(
             rsa.subject.contains("IPsec Client Test CA (RSA)"),
             "{}",

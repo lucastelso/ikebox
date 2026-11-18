@@ -1,7 +1,7 @@
-//! IPsec Client desktop app (Tauri v2).
+//! Ikebox desktop app (Tauri v2).
 //!
 //! This layer is thin (ADR-0009): the commands convert between the UI's DTOs
-//! ([`dto`]) and `ipsec-client-core`, where all the logic lives. The webview
+//! ([`dto`]) and `ikebox-core`, where all the logic lives. The webview
 //! only sees the commands registered here; there are no shell or fs plugins.
 
 pub mod certificate_cmd;
@@ -76,12 +76,23 @@ pub fn specta_builder() -> Builder<tauri::Wry> {
 /// If Tauri cannot start (e.g. no graphical display).
 pub fn run() {
     // Before anything else, so the webview processes inherit it.
-    if let Err(e) = ipsec_client_core::secrets::disable_core_dumps() {
+    if let Err(e) = ikebox_core::secrets::disable_core_dumps() {
         tracing::warn!("could not disable core dumps: {e}");
     }
     // Rust messages (tray, notifications, errors) follow the session locale
     // until the UI applies the user's choice (`set_language`).
-    ipsec_client_core::i18n::set_lang(ipsec_client_core::i18n::Lang::from_env());
+    ikebox_core::i18n::set_lang(ikebox_core::i18n::Lang::from_env());
+    // Up to 0.9 this was IPsec Client (ADR-0031): the configuration moves
+    // before anything reads it; the keyring entries, which may need the
+    // keyring unlocked, move in the background.
+    if ikebox_core::legacy::move_config() {
+        tracing::info!("moved the IPsec Client configuration to Ikebox");
+    }
+    std::thread::spawn(|| match ikebox_core::legacy::move_keyring() {
+        Some(Ok(n)) => tracing::info!("moved {n} credential(s) from IPsec Client to Ikebox"),
+        Some(Err(e)) => tracing::warn!("IPsec Client credentials not moved yet: {e}"),
+        None => {}
+    });
     let builder = specta_builder();
     #[allow(clippy::expect_used)] // startup failure: there is no way to go on
     tauri::Builder::default()
@@ -107,7 +118,7 @@ pub fn run() {
             handle_drop(window, event);
         })
         .run(tauri::generate_context!())
-        .expect("failed to start IPsec Client");
+        .expect("failed to start Ikebox");
 }
 
 /// A file dropped on the window: Rust reads it, builds the preview and tells
@@ -135,7 +146,7 @@ mod tests {
     use specta_typescript::Typescript;
 
     /// `src/bindings.ts` must be up to date with the Rust commands and types.
-    /// To regenerate: `UPDATE_BINDINGS=1 cargo test -p ipsec-client-app bindings`.
+    /// To regenerate: `UPDATE_BINDINGS=1 cargo test -p ikebox-app bindings`.
     #[test]
     fn bindings_are_up_to_date() {
         let committed = concat!(env!("CARGO_MANIFEST_DIR"), "/../src/bindings.ts");
@@ -154,7 +165,7 @@ mod tests {
         let current = std::fs::read_to_string(committed).unwrap_or_default();
         assert!(
             current == generated,
-            "src/bindings.ts desatualizado: rode UPDATE_BINDINGS=1 cargo test -p ipsec-client-app bindings"
+            "src/bindings.ts desatualizado: rode UPDATE_BINDINGS=1 cargo test -p ikebox-app bindings"
         );
     }
 }

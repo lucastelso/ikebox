@@ -1,6 +1,6 @@
 # Architecture
 
-This document describes **how** IPsec Client works. The **why** behind each
+This document describes **how** Ikebox works. The **why** behind each
 choice is in the [ADRs](adr/README.md).
 
 ## Overview
@@ -8,7 +8,7 @@ choice is in the [ADRs](adr/README.md).
 ```
 React UI ──(tauri-specta: typed commands/events)──► src-tauri (thin commands, state, tray)
                                                        │
-                                            crates/core (ipsec-client-core)
+                                            crates/core (ikebox-core)
    profiles    model, validation, presets, import/export, load-conn generation
    secrets     keyring (Secret Service) + memory (secrecy/zeroize) + redaction/anonymization
    engine      Backend: native (helper) or Docker (tests)
@@ -18,10 +18,10 @@ React UI ──(tauri-specta: typed commands/events)──► src-tauri (thin co
    i18n        English/Portuguese messages (tr!/trf!)
                  │ helper socket (JSON lines)                 │ VICI (Unix socket, 0600)
                  ▼                                             ▼
-  ipsec-client-helper (root) ──systemd-run──► embedded charon (strongSwan 6.1.0 + patch)
+  ikebox-helper (root) ──systemd-run──► embedded charon (strongSwan 6.1.0 + patch)
     sandboxed transient unit, entrypoint.sh → ipsc0 (XFRM), forced updown → routes + DNS
 
-crates/cli (ipsec-client-cli): the same logic, without a GUI (English only)
+crates/cli (ikebox-cli): the same logic, without a GUI (English only)
 ```
 
 ## Names and locations
@@ -29,37 +29,37 @@ crates/cli (ipsec-client-cli): the same logic, without a GUI (English only)
 | Item | Value |
 |---|---|
 | XFRM interface | `ipsc0`, MTU 1400, `if_id` derived from the profile (≠ 0) |
-| Helper socket | `/run/ipsec-client-helper.sock` (0666; the helper authorizes each request) |
-| VICI socket | `/run/ipsec-client/<uid>/charon.vici` (directory 0711 root, opened to charon's group as 1731 during the session; socket 0600 owned by the uid) |
-| Engine unit | `ipsec-client-engine` (transient, `systemd-run`) |
-| Installed component | `/opt/ipsec-client/{engine,libexec,bin,VERSION,SHA256SUMS,ORIGIN}` |
-| Profiles | `~/.config/ipsec-client/profiles/<id>.json` |
-| Keyring | service `ipsec-client`, key `<profile>:<field>` |
+| Helper socket | `/run/ikebox-helper.sock` (0666; the helper authorizes each request) |
+| VICI socket | `/run/ikebox/<uid>/charon.vici` (directory 0711 root, opened to charon's group as 1731 during the session; socket 0600 owned by the uid) |
+| Engine unit | `ikebox-engine` (transient, `systemd-run`) |
+| Installed component | `/opt/ikebox/{engine,libexec,bin,VERSION,SHA256SUMS,ORIGIN}` |
+| Profiles | `~/.config/ikebox/profiles/<id>.json` |
+| Keyring | service `ikebox`, key `<profile>:<field>` |
 
 ## Embedded engine (ADRs 0013–0016, 0019)
 
 strongSwan **6.1.0** is compiled from the official source (`native-engine/`),
-with the IPsec Client security patch (`native-engine/patches/`), and runs on
+with the Ikebox security patch (`native-engine/patches/`), and runs on
 the host, started by the privileged helper.
 
-### Network component: `ipsec-client-helper` (ADR-0014)
+### Network component: `ikebox-helper` (ADR-0014)
 
 | Piece | What it does |
 |---|---|
 | `crates/proto` | JSON-per-line protocol (`ping`, `start`, `stop`, `status`, `logs`) and the **validation rules shared** with `core` (interface, `if_id`, MTU, log level, profile id, DNS). The interface must be `ipsc<N>`: the engine removes and recreates it as root. Unknown fields are refused, so the client cannot pass paths or commands |
-| `crates/helper` | Root, socket activated. Uses `SO_PEERCRED` and asks polkit (`io.github.lucastelso.ipsecclient.connect`, `allow_active=yes`, non-interactive). Creates `/run/ipsec-client/<uid>` (0711 root:root) and starts the engine with `systemd-run --unit=ipsec-client-engine` and a sandbox, passing the profile DNS (validated). Waits until the VICI socket is handed over to the user (0600, owned by the uid) and replies with its path. Refuses when the engine belongs to another user; `stop` and `logs` only for the owner, and `logs` returns only the lines of the running session (selected by the unit's invocation ID). Before asking polkit, checks that the client pid still belongs to the client uid. Serves up to 8 connections in parallel, 4 per uid, with a 3 s deadline for the whole request (ADR-0019). Messages in English |
+| `crates/helper` | Root, socket activated. Uses `SO_PEERCRED` and asks polkit (`io.github.lucastelso.ikebox.connect`, `allow_active=yes`, non-interactive). Creates `/run/ikebox/<uid>` (0711 root:root) and starts the engine with `systemd-run --unit=ikebox-engine` and a sandbox, passing the profile DNS (validated). Waits until the VICI socket is handed over to the user (0600, owned by the uid) and replies with its path. Refuses when the engine belongs to another user; `stop` and `logs` only for the owner, and `logs` returns only the lines of the running session (selected by the unit's invocation ID). Before asking polkit, checks that the client pid still belongs to the client uid. Serves up to 8 connections in parallel, 4 per uid, with a 3 s deadline for the whole request (ADR-0019). Messages in English |
 | Engine sandbox | Capabilities `NET_ADMIN`, `NET_BIND_SERVICE`, `NET_RAW` and `CHOWN`; `NoNewPrivileges`, `ProtectSystem=strict`, `ProtectHome`, `PrivateTmp`, `PrivateDevices`, `PrivateIPC`, `ProtectKernelModules`, `ProtectKernelTunables`, `ProtectKernelLogs`, `ProtectProc=invisible`, `SystemCallFilter=@system-service`, `RestrictAddressFamilies` (unix, inet, inet6, netlink), `MemoryDenyWriteExecute`, `UMask=0077`; only `RuntimeDirectory` and the user's socket directory are writable |
-| `packaging/` | Units `ipsec-client-helper.{socket,service}` (the helper is hardened too, with no capability at all), the polkit policy and `install-native.sh`. The installer takes a bundle (`--bundle`), checks `SHA256SUMS` on a root-only copy (the engine tarball may only hold files and directories under `opt/ipsec-client/engine`), creates the `ipsec-client-engine` system user (ADR-0028), installs into `/opt/ipsec-client` (keeping `/opt` when it is a link, as on Fedora Atomic), records `VERSION`/`SHA256SUMS`/`ORIGIN` and runs `restorecon` for SELinux. The policy goes to `/usr/share/polkit-1/actions`, or to `/etc/polkit-1/actions` when `/usr` is read-only (polkit ≥ 124). Its lines are tagged `[network component]` |
+| `packaging/` | Units `ikebox-helper.{socket,service}` (the helper is hardened too, with no capability at all), the polkit policy and `install-native.sh`. The installer takes a bundle (`--bundle`), checks `SHA256SUMS` on a root-only copy (the engine tarball may only hold files and directories under `opt/ikebox/engine`), creates the `ikebox-engine` system user (ADR-0028), installs into `/opt/ikebox` (keeping `/opt` when it is a link, as on Fedora Atomic), records `VERSION`/`SHA256SUMS`/`ORIGIN` and runs `restorecon` for SELinux. The policy goes to `/usr/share/polkit-1/actions`, or to `/etc/polkit-1/actions` when `/usr` is read-only (polkit ≥ 124). Its lines are tagged `[network component]` |
 | `core::component` (ADR-0018) | Component bundle (`scripts/stage-network-component.sh`, shipped in `<resources>/network` in release builds; the helper goes compressed, because the AppImage's linuxdeploy rewrites ELF executables), state (not installed, ready, outdated or broken), installation via `pkexec`, in place when the bundle is root-owned (`.rpm`/`.deb`) or from a private copy in `$XDG_RUNTIME_DIR` (AppImage), and removal through root's installer |
-| `core::engine::Backend` | `Native` (helper). Only builds with the `docker` feature (development and tests, never release) have `Docker`, as a fallback when the component is not installed. `IPSEC_CLIENT_BACKEND=native\|docker` forces one. An old helper that refuses the new request becomes `EngineError::HelperOutdated` ("update the network component") |
+| `core::engine::Backend` | `Native` (helper). Only builds with the `docker` feature (development and tests, never release) have `Docker`, as a fallback when the component is not installed. `IKEBOX_BACKEND=native\|docker` forces one. An old helper that refuses the new request becomes `EngineError::HelperOutdated` ("update the network component") |
 
 ### Engine scripts (`engine/`)
 
 | File | Role |
 |---|---|
-| `entrypoint.sh` | Validates the environment; cleans leftovers; recreates `ipsc0` (and gives up if a link with that name exists and is not an XFRM interface); writes the runtime config; starts charon, in the embedded engine as `ipsec-client-engine` through `setpriv`, with only the network capabilities (ADR-0028); hands the VICI socket over (`chmod 0600` by its owner, then `chown <uid>`); serves the updown's DNS requests from a FIFO, applied as root to the session interface only; on `SIGTERM`, stops charon and cleans the interface, routes, DNS and XFRM state with the `if_id`. With `IPSEC_CLIENT_UPDOWN` + `IPSEC_CLIENT_DNS_*`, writes `updown.args` (one argument per line, root only) and the `force_updown`/`force_if_id` options of the strongSwan patch |
+| `entrypoint.sh` | Validates the environment; cleans leftovers; recreates `ipsc0` (and gives up if a link with that name exists and is not an XFRM interface); writes the runtime config; starts charon, in the embedded engine as `ikebox-engine` through `setpriv`, with only the network capabilities (ADR-0028); hands the VICI socket over (`chmod 0600` by its owner, then `chown <uid>`); serves the updown's DNS requests from a FIFO, applied as root to the session interface only; on `SIGTERM`, stops charon and cleans the interface, routes, DNS and XFRM state with the `if_id`. With `IKEBOX_UPDOWN` + `IKEBOX_DNS_*`, writes `updown.args` (one argument per line, root only) and the `force_updown`/`force_if_id` options of the strongSwan patch |
 | `updown.sh` | Called by charon for each TS going up or down; installs/removes routes on `ipsc0` (`proto 241`) and configures split DNS with `resolvectl`. In the embedded engine it runs as `updown --args-file <file>`; it validates the arguments and the values from charon (`PLUTO_*`) again |
-| `strongswan.d/zz-ipsec-client.conf` | `install_routes = no`, `resolve` plugin off, `updown.dns_handler = yes` (passes the received DNS servers to the updown), log to stderr (level 1) |
+| `strongswan.d/zz-ikebox.conf` | `install_routes = no`, `resolve` plugin off, `updown.dns_handler = yes` (passes the received DNS servers to the updown), log to stderr (level 1) |
 
 ### Engine environment (from the helper)
 
@@ -67,13 +67,13 @@ All values are **non-sensitive**: secrets never go through here.
 
 | Variable | Example | Validation |
 |---|---|---|
-| `IPSEC_CLIENT_IFACE` | `ipsc0` | `^[a-z][a-z0-9_-]{0,14}$` in the entrypoint; the helper only accepts `^ipsc[0-9]{1,4}$` from clients |
-| `IPSEC_CLIENT_IF_ID` | `4096` | integer 1–4294967295 |
-| `IPSEC_CLIENT_MTU` | `1400` | integer 576–9000 |
-| `IPSEC_CLIENT_SOCKET_UID` | `1000` | integer ≥ 0 (socket owner) |
-| `IPSEC_CLIENT_LOG_LEVEL` | `1` | integer 0–2 (never 3+, which may show sensitive material) |
-| `IPSEC_CLIENT_UPDOWN` | `/opt/ipsec-client/libexec/updown` | absolute path, executable |
-| `IPSEC_CLIENT_DNS_SERVERS` / `_DOMAINS` / `_FLAGS` | `192.0.2.53` / `~corp.example.com` / `use-received` | IPs, domains, `use-received`/`default-route`, comma separated |
+| `IKEBOX_IFACE` | `ipsc0` | `^[a-z][a-z0-9_-]{0,14}$` in the entrypoint; the helper only accepts `^ipsc[0-9]{1,4}$` from clients |
+| `IKEBOX_IF_ID` | `4096` | integer 1–4294967295 |
+| `IKEBOX_MTU` | `1400` | integer 576–9000 |
+| `IKEBOX_SOCKET_UID` | `1000` | integer ≥ 0 (socket owner) |
+| `IKEBOX_LOG_LEVEL` | `1` | integer 0–2 (never 3+, which may show sensitive material) |
+| `IKEBOX_UPDOWN` | `/opt/ikebox/libexec/updown` | absolute path, executable |
+| `IKEBOX_DNS_SERVERS` / `_DOMAINS` / `_FLAGS` | `192.0.2.53` / `~corp.example.com` / `use-received` | IPs, domains, `use-received`/`default-route`, comma separated |
 
 ### Engine contract for the app
 
@@ -100,7 +100,7 @@ strongSwan 6.0.1 (`engine/Dockerfile`), started with `--network host` and
 only `NET_ADMIN` (ADR-0005). It is the test gateway and, in builds with the
 `docker` feature only (development and tests, never release), the fallback
 when the network component is not installed. Its VICI socket is in
-`$XDG_RUNTIME_DIR/ipsec-client/charon.vici` (0660, the user's group).
+`$XDG_RUNTIME_DIR/ikebox/charon.vici` (0660, the user's group).
 
 ## Rust modules
 

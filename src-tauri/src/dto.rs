@@ -7,15 +7,15 @@
 
 use std::fmt;
 
-use ipsec_client_core::component::{self, Bundle, ComponentError, Origin};
-use ipsec_client_core::diagnostics::{COMPONENT_CHECK, CheckStatus};
-use ipsec_client_core::engine::EngineError;
-use ipsec_client_core::profiles::{
+use ikebox_core::component::{self, Bundle, ComponentError, Origin};
+use ikebox_core::diagnostics::{COMPONENT_CHECK, CheckStatus};
+use ikebox_core::engine::EngineError;
+use ikebox_core::profiles::{
     CredentialKind, Profile, ProfileError, SecurityFinding, SecurityLevel,
 };
-use ipsec_client_core::secrets::SecretsError;
-use ipsec_client_core::session::{ConnectionInfo, SessionError, SessionEvent, SessionState};
-use ipsec_client_core::{tr, trf};
+use ikebox_core::secrets::SecretsError;
+use ikebox_core::session::{ConnectionInfo, SessionError, SessionEvent, SessionState};
+use ikebox_core::{tr, trf};
 use serde::{Deserialize, Serialize};
 use specta::Type;
 
@@ -177,8 +177,8 @@ pub struct ClientCertSummary {
     pub key: String,
 }
 
-impl From<&ipsec_client_core::secrets::ClientCertInfo> for ClientCertSummary {
-    fn from(info: &ipsec_client_core::secrets::ClientCertInfo) -> Self {
+impl From<&ikebox_core::secrets::ClientCertInfo> for ClientCertSummary {
+    fn from(info: &ikebox_core::secrets::ClientCertInfo) -> Self {
         Self {
             subject: info.subject.clone(),
             issuer: info.issuer.clone(),
@@ -556,7 +556,7 @@ pub enum ComponentState {
 pub struct ComponentInfo {
     /// State.
     pub state: ComponentState,
-    /// Version of IPsec Client that installed the component.
+    /// Version of Ikebox that installed the component.
     pub installed_version: Option<String>,
     /// Installed strongSwan.
     pub installed_strongswan: Option<String>,
@@ -611,8 +611,8 @@ fn capitalize(s: &str) -> String {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use ipsec_client_core::diagnostics::Check;
-    use ipsec_client_core::session::FailureKind;
+    use ikebox_core::diagnostics::Check;
+    use ikebox_core::session::FailureKind;
 
     #[test]
     fn credentials_input_debug_hides_values() {
@@ -689,7 +689,7 @@ mod tests {
 
     #[test]
     fn component_info_respects_package_origin() {
-        use ipsec_client_core::component::{Installed, State, Status, Version};
+        use ikebox_core::component::{Installed, State, Status, Version};
         let status = |origin| Status {
             state: State::Ready,
             installed: Some(Installed {
@@ -738,7 +738,7 @@ mod tests {
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, Type)]
 #[serde(rename_all = "camelCase")]
 pub enum ImportKind {
-    /// IPsec Client profile (.json).
+    /// Ikebox profile (.json).
     Json,
     /// `swanctl.conf` of a VPN that already works.
     Swanctl,
@@ -757,8 +757,8 @@ pub enum ImportKind {
 impl ImportKind {
     /// The format of another VPN client, if it is one of them.
     #[must_use]
-    pub fn legacy(self) -> Option<ipsec_client_core::profiles::LegacyFormat> {
-        use ipsec_client_core::profiles::LegacyFormat as L;
+    pub fn legacy(self) -> Option<ikebox_core::profiles::LegacyFormat> {
+        use ikebox_core::profiles::LegacyFormat as L;
         Some(match self {
             Self::Json | Self::Swanctl => return None,
             Self::CiscoPcf => L::CiscoPcf,
@@ -771,8 +771,8 @@ impl ImportKind {
 
     /// The kind of a format from another VPN client.
     #[must_use]
-    pub fn from_legacy(format: ipsec_client_core::profiles::LegacyFormat) -> Self {
-        use ipsec_client_core::profiles::LegacyFormat as L;
+    pub fn from_legacy(format: ikebox_core::profiles::LegacyFormat) -> Self {
+        use ikebox_core::profiles::LegacyFormat as L;
         match format {
             L::CiscoPcf => Self::CiscoPcf,
             L::Vpnc => Self::Vpnc,
@@ -961,8 +961,8 @@ pub struct DiagnosticCheck {
     pub hint: Option<String>,
 }
 
-impl From<&ipsec_client_core::diagnostics::Check> for DiagnosticCheck {
-    fn from(c: &ipsec_client_core::diagnostics::Check) -> Self {
+impl From<&ikebox_core::diagnostics::Check> for DiagnosticCheck {
+    fn from(c: &ikebox_core::diagnostics::Check) -> Self {
         Self {
             name: c.name.to_owned(),
             level: match c.status {

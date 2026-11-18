@@ -217,7 +217,7 @@ export function HomeScreen({ onImport }: { onImport?: () => void }) {
         <div className="mx-auto flex max-w-md flex-col gap-4">
           <div className="flex items-center gap-2">
             <img src="/logo.svg" alt="" className="size-6" />
-            <span className="text-sm font-bold">IPsec Client</span>
+            <span className="text-sm font-bold">Ikebox</span>
             {!noProfiles && (
               <div className="ml-auto min-w-0 max-w-[62%]">
                 <Select value={selected?.id ?? ''} onValueChange={select} disabled={!idle || !list}>

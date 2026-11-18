@@ -1,6 +1,6 @@
 # Code of conduct
 
-IPsec Client is a small project made in the open. Everyone who takes part,
+Ikebox is a small project made in the open. Everyone who takes part,
 in issues, pull requests, discussions or anywhere else in its name, is
 expected to make it a welcoming, harassment-free place, whatever their
 experience, background, identity or language (English and Portuguese are
@@ -27,7 +27,7 @@ both fine here).
 ## Reporting
 
 Report privately through GitHub's
-[private reporting form](https://github.com/lucastelso/ipsec-client/security/advisories/new),
+[private reporting form](https://github.com/lucastelso/ikebox/security/advisories/new),
 starting the title with **"Conduct:"** (it reaches only the maintainers, not
 the public). Say what happened, where (links), and when. Reports are read by
 the maintainers, kept confidential, and answered within 7 days.

@@ -6,7 +6,7 @@
 #   1. starts the test IPsec gateway and a Fedora 45 "computer" with systemd
 #      (privileged container, its own network);
 #   2. installs the network component with the real installer (packaging/);
-#   3. as user alice, connects with ipsec-client-cli (embedded engine, the
+#   3. as user alice, connects with ikebox-cli (embedded engine, the
 #      profile DNS going through the helper) and checks the tunnel, the DNS and
 #      the sandbox of the engine unit (systemd-run);
 #   4. as bob, tries to stop alice's VPN, read its log and see the profile;
@@ -19,14 +19,14 @@
 #
 # Environment (set by tests/compat/run.sh to repeat the test on another
 # distribution):
-#   IPSEC_CLIENT_TEST_BASE     base image of the test computer (default: the
+#   IKEBOX_TEST_BASE     base image of the test computer (default: the
 #                              Fedora pinned in the Dockerfile)
-#   IPSEC_CLIENT_TEST_NAME     name of that distribution (image tag, messages)
-#   IPSEC_CLIENT_TEST_BIN_DIR  directory with ipsec-client-cli and
-#                              ipsec-client-helper already built (for an older
+#   IKEBOX_TEST_NAME     name of that distribution (image tag, messages)
+#   IKEBOX_TEST_BIN_DIR  directory with ikebox-cli and
+#                              ikebox-helper already built (for an older
 #                              glibc than this computer's); default: build
 #                              them here with cargo
-#   IPSEC_CLIENT_TEST_SUITE    systemd (default, the scenarios above) or modes
+#   IKEBOX_TEST_SUITE    systemd (default, the scenarios above) or modes
 #                              (tests/modes/run.sh: one test gateway per IPsec
 #                              mode in tests/modes/gateways, and
 #                              tests/modes/inside.sh instead)
@@ -35,15 +35,15 @@ set -euo pipefail
 
 repo=$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)
 here="$repo/tests/systemd"
-readonly NET=ipsec-client-systemd-test
-readonly GW=ipsec-client-systemd-gw
-readonly HOST=ipsec-client-systemd-host
-readonly GW_IMAGE=ipsec-client-engine:e2e
-readonly DISTRO=${IPSEC_CLIENT_TEST_NAME:-local}
-readonly HOST_IMAGE=ipsec-client-systemd-test:$DISTRO
-readonly BASE=${IPSEC_CLIENT_TEST_BASE:-}
-readonly BIN_DIR=${IPSEC_CLIENT_TEST_BIN_DIR:-}
-readonly SUITE=${IPSEC_CLIENT_TEST_SUITE:-systemd}
+readonly NET=ikebox-systemd-test
+readonly GW=ikebox-systemd-gw
+readonly HOST=ikebox-systemd-host
+readonly GW_IMAGE=ikebox-engine:e2e
+readonly DISTRO=${IKEBOX_TEST_NAME:-local}
+readonly HOST_IMAGE=ikebox-systemd-test:$DISTRO
+readonly BASE=${IKEBOX_TEST_BASE:-}
+readonly BIN_DIR=${IKEBOX_TEST_BIN_DIR:-}
+readonly SUITE=${IKEBOX_TEST_SUITE:-systemd}
 # Password of the test client certificates (.p12): FAKE.
 readonly P12_PASSWORD=senha-p12-teste
 
@@ -60,7 +60,7 @@ cleanup() {
     set +e
     if ((rc != 0)) && docker ps -q --filter "name=^$HOST$" | grep -q .; then
         printf '\n--- engine and helper journal ---\n'
-        docker exec "$HOST" journalctl -u ipsec-client-engine -u ipsec-client-helper \
+        docker exec "$HOST" journalctl -u ikebox-engine -u ikebox-helper \
             --no-pager -n 80 2>/dev/null
         local gw_name
         for gw_name in $(docker ps -a --format '{{.Names}}' --filter "name=^$GW"); do
@@ -80,7 +80,7 @@ remove_mode_gateways() {
 }
 
 # make_pki DIR: a test CA, the gateway certificate it signs (RSA, SAN
-# gw.ipsec-client.test) and a second, unrelated CA, for the certificate
+# gw.ikebox.test) and a second, unrelated CA, for the certificate
 # modes (EAP, client certificates). DIR/gateway/{x509ca,x509,private} goes to
 # the gateway; DIR/client/ has the CA certificates a profile may carry and
 # the person's certificate as .p12 files (password P12_PASSWORD): alice.p12
@@ -93,17 +93,17 @@ make_pki() {
         -addext "keyUsage=critical,keyCertSign,cRLSign")
     mkdir -p "$dir/gateway/x509ca" "$dir/gateway/x509" "$dir/gateway/private" "$dir/client" "$dir/tmp"
     openssl req -x509 -newkey rsa:2048 -nodes -days 2 -keyout "$dir/tmp/ca.key" \
-        -subj "/O=Example/CN=IPsec Client Mode Test CA" "${ca_ext[@]}" \
+        -subj "/O=Example/CN=Ikebox Mode Test CA" "${ca_ext[@]}" \
         -out "$dir/gateway/x509ca/ca.pem" 2>/dev/null
     openssl req -newkey rsa:2048 -nodes -keyout "$dir/gateway/private/gateway.key" \
-        -subj "/O=Example/CN=gw.ipsec-client.test" -out "$dir/tmp/gateway.csr" 2>/dev/null
-    printf 'subjectAltName=DNS:gw.ipsec-client.test\nextendedKeyUsage=serverAuth,1.3.6.1.5.5.8.2.2\n' \
+        -subj "/O=Example/CN=gw.ikebox.test" -out "$dir/tmp/gateway.csr" 2>/dev/null
+    printf 'subjectAltName=DNS:gw.ikebox.test\nextendedKeyUsage=serverAuth,1.3.6.1.5.5.8.2.2\n' \
         >"$dir/tmp/gateway.ext"
     openssl x509 -req -in "$dir/tmp/gateway.csr" -CA "$dir/gateway/x509ca/ca.pem" \
         -CAkey "$dir/tmp/ca.key" -CAcreateserial -days 2 -extfile "$dir/tmp/gateway.ext" \
         -out "$dir/gateway/x509/gateway.pem" 2>/dev/null
     openssl req -x509 -newkey rsa:2048 -nodes -days 2 -keyout "$dir/tmp/other.key" \
-        -subj "/O=Example/CN=IPsec Client Unrelated Test CA" "${ca_ext[@]}" \
+        -subj "/O=Example/CN=Ikebox Unrelated Test CA" "${ca_ext[@]}" \
         -out "$dir/client/other-ca.pem" 2>/dev/null
     cp "$dir/gateway/x509ca/ca.pem" "$dir/client/ca.pem"
     # client_p12 NAME CN CA: a client certificate signed by CA, as NAME.p12.
@@ -127,11 +127,11 @@ make_pki() {
     # ECDSA (ADR-0027): a P-256 CA, a P-384 gateway certificate and the
     # person's P-256 certificate (alice-ec.p12), for the ECDSA mode.
     openssl req -x509 -newkey ec -pkeyopt ec_paramgen_curve:prime256v1 -nodes -days 2 \
-        -keyout "$dir/tmp/ec-ca.key" -subj "/O=Example/CN=IPsec Client ECDSA Test CA" \
+        -keyout "$dir/tmp/ec-ca.key" -subj "/O=Example/CN=Ikebox ECDSA Test CA" \
         "${ca_ext[@]}" -out "$dir/gateway/x509ca/ec-ca.pem" 2>/dev/null
     openssl req -newkey ec -pkeyopt ec_paramgen_curve:secp384r1 -nodes \
         -keyout "$dir/gateway/private/gateway-ec.key" \
-        -subj "/O=Example/CN=gw.ipsec-client.test" -out "$dir/tmp/gateway-ec.csr" 2>/dev/null
+        -subj "/O=Example/CN=gw.ikebox.test" -out "$dir/tmp/gateway-ec.csr" 2>/dev/null
     openssl x509 -req -in "$dir/tmp/gateway-ec.csr" -CA "$dir/gateway/x509ca/ec-ca.pem" \
         -CAkey "$dir/tmp/ec-ca.key" -CAcreateserial -days 2 -extfile "$dir/tmp/gateway.ext" \
         -out "$dir/gateway/x509/gateway-ec.pem" 2>/dev/null
@@ -187,32 +187,32 @@ main() {
     docker info >/dev/null 2>&1 || fail "Docker is not reachable"
     local strongswan engine tools
     strongswan=$(grep -vE '^\s*(#|$)' "$repo/native-engine/versions.txt" | head -n 1 | awk '{print $1}')
-    engine="$repo/native-engine/dist/ipsec-client-engine-$strongswan-x86_64.tar.gz"
-    tools="$repo/native-engine/dist/ipsec-client-engine-tools-$strongswan-x86_64.tar.gz"
+    engine="$repo/native-engine/dist/ikebox-engine-$strongswan-x86_64.tar.gz"
+    tools="$repo/native-engine/dist/ikebox-engine-tools-$strongswan-x86_64.tar.gz"
     [[ -f $engine && -f $tools ]] || fail "engine missing: run native-engine/build.sh $strongswan"
-    grep -q '^patches=.*0001-vici-forced-updown' < <(tar -xzOf "$engine" opt/ipsec-client/engine/BUILDINFO) ||
+    grep -q '^patches=.*0001-vici-forced-updown' < <(tar -xzOf "$engine" opt/ikebox/engine/BUILDINFO) ||
         fail "the engine in $engine lacks the ADR-0019 patch: rebuild it (native-engine/build.sh)"
     docker rm -f "$HOST" "$GW" >/dev/null 2>&1 || true
     remove_mode_gateways
     docker network rm "$NET" >/dev/null 2>&1 || true
     trap cleanup EXIT
-    work=$(mktemp -d "${XDG_RUNTIME_DIR:-/tmp}/ipsec-client-systemd.XXXXXX")
+    work=$(mktemp -d "${XDG_RUNTIME_DIR:-/tmp}/ikebox-systemd.XXXXXX")
     chmod 0755 "$work"
     ok "engine with the patch: $(basename "$engine")"
 
     step "Network component and CLI"
     if [[ -n $BIN_DIR ]]; then
-        [[ -x $BIN_DIR/ipsec-client-cli && -x $BIN_DIR/ipsec-client-helper ]] ||
-            fail "ipsec-client-cli and ipsec-client-helper not found in $BIN_DIR"
+        [[ -x $BIN_DIR/ikebox-cli && -x $BIN_DIR/ikebox-helper ]] ||
+            fail "ikebox-cli and ikebox-helper not found in $BIN_DIR"
         "$repo/scripts/stage-network-component.sh" --out "$work/bundle" --engine "$engine" \
-            --helper "$BIN_DIR/ipsec-client-helper" >/dev/null
-        install -m 0755 "$BIN_DIR/ipsec-client-cli" "$work/ipsec-client-cli"
+            --helper "$BIN_DIR/ikebox-helper" >/dev/null
+        install -m 0755 "$BIN_DIR/ikebox-cli" "$work/ikebox-cli"
     else
         "$repo/scripts/stage-network-component.sh" --out "$work/bundle" --engine "$engine" >/dev/null
-        cargo build -q --release --locked -p ipsec-client-cli --manifest-path "$repo/Cargo.toml"
-        install -m 0755 "$repo/target/release/ipsec-client-cli" "$work/ipsec-client-cli"
+        cargo build -q --release --locked -p ikebox-cli --manifest-path "$repo/Cargo.toml"
+        install -m 0755 "$repo/target/release/ikebox-cli" "$work/ikebox-cli"
     fi
-    tar -xzOf "$tools" opt/ipsec-client/engine/sbin/swanctl >"$work/swanctl"
+    tar -xzOf "$tools" opt/ikebox/engine/sbin/swanctl >"$work/swanctl"
     chmod 0755 "$work/swanctl"
     install -m 0644 "$here/lib.sh" "$here/helper_client.py" "$here/dns_responder.py" \
         "$repo/tests/engine/initiator.conf.in" \
@@ -221,7 +221,7 @@ main() {
     install -d -m 0755 "$work/modes"
     install -m 0644 "$repo/tests/modes/make_profile.py" "$work/modes/"
     install -m 0755 "$repo/tests/modes/inside.sh" "$work/modes/"
-    ok "component bundle and ipsec-client-cli ready"
+    ok "component bundle and ikebox-cli ready"
 
     step "Test gateway and computer with systemd"
     docker build -q -t "$GW_IMAGE" "$repo/engine" >/dev/null

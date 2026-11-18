@@ -10,11 +10,11 @@
 use std::io::Read as _;
 use std::net::IpAddr;
 
-use ipsec_client_core::profiles::{
+use ikebox_core::profiles::{
     AuthSettings, LocalMethod, MAX_CAS, Profile, ProfileStore, ProposalPreset, Template, parse_ca,
     proposals_level, schema_of, split_pem, validate,
 };
-use ipsec_client_core::{tr, trf};
+use ikebox_core::{tr, trf};
 use serde::{Deserialize, Serialize};
 use specta::Type;
 use tauri::AppHandle;

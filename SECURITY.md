@@ -4,7 +4,7 @@
 
 ## Reporting vulnerabilities
 
-**Report privately:** [Report a vulnerability](https://github.com/lucastelso/ipsec-client/security/advisories/new)
+**Report privately:** [Report a vulnerability](https://github.com/lucastelso/ikebox/security/advisories/new)
 (GitHub's private vulnerability reporting, under the **Security** tab). Do
 not open a public issue, a discussion or a pull request about it.
 
@@ -46,10 +46,10 @@ app offers to update it). Releases before 1.0 are not supported.
 | Asset | Protection |
 |---|---|
 | PSK, XAuth username and password | Kept in memory (`secrecy`/`zeroize`) or in the system keyring. They go from the app straight to charon through the VICI socket; the network component (root) never receives them. They never go to disk, environment, arguments or logs (ADR-0007) |
-| VICI control socket | Unix socket `0600`, owned by the session uid, in `/run/ipsec-client/<uid>` (`0711`, owned by root). Only the session owner talks to charon (ADRs 0003, 0014 and 0019) |
+| VICI control socket | Unix socket `0600`, owned by the session uid, in `/run/ikebox/<uid>` (`0711`, owned by root). Only the session owner talks to charon (ADRs 0003, 0014 and 0019) |
 | Commands run as root | Whoever talks VICI **does not choose** the `updown` or the `if_id`: the embedded charon carries a patch that forces them to the values set by root, and the `updown` arguments go in a file, never through a shell (ADR-0019) |
 | Network component (root) | Minimal socket API: accepts only validated numbers, the profile id and the DNS settings, never paths, commands or secrets. Every request is authorized by polkit (`allow_active`: only the active local session) and the uid comes from the kernel (`SO_PEERCRED`). The only interface it creates or removes is the session's (`ipsc<N>`, and only if it is an XFRM interface). Stopping the VPN and reading its log is limited to the session owner, and the log has only the lines of that session; connections are served in parallel, with a limit per user and a deadline (ADRs 0014 and 0019) |
-| Host during the connection | charon runs **without root**, as the `ipsec-client-engine` system user with only `NET_ADMIN` (and no way to gain other capabilities), inside a sandboxed transient systemd service: read-only system, read-only `/proc/sys` and `/sys`, no real devices, no view of other processes, a syscall filter and no new privileges. The VPN DNS is applied by the root part of the engine, and only to the session's interface (ADRs 0014, 0019 and 0028) |
+| Host during the connection | charon runs **without root**, as the `ikebox-engine` system user with only `NET_ADMIN` (and no way to gain other capabilities), inside a sandboxed transient systemd service: read-only system, read-only `/proc/sys` and `/sys`, no real devices, no view of other processes, a syscall filter and no new privileges. The VPN DNS is applied by the root part of the engine, and only to the session's interface (ADRs 0014, 0019 and 0028) |
 | Component installation | The installer checks `SHA256SUMS` on a root-only copy and refuses links and out-of-place paths. With the `.rpm`/`.deb`, it runs from the app's own root-owned directory: no file the user can change is executed as root. Removal only runs the root-owned installer (ADR-0018) |
 | Host network | Routes, VIP and DNS only on the dedicated `ipsc0` interface, no global XFRM flush and the physical interface is not touched (ADR-0004) |
 | The user's organization data | Never enters the repository; an automatic guard checks commits, the history and the inside of release packages (ADR-0010) |

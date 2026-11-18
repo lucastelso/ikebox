@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Installs/removes the IPsec Client network component (embedded engine +
+# Installs/removes the Ikebox network component (embedded engine +
 # privileged helper, ADRs 0013, 0014 and 0018). Runs as root.
 #
 # Usage:
@@ -11,40 +11,40 @@
 # did not come from a .rpm/.deb package).
 #
 # Installs:
-#   /opt/ipsec-client/engine/        compiled strongSwan (from the tarball)
-#   /opt/ipsec-client/libexec/       entrypoint.sh, updown and this installer
-#   /opt/ipsec-client/bin/           ipsec-client-helper
-#   /opt/ipsec-client/{VERSION,SHA256SUMS,ORIGIN}
-#   /etc/systemd/system/             ipsec-client-helper.{socket,service}
-#   system user ipsec-client-engine  charon runs as it (ADR-0028)
-#   /usr/share/polkit-1/actions/     io.github.lucastelso.ipsecclient.policy
+#   /opt/ikebox/engine/        compiled strongSwan (from the tarball)
+#   /opt/ikebox/libexec/       entrypoint.sh, updown and this installer
+#   /opt/ikebox/bin/           ikebox-helper
+#   /opt/ikebox/{VERSION,SHA256SUMS,ORIGIN}
+#   /etc/systemd/system/             ikebox-helper.{socket,service}
+#   system user ikebox-engine  charon runs as it (ADR-0028)
+#   /usr/share/polkit-1/actions/     io.github.lucastelso.ikebox.policy
 #                                    (/etc/polkit-1/actions/ when /usr is
 #                                    read-only: image-based distributions)
 
 set -euo pipefail
 
-readonly PREFIX=/opt/ipsec-client
+readonly PREFIX=/opt/ikebox
 readonly UNIT_DIR=/etc/systemd/system
 readonly POLKIT_DIR=/usr/share/polkit-1/actions
 # Where polkit 124 and newer also read actions from: used when /usr is
 # read-only (Fedora Silverblue/Kinoite, openSUSE MicroOS and the like).
 readonly POLKIT_ETC_DIR=/etc/polkit-1/actions
 readonly POLKIT_ETC_SINCE=124
-readonly POLICY=io.github.lucastelso.ipsecclient.policy
+readonly POLICY=io.github.lucastelso.ikebox.policy
 # System user charon runs as (ADR-0028). It is kept on removal, as system
 # users usually are: its uid may still own something (it never does here).
-readonly ENGINE_USER=ipsec-client-engine
+readonly ENGINE_USER=ikebox-engine
 # Required bundle files (the app checks the same list).
 readonly REQUIRED=(
     VERSION
     install-native.sh
     engine.tar.gz
-    ipsec-client-helper.gz
+    ikebox-helper.gz
     engine/entrypoint.sh
     engine/updown.sh
-    engine/strongswan.d/zz-ipsec-client.conf
-    packaging/systemd/ipsec-client-helper.socket
-    packaging/systemd/ipsec-client-helper.service
+    engine/strongswan.d/zz-ikebox.conf
+    packaging/systemd/ikebox-helper.socket
+    packaging/systemd/ikebox-helper.service
     "packaging/polkit/$POLICY"
 )
 
@@ -68,6 +68,33 @@ systemd_running() { [[ -d /run/systemd/system ]]; }
 do_uninstall() {
     log "stopping and removing"
     if systemd_running; then
+        systemctl stop ikebox-engine.service 2>/dev/null || true
+        systemctl disable --now ikebox-helper.socket 2>/dev/null || true
+        systemctl stop ikebox-helper.service 2>/dev/null || true
+    else
+        systemctl disable ikebox-helper.socket 2>/dev/null || true
+    fi
+    rm -f "$UNIT_DIR/ikebox-helper.socket" "$UNIT_DIR/ikebox-helper.service"
+    rm -f "$POLKIT_DIR/$POLICY" "$POLKIT_ETC_DIR/$POLICY" 2>/dev/null || true
+    rm -rf "${PREFIX:?}"
+    if systemd_running; then
+        systemctl daemon-reload
+    fi
+    log "removed"
+}
+
+# Before 1.0 the project was called IPsec Client (ADR-0031), and its network
+# component lived under other names. Installing this one removes that one,
+# whoever installed it: the names are fixed here, nothing comes from it.
+readonly LEGACY_PREFIX=/opt/ipsec-client
+readonly LEGACY_POLICY=io.github.lucastelso.ipsecclient.policy
+readonly LEGACY_USER=ipsec-client-engine
+remove_legacy() {
+    # The old removal (a .deb replaced by this package) keeps the user.
+    [[ -e $LEGACY_PREFIX || -e $UNIT_DIR/ipsec-client-helper.socket ]] ||
+        id "$LEGACY_USER" >/dev/null 2>&1 || return 0
+    log "removing the component of IPsec Client, this app's name before 1.0"
+    if systemd_running; then
         systemctl stop ipsec-client-engine.service 2>/dev/null || true
         systemctl disable --now ipsec-client-helper.socket 2>/dev/null || true
         systemctl stop ipsec-client-helper.service 2>/dev/null || true
@@ -75,12 +102,14 @@ do_uninstall() {
         systemctl disable ipsec-client-helper.socket 2>/dev/null || true
     fi
     rm -f "$UNIT_DIR/ipsec-client-helper.socket" "$UNIT_DIR/ipsec-client-helper.service"
-    rm -f "$POLKIT_DIR/$POLICY" "$POLKIT_ETC_DIR/$POLICY" 2>/dev/null || true
-    rm -rf "${PREFIX:?}"
+    rm -f "$POLKIT_DIR/$LEGACY_POLICY" "$POLKIT_ETC_DIR/$LEGACY_POLICY" 2>/dev/null || true
+    rm -rf "$LEGACY_PREFIX"
+    if id "$LEGACY_USER" >/dev/null 2>&1; then
+        userdel "$LEGACY_USER" 2>/dev/null || true
+    fi
     if systemd_running; then
         systemctl daemon-reload
     fi
-    log "removed"
 }
 
 # Copies the bundle to a root-only directory and checks the hashes there:
@@ -102,8 +131,8 @@ verify_bundle() {
     for path in "${REQUIRED[@]}"; do
         [[ -n ${listed[$path]:-} ]] || die "incomplete bundle: missing $path"
     done
-    # The tarball may only contain opt/ipsec-client/engine/... (nothing else).
-    if tar -tzf "$work/engine.tar.gz" | grep -vqE '^opt/(ipsec-client/(engine(/.*)?)?)?/?$'; then
+    # The tarball may only contain opt/ikebox/engine/... (nothing else).
+    if tar -tzf "$work/engine.tar.gz" | grep -vqE '^opt/(ikebox/(engine(/.*)?)?)?/?$'; then
         die "engine tarball with unexpected paths"
     fi
     # Only files and directories (the first column of `tar -tv` is the type):
@@ -136,10 +165,10 @@ choose_polkit_dir() {
 ensure_engine_user() {
     id -u "$ENGINE_USER" >/dev/null 2>&1 && return 0
     if command -v systemd-sysusers >/dev/null 2>&1; then
-        systemd-sysusers --inline "u $ENGINE_USER - \"IPsec Client engine\" / /usr/sbin/nologin"
+        systemd-sysusers --inline "u $ENGINE_USER - \"Ikebox engine\" / /usr/sbin/nologin"
     else
         useradd --system --user-group --no-create-home --home-dir / \
-            --shell /usr/sbin/nologin --comment "IPsec Client engine" "$ENGINE_USER"
+            --shell /usr/sbin/nologin --comment "Ikebox engine" "$ENGINE_USER"
     fi
     id -u "$ENGINE_USER" >/dev/null 2>&1 || die "could not create the system user $ENGINE_USER"
     log "system user $ENGINE_USER created"
@@ -168,10 +197,11 @@ do_install() {
     command -v setpriv >/dev/null 2>&1 ||
         die "setpriv (util-linux) is missing: it starts the VPN engine without root"
     ensure_engine_user
+    remove_legacy
 
     log "installing in $PREFIX"
     if systemd_running; then
-        systemctl stop ipsec-client-engine.service 2>/dev/null || true
+        systemctl stop ikebox-engine.service 2>/dev/null || true
     fi
     rm -rf "$PREFIX/engine"
     install -d -m 0755 "$PREFIX" "$PREFIX/bin" "$PREFIX/libexec"
@@ -179,17 +209,17 @@ do_install() {
     # var/opt (Fedora Silverblue/Kinoite). Without it, tar replaces the link
     # with a real directory: the files installed through the link vanish and
     # the root of the system is changed (or, read-only, the extraction fails).
-    # The tarball was checked to hold only opt/ipsec-client/engine/...
+    # The tarball was checked to hold only opt/ikebox/engine/...
     tar -xzf "$work/engine.tar.gz" -C / --no-same-owner --no-same-permissions \
         --keep-directory-symlink
-    install -m 0644 "$work/engine/strongswan.d/zz-ipsec-client.conf" \
-        "$PREFIX/engine/etc/strongswan.d/zz-ipsec-client.conf"
+    install -m 0644 "$work/engine/strongswan.d/zz-ikebox.conf" \
+        "$PREFIX/engine/etc/strongswan.d/zz-ikebox.conf"
     install -m 0755 "$work/engine/entrypoint.sh" "$PREFIX/libexec/entrypoint.sh"
     install -m 0755 "$work/engine/updown.sh" "$PREFIX/libexec/updown"
     install -m 0755 "$work/install-native.sh" "$PREFIX/libexec/install-native.sh"
     # The helper comes compressed (see scripts/stage-network-component.sh).
-    gzip -d -c "$work/ipsec-client-helper.gz" >"$work/ipsec-client-helper"
-    install -m 0755 "$work/ipsec-client-helper" "$PREFIX/bin/ipsec-client-helper"
+    gzip -d -c "$work/ikebox-helper.gz" >"$work/ikebox-helper"
+    install -m 0755 "$work/ikebox-helper" "$PREFIX/bin/ikebox-helper"
     install -m 0644 "$work/VERSION" "$PREFIX/VERSION"
     install -m 0644 "$work/SHA256SUMS" "$PREFIX/SHA256SUMS"
     printf '%s\n' "$origin" >"$PREFIX/ORIGIN"
@@ -197,8 +227,8 @@ do_install() {
     chown -R root:root "$PREFIX"
     chmod -R go-w "$PREFIX"
 
-    install -m 0644 "$work/packaging/systemd/ipsec-client-helper.socket" "$UNIT_DIR/"
-    install -m 0644 "$work/packaging/systemd/ipsec-client-helper.service" "$UNIT_DIR/"
+    install -m 0644 "$work/packaging/systemd/ikebox-helper.socket" "$UNIT_DIR/"
+    install -m 0644 "$work/packaging/systemd/ikebox-helper.service" "$UNIT_DIR/"
     if [[ $polkit_dir != "$POLKIT_DIR" ]]; then
         log "$POLKIT_DIR is read-only: the polkit policy goes to $polkit_dir"
         install -d -m 0755 "$polkit_dir"
@@ -208,19 +238,19 @@ do_install() {
     # SELinux: default labels on the copied files (otherwise they may inherit
     # the label of the temporary directory they came from).
     if command -v restorecon >/dev/null 2>&1; then
-        restorecon -RF "$PREFIX" "$UNIT_DIR/ipsec-client-helper.socket" \
-            "$UNIT_DIR/ipsec-client-helper.service" "$polkit_dir/$POLICY" 2>/dev/null || true
+        restorecon -RF "$PREFIX" "$UNIT_DIR/ikebox-helper.socket" \
+            "$UNIT_DIR/ikebox-helper.service" "$polkit_dir/$POLICY" 2>/dev/null || true
     fi
 
     if systemd_running; then
         systemctl daemon-reload
-        systemctl stop ipsec-client-helper.service 2>/dev/null || true
-        systemctl enable --now ipsec-client-helper.socket
+        systemctl stop ikebox-helper.service 2>/dev/null || true
+        systemctl enable --now ikebox-helper.socket
     else
-        systemctl enable ipsec-client-helper.socket
+        systemctl enable ikebox-helper.socket
         log "systemd is not running: the helper socket starts on the next boot"
     fi
-    log "installed: $("$PREFIX/bin/ipsec-client-helper" --version), strongSwan $(grep -m1 '^strongswan=' "$PREFIX/engine/BUILDINFO" | cut -d= -f2) (origin: $origin)"
+    log "installed: $("$PREFIX/bin/ikebox-helper" --version), strongSwan $(grep -m1 '^strongswan=' "$PREFIX/engine/BUILDINFO" | cut -d= -f2) (origin: $origin)"
 }
 
 case ${1:-} in

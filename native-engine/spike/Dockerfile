@@ -7,18 +7,18 @@ RUN set -eux; \
     dnf -y install --setopt=install_weak_deps=False iproute systemd-resolved gawk iputils; \
     dnf clean all
 
-# The build tarball (native-engine/dist) is extracted to /opt/ipsec-client/engine.
+# The build tarball (native-engine/dist) is extracted to /opt/ikebox/engine.
 ADD engine.tar.gz /
 # swanctl (the E2E drives charon with it) comes from the test tools tarball.
 ADD engine-tools.tar.gz /
-COPY zz-ipsec-client.conf /opt/ipsec-client/engine/etc/strongswan.d/zz-ipsec-client.conf
-COPY entrypoint.sh /usr/local/sbin/ipsec-client-entrypoint
-COPY updown.sh /usr/local/libexec/ipsec-client/updown
-RUN chmod 0755 /usr/local/sbin/ipsec-client-entrypoint /usr/local/libexec/ipsec-client/updown && \
-    mkdir -p /run/ipsec-client
+COPY zz-ikebox.conf /opt/ikebox/engine/etc/strongswan.d/zz-ikebox.conf
+COPY entrypoint.sh /usr/local/sbin/ikebox-entrypoint
+COPY updown.sh /usr/local/libexec/ikebox/updown
+RUN chmod 0755 /usr/local/sbin/ikebox-entrypoint /usr/local/libexec/ikebox/updown && \
+    mkdir -p /run/ikebox
 
-ENV PATH=/opt/ipsec-client/engine/sbin:$PATH \
-    IPSEC_CLIENT_CHARON=/opt/ipsec-client/engine/libexec/ipsec/charon \
-    IPSEC_CLIENT_STRONGSWAN_D=/opt/ipsec-client/engine/etc/strongswan.d
+ENV PATH=/opt/ikebox/engine/sbin:$PATH \
+    IKEBOX_CHARON=/opt/ikebox/engine/libexec/ipsec/charon \
+    IKEBOX_STRONGSWAN_D=/opt/ikebox/engine/etc/strongswan.d
 STOPSIGNAL SIGTERM
-ENTRYPOINT ["/usr/local/sbin/ipsec-client-entrypoint"]
+ENTRYPOINT ["/usr/local/sbin/ikebox-entrypoint"]

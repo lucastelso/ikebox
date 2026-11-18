@@ -9,7 +9,7 @@
 #   RELEASE_GPG_FINGERPRINT  fingerprint of the signing (sub)key
 #   RELEASE_GPG_PASSFILE     file with its passphrase (optional)
 #   RELEASE_PUBLIC_KEY       public key to check with
-#                            (default: packaging/keys/ipsec-client-release.asc)
+#                            (default: packaging/keys/ikebox-release.asc)
 #
 # Usage: scripts/sign-release.sh <dir with the packages and the sources archive>
 set -euo pipefail
@@ -18,7 +18,7 @@ repo=$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)
 dir=${1:?usage: $0 <dir>}
 fpr=${RELEASE_GPG_FINGERPRINT:?set RELEASE_GPG_FINGERPRINT}
 passfile=${RELEASE_GPG_PASSFILE:-}
-public_key=${RELEASE_PUBLIC_KEY:-$repo/packaging/keys/ipsec-client-release.asc}
+public_key=${RELEASE_PUBLIC_KEY:-$repo/packaging/keys/ikebox-release.asc}
 
 fail() {
     printf '\033[0;31m✘ %s\033[0m\n' "$*" >&2

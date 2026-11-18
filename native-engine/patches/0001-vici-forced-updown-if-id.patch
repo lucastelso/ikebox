@@ -1,13 +1,13 @@
-IPsec Client: o cliente VICI não escolhe o updown nem o if_id (ADR-0019).
+Ikebox: whoever talks VICI chooses neither the updown nor the if_id (ADR-0019).
 
-O charon do engine embutido roda como root e executa o "updown" de cada
-CHILD_SA via /bin/sh -c. Sem este patch, quem fala VICI (o usuário da sessão)
-escolhe esse comando: escalada de privilégio local. Com
-charon.plugins.vici.force_updown e force_if_id definidos (o entrypoint do
-engine os escreve na config de runtime, só do root), o charon ignora os
-valores do cliente. Sem essas opções, o comportamento é o do upstream.
+The embedded engine's charon used to run as root and runs the "updown" of
+each CHILD_SA through /bin/sh -c. Without this patch, whoever talks VICI (the
+session's user) chooses that command: a local privilege escalation. With
+charon.plugins.vici.force_updown and force_if_id set (the engine's entrypoint
+writes them into the runtime config, which only root owns), charon ignores the
+client's values. Without those options, the behavior is upstream's.
 
-Aplica-se às versões 6.x do strongSwan (testado na 6.1.0).
+Applies to the strongSwan 6.x releases (tested on 6.1.0).
 
 --- a/src/libcharon/plugins/vici/vici_config.c
 +++ b/src/libcharon/plugins/vici/vici_config.c
@@ -16,7 +16,7 @@ Aplica-se às versões 6.x do strongSwan (testado na 6.1.0).
  }
  
 +/**
-+ * IPsec Client: settings forced by the embedded engine (ADR-0019).
++ * Ikebox: settings forced by the embedded engine (ADR-0019).
 + *
 + * Whoever talks VICI must not choose the updown command (executed by charon
 + * as root via /bin/sh -c) nor the XFRM interface ID of SAs and policies.

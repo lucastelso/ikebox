@@ -3,7 +3,7 @@
 
 use std::sync::atomic::{AtomicBool, Ordering};
 
-use ipsec_client_core::tr;
+use ikebox_core::tr;
 use tauri::{AppHandle, Manager};
 use tauri_specta::Event as _;
 

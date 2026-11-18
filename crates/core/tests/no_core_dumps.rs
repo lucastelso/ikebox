@@ -5,7 +5,7 @@ use rustix::process::{Resource, Rlimit, getrlimit};
 
 #[test]
 fn core_dumps_are_disabled_for_good() {
-    ipsec_client_core::secrets::disable_core_dumps().expect("setrlimit");
+    ikebox_core::secrets::disable_core_dumps().expect("setrlimit");
     assert_eq!(
         getrlimit(Resource::Core),
         Rlimit {
@@ -14,5 +14,5 @@ fn core_dumps_are_disabled_for_good() {
         }
     );
     // Calling it again is harmless.
-    ipsec_client_core::secrets::disable_core_dumps().expect("setrlimit, second call");
+    ikebox_core::secrets::disable_core_dumps().expect("setrlimit, second call");
 }

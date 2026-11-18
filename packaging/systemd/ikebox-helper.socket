@@ -1,11 +1,11 @@
-# IPsec Client: socket of the privileged helper (ADR-0014).
+# Ikebox: socket of the privileged helper (ADR-0014).
 # Any user can connect; the helper decides who may act
 # (SO_PEERCRED + polkit).
 [Unit]
-Description=IPsec Client - network component socket
+Description=Ikebox - network component socket
 
 [Socket]
-ListenStream=/run/ipsec-client-helper.sock
+ListenStream=/run/ikebox-helper.sock
 SocketMode=0666
 RemoveOnStop=yes
 

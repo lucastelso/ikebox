@@ -5,10 +5,10 @@ use std::path::Path;
 use std::process::Command;
 use std::time::SystemTime;
 
-use ipsec_client_proto::{ENGINE_UNIT, EngineStatus, StartParams, socket_dir};
+use ikebox_proto::{ENGINE_UNIT, EngineStatus, StartParams, socket_dir};
 
 /// Runtime directory of the engine (writable; systemd's `RuntimeDirectory`).
-pub const ENGINE_RUNTIME_DIR: &str = "/run/ipsec-client-engine";
+pub const ENGINE_RUNTIME_DIR: &str = "/run/ikebox-engine";
 
 /// XFRM interface ID of every session, chosen here and never by the client
 /// (audit of 0.2.0, P10). One distinctive value ("IPC1"): another IPsec stack
@@ -18,7 +18,7 @@ pub const ENGINE_RUNTIME_DIR: &str = "/run/ipsec-client-engine";
 pub const ENGINE_IF_ID: u32 = 0x4950_4331;
 
 /// System user charon runs as (ADR-0028), created by the installer.
-pub const ENGINE_USER: &str = "ipsec-client-engine";
+pub const ENGINE_USER: &str = "ikebox-engine";
 
 /// Capabilities the engine unit may have. charon itself keeps only the first
 /// three (ambient, and its bounding set reduced to them by the entrypoint);
@@ -69,7 +69,7 @@ pub fn engine_run_args(launch: &Launch<'_>) -> Vec<String> {
     let mut args: Vec<String> = vec![
         format!("--unit={ENGINE_UNIT}"),
         format!(
-            "--description=IPsec Client engine (profile {}, uid {})",
+            "--description=Ikebox engine (profile {}, uid {})",
             p.profile_id, launch.uid
         ),
         "--collect".into(),
@@ -109,7 +109,7 @@ pub fn engine_run_args(launch: &Launch<'_>) -> Vec<String> {
         // charon holds the PSK, the password and the session keys: a crash
         // must not write its memory to disk.
         "LimitCORE=0".to_owned(),
-        "RuntimeDirectory=ipsec-client-engine".to_owned(),
+        "RuntimeDirectory=ikebox-engine".to_owned(),
         "RuntimeDirectoryMode=0700".to_owned(),
         format!("ReadWritePaths={sock_dir}"),
     ];
@@ -117,30 +117,27 @@ pub fn engine_run_args(launch: &Launch<'_>) -> Vec<String> {
         args.push(format!("--property={prop}"));
     }
     let env = [
-        ("IPSEC_CLIENT_IFACE", p.iface.clone()),
-        ("IPSEC_CLIENT_IF_ID", ENGINE_IF_ID.to_string()),
-        ("IPSEC_CLIENT_MTU", p.mtu.to_string()),
-        ("IPSEC_CLIENT_LOG_LEVEL", p.log_level.to_string()),
-        ("IPSEC_CLIENT_SOCKET_UID", launch.uid.to_string()),
-        ("IPSEC_CLIENT_SOCKET_DIR", sock_dir.clone()),
-        ("IPSEC_CLIENT_STATE_DIR", ENGINE_RUNTIME_DIR.to_owned()),
+        ("IKEBOX_IFACE", p.iface.clone()),
+        ("IKEBOX_IF_ID", ENGINE_IF_ID.to_string()),
+        ("IKEBOX_MTU", p.mtu.to_string()),
+        ("IKEBOX_LOG_LEVEL", p.log_level.to_string()),
+        ("IKEBOX_SOCKET_UID", launch.uid.to_string()),
+        ("IKEBOX_SOCKET_DIR", sock_dir.clone()),
+        ("IKEBOX_STATE_DIR", ENGINE_RUNTIME_DIR.to_owned()),
+        ("IKEBOX_CHARON", format!("{engine}/libexec/ipsec/charon")),
         (
-            "IPSEC_CLIENT_CHARON",
-            format!("{engine}/libexec/ipsec/charon"),
-        ),
-        (
-            "IPSEC_CLIENT_STRONGSWAN_CONF",
+            "IKEBOX_STRONGSWAN_CONF",
             format!("{engine}/etc/strongswan.conf"),
         ),
         // Forced updown: charon ignores whatever the VICI client sends.
         (
-            "IPSEC_CLIENT_UPDOWN",
+            "IKEBOX_UPDOWN",
             launch.libexec_dir.join("updown").display().to_string(),
         ),
-        ("IPSEC_CLIENT_DNS_SERVERS", join(&p.dns.servers)),
-        ("IPSEC_CLIENT_DNS_DOMAINS", join(&p.dns.domains)),
+        ("IKEBOX_DNS_SERVERS", join(&p.dns.servers)),
+        ("IKEBOX_DNS_DOMAINS", join(&p.dns.domains)),
         (
-            "IPSEC_CLIENT_DNS_FLAGS",
+            "IKEBOX_DNS_FLAGS",
             join(
                 &[
                     (p.dns.use_received, "use-received"),
@@ -152,9 +149,9 @@ pub fn engine_run_args(launch: &Launch<'_>) -> Vec<String> {
                 .collect::<Vec<_>>(),
             ),
         ),
-        ("IPSEC_CLIENT_PROFILE", p.profile_id.clone()),
-        ("IPSEC_CLIENT_OWNER_UID", launch.uid.to_string()),
-        ("IPSEC_CLIENT_ENGINE_USER", ENGINE_USER.to_owned()),
+        ("IKEBOX_PROFILE", p.profile_id.clone()),
+        ("IKEBOX_OWNER_UID", launch.uid.to_string()),
+        ("IKEBOX_ENGINE_USER", ENGINE_USER.to_owned()),
         ("PATH", "/usr/sbin:/usr/bin:/sbin:/bin".to_owned()),
     ];
     for (key, value) in env {
@@ -194,9 +191,9 @@ pub fn parse_unit(show_output: &str) -> UnitState {
             invocation = Some(id.trim().to_owned()).filter(|id| is_invocation_id(id));
         } else if let Some(env) = line.strip_prefix("Environment=") {
             for pair in env.split_whitespace() {
-                if let Some(id) = pair.strip_prefix("IPSEC_CLIENT_PROFILE=") {
+                if let Some(id) = pair.strip_prefix("IKEBOX_PROFILE=") {
                     status.profile_id = Some(id.to_owned());
-                } else if let Some(uid) = pair.strip_prefix("IPSEC_CLIENT_OWNER_UID=") {
+                } else if let Some(uid) = pair.strip_prefix("IKEBOX_OWNER_UID=") {
                     status.owner_uid = uid.parse().ok();
                 }
             }
@@ -317,7 +314,7 @@ mod tests {
             mtu: 1400,
             log_level: 1,
             profile_id: "trabalho".into(),
-            dns: ipsec_client_proto::DnsParams {
+            dns: ikebox_proto::DnsParams {
                 servers: vec![
                     "192.0.2.53".parse().expect("ip"),
                     "192.0.2.54".parse().expect("ip"),
@@ -335,11 +332,11 @@ mod tests {
         let args = engine_run_args(&Launch {
             params: &p,
             uid: 1000,
-            engine_dir: Path::new("/opt/ipsec-client/engine"),
-            libexec_dir: Path::new("/opt/ipsec-client/libexec"),
+            engine_dir: Path::new("/opt/ikebox/engine"),
+            libexec_dir: Path::new("/opt/ikebox/libexec"),
         });
         let has = |s: &str| args.iter().any(|a| a == s);
-        assert!(has("--unit=ipsec-client-engine"));
+        assert!(has("--unit=ikebox-engine"));
         assert!(has("--property=ProtectSystem=strict"));
         assert!(has("--property=NoNewPrivileges=yes"));
         assert!(has("--property=LimitCORE=0"));
@@ -347,26 +344,20 @@ mod tests {
             "--property=CapabilityBoundingSet=CAP_NET_ADMIN CAP_NET_BIND_SERVICE CAP_NET_RAW \
              CAP_CHOWN CAP_SETUID CAP_SETGID CAP_SETPCAP CAP_KILL"
         ));
-        assert!(has("--property=ReadWritePaths=/run/ipsec-client/1000"));
+        assert!(has("--property=ReadWritePaths=/run/ikebox/1000"));
+        assert!(has("--setenv=IKEBOX_SOCKET_DIR=/run/ikebox/1000"));
         assert!(has(
-            "--setenv=IPSEC_CLIENT_SOCKET_DIR=/run/ipsec-client/1000"
-        ));
-        assert!(has(
-            "--setenv=IPSEC_CLIENT_CHARON=/opt/ipsec-client/engine/libexec/ipsec/charon"
+            "--setenv=IKEBOX_CHARON=/opt/ikebox/engine/libexec/ipsec/charon"
         ));
         // The client asked for 4096: the helper uses its own value (P10).
-        assert!(has(&format!("--setenv=IPSEC_CLIENT_IF_ID={ENGINE_IF_ID}")));
+        assert!(has(&format!("--setenv=IKEBOX_IF_ID={ENGINE_IF_ID}")));
         assert!(!args.iter().any(|a| a.contains("IF_ID=4096")));
-        assert!(has("--setenv=IPSEC_CLIENT_SOCKET_UID=1000"));
-        assert!(has("--setenv=IPSEC_CLIENT_ENGINE_USER=ipsec-client-engine"));
-        assert!(has(
-            "--setenv=IPSEC_CLIENT_UPDOWN=/opt/ipsec-client/libexec/updown"
-        ));
-        assert!(has(
-            "--setenv=IPSEC_CLIENT_DNS_SERVERS=192.0.2.53,192.0.2.54"
-        ));
-        assert!(has("--setenv=IPSEC_CLIENT_DNS_DOMAINS=~corp.example.com"));
-        assert!(has("--setenv=IPSEC_CLIENT_DNS_FLAGS=use-received"));
+        assert!(has("--setenv=IKEBOX_SOCKET_UID=1000"));
+        assert!(has("--setenv=IKEBOX_ENGINE_USER=ikebox-engine"));
+        assert!(has("--setenv=IKEBOX_UPDOWN=/opt/ikebox/libexec/updown"));
+        assert!(has("--setenv=IKEBOX_DNS_SERVERS=192.0.2.53,192.0.2.54"));
+        assert!(has("--setenv=IKEBOX_DNS_DOMAINS=~corp.example.com"));
+        assert!(has("--setenv=IKEBOX_DNS_FLAGS=use-received"));
         for prop in [
             "PrivateDevices=yes",
             "ProtectKernelTunables=yes",
@@ -378,7 +369,7 @@ mod tests {
         assert!(!args.iter().any(|a| a.contains("SOCKET_GID")));
         assert_eq!(
             args[args.len() - 2..],
-            ["/bin/bash", "/opt/ipsec-client/libexec/entrypoint.sh"]
+            ["/bin/bash", "/opt/ikebox/libexec/entrypoint.sh"]
         );
         // No dangerous capabilities.
         assert!(
@@ -392,7 +383,7 @@ mod tests {
     fn parses_systemctl_show() {
         let id = "0123456789abcdef0123456789abcdef";
         let running = format!(
-            "ActiveState=active\nInvocationID={id}\nEnvironment=IPSEC_CLIENT_IFACE=ipsc0 IPSEC_CLIENT_PROFILE=trabalho IPSEC_CLIENT_OWNER_UID=1000 PATH=/usr/bin\n"
+            "ActiveState=active\nInvocationID={id}\nEnvironment=IKEBOX_IFACE=ipsc0 IKEBOX_PROFILE=trabalho IKEBOX_OWNER_UID=1000 PATH=/usr/bin\n"
         );
         let unit = parse_unit(&running);
         assert!(unit.status.running);
@@ -427,7 +418,7 @@ mod tests {
         assert_eq!(
             args[..2],
             [
-                "_SYSTEMD_UNIT=ipsec-client-engine.service".to_owned(),
+                "_SYSTEMD_UNIT=ikebox-engine.service".to_owned(),
                 format!("_SYSTEMD_INVOCATION_ID={id}"),
             ]
         );
@@ -441,10 +432,7 @@ mod tests {
             SystemTime::UNIX_EPOCH + std::time::Duration::from_micros(1_700_000_000_000_042);
         let args = logs_args(&LogScope::Since(moment), 15);
         assert!(args.contains(&"--since=@1700000000.000042".to_owned()));
-        assert!(
-            args.windows(2)
-                .any(|w| w == ["--unit", "ipsec-client-engine"])
-        );
+        assert!(args.windows(2).any(|w| w == ["--unit", "ikebox-engine"]));
 
         let args = logs_args(&LogScope::Unit, 10);
         assert!(

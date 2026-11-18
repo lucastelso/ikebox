@@ -1,7 +1,7 @@
-//! ipsec-client core.
+//! ikebox core.
 //!
 //! All the business logic lives here; the GUI (`src-tauri`) and the CLI
-//! (`ipsec-client-cli`) are thin layers over this crate (ADR-0009).
+//! (`ikebox-cli`) are thin layers over this crate (ADR-0009).
 //!
 //! Modules (see `docs/architecture.md`):
 //! - `component`: network component (state, installation through pkexec);
@@ -17,6 +17,7 @@ pub mod component;
 pub mod diagnostics;
 pub mod engine;
 pub mod i18n;
+pub mod legacy;
 pub mod profiles;
 pub mod secrets;
 pub mod session;

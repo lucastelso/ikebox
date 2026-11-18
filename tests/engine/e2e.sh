@@ -14,13 +14,13 @@
 #     the engine dies without cleaning up and the next engine removes the leftovers.
 #   scenario 3, full tunnel (0.0.0.0/0) on an isolated network.
 #   scenario 4, PFS with modp768 (DH1) only in phase 2.
-#   scenario 5 (embedded engine only, IPSEC_CLIENT_E2E_FORCED=1): a malicious
+#   scenario 5 (embedded engine only, IKEBOX_E2E_FORCED=1): a malicious
 #     VICI client tries to pick the updown (which runs as root) and the if_id;
-#     charon with the IPsec Client patch ignores both (ADR-0019).
+#     charon with the Ikebox patch ignores both (ADR-0019).
 #
 # Changes the host only temporarily: creates the ipsct0 interface (name and
 # if_id of its own, so it does not collide with a real session), routes to
-# 192.0.2.0/24 (RFC 5737) and DNS for ~ipsec-client.test on that interface.
+# 192.0.2.0/24 (RFC 5737) and DNS for ~ikebox.test on that interface.
 #
 # Requirements: Docker (user in the docker group), python3, iproute2, ping,
 # systemd-resolved and free UDP ports 500/4500.
@@ -33,20 +33,20 @@ here="$repo_root/tests/engine"
 # IMAGE: test gateway (Debian's strongSwan 6.0.1) and utilities.
 # ENGINE_IMAGE: the engine under test (default: the same image; the embedded
 # engine spike passes another one, with the strongSwan we compile).
-readonly IMAGE=${IPSEC_CLIENT_E2E_IMAGE:-ipsec-client-engine:e2e}
-readonly ENGINE_IMAGE=${IPSEC_CLIENT_E2E_ENGINE_IMAGE:-$IMAGE}
-readonly EXPECT_VERSION=${IPSEC_CLIENT_E2E_EXPECT_VERSION:-6.0.1}
+readonly IMAGE=${IKEBOX_E2E_IMAGE:-ikebox-engine:e2e}
+readonly ENGINE_IMAGE=${IKEBOX_E2E_ENGINE_IMAGE:-$IMAGE}
+readonly EXPECT_VERSION=${IKEBOX_E2E_EXPECT_VERSION:-6.0.1}
 # 1 = embedded engine: updown/if_id forced by root and a uid-owned socket (0600).
-readonly FORCED=${IPSEC_CLIENT_E2E_FORCED:-0}
-readonly UPDOWN=/usr/local/libexec/ipsec-client/updown
-readonly NET=ipsec-client-e2e
-readonly GW=ipsec-client-e2e-gateway
-readonly ENGINE=ipsec-client-e2e-engine
+readonly FORCED=${IKEBOX_E2E_FORCED:-0}
+readonly UPDOWN=/usr/local/libexec/ikebox/updown
+readonly NET=ikebox-e2e
+readonly GW=ikebox-e2e-gateway
+readonly ENGINE=ikebox-e2e-engine
 readonly IFACE=ipsct0
 readonly IF_ID=7341
 readonly RT_PROTO=241
-readonly VICI_URI=unix:///run/ipsec-client/charon.vici
-readonly TEST_SECRETS_RE='ipsec-client-test-psk|senha-de-teste'
+readonly VICI_URI=unix:///run/ikebox/charon.vici
+readonly TEST_SECRETS_RE='ikebox-test-psk|senha-de-teste'
 HEX_ID=$(printf '0x%x' "$IF_ID")
 readonly HEX_ID
 
@@ -114,14 +114,14 @@ start_engine() {
         # The way the helper starts the embedded engine: DNS comes from root, not
         # from VICI.
         env_args=(
-            -e IPSEC_CLIENT_SOCKET_UID="$(id -u)"
-            -e IPSEC_CLIENT_UPDOWN="$UPDOWN"
-            -e IPSEC_CLIENT_DNS_SERVERS=192.0.2.54
-            -e IPSEC_CLIENT_DNS_DOMAINS="~ipsec-client.test"
-            -e IPSEC_CLIENT_DNS_FLAGS=use-received
+            -e IKEBOX_SOCKET_UID="$(id -u)"
+            -e IKEBOX_UPDOWN="$UPDOWN"
+            -e IKEBOX_DNS_SERVERS=192.0.2.54
+            -e IKEBOX_DNS_DOMAINS="~ikebox.test"
+            -e IKEBOX_DNS_FLAGS=use-received
         )
     else
-        env_args=(-e IPSEC_CLIENT_SOCKET_GID="$(id -g)")
+        env_args=(-e IKEBOX_SOCKET_GID="$(id -g)")
     fi
     # The same security options the app gives its Docker engine
     # (HostSecurity in crates/core/src/engine/spec.rs, ADR-0005). Under
@@ -137,10 +137,10 @@ start_engine() {
         "${net_args[@]}" \
         --cap-add NET_ADMIN \
         "${security_args[@]}" \
-        -v "$rundir:/run/ipsec-client" \
+        -v "$rundir:/run/ikebox" \
         -v "$confdir:/test:ro" \
-        -e IPSEC_CLIENT_IFACE="$IFACE" \
-        -e IPSEC_CLIENT_IF_ID="$IF_ID" \
+        -e IKEBOX_IFACE="$IFACE" \
+        -e IKEBOX_IF_ID="$IF_ID" \
         "${env_args[@]}" \
         "$ENGINE_IMAGE" >/dev/null
 
@@ -191,7 +191,7 @@ main() {
     docker network rm "$NET" >/dev/null 2>&1 || true
     trap cleanup EXIT
 
-    workdir=$(mktemp -d "${XDG_RUNTIME_DIR:-/tmp}/ipsec-client-e2e.XXXXXX")
+    workdir=$(mktemp -d "${XDG_RUNTIME_DIR:-/tmp}/ikebox-e2e.XXXXXX")
     rundir="$workdir/run"
     confdir="$workdir/conf"
     mkdir -m 0700 "$rundir" "$confdir"
@@ -215,13 +215,13 @@ main() {
     gw_ip=$(docker inspect -f '{{range .NetworkSettings.Networks}}{{.IPAddress}}{{end}}' "$GW")
     [[ $gw_ip =~ ^[0-9]+(\.[0-9]+){3}$ ]] || fail "invalid gateway IP: $gw_ip"
     render_conf initiator.conf 192.0.2.0/24 \
-        " --dns '192.0.2.54' --domain '~ipsec-client.test' --use-received-dns"
+        " --dns '192.0.2.54' --domain '~ikebox.test' --use-received-dns"
     render_conf initiator-full.conf 0.0.0.0/0 ""
     render_conf initiator-modp768.conf 203.0.113.0/24 ""
     # Malicious client: tries to run a command as root through the updown and to
     # take the SAs off the session's interface with another if_id.
     render_conf initiator-evil.conf 192.0.2.0/24 ""
-    sed -i -e "s|updown = .*|updown = /bin/touch /run/ipsec-client/PWNED|" \
+    sed -i -e "s|updown = .*|updown = /bin/touch /run/ikebox/PWNED|" \
         -e "s|if_id_in = .*|if_id_in = 999|" -e "s|if_id_out = .*|if_id_out = 999|" \
         "$confdir/initiator-evil.conf"
     # In IKEv1, phase 2 carries only one DH group (the first proposal's): to
@@ -287,9 +287,9 @@ main() {
         fail "static DNS missing: $dns"
     fi
     [[ $dns == *192.0.2.53* ]] || fail "DNS received from the gateway missing: $dns"
-    [[ $domains == *"~ipsec-client.test"* ]] || fail "domain missing: $domains"
+    [[ $domains == *"~ikebox.test"* ]] || fail "domain missing: $domains"
     [[ $default_route == *no ]] || fail "default-route should be 'no': $default_route"
-    ok "split DNS: 192.0.2.54 (static) + 192.0.2.53 (received), ~ipsec-client.test, no default-route"
+    ok "split DNS: 192.0.2.54 (static) + 192.0.2.53 (received), ~ikebox.test, no default-route"
 
     ping -c 3 -W 2 -q 192.0.2.1 >/dev/null || fail "ping 192.0.2.1 through the tunnel failed"
     ok "ping 192.0.2.1 through the tunnel"
@@ -399,9 +399,9 @@ main() {
         ok "client updown ignored: none of its commands ran"
         route=$(ip -4 route show dev "$IFACE" proto "$RT_PROTO")
         [[ $route == *"192.0.2.0/24"* ]] || fail "the forced updown did not install the route: '$route'"
-        [[ $(resolvectl domain "$IFACE") == *"~ipsec-client.test"* ]] ||
+        [[ $(resolvectl domain "$IFACE") == *"~ikebox.test"* ]] ||
             fail "the forced updown did not apply the DNS from root"
-        ok "the forced updown ran: route 192.0.2.0/24 and DNS ~ipsec-client.test"
+        ok "the forced updown ran: route 192.0.2.0/24 and DNS ~ikebox.test"
         states=$(count_xfrm state)
         local evil
         evil=$(host_ip -o xfrm state | grep -c "if_id 0x3e7" || true)

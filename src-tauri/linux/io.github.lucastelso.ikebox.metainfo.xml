@@ -4,34 +4,36 @@
      Installed in /usr/share/metainfo/ by the packages. Add a <release> for
      every version (docs/release.md). -->
 <component type="desktop-application">
-  <id>io.github.lucastelso.ipsecclient</id>
+  <id>io.github.lucastelso.ikebox</id>
   <metadata_license>CC0-1.0</metadata_license>
   <project_license>GPL-3.0-or-later</project_license>
 
-  <name>IPsec Client</name>
-  <summary>Connect to IPsec VPNs, including legacy ones</summary>
-  <summary xml:lang="pt-BR">Conecte a VPNs IPsec, inclusive as legadas</summary>
+  <name>Ikebox</name>
+  <summary>Sandboxed IPsec VPN client (legacy IKEv1 and IKEv2)</summary>
+  <summary xml:lang="pt-BR">Cliente de VPN IPsec isolado (IKEv1 legado e IKEv2)</summary>
 
   <description>
     <p>
-      IPsec Client connects to corporate IPsec VPNs that current Linux tools
+      Ikebox connects to corporate IPsec VPNs that current Linux tools
       can no longer reach: IKEv1 in aggressive or main mode, group PSK with
       XAuth, old algorithms. It also connects to IKEv2 with a PSK, a username
       and password (EAP-MSCHAPv2) or your own certificate.
     </p>
     <p xml:lang="pt-BR">
-      O IPsec Client conecta a VPNs IPsec corporativas que as ferramentas
+      O Ikebox conecta a VPNs IPsec corporativas que as ferramentas
       atuais do Linux já não alcançam: IKEv1 em modo agressivo ou principal,
       PSK de grupo com XAuth, algoritmos antigos. Também conecta a IKEv2 com
       PSK, usuário e senha (EAP-MSCHAPv2) ou o seu próprio certificado.
     </p>
     <p>
-      It ships its own strongSwan, so nothing in the system is weakened, and
-      keeps credentials in the system keyring.
+      It runs strongSwan, the engine that does the IPsec work, in an isolated
+      sandbox without root, so nothing in the system is weakened, and keeps
+      credentials in the system keyring.
     </p>
     <p xml:lang="pt-BR">
-      Ele traz o próprio strongSwan, sem enfraquecer nada no sistema, e guarda
-      as credenciais no chaveiro do sistema.
+      Ele roda o strongSwan, o motor que faz o trabalho do IPsec, numa caixa
+      isolada e sem root, sem enfraquecer nada no sistema, e guarda as
+      credenciais no chaveiro do sistema.
     </p>
     <ul>
       <li>Profiles imported from a file or from other VPN clients, or created in the app</li>
@@ -45,7 +47,12 @@
     </ul>
   </description>
 
-  <launchable type="desktop-id">ipsec-client.desktop</launchable>
+  <launchable type="desktop-id">ikebox.desktop</launchable>
+
+  <!-- The same app, called IPsec Client up to 0.9 (ADR-0031). -->
+  <replaces>
+    <id>io.github.lucastelso.ipsecclient</id>
+  </replaces>
 
   <categories>
     <category>Network</category>
@@ -58,17 +65,17 @@
     <keyword>strongSwan</keyword>
   </keywords>
 
-  <url type="homepage">https://github.com/lucastelso/ipsec-client</url>
-  <url type="bugtracker">https://github.com/lucastelso/ipsec-client/issues</url>
-  <url type="vcs-browser">https://github.com/lucastelso/ipsec-client</url>
+  <url type="homepage">https://github.com/lucastelso/ikebox</url>
+  <url type="bugtracker">https://github.com/lucastelso/ikebox/issues</url>
+  <url type="vcs-browser">https://github.com/lucastelso/ikebox</url>
 
   <developer id="io.github.lucastelso">
-    <name>IPsec Client contributors</name>
+    <name>Ikebox contributors</name>
   </developer>
 
   <provides>
-    <binary>ipsec-client</binary>
-    <binary>ipsec-client-cli</binary>
+    <binary>ikebox</binary>
+    <binary>ikebox-cli</binary>
   </provides>
 
   <requires>

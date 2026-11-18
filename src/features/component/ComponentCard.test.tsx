@@ -71,7 +71,7 @@ describe('ComponentCard', () => {
     ).toBeInTheDocument();
     await userEvent.click(screen.getByRole('button', { name: 'Install' }));
     expect(await screen.findByText('Installed and working.')).toBeInTheDocument();
-    expect(screen.getAllByText('IPsec Client 0.1.0 · strongSwan 6.1.0')).toHaveLength(2);
+    expect(screen.getAllByText('Ikebox 0.1.0 · strongSwan 6.1.0')).toHaveLength(2);
     expect(calls).toContain('install_component');
   });
 

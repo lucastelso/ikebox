@@ -9,11 +9,11 @@ use std::path::PathBuf;
 use std::sync::Mutex;
 use std::sync::atomic::{AtomicU64, Ordering};
 
-use ipsec_client_core::profiles::{CredentialKind, ProfileStore};
-use ipsec_client_core::secrets::{
+use ikebox_core::profiles::{CredentialKind, ProfileStore};
+use ikebox_core::secrets::{
     Credentials, KeyringStore, TokenCertificate, TokenError, default_module, list_certificates,
 };
-use ipsec_client_core::tr;
+use ikebox_core::tr;
 use secrecy::SecretString;
 use serde::Serialize;
 use specta::Type;

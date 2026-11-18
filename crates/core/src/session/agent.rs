@@ -1,6 +1,6 @@
 //! The key agent of a smartcard or token (ADR-0029): while the VPN is up,
 //! this process listens on the agent socket of the session
-//! (`/run/ipsec-client/<uid>/agent/agent.sock`) and signs, with the token,
+//! (`/run/ikebox/<uid>/agent/agent.sock`) and signs, with the token,
 //! what charon asks over the ssh-agent protocol. Only the subset strongSwan's
 //! agent plugin uses: list the identities, sign.
 //!
@@ -138,7 +138,7 @@ fn answer(body: &[u8], signer: &Mutex<TokenSigner>) -> Vec<u8> {
             let mut out = vec![IDENTITIES_ANSWER];
             out.extend_from_slice(&1u32.to_be_bytes());
             put_string(&mut out, blob);
-            put_string(&mut out, b"ipsec-client token");
+            put_string(&mut out, b"ikebox token");
             out
         }
         Some((&SIGN_REQUEST, rest)) => {

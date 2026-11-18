@@ -24,7 +24,7 @@ a person (ADR-0010). That includes:
 | IPv4 | `192.0.2.0/24`, `198.51.100.0/24`, `203.0.113.0/24` (RFC 5737) |
 | IPv6 | `2001:db8::/32` (RFC 3849) |
 | Domains | `example.com`, `example.org`, `*.test`, `*.invalid` (RFC 2606) |
-| Test credentials | Obviously fake, for example `ipsec-client-test-psk` |
+| Test credentials | Obviously fake, for example `ikebox-test-psk` |
 
 ### Set up the private data guard
 
@@ -101,6 +101,6 @@ the Rust side.
   `core`. Never derive `Debug` on types with secrets without redaction.
 - **Language:** documentation, identifiers and code comments in English. User-facing messages are
   bilingual: in Rust, `tr!("English", "Português")` / `trf!(...)` from
-  `ipsec_client_core::i18n`; in the UI, the dictionaries in `src/i18n`
+  `ikebox_core::i18n`; in the UI, the dictionaries in `src/i18n`
   (`pt` must have the same shape as `en`). The CLI, the helper and the scripts
   speak English. User documentation has a Portuguese copy in `docs/pt-BR/`.

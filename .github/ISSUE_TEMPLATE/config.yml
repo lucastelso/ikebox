@@ -1,8 +1,8 @@
 blank_issues_enabled: false
 contact_links:
   - name: Security vulnerability (private)
-    url: https://github.com/lucastelso/ipsec-client/security/advisories/new
+    url: https://github.com/lucastelso/ikebox/security/advisories/new
     about: Report vulnerabilities privately, never in a public issue (SECURITY.md).
   - name: How to get help
-    url: https://github.com/lucastelso/ipsec-client/blob/main/SUPPORT.md
+    url: https://github.com/lucastelso/ikebox/blob/main/SUPPORT.md
     about: The installation guide, the diagnostics and how to share a log safely.

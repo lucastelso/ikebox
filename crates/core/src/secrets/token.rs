@@ -40,7 +40,7 @@ const P521: ObjectIdentifier = ObjectIdentifier::new_unwrap("1.3.132.0.35");
 /// The ssh-agent signature flags strongSwan sends for RSA (agent plugin).
 const FLAG_SHA2_256: u32 = 2;
 const FLAG_SHA2_512: u32 = 4;
-/// Private flag of IPsec Client's agent (patch 0004): sign the data as it is,
+/// Private flag of Ikebox's agent (patch 0004): sign the data as it is,
 /// PKCS#1 v1.5 over a hash charon already computed (IKEv1 RSA signatures).
 const FLAG_RAW: u32 = 0x4000_0000;
 /// Largest "hash" signed as it is: SHA-512.

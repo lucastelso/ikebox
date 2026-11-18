@@ -1,4 +1,4 @@
-IPsec Client: the openssl plugin does not announce what the static engine
+Ikebox: the openssl plugin does not announce what the static engine
 cannot run (ADR-0027).
 
 OpenSSL 3 keeps RC5, CAST, Blowfish, IDEA, single DES and MD4 in its legacy
@@ -29,7 +29,7 @@ stays: it is in OpenSSL's default provider.
 -#ifndef OPENSSL_NO_IDEA
 -			PLUGIN_PROVIDE(CRYPTER, ENCR_IDEA, 16),
 -#endif
-+			/* IPsec Client (ADR-0027): RC5, CAST, Blowfish, IDEA, single DES
++			/* Ikebox (ADR-0027): RC5, CAST, Blowfish, IDEA, single DES
 +			 * and MD4 live only in OpenSSL 3's legacy provider, a loadable
 +			 * module that the static engine cannot load. They are not
 +			 * announced, so strongSwan's own des and md4 plugins provide

@@ -46,17 +46,17 @@ done
 ((${#expected_patches[@]} > 0)) || fail "no patch in native-engine/patches"
 
 component_ok() {
-    local name=$2 net="$1/usr/lib/ipsec-client/network" patches info charon
+    local name=$2 net="$1/usr/lib/ikebox/network" patches info charon
     [[ -f $net/SHA256SUMS ]] || fail "$name: network component missing"
     (cd "$net" && sha256sum --check --strict --quiet SHA256SUMS) ||
         fail "$name: the network component does not match its SHA256SUMS"
-    info=$(tar -xzOf "$net/engine.tar.gz" opt/ipsec-client/engine/BUILDINFO)
+    info=$(tar -xzOf "$net/engine.tar.gz" opt/ikebox/engine/BUILDINFO)
     patches=$(sed -n 's/^patches=//p' <<<"$info")
     [[ $patches == "${expected_patches[*]}" ]] ||
         fail "$name: the embedded strongSwan lacks the security patches (ADR-0019)"
     # One fully static executable (ADR-0020), with what went into it recorded.
     charon="$work/charon-$name"
-    tar -xzOf "$net/engine.tar.gz" opt/ipsec-client/engine/libexec/ipsec/charon >"$charon"
+    tar -xzOf "$net/engine.tar.gz" opt/ikebox/engine/libexec/ipsec/charon >"$charon"
     [[ -z $(readelf -d "$charon" 2>/dev/null | grep NEEDED || true) ]] ||
         fail "$name: charon is not fully static"
     if ! grep -q '^linkage=static$' <<<"$info" || ! grep -q '^openssl=' <<<"$info" ||
@@ -68,7 +68,7 @@ component_ok() {
 
 # The license folder every package carries (scripts/stage-licenses.sh).
 licenses_ok() {
-    local dir=$1/usr/lib/ipsec-client/licenses name=$2 f
+    local dir=$1/usr/lib/ikebox/licenses name=$2 f
     for f in LICENSE THIRD_PARTY_NOTICES.md THIRD_PARTY_LICENSES.txt; do
         [[ -s $dir/$f ]] || fail "$name: licenses/$f missing"
     done
@@ -82,17 +82,17 @@ licenses_ok() {
 # component), its manual page and the shell completions.
 cli_ok() {
     local root=$1 name=$2 version
-    [[ -x $root/usr/bin/ipsec-client-cli ]] || fail "$name: ipsec-client-cli missing"
-    version=$(sed -n 's/^version=//p' "$root/usr/lib/ipsec-client/network/VERSION")
-    [[ $("$root/usr/bin/ipsec-client-cli" --version) == "ipsec-client-cli $version" ]] ||
-        fail "$name: ipsec-client-cli is not version $version"
-    gzip -t "$root/usr/share/man/man1/ipsec-client-cli.1.gz" ||
+    [[ -x $root/usr/bin/ikebox-cli ]] || fail "$name: ikebox-cli missing"
+    version=$(sed -n 's/^version=//p' "$root/usr/lib/ikebox/network/VERSION")
+    [[ $("$root/usr/bin/ikebox-cli" --version) == "ikebox-cli $version" ]] ||
+        fail "$name: ikebox-cli is not version $version"
+    gzip -t "$root/usr/share/man/man1/ikebox-cli.1.gz" ||
         fail "$name: manual page missing or corrupted"
-    [[ -s $root/usr/share/bash-completion/completions/ipsec-client-cli &&
-        -s $root/usr/share/fish/vendor_completions.d/ipsec-client-cli.fish ]] ||
+    [[ -s $root/usr/share/bash-completion/completions/ikebox-cli &&
+        -s $root/usr/share/fish/vendor_completions.d/ikebox-cli.fish ]] ||
         fail "$name: shell completions missing"
-    ok "$name: ipsec-client-cli $version, manual page and completions"
-    local meta=$root/usr/share/metainfo/io.github.lucastelso.ipsecclient.metainfo.xml
+    ok "$name: ikebox-cli $version, manual page and completions"
+    local meta=$root/usr/share/metainfo/io.github.lucastelso.ikebox.metainfo.xml
     [[ -f $meta ]] || fail "$name: AppStream metainfo missing"
     grep -q "<release version=\"$version\"" "$meta" ||
         fail "$name: the AppStream metainfo has no <release> for $version (docs/release.md)"
@@ -105,7 +105,7 @@ mkdir "$work/appimage" "$work/deb" "$work/rpm"
 component_ok "$work/appimage/squashfs-root" "AppImage"
 # One version everywhere: the component inside and the three file names
 # (from tauri.conf.json, while the component's comes from Cargo.toml).
-version=$(sed -n 's/^version=//p' "$work/appimage/squashfs-root/usr/lib/ipsec-client/network/VERSION")
+version=$(sed -n 's/^version=//p' "$work/appimage/squashfs-root/usr/lib/ikebox/network/VERSION")
 [[ ${appimages[0]##*/} == *"_${version}_amd64.AppImage" && ${debs[0]##*/} == *"_${version}_amd64.deb" &&
     ${rpms[0]##*/} == *"-${version}-1.x86_64.rpm" ]] ||
     fail "the package names do not all carry version $version (Cargo.toml and tauri.conf.json differ?)"

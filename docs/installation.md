@@ -2,7 +2,7 @@
 
 **[Português](pt-BR/instalacao.md)** · English
 
-How to install IPsec Client as a regular application: it shows up in the
+How to install Ikebox as a regular application: it shows up in the
 applications menu, with an icon, and opens like any other program. You do
 **not** need Docker, Rust, Node or a terminal to use it.
 
@@ -20,12 +20,12 @@ applications menu, with an icon, and opens like any other program. You do
 
 | Your distribution | File | Example |
 |---|---|---|
-| Fedora, openSUSE, RHEL/Rocky/AlmaLinux 10 | **.rpm** | `ipsec-client-0.9.0-1.x86_64.rpm` |
-| Ubuntu, Debian, Linux Mint, Pop!_OS | **.deb** | `ipsec-client_0.9.0_amd64.deb` |
-| Others (Arch, etc.) | **.AppImage** | `ipsec-client_0.9.0_amd64.AppImage` |
+| Fedora, openSUSE, RHEL/Rocky/AlmaLinux 10 | **.rpm** | `ikebox-0.9.0-1.x86_64.rpm` |
+| Ubuntu, Debian, Linux Mint, Pop!_OS | **.deb** | `ikebox_0.9.0_amd64.deb` |
+| Others (Arch, etc.) | **.AppImage** | `ikebox_0.9.0_amd64.AppImage` |
 
 The files are on the repository's
-[Releases](https://github.com/lucastelso/ipsec-client/releases) page on GitHub,
+[Releases](https://github.com/lucastelso/ikebox/releases) page on GitHub,
 together with `SHA256SUMS`, which lets you check the download
 (`sha256sum -c SHA256SUMS --ignore-missing`).
 
@@ -37,18 +37,18 @@ From 1.0 on, every release is signed and attested
 
 ```bash
 # The project's key (once); compare its fingerprint with the README's.
-curl -fsSLO https://raw.githubusercontent.com/lucastelso/ipsec-client/main/packaging/keys/ipsec-client-release.asc
-gpg --import ipsec-client-release.asc
+curl -fsSLO https://raw.githubusercontent.com/lucastelso/ikebox/main/packaging/keys/ikebox-release.asc
+gpg --import ikebox-release.asc
 gpg --verify SHA256SUMS.asc SHA256SUMS            # "Good signature"
 sha256sum -c SHA256SUMS --ignore-missing          # your file: OK
 ```
 
 With the [GitHub CLI](https://cli.github.com/), the attestation says which
 commit and which CI run built the file:
-`gh attestation verify <file> --repo lucastelso/ipsec-client`.
+`gh attestation verify <file> --repo lucastelso/ikebox`.
 
 The `.rpm` itself is signed too: after `sudo rpm --import
-ipsec-client-release.asc`, `dnf` and `zypper` check it on their own (and
+ikebox-release.asc`, `dnf` and `zypper` check it on their own (and
 `rpm -K <file>` shows it).
 
 > Prefer the **.rpm** or the **.deb** when there is one for your distribution:
@@ -97,12 +97,12 @@ Discover). Click **Install**. If it does not open, use the terminal.
 Or from the terminal, in the folder where the file is:
 
 ```bash
-sudo dnf install ./ipsec-client-*.x86_64.rpm
+sudo dnf install ./ikebox-*.x86_64.rpm
 ```
 
-On **openSUSE**: `sudo rpm --import ipsec-client-release.asc` once (see
+On **openSUSE**: `sudo rpm --import ikebox-release.asc` once (see
 [Check the download](#check-the-download)), then
-`sudo zypper install ./ipsec-client-*.x86_64.rpm`. Packages older than 1.0
+`sudo zypper install ./ikebox-*.x86_64.rpm`. Packages older than 1.0
 were not signed and need `--allow-unsigned-rpm`.
 
 On **AlmaLinux and Rocky Linux 10**, WebKitGTK and the tray library come from
@@ -111,14 +111,14 @@ EPEL. Enable it once, then install:
 ```bash
 sudo dnf install epel-release
 sudo dnf config-manager --set-enabled crb
-sudo dnf install ./ipsec-client-*.x86_64.rpm
+sudo dnf install ./ikebox-*.x86_64.rpm
 ```
 
 On RHEL 10 itself, enable EPEL and CodeReady Builder as the EPEL
 documentation says for RHEL, then install the same way.
 
 On **Fedora Silverblue, Kinoite and other image-based systems**:
-`rpm-ostree install ./ipsec-client-*.x86_64.rpm`, then restart. The network
+`rpm-ostree install ./ikebox-*.x86_64.rpm`, then restart. The network
 component handles what is different there (a read-only `/usr`, `/opt` as a
 link to `/var/opt`); this was tested in a simulation, not yet on a real
 installation, so please report any problem.
@@ -130,7 +130,7 @@ not (the store in some Ubuntu versions does not install `.deb` files), use the
 terminal, in the folder where the file is:
 
 ```bash
-sudo apt install ./ipsec-client_*_amd64.deb
+sudo apt install ./ikebox_*_amd64.deb
 ```
 
 ### Other distributions (.AppImage)
@@ -141,8 +141,8 @@ The AppImage is a single file: it installs nothing in the system.
 
    ```bash
    mkdir -p ~/Applications
-   mv ~/Downloads/ipsec-client_*_amd64.AppImage ~/Applications/ipsec-client.AppImage
-   chmod +x ~/Applications/ipsec-client.AppImage
+   mv ~/Downloads/ikebox_*_amd64.AppImage ~/Applications/ikebox.AppImage
+   chmod +x ~/Applications/ikebox.AppImage
    ```
 
 2. **To show it in the menu**, there are two ways:
@@ -153,20 +153,20 @@ The AppImage is a single file: it installs nothing in the system.
 
      ```bash
      cd ~/Applications
-     ./ipsec-client.AppImage --appimage-extract 'usr/share/icons/hicolor/128x128/apps/ipsec-client.png'
-     install -Dm644 squashfs-root/usr/share/icons/hicolor/128x128/apps/ipsec-client.png \
-       ~/.local/share/icons/hicolor/128x128/apps/ipsec-client.png
+     ./ikebox.AppImage --appimage-extract 'usr/share/icons/hicolor/128x128/apps/ikebox.png'
+     install -Dm644 squashfs-root/usr/share/icons/hicolor/128x128/apps/ikebox.png \
+       ~/.local/share/icons/hicolor/128x128/apps/ikebox.png
      rm -rf squashfs-root
-     cat > ~/.local/share/applications/ipsec-client.desktop <<EOF
+     cat > ~/.local/share/applications/ikebox.desktop <<EOF
      [Desktop Entry]
      Type=Application
-     Name=IPsec Client
+     Name=Ikebox
      Comment=IPsec VPN client for Linux
-     Exec=$HOME/Applications/ipsec-client.AppImage
-     Icon=ipsec-client
+     Exec=$HOME/Applications/ikebox.AppImage
+     Icon=ikebox
      Terminal=false
      Categories=Network;
-     StartupWMClass=ipsec-client
+     StartupWMClass=ikebox
      EOF
      ```
 
@@ -176,7 +176,7 @@ The AppImage is a single file: it installs nothing in the system.
 
 ## 3. First use
 
-1. Open **IPsec Client** from the applications menu (search for "VPN" or
+1. Open **Ikebox** from the applications menu (search for "VPN" or
    "IPsec"). It speaks the language of your system (English or Portuguese);
    you can change it in **System → Appearance → Language**.
 2. **The network component.** With the `.rpm` or the `.deb`, the package
@@ -213,31 +213,47 @@ log back in and enable the extension in the **Extensions** app.
 ## 4. Update
 
 1. Install the new file over the old one, the same way as in section 2.
-   - Fedora: `sudo dnf install ./ipsec-client-<new version>.x86_64.rpm`
-   - Ubuntu: `sudo apt install ./ipsec-client_<new version>_amd64.deb`
+   - Fedora: `sudo dnf install ./ikebox-<new version>.x86_64.rpm`
+   - Ubuntu: `sudo apt install ./ikebox_<new version>_amd64.deb`
    - AppImage: replace the file in `~/Applications` (keep the name
-     `ipsec-client.AppImage`).
-2. With the `.rpm` or the `.deb` (from 1.0 on), the package updates the
-   network component too. With the AppImage, or coming from 0.9 or older,
-   open the app: if **"Network component update"** shows up, click **Update
-   now** and type the administrator password.
+     `ikebox.AppImage`).
+2. With the `.rpm` or the `.deb`, the package updates the network component
+   too. With the AppImage, open the app: if **"Network component update"**
+   shows up, click **Update now** and type the administrator password.
 
 Your profiles and credentials stay where they were.
+
+### From IPsec Client (0.9 or older)
+
+Ikebox was called IPsec Client up to 0.9
+([ADR-0031](adr/0031-renamed-to-ikebox.md)). Install Ikebox the usual way:
+
+- the `.rpm` and the `.deb` replace the `ipsec-client` package in the same
+  step (`dnf` and `apt` say it is removed);
+- the network component of IPsec Client is removed when Ikebox installs its
+  own;
+- on its first start, Ikebox moves your profiles and settings from
+  `~/.config/ipsec-client` to `~/.config/ikebox`, and your stored
+  credentials to its own keyring entries (if the keyring is locked, it asks
+  to unlock it, or moves them on a later start).
+
+With the AppImage, delete the old `ipsec-client.AppImage` and its menu entry
+(`~/.local/share/applications/ipsec-client.desktop`), if you made one.
 
 ## 5. Uninstall
 
 1. Remove the app:
-   - Fedora: `sudo dnf remove ipsec-client`
-   - Ubuntu: `sudo apt remove ipsec-client`
+   - Fedora: `sudo dnf remove ikebox`
+   - Ubuntu: `sudo apt remove ikebox`
 
      From 1.0 on, removing the package also removes the network component
      it installed (the VPN, if connected, is disconnected).
    - AppImage: first, in the app, with the VPN disconnected, **System →
      Network component → Remove** (asks for the administrator password).
      Then delete the file and, if you created it by hand, the shortcut:
-     `rm ~/.local/share/applications/ipsec-client.desktop`
+     `rm ~/.local/share/applications/ikebox.desktop`
 2. **Optional, to leave no trace:**
-   - profiles: `rm -r ~/.config/ipsec-client`;
+   - profiles: `rm -r ~/.config/ikebox`;
    - stored credentials: before removing the app, delete each profile in
      **Profiles** checking **Also delete the stored credentials**.
 
@@ -245,7 +261,7 @@ If the component is still there (installed by the AppImage, or by a
 package older than 1.0), remove it from the terminal:
 
 ```bash
-sudo /opt/ipsec-client/libexec/install-native.sh uninstall
+sudo /opt/ikebox/libexec/install-native.sh uninstall
 ```
 
 ## 6. Build the package from source
@@ -269,7 +285,7 @@ test a change. Release packages are built another way: see
 3. Install it as in section 2:
 
    ```bash
-   sudo dnf install ./target/release/bundle/rpm/ipsec-client-*.x86_64.rpm
+   sudo dnf install ./target/release/bundle/rpm/ikebox-*.x86_64.rpm
    ```
 
    Built it again **with the same version**? Use `sudo dnf reinstall` instead

@@ -3,7 +3,7 @@
 //! All without zbus (banned by cargo-deny, see step 11 of the development log):
 //! - notifications: `org.freedesktop.Notifications` through libdbus (the `dbus`
 //!   crate);
-//! - single instance: a Unix socket at `$XDG_RUNTIME_DIR/ipsec-client/app.sock`;
+//! - single instance: a Unix socket at `$XDG_RUNTIME_DIR/ikebox/app.sock`;
 //! - tray: Tauri's `tray-icon` (libappindicator). On a GNOME without the
 //!   AppIndicator extension, it does not show up, and nothing breaks.
 
@@ -13,8 +13,8 @@ use std::path::PathBuf;
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::time::Duration;
 
-use ipsec_client_core::session::{self, ConnectionInfo};
-use ipsec_client_core::{tr, trf};
+use ikebox_core::session::{self, ConnectionInfo};
+use ikebox_core::{tr, trf};
 use tauri::menu::{Menu, MenuItem, PredefinedMenuItem};
 use tauri::tray::{MouseButton, MouseButtonState, TrayIconBuilder, TrayIconEvent};
 use tauri::{AppHandle, Manager};
@@ -58,10 +58,7 @@ pub fn handle_close(window: &tauri::Window, event: &tauri::WindowEvent) {
             )
         };
         notify(
-            tr!(
-                "IPsec Client is still open",
-                "O IPsec Client continua aberto"
-            ),
+            tr!("Ikebox is still open", "O Ikebox continua aberto"),
             body,
         );
     }
@@ -112,7 +109,7 @@ impl TrayState {
     #[must_use]
     pub fn label(&self) -> String {
         match self {
-            Self::Unknown => "IPsec Client".to_owned(),
+            Self::Unknown => "Ikebox".to_owned(),
             Self::Disconnected => tr!("Disconnected", "Desconectado").to_owned(),
             Self::Connected { profile, vip } => match vip {
                 Some(vip) => trf!(
@@ -184,7 +181,7 @@ pub fn notify(summary: &str, body: &str) {
                 "org.freedesktop.Notifications",
                 "Notify",
                 (
-                    "IPsec Client",
+                    "Ikebox",
                     0u32,
                     "network-vpn",
                     summary.as_str(),
@@ -203,7 +200,7 @@ pub fn notify(summary: &str, body: &str) {
 }
 
 fn instance_socket() -> Option<PathBuf> {
-    let dir = ipsec_client_core::engine::default_runtime_dir().ok()?;
+    let dir = ikebox_core::engine::default_runtime_dir().ok()?;
     std::fs::create_dir_all(&dir).ok()?;
     Some(dir.join("app.sock"))
 }
@@ -255,16 +252,14 @@ impl TrayHandles {
     /// Fixed menu texts in the current language (they change when the user
     /// picks another language in the app).
     fn set_menu_texts(&self) {
-        let _ = self
-            .show
-            .set_text(tr!("Open IPsec Client", "Abrir o IPsec Client"));
+        let _ = self.show.set_text(tr!("Open Ikebox", "Abrir o Ikebox"));
         let _ = self.disconnect.set_text(tr!("Disconnect", "Desconectar"));
         let _ = self.quit.set_text(tr!("Quit", "Sair do app"));
     }
 }
 
 fn build_tray(app: &AppHandle) -> tauri::Result<TrayHandles> {
-    let status = MenuItem::with_id(app, "status", "IPsec Client", false, None::<&str>)?;
+    let status = MenuItem::with_id(app, "status", "Ikebox", false, None::<&str>)?;
     let show = MenuItem::with_id(app, "show", "", true, None::<&str>)?;
     let disconnect = MenuItem::with_id(app, "disconnect", "", false, None::<&str>)?;
     let quit = MenuItem::with_id(app, "quit", "", true, None::<&str>)?;
@@ -280,7 +275,7 @@ fn build_tray(app: &AppHandle) -> tauri::Result<TrayHandles> {
         ],
     )?;
     let mut builder = TrayIconBuilder::with_id("main")
-        .tooltip("IPsec Client")
+        .tooltip("Ikebox")
         .menu(&menu)
         .show_menu_on_left_click(false)
         .on_menu_event(|app, event| match event.id.as_ref() {
@@ -334,9 +329,9 @@ pub fn start(app: &AppHandle) {
     let app = app.clone();
     tauri::async_runtime::spawn(async move {
         let mut previous = TrayState::Unknown;
-        let mut lang = ipsec_client_core::i18n::lang();
+        let mut lang = ikebox_core::i18n::lang();
         loop {
-            let current_lang = ipsec_client_core::i18n::lang();
+            let current_lang = ikebox_core::i18n::lang();
             let lang_changed = current_lang != lang;
             lang = current_lang;
             let status = session::status().await;

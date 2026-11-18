@@ -18,10 +18,10 @@ use bollard::query_parameters::{
     RemoveContainerOptionsBuilder, StartContainerOptions,
 };
 use futures_util::StreamExt;
-use ipsec_client_core::engine::HostSecurity;
+use ikebox_core::engine::HostSecurity;
 
 /// Fake PSK of the test gateway.
-pub const TEST_PSK: &str = "ipsec-client-test-psk";
+pub const TEST_PSK: &str = "ikebox-test-psk";
 /// Id (keyid) of the test group.
 pub const TEST_GROUP_ID: &str = "keyid:grupo-teste";
 /// Test XAuth username.

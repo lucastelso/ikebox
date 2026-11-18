@@ -3,14 +3,14 @@
 #
 # Usage: build-strongswan VERSION PATH SHA256
 #   /keys      (ro)  strongSwan's release public key
-#   /patches   (ro)  IPsec Client patches (native-engine/patches/*.patch)
+#   /patches   (ro)  Ikebox patches (native-engine/patches/*.patch)
 #   /licenses  (ro)  OpenSSL and musl license texts (native-engine/licenses)
 #   /out       (rw)  where the tarballs go
 #
 # Guarantees:
 #   - the tarball is checked by SHA-256 (pinned in native-engine/versions.txt)
 #     AND by the official GPG signature;
-#   - the IPsec Client security patches are applied AFTER the check, and all
+#   - the Ikebox security patches are applied AFTER the check, and all
 #     of them must apply (ADR-0019);
 #   - one fully static executable (musl and OpenSSL inside, ADR-0020,
 #     ADR-0027): it does not depend on the glibc of the computer it runs on;
@@ -28,7 +28,7 @@ sha256=${3:?sha256}
 [[ $sha256 =~ ^[0-9a-f]{64}$ ]] || { echo "invalid sha256" >&2; exit 2; }
 [[ $path =~ ^/([a-z0-9.]+/)*$ ]] || { echo "invalid path" >&2; exit 2; }
 
-readonly PREFIX=/opt/ipsec-client/engine
+readonly PREFIX=/opt/ikebox/engine
 readonly SRC=/build/src
 readonly STAGE=/build/stage
 tarball="strongswan-$version.tar.bz2"
@@ -53,7 +53,7 @@ log "GPG signature verified"
 
 tar -xjf "$tarball" -C "$SRC" --strip-components=1
 
-# IPsec Client patches (ADR-0019). A patch that does not apply fails the
+# Ikebox patches (ADR-0019). A patch that does not apply fails the
 # build: the engine without it would be insecure.
 patches=()
 for patch_file in /patches/*.patch; do
@@ -69,7 +69,7 @@ configure_flags=(
     --prefix="$PREFIX"
     --sysconfdir="$PREFIX/etc"
     --libexecdir="$PREFIX/libexec"
-    --with-piddir=/run/ipsec-client-engine
+    --with-piddir=/run/ikebox-engine
     --disable-shared --enable-static --enable-monolithic
     --disable-defaults
     --enable-charon --enable-swanctl --enable-vici
@@ -168,6 +168,6 @@ pack() {
         -C "$1" -cf - opt | gzip -n -9 >"$2"
     log "done: $(basename "$2") ($(du -h "$2" | cut -f1))"
 }
-pack "$STAGE" "/out/ipsec-client-engine-$version-x86_64.tar.gz"
-pack "$TOOLS" "/out/ipsec-client-engine-tools-$version-x86_64.tar.gz"
+pack "$STAGE" "/out/ikebox-engine-$version-x86_64.tar.gz"
+pack "$TOOLS" "/out/ikebox-engine-tools-$version-x86_64.tar.gz"
 log "charon: $(file -b "$charon" | cut -d, -f1-2)"

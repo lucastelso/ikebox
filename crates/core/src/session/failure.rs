@@ -268,7 +268,7 @@ mod tests {
     ];
     const PROPOSTA_ESP: &[&str] = &[
         "XAuth authentication of 'usuario.teste' (myself) successful",
-        "IKE_SA teste[4] established between 172.19.0.3[grupo-teste]...172.19.0.2[gw.ipsec-client.test]",
+        "IKE_SA teste[4] established between 172.19.0.3[grupo-teste]...172.19.0.2[gw.ikebox.test]",
         "installing new virtual IP 198.51.100.10",
         "received NO_PROPOSAL_CHOSEN error notify",
         "establishing CHILD_SA 'rede-teste' failed",
@@ -293,9 +293,9 @@ mod tests {
         "received NO_PROPOSAL_CHOSEN notify error",
     ];
     const V2_PROPOSTA_ESP: &[&str] = &[
-        "authentication of 'gw.ipsec-client.test' with pre-shared key successful",
+        "authentication of 'gw.ikebox.test' with pre-shared key successful",
         "installing new virtual IP 198.51.100.10",
-        "IKE_SA v2-bad-esp[1] established between 172.19.0.6[172.19.0.6]...172.19.0.5[gw.ipsec-client.test]",
+        "IKE_SA v2-bad-esp[1] established between 172.19.0.6[172.19.0.6]...172.19.0.5[gw.ikebox.test]",
         "received NO_PROPOSAL_CHOSEN notify, no CHILD_SA built",
         "failed to establish CHILD_SA, keeping IKE_SA",
     ];
@@ -305,7 +305,7 @@ mod tests {
         "failed to establish CHILD_SA, keeping IKE_SA",
     ];
     const V2_REDES: &[&str] = &[
-        "IKE_SA v2-bad-ts[1] established between 172.19.0.6[172.19.0.6]...172.19.0.5[gw.ipsec-client.test]",
+        "IKE_SA v2-bad-ts[1] established between 172.19.0.6[172.19.0.6]...172.19.0.5[gw.ikebox.test]",
         "received TS_UNACCEPTABLE notify, no CHILD_SA built",
     ];
 
