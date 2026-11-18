@@ -55,15 +55,27 @@ exec 2>&1
 
 [[ $(id -u) -eq 0 ]] || die "run it as root (sudo/pkexec)"
 
+# Whether systemd manages this system right now. It does not while a package
+# is installed into an image being built, or in a container: the files and
+# the socket's enablement are then put in place, and the socket starts on
+# the next boot.
+systemd_running() { [[ -d /run/systemd/system ]]; }
+
 do_uninstall() {
     log "stopping and removing"
-    systemctl stop ipsec-client-engine.service 2>/dev/null || true
-    systemctl disable --now ipsec-client-helper.socket 2>/dev/null || true
-    systemctl stop ipsec-client-helper.service 2>/dev/null || true
+    if systemd_running; then
+        systemctl stop ipsec-client-engine.service 2>/dev/null || true
+        systemctl disable --now ipsec-client-helper.socket 2>/dev/null || true
+        systemctl stop ipsec-client-helper.service 2>/dev/null || true
+    else
+        systemctl disable ipsec-client-helper.socket 2>/dev/null || true
+    fi
     rm -f "$UNIT_DIR/ipsec-client-helper.socket" "$UNIT_DIR/ipsec-client-helper.service"
     rm -f "$POLKIT_DIR/$POLICY" "$POLKIT_ETC_DIR/$POLICY" 2>/dev/null || true
     rm -rf "${PREFIX:?}"
-    systemctl daemon-reload
+    if systemd_running; then
+        systemctl daemon-reload
+    fi
     log "removed"
 }
 
@@ -137,7 +149,9 @@ do_install() {
     polkit_dir=$(choose_polkit_dir)
 
     log "installing in $PREFIX"
-    systemctl stop ipsec-client-engine.service 2>/dev/null || true
+    if systemd_running; then
+        systemctl stop ipsec-client-engine.service 2>/dev/null || true
+    fi
     rm -rf "$PREFIX/engine"
     install -d -m 0755 "$PREFIX" "$PREFIX/bin" "$PREFIX/libexec"
     # --keep-directory-symlink: on image-based systems /opt is a link to
@@ -177,9 +191,14 @@ do_install() {
             "$UNIT_DIR/ipsec-client-helper.service" "$polkit_dir/$POLICY" 2>/dev/null || true
     fi
 
-    systemctl daemon-reload
-    systemctl stop ipsec-client-helper.service 2>/dev/null || true
-    systemctl enable --now ipsec-client-helper.socket
+    if systemd_running; then
+        systemctl daemon-reload
+        systemctl stop ipsec-client-helper.service 2>/dev/null || true
+        systemctl enable --now ipsec-client-helper.socket
+    else
+        systemctl enable ipsec-client-helper.socket
+        log "systemd is not running: the helper socket starts on the next boot"
+    fi
     log "installed: $("$PREFIX/bin/ipsec-client-helper" --version), strongSwan $(grep -m1 '^strongswan=' "$PREFIX/engine/BUILDINFO" | cut -d= -f2) (origin: $origin)"
 }
 

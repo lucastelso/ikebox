@@ -63,6 +63,20 @@ STUB
     chmod 0755 /usr/local/bin/systemctl
     mkdir -p /etc/systemd/system /usr/share/polkit-1/actions
 
+    step "install without systemd running (image build, container)"
+    bash /bundle/install-native.sh install --bundle /bundle --origin package >/dev/null
+    grep -qx "enable ipsec-client-helper.socket" /tmp/systemctl.log ||
+        fail "socket not enabled for the next boot"
+    if grep -qE "daemon-reload|--now|^stop" /tmp/systemctl.log; then
+        fail "talked to a systemd that is not running: $(tr '\n' ';' </tmp/systemctl.log)"
+    fi
+    bash /opt/ipsec-client/libexec/install-native.sh uninstall >/dev/null
+    [[ ! -e /opt/ipsec-client ]] || fail "not removed without systemd"
+    ok "files installed, socket enabled for the next boot, removed again"
+    : >/tmp/systemctl.log
+    # From here on, systemd manages the system.
+    mkdir -p /run/systemd/system
+
     step "install (origin app)"
     bash /bundle/install-native.sh install --bundle /bundle --origin app
     local p=/opt/ipsec-client

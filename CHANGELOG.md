@@ -7,6 +7,14 @@ and the project uses [Semantic Versioning](https://semver.org/).
 
 ## [Unreleased]
 
+### Added
+
+- The `.rpm` and the `.deb` install and update the network component
+  themselves, and removing the package removes it: no administrator
+  password in the app, no root helper left behind after uninstalling
+  ([ADR-0018](docs/adr/0018-component-installed-by-the-app.md), amendment).
+  The AppImage keeps installing it from the app.
+
 ### Fixed
 
 - SECURITY.md said the embedded strongSwan carries one patch of ours; it
