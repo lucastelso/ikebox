@@ -303,6 +303,11 @@ pub trait Charon {
     async fn unload_shared(&mut self, id: &str) -> Result<(), ViciError>;
     /// `load-key`: carrega a chave privada do cliente na memória do charon.
     async fn load_key(&mut self, key: &PrivateKey) -> Result<(), ViciError>;
+    /// `load-key` of type `agent` (patch 0004, ADR-0029): a key held by the
+    /// person's key agent, named by its public key (SubjectPublicKeyInfo,
+    /// PEM). charon uses the agent socket root configured, never one named
+    /// here.
+    async fn load_agent_key(&mut self, public_key_pem: &str) -> Result<(), ViciError>;
     /// `load-conn` com a configuração da conexão `name`.
     async fn load_conn(&mut self, name: &str, conn: &Message) -> Result<(), ViciError>;
     /// `unload-conn`.
@@ -370,6 +375,14 @@ impl Charon for ViciClient {
 
     async fn load_key(&mut self, key: &PrivateKey) -> Result<(), ViciError> {
         let response = self.request("load-key", &key.to_message()).await?;
+        check("load-key", &response)
+    }
+
+    async fn load_agent_key(&mut self, public_key_pem: &str) -> Result<(), ViciError> {
+        let message = Message::new()
+            .kv("type", "agent")
+            .kv("data", public_key_pem.as_bytes());
+        let response = self.request("load-key", &message).await?;
         check("load-key", &response)
     }
 

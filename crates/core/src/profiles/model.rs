@@ -89,6 +89,11 @@ pub struct LocalRound {
     /// pedida a cada conexão (só XAuth; ADR-0025).
     #[serde(default, skip_serializing_if = "is_false")]
     pub otp: bool,
+    /// The certificate's private key is on a smartcard or token, used
+    /// through the person's own process (ADR-0029), not imported into the
+    /// keyring. Only for the certificate round.
+    #[serde(default, skip_serializing_if = "is_false")]
+    pub token: bool,
 }
 
 impl LocalRound {
@@ -99,6 +104,7 @@ impl LocalRound {
             method,
             id: None,
             otp: false,
+            token: false,
         }
     }
 }
@@ -194,6 +200,13 @@ impl AuthSettings {
     #[must_use]
     pub fn uses_client_certificate(&self) -> bool {
         self.round(LocalMethod::Certificate).is_some()
+    }
+
+    /// Is the certificate's key on a smartcard or token (ADR-0029)?
+    #[must_use]
+    pub fn uses_token(&self) -> bool {
+        self.round(LocalMethod::Certificate)
+            .is_some_and(|r| r.token)
     }
 
     /// Certificado do cliente (com XAuth opcional no IKEv1), e o gateway
@@ -360,6 +373,12 @@ pub enum CredentialKind {
     ClientCert,
     /// Chave privada do cliente (PEM, PKCS#8).
     ClientKey,
+    /// Where the key is on a smartcard or token (ADR-0029): the PKCS#11
+    /// module and the key's identifier. Public, stored like the certificate.
+    TokenKey,
+    /// PIN of the smartcard or token: asked at every connection, never
+    /// stored.
+    TokenPin,
 }
 
 impl CredentialKind {
@@ -374,6 +393,8 @@ impl CredentialKind {
             Self::EapPassword => "eap-password",
             Self::ClientCert => "client-cert",
             Self::ClientKey => "client-key",
+            Self::TokenKey => "token-key",
+            Self::TokenPin => "token-pin",
         }
     }
 
@@ -381,13 +402,16 @@ impl CredentialKind {
     /// mascarado na exibição.
     #[must_use]
     pub fn is_secret(self) -> bool {
-        !matches!(self, Self::XauthUser | Self::EapIdentity | Self::ClientCert)
+        !matches!(
+            self,
+            Self::XauthUser | Self::EapIdentity | Self::ClientCert | Self::TokenKey
+        )
     }
 
     /// Typed by the person (as opposed to imported from a certificate file).
     #[must_use]
     pub fn is_typed(self) -> bool {
-        !matches!(self, Self::ClientCert | Self::ClientKey)
+        !matches!(self, Self::ClientCert | Self::ClientKey | Self::TokenKey)
     }
 }
 
@@ -405,6 +429,13 @@ impl Profile {
                 LocalMethod::EapMschapv2 => {
                     kinds.extend([CredentialKind::EapIdentity, CredentialKind::EapPassword]);
                 }
+                LocalMethod::Certificate if round.token => {
+                    kinds.extend([
+                        CredentialKind::ClientCert,
+                        CredentialKind::TokenKey,
+                        CredentialKind::TokenPin,
+                    ]);
+                }
                 LocalMethod::Certificate => {
                     kinds.extend([CredentialKind::ClientCert, CredentialKind::ClientKey]);
                 }
@@ -414,13 +445,14 @@ impl Profile {
     }
 
     /// Credenciais que podem ficar no chaveiro: todas, menos a senha de uso
-    /// único (`otp`), que é pedida a cada conexão.
+    /// único (`otp`) e o PIN do token, pedidos a cada conexão.
     #[must_use]
     pub fn storable_credentials(&self) -> Vec<CredentialKind> {
         let otp = self.auth.otp();
         self.required_credentials()
             .into_iter()
             .filter(|kind| !(otp && *kind == CredentialKind::XauthPassword))
+            .filter(|kind| *kind != CredentialKind::TokenPin)
             .collect()
     }
 }

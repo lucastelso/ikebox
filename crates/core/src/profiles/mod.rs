@@ -280,6 +280,23 @@ mod tests {
             otp.storable_credentials(),
             [CredentialKind::Psk, CredentialKind::XauthUser]
         );
+        // A certificate on a token: its reference is stored, the PIN never.
+        let mut token = legacy();
+        token.auth = AuthSettings::certificate(None, false, Some("vpn.example.com".into()), vec![]);
+        token.auth.local[0].token = true;
+        assert_eq!(
+            token.required_credentials(),
+            [
+                CredentialKind::ClientCert,
+                CredentialKind::TokenKey,
+                CredentialKind::TokenPin
+            ]
+        );
+        assert_eq!(
+            token.storable_credentials(),
+            [CredentialKind::ClientCert, CredentialKind::TokenKey]
+        );
+        assert!(token.auth.uses_token());
     }
 
     #[test]
@@ -436,6 +453,15 @@ mod tests {
         p.auth.remote.method = RemoteMethod::Certificate;
         assert!(
             fields(&p).contains(&"auth.remote.method".to_owned()),
+            "{:?}",
+            fields(&p)
+        );
+
+        // A token is only for the certificate round (ADR-0029).
+        let mut p = ok.clone();
+        p.auth.local[0].token = true;
+        assert!(
+            fields(&p).contains(&"auth.local[0].token".to_owned()),
             "{:?}",
             fields(&p)
         );

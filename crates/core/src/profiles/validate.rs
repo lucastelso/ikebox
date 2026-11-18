@@ -251,6 +251,15 @@ fn check_auth(v: &mut Issues, p: &Profile) {
                 ),
             ),
         }
+        if round.token && round.method != LocalMethod::Certificate {
+            v.add(
+                format!("{field}.token"),
+                crate::tr!(
+                    "only a certificate can be on a smartcard or token",
+                    "só um certificado pode estar num smartcard ou token"
+                ),
+            );
+        }
         if round.otp && round.method != LocalMethod::Xauth {
             v.add(
                 format!("{field}.otp"),

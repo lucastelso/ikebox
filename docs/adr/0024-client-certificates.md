@@ -57,7 +57,7 @@ the client (ADR-0019, `0002` patch, audit P9).
   keyring is not exported).
 - The key is as protected as the keyring: unlocked with the session. That
   is the same level as the stored passwords, and is stated in SECURITY.md.
-- No smartcard/PKCS#11 in this step.
+- No smartcard/PKCS#11 in this step (added in phase E of the program to 1.0.0, [ADR-0029](0029-smartcards-and-tokens.md)).
 
 ## Alternatives considered
 

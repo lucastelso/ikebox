@@ -444,6 +444,144 @@ disconnect
 connect_args=()
 
 # ---------------------------------------------------------------------------
+# Smartcard or token (ADR-0029): the key stays on an emulated token (SoftHSM)
+# and charon asks the CLI's key agent to sign. The CLI stays in the
+# foreground (the agent lives in it), so these connections run in the
+# background here.
+readonly SOFTHSM=/usr/lib64/pkcs11/libsofthsm2.so
+# FAKE PIN, distinctive so the canary search below finds only real leaks.
+readonly TOKEN_PIN=pin-canario-8613
+token_cli_pid=""
+
+token_setup() {
+    local dir=/tmp/token name id out
+    install -d -m 0700 -o alice "$dir"
+    # This test computer only: the emulated token's files in a directory of
+    # alice's (the packaged one is not hers to write).
+    install -d -m 0700 -o alice /tmp/softhsm-tokens
+    printf 'directories.tokendir = /tmp/softhsm-tokens\nobjectstore.backend = file\n' >/etc/softhsm2.conf
+    as alice softhsm2-util --init-token --free --label ipsec-client-test \
+        --pin "$TOKEN_PIN" --so-pin so-pin-6420 >/dev/null
+    for name in alice:01 alice-ec:02; do
+        id=${name#*:}
+        name=${name%%:*}
+        openssl pkcs12 -in "$P12/$name.p12" -passin pass:senha-p12-teste -nocerts -nodes 2>/dev/null |
+            openssl pkcs8 -topk8 -nocrypt -out "$dir/$name.key"
+        openssl pkcs12 -in "$P12/$name.p12" -passin pass:senha-p12-teste -nokeys -clcerts 2>/dev/null |
+            openssl x509 -outform DER -out "$dir/$name.der"
+        chown alice "$dir/$name.key" "$dir/$name.der"
+        as alice softhsm2-util --import "$dir/$name.key" --token ipsec-client-test \
+            --label "$name" --id "$id" --pin "$TOKEN_PIN" >/dev/null
+        as alice pkcs11-tool --module "$SOFTHSM" --login --pin "$TOKEN_PIN" \
+            --write-object "$dir/$name.der" --type cert --id "$id" --label "$name" >"$dir/p11.log" 2>&1 ||
+            { cat "$dir/p11.log"; fail "could not write $name's certificate to the token"; }
+        rm -f "$dir/$name.key"
+    done
+    out=$(as alice "$CLI" secrets token-list --module "$SOFTHSM" 2>&1) || true
+    [[ $out == *"key id 01"* && $out == *"key id 02"* ]] || {
+        printf '%s\n' "$out"
+        fail "the CLI does not list the two certificates of the test token"
+    }
+}
+
+# connect_token ID CREDENTIALS key=value...: like connect, without --detach.
+connect_token() {
+    local id=$1 creds=$2 out=/tmp/modes/$1.out _
+    shift 2
+    python3 -I /test/modes/make_profile.py "/tmp/modes/$id.json" id="$id" "$@"
+    as alice "$CLI" profiles import /tmp/modes/"$id".json >/dev/null
+    as alice "$CLI" connect "$id" --credentials-stdin "${connect_args[@]}" <<<"$creds" >"$out" 2>&1 &
+    token_cli_pid=$!
+    for _ in $(seq 1 150); do
+        grep -q "Connected: $id" "$out" && return 0
+        kill -0 "$token_cli_pid" 2>/dev/null || break
+        sleep 0.2
+    done
+    cat "$out"
+    as alice "$CLI" logs -n 80 || true
+    fail "$id: connect with the token failed"
+}
+
+disconnect_token() {
+    disconnect
+    wait "$token_cli_pid" 2>/dev/null || true
+    token_cli_pid=""
+}
+
+step "Smartcard or token: an emulated token (SoftHSM) with your certificates"
+token_setup
+ok "token with alice's RSA (key id 01) and ECDSA (key id 02) certificates; the keys only on the token"
+
+step "IKEv2 with your certificate on a token (RSA), signed by the CLI's key agent"
+gw=${GW[ikev2-cert]}
+connect_args=(--token-module "$SOFTHSM" --token-id 01)
+connect_token v2-token "token-pin=$TOKEN_PIN" gateway="$gw" version=2 method=cert token=yes \
+    remote_id=gw.ipsec-client.test ca="$CA" ike=aes256-sha256-modp2048 \
+    esp=aes256-sha256 remote_ts=192.0.2.0/24
+expect_ike 2 ""
+expect_vip yes
+traffic
+log=$(as alice "$CLI" logs -n 300)
+[[ $log == *"(myself) with RSA_EMSA_PKCS1"*"successful"* ]] ||
+    fail "the log does not show the token's RSA key signing"
+[[ -S /run/ipsec-client/1000/agent/agent.sock ]] || fail "no key agent socket during the session"
+[[ $(stat -c '%U %G %a' /run/ipsec-client/1000/agent) == "alice ipsec-client-engine 750" ]] ||
+    fail "the agent directory is not alice's with charon's group (0750)"
+ok "IKEv2: the token's RSA key signed through the agent; the key never left the token"
+disconnect_token
+[[ ! -e /run/ipsec-client/1000/agent/agent.sock ]] || fail "the agent socket stayed after disconnecting"
+
+step "IKEv2 with an ECDSA certificate on a token"
+gw=${GW[ikev2-ecdsa]}
+connect_args=(--token-module "$SOFTHSM" --token-id 02)
+connect_token v2-token-ec "token-pin=$TOKEN_PIN" gateway="$gw" version=2 method=cert token=yes \
+    remote_id=gw.ipsec-client.test ca="$EC_CA" ike=aes256gcm16-prfsha384-ecp384 \
+    esp=aes256gcm16-ecp384 remote_ts=192.0.2.0/24
+expect_ike 2 ""
+traffic
+log=$(as alice "$CLI" logs -n 300)
+[[ $log == *"(myself) with ECDSA"*"successful"* ]] ||
+    fail "the log does not show the token's ECDSA key signing"
+ok "IKEv2: the token's ECDSA (P-256) key signed through the agent"
+disconnect_token
+
+step "IKEv1 main mode: your certificate on a token, then XAuth"
+gw=${GW[ikev1-cert]}
+connect_args=(--token-module "$SOFTHSM" --token-id 01)
+connect_token v1-token-xauth "token-pin=$TOKEN_PIN
+xauth-user=usuario.teste
+xauth-password=senha-de-teste" gateway="$gw" version=1 method=cert-xauth token=yes \
+    remote_id=gw.ipsec-client.test ca="$CA" ike=aes256-sha256-modp2048 \
+    esp=aes256-sha256-modp2048 remote_ts=192.0.2.0/24
+expect_ike 1 Main
+traffic
+ok "IKEv1 main mode: the token's RSA key, then XAuth"
+disconnect_token
+
+step "Token: a wrong PIN is said as such, and the PIN is nowhere"
+connect_args=(--token-module "$SOFTHSM" --token-id 01)
+python3 -I /test/modes/make_profile.py /tmp/modes/v2-token-badpin.json id=v2-token-badpin \
+    gateway="${GW[ikev2-cert]}" version=2 method=cert token=yes remote_id=gw.ipsec-client.test \
+    ca="$CA" ike=aes256-sha256-modp2048 esp=aes256-sha256 remote_ts=192.0.2.0/24
+as alice "$CLI" profiles import /tmp/modes/v2-token-badpin.json >/dev/null
+if out=$(as alice "$CLI" connect v2-token-badpin --credentials-stdin "${connect_args[@]}" \
+    <<<"token-pin=wrong-pin-1111" 2>&1); then
+    as alice "$CLI" disconnect >/dev/null || true
+    fail "connected with a wrong PIN"
+fi
+[[ $out == *"wrong PIN for the smartcard or token"* ]] || {
+    printf '%s\n' "$out"
+    fail "a wrong PIN is not diagnosed as such"
+}
+host_is_clean
+journal=$(journalctl --no-pager)
+[[ $journal != *"$TOKEN_PIN"* ]] || fail "the token PIN is in the system journal"
+grep -rIlsF "$TOKEN_PIN" /etc /run /var/log /home /tmp/alice-config 2>/dev/null | grep -q . &&
+    fail "the token PIN is in a file"
+connect_args=()
+ok "wrong PIN: \"wrong PIN for the smartcard or token\", nothing left; the PIN in no file or journal"
+
+# ---------------------------------------------------------------------------
 step "Failures are diagnosed (IKEv2 and IKEv1 main mode)"
 gw=${GW[ikev2-psk]}
 v2=(gateway="$gw" version=2 method=psk remote_ts=192.0.2.0/24

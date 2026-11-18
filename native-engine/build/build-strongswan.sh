@@ -91,6 +91,10 @@ configure_flags=(
     # IKEv2 + EAP-MSCHAPv2 (ADR-0023): the EAP identity exchange, MSCHAPv2
     # itself and the MD4 hash it needs (DES is already above).
     --enable-eap-identity --enable-eap-mschapv2 --enable-md4
+    # Smartcards and tokens (ADR-0029): charon asks the person's process to
+    # sign over the ssh-agent protocol (agent), which sends keys in the SSH
+    # format (sshkey). The token never reaches charon.
+    --enable-agent --enable-sshkey
     --disable-pki --disable-scepclient
 )
 # 6.x: PRF+ para o IKEv2 sem OpenSSL fica no plugin kdf.
