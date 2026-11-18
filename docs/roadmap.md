@@ -331,7 +331,7 @@ No 0.10 release: day-to-day testing uses development builds
 
 | Phase | Goal | Delivery | Status |
 |---|---|---|---|
-| 0 | Preparation | this program; stale local `v0.1.1` tag removed; history scanned (`check-private.sh --history`, gitleaks); new private repository created and pushed by the maintainer | ⏳ (GitHub steps with the maintainer) |
+| 0 | Preparation | this program; stale local `v0.1.1` tag removed; history scanned (`check-private.sh --history`, gitleaks); new private repository created and pushed by the maintainer | ✅ (step 49; first CI run green) |
 | A | Security and supply chain | P2 (store credentials only after connecting, app and CLI), P3 (Tauri update), P4 and every unpinned build input (rustup-init, Node, AppImage tools, Alpine packages), CI hygiene, Dependabot rewritten | ⏳ |
 | B | Complete packages | rpm/deb scripts manage the network component (`--origin package`; removing the package removes it), CLI with man page and completions in the packages, AppStream metainfo, third-party licenses in the packages, corresponding source bundle | ⏳ |
 | C | Engine with OpenSSL | ADR on the strongSwan maintenance policy (audit P1); ADR and build with the `openssl` plugin (ECDSA, ECP groups 19/20/21); E2E in `test:modes` | ⏳ |

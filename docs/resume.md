@@ -59,25 +59,15 @@
   PKCS#11 (gated) → F app (tray, status monitor, update notice) → G release
   pipeline in CI → H opening → I acceptance and release. **Phase 0 is done
   locally** (step 49): the stale `v0.1.1` tag is gone, the history is clean.
-  **Next: phase A**, after the maintainer creates the new repository (below);
-  if CI fails there, fixing it opens phase A.
+  **The new repository exists** (private, `main` and the tags pushed by
+  name on 2026-11-18) and its first CI run passed, which also confirms the
+  CI fixes of step 44. The release pages of 0.1.0–0.9.0 are recreated from
+  `docs/releases/` and the local packages (checked against their
+  `SHA256SUMS` and with `check-private.sh --artifacts`, all clean).
+  **Next: phase A.**
 - **Waiting for the maintainer:**
-  1. **New repository** (phase 0, step 49 of the log has the reasons):
-     1. on GitHub, rename the current repository to `ipsec-client-archive`
-        (Settings → General), keeping it private;
-     2. create a new, empty, **private** repository `ipsec-client` (no
-        README, license or `.gitignore`);
-     3. push only `main` and the tags, each by name (never `--tags`,
-        `--all` or `--mirror`):
-        ```bash
-        git push origin main
-        git push origin v0.1.0 v0.2.0 v0.3.0 v0.4.0 v0.5.0 v0.6.0 v0.7.0 v0.8.0 v0.9.0
-        git fetch --prune origin && git ls-remote --tags origin
-        ```
-     4. tell the result of the first CI run.
-     `remote.origin.tagOpt` is set to `--no-tags` locally so that a fetch
-     from the old repository cannot bring `v0.1.1` back; it can be removed
-     after the switch (`git config --unset remote.origin.tagOpt`).
+  1. After the switch, `git config --unset remote.origin.tagOpt` (it kept a
+     fetch from the old repository from bringing `v0.1.1` back).
   2. P8 (`initiator_only`) is not concluded: it needs a session longer than
      the gateway's phase 1 lifetime (the [audit report](audits/v0.2.0.md)
      has the steps). It is outside 1.0.
