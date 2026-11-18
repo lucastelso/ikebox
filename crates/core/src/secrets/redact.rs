@@ -126,6 +126,8 @@ const QUOTED_NON_IDENTITY: &[&str] = &[
     "plugins",
     "config",
     "configs",
+    // "configure 'version = 2' in order to use IKEv2" (IKEv1 deprecation).
+    "configure",
     "interface",
     "file",
     "script",
@@ -666,6 +668,7 @@ rota 0.0.0.0/1 via ipsc0; fe80::1 e 2001:db8::7 vistos; versão 6.1.0; hora 15:3
             "07[IKE] CHILD_SA rede{1} established with SPIs ce662fe9_i c7e6d166_o",
             // Quoted values that are not identities.
             "00[LIB] plugin 'gmp': failed to load",
+            "15[CFG] WARNING: IKEv1 support is deprecated and will be removed soon, configure 'version = 2' in order to use IKEv2",
             "05[CFG] added vici connection: config 'gateway-teste'",
             "05[KNL] interface 'ipsc0' not found",
             // Apostrophes and addresses as identities.
