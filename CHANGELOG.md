@@ -7,6 +7,12 @@ and the project uses [Semantic Versioning](https://semver.org/).
 
 ## [Unreleased]
 
+### Fixed
+
+- With "remember" checked, the credentials are stored in the keyring only
+  after the connection succeeds, in the app and in the CLI: a mistyped
+  password is no longer stored (audit P2).
+
 ### Changed
 
 - The release guide pushes tags by name only, never `--tags`.

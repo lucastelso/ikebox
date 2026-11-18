@@ -175,7 +175,7 @@ pub async fn connect(
         ));
     };
 
-    let (profile, creds) = blocking(move || {
+    let (profile, creds, store) = blocking(move || {
         let profile = load_profile(&profile_id)?;
         let keyring = KeyringStore::new().ok();
         let mut creds = match &keyring {
@@ -198,21 +198,19 @@ pub async fn connect(
                     .collect(),
             });
         }
-        if remember {
-            match &keyring {
-                Some(store) => creds.save(store, &profile)?,
-                None => {
-                    return Err(UiError::new(
-                        UiErrorKind::Keyring,
-                        tr!(
-                            "The system keyring is not available; uncheck \"remember\".",
-                            "O chaveiro do sistema não está disponível; desmarque \"lembrar\"."
-                        ),
-                    ));
-                }
-            }
+        // Stored only after the connection succeeds (audit P2): a mistyped
+        // password must not end up in the keyring. Without a keyring, fail
+        // now, before connecting.
+        if remember && keyring.is_none() {
+            return Err(UiError::new(
+                UiErrorKind::Keyring,
+                tr!(
+                    "The system keyring is not available; uncheck \"remember\".",
+                    "O chaveiro do sistema não está disponível; desmarque \"lembrar\"."
+                ),
+            ));
         }
-        Ok((profile, creds))
+        Ok((profile, creds, keyring.filter(|_| remember)))
     })
     .await?;
 
@@ -224,7 +222,24 @@ pub async fn connect(
         }
     });
 
-    let info = session::connect(&profile, &creds, &ConnectOptions::default(), Some(tx)).await?;
+    let (info, stored) = session::connect_then_remember(
+        &profile,
+        &creds,
+        &ConnectOptions::default(),
+        Some(tx),
+        store.as_ref().map(|s| s as &dyn SecretStore),
+    )
+    .await?;
+    if matches!(stored, Some(Err(_))) {
+        // The VPN is up: a keyring failure is a notice, not an error.
+        crate::desktop::notify(
+            tr!("Credentials not stored", "Credenciais não guardadas"),
+            tr!(
+                "Connected, but the system keyring refused the credentials: they will be asked again next time.",
+                "Conectado, mas o chaveiro do sistema recusou as credenciais: elas serão pedidas de novo na próxima vez."
+            ),
+        );
+    }
     Ok(Connection::from(&info))
 }
 

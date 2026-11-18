@@ -70,7 +70,7 @@ enum Command {
         /// Returns to the terminal after connecting (disconnect with `disconnect`).
         #[arg(long)]
         detach: bool,
-        /// Stores the credentials asked now in the keyring.
+        /// Stores the credentials asked now in the keyring, once connected.
         #[arg(long)]
         remember: bool,
         /// Fallback privileged container mode (avoid it; see SECURITY.md).
@@ -905,21 +905,22 @@ async fn connect(
         println!("Credentials for '{}':", profile.name);
         prompt::ask(&mut creds, &missing, false)?;
     }
-    if remember && (!missing.is_empty() || client_p12.is_some()) {
-        match &keyring {
-            Some(store) => {
-                creds.save(store, &profile)?;
-                println!("✔ Credentials stored in the keyring.");
-            }
-            None => println!("⚠ No keyring: the credentials were not stored."),
-        }
-    }
+    // Stored only after the connection succeeds (audit P2): a mistyped
+    // password must not end up in the keyring.
+    let store_after = remember && (!missing.is_empty() || client_p12.is_some());
 
     println!("Connecting '{}' ({})…", profile.name, profile.gateway);
     let (tx, mut rx) = mpsc::unbounded_channel();
-    let connecting = session::connect(&profile, &creds, options, Some(tx));
+    let store = keyring.as_ref().filter(|_| store_after);
+    let connecting = session::connect_then_remember(
+        &profile,
+        &creds,
+        options,
+        Some(tx),
+        store.map(|s| s as &dyn SecretStore),
+    );
     tokio::pin!(connecting);
-    let info = loop {
+    let (info, stored) = loop {
         tokio::select! {
             result = &mut connecting => break result?,
             Some(event) = rx.recv() => print_event(&event, true),
@@ -934,6 +935,12 @@ async fn connect(
         print_event(&event, verbose > 0);
     }
     println!("✔ {}", output::connection(&info));
+    match stored {
+        Some(Ok(())) => println!("✔ Credentials stored in the keyring."),
+        Some(Err(e)) => println!("⚠ Connected, but the credentials were not stored: {e}"),
+        None if store_after => println!("⚠ No keyring: the credentials were not stored."),
+        None => {}
+    }
 
     if detach {
         println!("\nConnected in the background. To disconnect: ipsec-client-cli disconnect");

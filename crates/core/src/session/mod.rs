@@ -25,7 +25,7 @@ pub use failure::{FailureKind, ProfileAuth, diagnose};
 use crate::diagnostics::{self, Check, CheckStatus};
 use crate::engine::{Backend, BuildProgress, EngineError, RunningEngine};
 use crate::profiles::{Profile, ProfileError};
-use crate::secrets::{Anonymizer, Credentials, Redactor, SecretsError, printable};
+use crate::secrets::{Anonymizer, Credentials, Redactor, SecretStore, SecretsError, printable};
 use crate::vici::{Charon, CharonEvent, IkeSa, ViciClient, ViciError, ViciEvents};
 
 /// Linhas de log guardadas para diagnóstico de falhas.
@@ -225,6 +225,25 @@ pub fn anonymizer_for(profile: &Profile, user: Option<&str>) -> Anonymizer {
     identities.extend(profile.auth.remote_id());
     let dns = &profile.network.dns;
     Anonymizer::new(identities, &profile.gateway, &dns.servers, &dns.domains)
+}
+
+/// Connects like [`connect`] and, only once the tunnel is up, stores the
+/// credentials in `store` (audit P2: a mistyped password must not end up in
+/// the keyring). Storing happens after the connection, so its failure does
+/// not undo it: it comes back as the second value (`None` without a store).
+///
+/// # Errors
+/// The same as [`connect`]; nothing is stored then.
+pub async fn connect_then_remember(
+    profile: &Profile,
+    credentials: &Credentials,
+    options: &ConnectOptions,
+    events: Option<EventSink>,
+    store: Option<&dyn SecretStore>,
+) -> Result<(ConnectionInfo, Option<Result<(), SecretsError>>), SessionError> {
+    let info = connect(profile, credentials, options, events).await?;
+    let stored = store.map(|store| credentials.save(store, profile));
+    Ok((info, stored))
 }
 
 /// Conecta o perfil. Devolve quando o túnel está ativo; os eventos seguintes
