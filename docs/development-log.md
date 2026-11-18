@@ -1987,3 +1987,46 @@ domain, IP) is longer than that, and every non-ELF file is still scanned
 whole. The local `v0.9.0` tag moved to the commit with this change, and the
 packages were built again from it.
 
+
+## 2026-11-18: program to 1.0.0
+
+### Step 49: phase 0, preparation
+
+The maintainer asked what was really missing for a 1.0.0 release with the
+repository opened. A review of the code, the documentation, CI, the release
+process and the history found the code itself ready (no `unwrap`/`expect`
+or panics in production code, one documented `unsafe` in the helper, no
+injected HTML or external links in the frontend, no broken links in the
+docs). What is missing is security follow-ups, a release pipeline and the
+opening itself. The [program to 1.0.0](roadmap.md#program-to-100-decided-on-2026-11-18)
+records the phases and the maintainer's decisions: a new repository, CI
+builds signed with GPG plus provenance attestations, an optional update
+notice, and four more features (close to the tray, charon without root,
+OpenSSL in the engine, PKCS#11 behind a gate).
+
+**Findings that shaped phase A and B:**
+
+- With "remember" checked, the app **and the CLI** store the credentials
+  before the connection succeeds (audit P2).
+- Removing the `.rpm`/`.deb` leaves the root helper installed and its socket
+  listening: the packages have no maintainer scripts.
+- The release build lets Tauri download the AppImage tools, one of them from
+  a moving `continuous` tag, without a pinned hash; the Alpine packages of
+  the engine builder are not pinned either (alongside audit P4).
+- The 0.6.0–0.9.0 commits never ran in GitHub's CI.
+
+**The stale `v0.1.1` tag came back.** Audit A0 had deleted it locally, but a
+later fetch brought it back from GitHub, where it still exists: it reached
+82 commits from before the email rewrite. Deleted again, and
+`remote.origin.tagOpt` is now `--no-tags`, so the old repository cannot
+return it. The release guide no longer suggests `git push --tags`.
+
+**Why a new repository.** The old commits are still reachable by hash in the
+current GitHub repository (and through that tag). Rather than depending on
+GitHub Support to purge them, the current repository becomes a private
+archive and a new one receives only `main` and the rewritten tags; a push
+only sends objects reachable from the pushed refs.
+
+**Scans before the push:** `check-private.sh --history` clean; gitleaks
+8.30.1 over the history: no leaks; every author, committer and tagger
+address in every ref is the GitHub noreply one.

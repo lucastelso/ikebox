@@ -7,6 +7,10 @@ and the project uses [Semantic Versioning](https://semver.org/).
 
 ## [Unreleased]
 
+### Changed
+
+- The release guide pushes tags by name only, never `--tags`.
+
 ## [0.9.0] - 2026-11-17
 
 Import from other VPN clients, phase 10 of the program. The network

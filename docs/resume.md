@@ -53,37 +53,34 @@
   NetworkManager, `ipsec.conf`, FortiClient). After the 0.5.0 push, CI
   failed in three jobs (shellcheck version, AppArmor in the engine E2E):
   fixed in step 44, to be confirmed by the next CI run.
-  **Next: to be decided with the maintainer.** Candidates already recorded:
-  the open audit items (P8 `initiator_only`, P14 to P17), the desktop checks
-  (P15, on Fedora/WebKitGTK and the AppImage on Ubuntu 24.04), the release
-  pipeline in CI (`chore/release`: signed `SHA256SUMS`, clean-VM
-  acceptance), ECDSA through OpenSSL (ADR-0024), smartcards (PKCS#11),
-  revocation checks, and the ideas at the end of the [roadmap](roadmap.md).
-  Each phase ends by updating this line.
-- **Waiting for the maintainer:** P8 (`initiator_only`) is not concluded:
-  the count of negotiations started by the gateway only means something
-  after a session longer than the gateway's phase 1 lifetime, and step 2
-  needs a session that long with the option on (the report has the steps).
-  To decide: P14 to P17 (phase 3); the desktop checks of P15 (now also the
-  security badge, on Fedora with WebKitGTK) fit the acceptance of a release.
-- **Still open from before:** `chore/release` (CI builds the packages on the
-  tag, rpm/deb post-install with `--origin package`, signed `SHA256SUMS`,
-  acceptance on a clean VM); running charon without root (ADR-0019).
-- **Pending with the maintainer:**
-  1. delete the old `v0.1.1` tag on GitHub
-     (`git push origin :refs/tags/v0.1.1`): it still points to the history
-     from before the email rewrite;
-  2. before making the repository public: ask GitHub Support to purge the old
-     commits (still reachable by hash) and scan the history
-     (`scripts/check-private.sh --history` + gitleaks);
-  3. delete the old branches on GitHub (all of them are merged into `main`,
-     and only `main` exists locally since 2026-11-17). After
-     `git push origin main`:
-     ```bash
-     git fetch --prune origin
-     git branch -r --merged main | grep -vE 'origin/(HEAD|main)$' |
-         sed 's#^ *origin/##' | xargs -r git push origin --delete
-     ```
+  **Now: the [program to 1.0.0](roadmap.md#program-to-100-decided-on-2026-11-18)**,
+  one phase per session: 0 preparation → A security and supply chain → B
+  complete packages → C engine with OpenSSL → D charon without root → E
+  PKCS#11 (gated) → F app (tray, status monitor, update notice) → G release
+  pipeline in CI → H opening → I acceptance and release. **Phase 0 is done
+  locally** (step 49): the stale `v0.1.1` tag is gone, the history is clean.
+  **Next: phase A**, after the maintainer creates the new repository (below);
+  if CI fails there, fixing it opens phase A.
+- **Waiting for the maintainer:**
+  1. **New repository** (phase 0, step 49 of the log has the reasons):
+     1. on GitHub, rename the current repository to `ipsec-client-archive`
+        (Settings → General), keeping it private;
+     2. create a new, empty, **private** repository `ipsec-client` (no
+        README, license or `.gitignore`);
+     3. push only `main` and the tags, each by name (never `--tags`,
+        `--all` or `--mirror`):
+        ```bash
+        git push origin main
+        git push origin v0.1.0 v0.2.0 v0.3.0 v0.4.0 v0.5.0 v0.6.0 v0.7.0 v0.8.0 v0.9.0
+        git fetch --prune origin && git ls-remote --tags origin
+        ```
+     4. tell the result of the first CI run.
+     `remote.origin.tagOpt` is set to `--no-tags` locally so that a fetch
+     from the old repository cannot bring `v0.1.1` back; it can be removed
+     after the switch (`git config --unset remote.origin.tagOpt`).
+  2. P8 (`initiator_only`) is not concluded: it needs a session longer than
+     the gateway's phase 1 lifetime (the [audit report](audits/v0.2.0.md)
+     has the steps). It is outside 1.0.
 
 ## Set up the environment (once)
 
