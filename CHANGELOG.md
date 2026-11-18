@@ -17,6 +17,11 @@ and the project uses [Semantic Versioning](https://semver.org/).
 
 ### Changed
 
+- CI: the Node.js version comes from `.nvmrc` (the release image's), every
+  job has a timeout, commit messages pushed to `main` are checked too, and
+  `npm audit` runs on the production dependencies. Dependabot follows the
+  real base images (Debian 13 engine, Ubuntu 22.04 release image, Alpine
+  engine builder).
 - Release builds: every download is pinned by SHA-256 (rustup-init, Node.js
   and the AppImage tools, which Tauri used to download unpinned), and GMP and
   musl are pinned to their versions in the engine builder (audit P4).

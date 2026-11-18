@@ -16,6 +16,7 @@ jobs:
   check:
     name: Checks (npm run check)
     runs-on: ubuntu-24.04
+    timeout-minutes: 15
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
@@ -23,7 +24,7 @@ jobs:
           persist-credentials: false
       - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
         with:
-          node-version: 22
+          node-version-file: .nvmrc
           cache: npm
       - run: npm ci
       - name: Commit messages (PR)
@@ -32,6 +33,16 @@ jobs:
           npx --no -- commitlint
           --from "${{ github.event.pull_request.base.sha }}"
           --to "${{ github.event.pull_request.head.sha }}"
+      # Merges into main are pushed directly: check the pushed range too
+      # (skipped when there is no previous commit, as on a new branch).
+      - name: Commit messages (push)
+        if: github.event_name == 'push' && github.event.before != '0000000000000000000000000000000000000000'
+        env:
+          FROM: ${{ github.event.before }}
+          TO: ${{ github.sha }}
+        run: npx --no -- commitlint --from "$FROM" --to "$TO"
+      - name: Production dependencies (npm audit)
+        run: npm audit --omit=dev --audit-level=low
       - run: npm run check:private && npm run lint:sh && npm run test:updown
       - name: Frontend (biome, tsc, vitest, build)
         run: npm run lint:web && npm run typecheck && npm run test:web && npm run build
@@ -39,6 +50,7 @@ jobs:
   rust:
     name: Rust (fmt, clippy, tests, cargo-deny)
     runs-on: ubuntu-24.04
+    timeout-minutes: 40
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
@@ -65,6 +77,7 @@ jobs:
   secrets:
     name: Secret scanner (gitleaks)
     runs-on: ubuntu-24.04
+    timeout-minutes: 10
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
@@ -79,6 +92,7 @@ jobs:
   engine-e2e:
     name: Engine (end-to-end test with a local gateway)
     runs-on: ubuntu-24.04
+    timeout-minutes: 30
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
@@ -100,6 +114,7 @@ jobs:
   native-engine:
     name: Embedded engine (compiled strongSwan + E2E)
     runs-on: ubuntu-24.04
+    timeout-minutes: 60
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
@@ -121,6 +136,7 @@ jobs:
   packaging:
     name: Network component installer (container)
     runs-on: ubuntu-24.04
+    timeout-minutes: 20
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
