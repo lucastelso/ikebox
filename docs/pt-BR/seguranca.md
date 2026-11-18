@@ -18,7 +18,7 @@ vulnerabilidades.
 | Socket de controle VICI | Socket Unix `0600`, dono = uid da sessão, em `/run/ipsec-client/<uid>` (`0711`, do root). Só o dono da sessão fala com o charon (ADRs 0003, 0014 e 0019) |
 | Comandos executados como root | Quem fala VICI **não escolhe** o `updown` nem o `if_id`: o charon embutido tem um patch que os força para os valores definidos pelo root, e os argumentos do `updown` vão num arquivo, nunca por um shell (ADR-0019) |
 | Componente de rede (root) | API mínima por socket: aceita só números, o id do perfil e o DNS, validados, nunca caminhos, comandos ou segredos. Cada pedido é autorizado pelo polkit (`allow_active`: só a sessão local ativa) e o uid vem do kernel (`SO_PEERCRED`). A única interface que ele cria ou remove é a da sessão (`ipsc<N>`, e só se for uma interface XFRM). Parar a VPN e ler o log só para o dono da sessão, e o log traz só as linhas daquela sessão; conexões atendidas em paralelo, com limite por usuário e prazo (ADRs 0014 e 0019) |
-| Host durante a conexão | O charon roda como serviço transitório do systemd com sandbox: sistema somente leitura, `/proc/sys` e `/sys` somente leitura, sem dispositivos reais, sem ver outros processos, filtro de syscalls, só as capabilities de rede e sem novos privilégios (ADRs 0014 e 0019) |
+| Host durante a conexão | O charon roda **sem root**, como o usuário de sistema `ipsec-client-engine` e só com `NET_ADMIN` (sem como ganhar outras capabilities), dentro de um serviço transitório do systemd com sandbox: sistema somente leitura, `/proc/sys` e `/sys` somente leitura, sem dispositivos reais, sem ver outros processos, filtro de syscalls e sem novos privilégios. O DNS da VPN é aplicado pela parte root do motor, e só na interface da sessão (ADRs 0014, 0019 e 0028) |
 | Instalação do componente | O instalador confere o `SHA256SUMS` numa cópia só do root e recusa links e caminhos fora do lugar. Com o `.rpm`/`.deb`, ele roda a partir do diretório do próprio app, que pertence ao root: nenhum arquivo que o usuário possa alterar é executado como root. A remoção só executa o instalador que pertence ao root (ADR-0018) |
 | Rede do host | Rotas, VIP e DNS só na interface dedicada `ipsc0`, sem flush global de XFRM e sem tocar na interface física (ADR-0004) |
 | Dados da organização do usuário | Nunca entram no repositório; há um guarda automático, que também varre os pacotes de release por dentro (ADR-0010) |
@@ -31,9 +31,10 @@ vulnerabilidades.
    (XFRM, rotas, portas 500/4500). O código com root fica num binário pequeno,
    testado, que só sobe o strongSwan com sandbox. Depois de instalado,
    qualquer usuário na sessão local ativa conecta sem senha, como no
-   NetworkManager. O charon ainda roda como root dentro do sandbox. O próximo
-   passo é rodá-lo com um usuário próprio e só as capabilities de rede
-   (ADR-0019).
+   NetworkManager. Desde a 1.0, o charon, a parte que lê o que vem da rede,
+   roda com um usuário próprio e só `NET_ADMIN`; um script root pequeno em
+   volta dele prepara a interface, aplica o DNS e limpa tudo no fim
+   ([ADR-0028](../adr/0028-charon-without-root.md), em inglês).
 2. **O strongSwan é compilado por nós, com dois patches nossos.** O
    código-fonte é verificado por SHA-256 e pela assinatura GPG dos autores
    (ADR-0016). Os dois patches são pequenos e de segurança, aplicados depois
