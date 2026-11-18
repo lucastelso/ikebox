@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # Certification of the IPsec modes that profile schema 1 accepts, on the
-# production path: ipsec-client-cli → helper (root) → embedded strongSwan,
+# production path: ikebox-cli → helper (root) → embedded strongSwan,
 # in the test computer of tests/systemd (Fedora with real systemd).
 #
 # One test gateway per mode (tests/modes/gateways/*.conf, Debian's strongSwan
@@ -21,4 +21,4 @@
 
 set -euo pipefail
 here=$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)
-IPSEC_CLIENT_TEST_SUITE=modes exec "$here/../systemd/run.sh"
+IKEBOX_TEST_SUITE=modes exec "$here/../systemd/run.sh"

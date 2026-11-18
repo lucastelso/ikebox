@@ -4,8 +4,8 @@
 use std::io::{BufRead, IsTerminal, Write};
 
 use anyhow::{Context, bail};
-use ipsec_client_core::profiles::CredentialKind;
-use ipsec_client_core::secrets::{Credentials, describe};
+use ikebox_core::profiles::CredentialKind;
+use ikebox_core::secrets::{Credentials, describe};
 use secrecy::SecretString;
 
 /// Reads credentials from standard input, one per line as `key=value` (keys:

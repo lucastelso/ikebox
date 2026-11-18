@@ -7,7 +7,7 @@ colega e quer conectar na VPN pelo Linux. Leva uns 5 minutos na primeira vez.
 
 Você vai precisar de:
 
-- o **instalador do IPsec Client** (`.rpm`, `.deb` ou `.AppImage`): da página
+- o **instalador do Ikebox** (`.rpm`, `.deb` ou `.AppImage`): da página
   Releases do repositório ou de quem te passou o perfil;
 - o **arquivo de perfil** (`algo.json`);
 - a **PSK do grupo** (a "chave do grupo"): peça a quem te passou o perfil, por
@@ -17,22 +17,22 @@ Você vai precisar de:
 
 ---
 
-## 1. Instalar o IPsec Client (uma vez)
+## 1. Instalar o Ikebox (uma vez)
 
 Na pasta onde está o instalador:
 
-- **Fedora:** `sudo dnf install ./ipsec-client-*.x86_64.rpm`
-- **Ubuntu/Debian:** `sudo apt install ./ipsec-client_*_amd64.deb`
+- **Fedora:** `sudo dnf install ./ikebox-*.x86_64.rpm`
+- **Ubuntu/Debian:** `sudo apt install ./ikebox_*_amd64.deb`
 - **Outras distribuições:** use o AppImage, conforme a seção 2 do
   [manual de instalação](instalacao.md#outras-distribuições-appimage).
 
-Depois disso, o **IPsec Client** aparece no menu de aplicativos. Ele fala o
+Depois disso, o **Ikebox** aparece no menu de aplicativos. Ele fala o
 idioma do seu sistema (português ou inglês); para trocar, vá em **Sistema →
 Aparência → Idioma**.
 
 ## 2. Instalar o componente de rede (uma vez)
 
-Abra o **IPsec Client** pelo menu. Na tela principal aparece *"Falta um passo:
+Abra o **Ikebox** pelo menu. Na tela principal aparece *"Falta um passo:
 instalar o componente de rede"*. Clique em **Instalar agora** e digite a
 **senha de administrador**. Depois disso, conectar não pede mais essa senha.
 
@@ -105,5 +105,5 @@ perfil e salve o arquivo. Ele **não tem** senha, usuário nem PSK.
 Mande o arquivo, o instalador e o link deste guia. A PSK do grupo vai **por
 outro canal**, nunca junto com o arquivo nem em grupo de chat aberto.
 
-> Prefere o terminal? Existe o `ipsec-client-cli`, com os mesmos comandos:
+> Prefere o terminal? Existe o `ikebox-cli`, com os mesmos comandos:
 > veja [docs/cli.md](../cli.md) (em inglês).

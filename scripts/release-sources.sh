@@ -11,7 +11,7 @@
 # comes from fixed commits of aports, the ones of the versions in BUILDINFO.
 #
 # Usage: scripts/release-sources.sh <version>
-#   → target/release-sources/<version>/ipsec-client-<version>-sources.tar
+#   → target/release-sources/<version>/ikebox-<version>-sources.tar
 set -euo pipefail
 
 readonly OPENSSL_VERSION=3.5.9
@@ -29,7 +29,7 @@ version=${1:?usage: $0 <version>}
 }
 repo=$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)
 out="$repo/target/release-sources/$version"
-name="ipsec-client-$version-sources"
+name="ikebox-$version-sources"
 
 work=$(mktemp -d)
 trap 'rm -rf "$work"' EXIT
@@ -65,14 +65,14 @@ for pkg in openssl:$APORTS_OPENSSL musl:$APORTS_MUSL; do
 done
 
 cat >"$dir/README.txt" <<README
-Corresponding source of the third-party code in IPsec Client $version
+Corresponding source of the third-party code in Ikebox $version
 
-The packages of IPsec Client $version carry a compiled strongSwan
+The packages of Ikebox $version carry a compiled strongSwan
 (GPL-2.0-or-later), statically linked with OpenSSL (Apache-2.0) and musl
 (MIT). This archive holds their source:
 
   strongswan-$ss_version.tar.bz2 (+ .sig)   official release, SHA-256 $ss_sha
-  patches/                           IPsec Client's changes to strongSwan
+  patches/                           Ikebox's changes to strongSwan
   build-strongswan.sh                how it is configured and built
   openssl-$OPENSSL_VERSION.tar.gz (+ .asc)    official release
   musl-$MUSL_VERSION.tar.gz (+ .asc)          official release
@@ -81,7 +81,7 @@ The packages of IPsec Client $version carry a compiled strongSwan
                                      and $APORTS_MUSL)
 
 To rebuild the engine as shipped, use native-engine/build.sh from the
-IPsec Client repository at tag v$version. See THIRD_PARTY_NOTICES.md there.
+Ikebox repository at tag v$version. See THIRD_PARTY_NOTICES.md there.
 README
 
 mkdir -p "$out"

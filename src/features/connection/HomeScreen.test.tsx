@@ -306,7 +306,7 @@ describe('HomeScreen', () => {
     expect(usable).toBeChecked();
     expect(screen.getByRole('radio', { name: /expired/ })).toBeDisabled();
     expect(screen.getByText(/Cannot be used: the certificate expired/)).toBeInTheDocument();
-    expect(screen.getByText(/Keep IPsec Client open while connected/)).toBeInTheDocument();
+    expect(screen.getByText(/Keep Ikebox open while connected/)).toBeInTheDocument();
 
     const connect = screen.getByRole('button', { name: 'Connect', hidden: false });
     expect(connect).toBeDisabled();
@@ -321,7 +321,7 @@ describe('HomeScreen', () => {
   it('shows a newer version found by the update check, with a link to it', async () => {
     const { releasePages } = mockBackend({ availableUpdate: '1.2.0' });
     render(<HomeScreen />);
-    expect(await screen.findByText('IPsec Client 1.2.0 is available.')).toBeInTheDocument();
+    expect(await screen.findByText('Ikebox 1.2.0 is available.')).toBeInTheDocument();
     await userEvent.click(screen.getByRole('button', { name: 'See what is new' }));
     expect(releasePages).toHaveLength(1);
   });

@@ -1,6 +1,6 @@
-//! Client of `ipsec-client-helper` (embedded engine, ADR-0013/0014).
+//! Client of `ikebox-helper` (embedded engine, ADR-0013/0014).
 //!
-//! It speaks the `ipsec-client-proto` protocol over the helper's socket. The
+//! It speaks the `ikebox-proto` protocol over the helper's socket. The
 //! calls are blocking (`start` waits for the engine to be ready) and, in async
 //! code, run in `spawn_blocking`.
 
@@ -9,7 +9,7 @@ use std::os::unix::net::UnixStream;
 use std::path::PathBuf;
 use std::time::Duration;
 
-use ipsec_client_proto::{
+use ikebox_proto::{
     EngineStatus, HELPER_SOCKET, MAX_LINE, Request, Response, StartParams, decode, encode,
 };
 
@@ -30,13 +30,13 @@ impl Default for NativeEngine {
     }
 }
 
-/// Socket of the helper. `$IPSEC_CLIENT_HELPER_SOCKET` replaces it only in
+/// Socket of the helper. `$IKEBOX_HELPER_SOCKET` replaces it only in
 /// development builds: the app sends the PSK and the password to the VICI
 /// socket that the helper names, so in a release build a variable planted in
 /// the user's environment must not point it at another process.
 fn default_socket() -> PathBuf {
     #[cfg(debug_assertions)]
-    if let Some(socket) = std::env::var_os("IPSEC_CLIENT_HELPER_SOCKET") {
+    if let Some(socket) = std::env::var_os("IKEBOX_HELPER_SOCKET") {
         return PathBuf::from(socket);
     }
     PathBuf::from(HELPER_SOCKET)
@@ -44,7 +44,7 @@ fn default_socket() -> PathBuf {
 
 impl NativeEngine {
     /// Client for the given socket (tests); the default uses [`HELPER_SOCKET`]
-    /// (or `$IPSEC_CLIENT_HELPER_SOCKET`, in development builds only).
+    /// (or `$IKEBOX_HELPER_SOCKET`, in development builds only).
     #[must_use]
     pub fn new(socket: PathBuf) -> Self {
         Self { socket }
@@ -59,8 +59,8 @@ impl NativeEngine {
     fn call(&self, request: &Request) -> Result<Response, EngineError> {
         let unavailable = |e: std::io::Error| {
             EngineError::Helper(crate::trf!(
-                "network component unavailable ({e}); reinstall IPsec Client",
-                "componente de rede indisponível ({e}); reinstale o IPsec Client"
+                "network component unavailable ({e}); reinstall Ikebox",
+                "componente de rede indisponível ({e}); reinstale o Ikebox"
             ))
         };
         let mut stream = UnixStream::connect(&self.socket).map_err(unavailable)?;
@@ -206,7 +206,7 @@ mod tests {
             mtu: 1400,
             log_level: 1,
             profile_id: "p".into(),
-            dns: ipsec_client_proto::DnsParams::default(),
+            dns: ikebox_proto::DnsParams::default(),
         };
         assert!(matches!(
             engine.start(&bad),

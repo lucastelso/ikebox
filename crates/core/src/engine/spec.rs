@@ -13,15 +13,15 @@ use super::context;
 use super::{DBUS_SYSTEM_SOCKET, DEFAULT_IFACE, DEFAULT_MTU, EngineError};
 
 /// Default name of the engine container.
-pub const CONTAINER_NAME: &str = "ipsec-client-engine";
+pub const CONTAINER_NAME: &str = "ikebox-engine";
 /// Where the VICI socket directory is mounted inside the container.
-pub const CONTAINER_SOCKET_DIR: &str = "/run/ipsec-client";
+pub const CONTAINER_SOCKET_DIR: &str = "/run/ikebox";
 /// File name of the VICI socket.
 pub const SOCKET_FILE: &str = "charon.vici";
 /// Label that marks the containers managed by the app.
-pub const MANAGED_LABEL: &str = "io.github.ipsec-client.managed";
+pub const MANAGED_LABEL: &str = "io.github.ikebox.managed";
 /// Label with the connected profile's id (for status/disconnect/logs).
-pub const PROFILE_LABEL: &str = "io.github.ipsec-client.profile";
+pub const PROFILE_LABEL: &str = "io.github.ikebox.profile";
 
 /// Container security options that depend on the host (ADR-0005).
 #[derive(Debug, Clone, Copy, Default, PartialEq, Eq)]
@@ -154,11 +154,11 @@ impl EngineSpec {
     #[must_use]
     pub fn env(&self) -> Vec<String> {
         vec![
-            format!("IPSEC_CLIENT_IFACE={}", self.iface),
-            format!("IPSEC_CLIENT_IF_ID={}", self.if_id),
-            format!("IPSEC_CLIENT_MTU={}", self.mtu),
-            format!("IPSEC_CLIENT_SOCKET_GID={}", self.socket_gid),
-            format!("IPSEC_CLIENT_LOG_LEVEL={}", self.log_level),
+            format!("IKEBOX_IFACE={}", self.iface),
+            format!("IKEBOX_IF_ID={}", self.if_id),
+            format!("IKEBOX_MTU={}", self.mtu),
+            format!("IKEBOX_SOCKET_GID={}", self.socket_gid),
+            format!("IKEBOX_LOG_LEVEL={}", self.log_level),
         ]
     }
 
@@ -232,7 +232,7 @@ mod tests {
     use super::*;
 
     fn spec() -> EngineSpec {
-        let mut spec = EngineSpec::new(PathBuf::from("/run/user/1000/ipsec-client"), 1000, 4096);
+        let mut spec = EngineSpec::new(PathBuf::from("/run/user/1000/ikebox"), 1000, 4096);
         spec.dbus_socket = Some(PathBuf::from(DBUS_SYSTEM_SOCKET));
         spec.security = HostSecurity::default();
         spec
@@ -244,7 +244,7 @@ mod tests {
         assert_eq!(spec().image, context::image_tag());
         assert_eq!(
             spec().socket_path(),
-            PathBuf::from("/run/user/1000/ipsec-client/charon.vici")
+            PathBuf::from("/run/user/1000/ikebox/charon.vici")
         );
     }
 
@@ -275,11 +275,11 @@ mod tests {
         assert_eq!(
             spec().env(),
             [
-                "IPSEC_CLIENT_IFACE=ipsc0",
-                "IPSEC_CLIENT_IF_ID=4096",
-                "IPSEC_CLIENT_MTU=1400",
-                "IPSEC_CLIENT_SOCKET_GID=1000",
-                "IPSEC_CLIENT_LOG_LEVEL=1",
+                "IKEBOX_IFACE=ipsc0",
+                "IKEBOX_IF_ID=4096",
+                "IKEBOX_MTU=1400",
+                "IKEBOX_SOCKET_GID=1000",
+                "IKEBOX_LOG_LEVEL=1",
             ]
         );
     }
@@ -294,7 +294,7 @@ mod tests {
         assert_eq!(
             hc.binds,
             Some(vec![
-                "/run/user/1000/ipsec-client:/run/ipsec-client".to_owned(),
+                "/run/user/1000/ikebox:/run/ikebox".to_owned(),
                 "/run/dbus/system_bus_socket:/run/dbus/system_bus_socket".to_owned(),
             ])
         );

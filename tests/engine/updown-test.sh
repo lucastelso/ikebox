@@ -13,9 +13,9 @@
 set -euo pipefail
 
 repo=$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)
-# IPSEC_CLIENT_UPDOWN_UNDER_TEST: another copy of the script (to check that the
+# IKEBOX_UPDOWN_UNDER_TEST: another copy of the script (to check that the
 # test catches an old version).
-readonly UPDOWN=${IPSEC_CLIENT_UPDOWN_UNDER_TEST:-"$repo/engine/updown.sh"}
+readonly UPDOWN=${IKEBOX_UPDOWN_UNDER_TEST:-"$repo/engine/updown.sh"}
 
 ok() { printf '  \033[0;32m✔\033[0m %s\n' "$*"; }
 fail() {

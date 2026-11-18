@@ -1,7 +1,7 @@
 /** Interface theme: follows the system by default. */
 export type Theme = 'system' | 'light' | 'dark';
 
-const KEY = 'ipsec-client:tema';
+const KEY = 'ikebox:tema';
 
 export function readTheme(): Theme {
   try {

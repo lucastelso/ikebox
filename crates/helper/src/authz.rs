@@ -11,7 +11,7 @@ use std::collections::HashMap;
 use std::os::unix::net::UnixStream;
 use std::time::Duration;
 
-use ipsec_client_proto::POLKIT_ACTION;
+use ikebox_proto::POLKIT_ACTION;
 
 /// Credentials of the client process.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]

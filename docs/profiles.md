@@ -21,7 +21,7 @@ keyring.
 
 | Location | Use |
 |---|---|
-| `~/.config/ipsec-client/profiles/<id>.json` | The user's profiles (directory 0700, files 0600) |
+| `~/.config/ikebox/profiles/<id>.json` | The user's profiles (directory 0700, files 0600) |
 | `presets/` (in the repository) | Generic examples, with documentation addresses only |
 | `presets.local/` (in the repository, **ignored by git**) | A place for your profiles with real data, before importing them |
 
@@ -190,7 +190,7 @@ Notes from those tests:
 
 The app rates each profile and shows a badge on the profile card, in the
 import preview and at the top of the connection screen; the details of the
-profile (and `ipsec-client-cli profiles show`/`validate`) explain each
+profile (and `ikebox-cli profiles show`/`validate`) explain each
 point. **It only warns:** a weak profile still connects, because what can
 change depends on what the gateway accepts.
 
@@ -238,7 +238,7 @@ If you already have a working `swanctl.conf`, the CLI creates the profile for
 you (the app does the same in **Profiles → Import**):
 
 ```bash
-ipsec-client-cli profiles import-swanctl path/to/swanctl.conf \
+ikebox-cli profiles import-swanctl path/to/swanctl.conf \
     --id my-vpn --name "My VPN" \
     --dns 192.0.2.53 --domain '~corp.example.com'
 ```
@@ -278,7 +278,7 @@ hand:
 | DNS configured by hand (e.g. `resolvectl dns`/`domain`) | `network.dns.servers` and `network.dns.domains` |
 
 Put the file in `presets.local/`, which never goes to git, and import it with
-`ipsec-client-cli profiles import <file>`.
+`ikebox-cli profiles import <file>`.
 
 ## Importing from other VPN clients
 

@@ -4,7 +4,7 @@
 #
 # The patterns are NOT in the repository: they are read from a local file, by
 # default `.git/info/private-patterns` (one ERE per line, `#` for comments),
-# or from the path in $IPSEC_CLIENT_PRIVATE_PATTERNS.
+# or from the path in $IKEBOX_PRIVATE_PATTERNS.
 #
 # Usage:
 #   scripts/check-private.sh              # checks the staged content (the index)
@@ -29,7 +29,7 @@ die() {
 repo_root=$(git rev-parse --show-toplevel 2>/dev/null) || die "not a git repository"
 cd "$repo_root"
 
-patterns_file=${IPSEC_CLIENT_PRIVATE_PATTERNS:-$(git rev-parse --git-path info/private-patterns)}
+patterns_file=${IKEBOX_PRIVATE_PATTERNS:-$(git rev-parse --git-path info/private-patterns)}
 
 mode=${1:---staged}
 
@@ -186,7 +186,7 @@ case "$mode" in
         own=("$dest")
         if [[ $pkg == *.AppImage ]]; then
             own=()
-            for path in usr/bin usr/lib/ipsec-client usr/share/applications usr/share/icons; do
+            for path in usr/bin usr/lib/ikebox usr/share/applications usr/share/icons; do
                 [[ -e $dest/squashfs-root/$path ]] && own+=("$dest/squashfs-root/$path")
             done
             for path in "$dest"/squashfs-root/*.desktop; do own+=("$path"); done

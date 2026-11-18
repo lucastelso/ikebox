@@ -1,15 +1,15 @@
-//! `ipsec-client-cli`: the same logic as the desktop app, without a GUI.
+//! `ikebox-cli`: the same logic as the desktop app, without a GUI.
 //!
 //! Examples:
 //! ```text
-//! ipsec-client-cli doctor
-//! ipsec-client-cli profiles import presets.local/office.json
-//! ipsec-client-cli secrets set office
-//! ipsec-client-cli connect office            # Ctrl+C disconnects
-//! ipsec-client-cli connect office --detach   # stays connected in the background
-//! ipsec-client-cli status
-//! ipsec-client-cli disconnect
-//! ipsec-client-cli component install --bundle target/network-component
+//! ikebox-cli doctor
+//! ikebox-cli profiles import presets.local/office.json
+//! ikebox-cli secrets set office
+//! ikebox-cli connect office            # Ctrl+C disconnects
+//! ikebox-cli connect office --detach   # stays connected in the background
+//! ikebox-cli status
+//! ikebox-cli disconnect
+//! ikebox-cli component install --bundle target/network-component
 //! ```
 
 // The CLI talks to the user through the terminal.
@@ -24,24 +24,24 @@ use std::time::Duration;
 
 use anyhow::{Context, bail};
 use clap::{CommandFactory, Parser, Subcommand};
-use ipsec_client_core::diagnostics::{self, CheckStatus};
-use ipsec_client_core::profiles::{
+use ikebox_core::diagnostics::{self, CheckStatus};
+use ikebox_core::profiles::{
     CredentialKind, DnsSettings, LegacyFormat, Profile, ProfileError, ProfileStore, SecurityLevel,
     SwanctlImport, SwanctlImportOptions, detect_legacy, import_legacy, import_swanctl,
     parse_profile, read_profile_file,
 };
-use ipsec_client_core::secrets::{
+use ikebox_core::secrets::{
     ClientCertInfo, ClientCertificate, Credentials, KeyringStore, MAX_PKCS12_BYTES, Redactor,
     SecretStore, TokenCertificate, TokenError, default_module, describe, describe_pem,
     list_certificates, mask,
 };
-use ipsec_client_core::session::{self, ConnectOptions, SessionEvent, SessionState};
+use ikebox_core::session::{self, ConnectOptions, SessionEvent, SessionState};
 use secrecy::SecretString;
 use tokio::sync::mpsc;
 
 /// IPsec VPN client for Linux (legacy VPNs: IKEv1, group PSK + XAuth).
 #[derive(Debug, Parser)]
-#[command(name = "ipsec-client-cli", version = ipsec_client_core::VERSION)]
+#[command(name = "ikebox-cli", version = ikebox_core::VERSION)]
 struct Cli {
     /// More detail (-v: charon log also after connecting; -vv: debugging).
     #[arg(short, long, action = clap::ArgAction::Count, global = true)]
@@ -326,11 +326,12 @@ enum SecretsCmd {
 }
 
 fn main() -> ExitCode {
-    if let Err(e) = ipsec_client_core::secrets::disable_core_dumps() {
+    if let Err(e) = ikebox_core::secrets::disable_core_dumps() {
         eprintln!("warning: could not disable core dumps: {e}");
     }
     let cli = Cli::parse();
     init_tracing(cli.verbose);
+    move_legacy_data();
     let runtime = match tokio::runtime::Runtime::new() {
         Ok(rt) => rt,
         Err(e) => {
@@ -347,18 +348,34 @@ fn main() -> ExitCode {
     }
 }
 
+/// Up to 0.9 this was IPsec Client: its configuration and keyring entries
+/// move to the new names once (ADR-0031).
+fn move_legacy_data() {
+    if ikebox_core::legacy::move_config() {
+        eprintln!(
+            "Moved the IPsec Client configuration (this program's name before 1.0) to Ikebox."
+        );
+    }
+    match ikebox_core::legacy::move_keyring() {
+        Some(Ok(n)) if n > 0 => {
+            eprintln!("Moved {n} stored credential(s) from IPsec Client to Ikebox.")
+        }
+        Some(Err(e)) => eprintln!(
+            "warning: the credentials stored by IPsec Client could not be moved yet ({e}); they will be on the next run"
+        ),
+        _ => {}
+    }
+}
+
 fn init_tracing(verbose: u8) {
     let level = match verbose {
         0 => "warn",
         1 => "info",
         _ => "debug",
     };
-    let filter =
-        tracing_subscriber::EnvFilter::try_from_env("IPSEC_CLIENT_LOG").unwrap_or_else(|_| {
-            tracing_subscriber::EnvFilter::new(format!(
-                "ipsec_client_core={level},ipsec_client_cli={level}"
-            ))
-        });
+    let filter = tracing_subscriber::EnvFilter::try_from_env("IKEBOX_LOG").unwrap_or_else(|_| {
+        tracing_subscriber::EnvFilter::new(format!("ikebox_core={level},ikebox_cli={level}"))
+    });
     let _ = tracing_subscriber::fmt()
         .with_env_filter(filter)
         .with_writer(std::io::stderr)
@@ -425,7 +442,7 @@ async fn run(cli: Cli) -> anyhow::Result<ExitCode> {
             clap_complete::generate(
                 shell,
                 &mut Cli::command(),
-                "ipsec-client-cli",
+                "ikebox-cli",
                 &mut std::io::stdout(),
             );
             Ok(ExitCode::SUCCESS)
@@ -445,8 +462,8 @@ fn load_profile(id: &str) -> anyhow::Result<Profile> {
     match store()?.load(id) {
         Ok(p) => Ok(p),
         Err(ProfileError::NotFound(_)) => bail!(
-            "profile '{id}' not found; see `ipsec-client-cli profiles list` or import it with \
-             `ipsec-client-cli profiles import <file>`"
+            "profile '{id}' not found; see `ikebox-cli profiles list` or import it with \
+             `ikebox-cli profiles import <file>`"
         ),
         Err(e) => Err(e.into()),
     }
@@ -464,7 +481,7 @@ fn keyring() -> Option<KeyringStore> {
 }
 
 fn component(cmd: ComponentCmd) -> anyhow::Result<ExitCode> {
-    use ipsec_client_core::component::{self as comp, Bundle, Origin, State};
+    use ikebox_core::component::{self as comp, Bundle, Origin, State};
     let open = |dir: &std::path::Path| {
         Bundle::open(dir).with_context(|| format!("bundle in {}", dir.display()))
     };
@@ -587,7 +604,7 @@ fn save_imported(
     }
     match output {
         Some(path) => {
-            write_private(&path, &ipsec_client_core::profiles::to_json(p)?)?;
+            write_private(&path, &ikebox_core::profiles::to_json(p)?)?;
             println!(
                 "✔ Written to {} (0600). Import it with `profiles import`.",
                 path.display()
@@ -603,7 +620,7 @@ fn save_imported(
             store.save(p)?;
             println!("✔ Profile '{}' saved.", p.id);
             print!("{}", security_text(p));
-            println!("  Next step: ipsec-client-cli secrets set {}", p.id);
+            println!("  Next step: ikebox-cli secrets set {}", p.id);
         }
     }
     Ok(())
@@ -616,7 +633,7 @@ fn profiles(cmd: ProfilesCmd) -> anyhow::Result<ExitCode> {
             let list = store.list()?;
             if list.profiles.is_empty() {
                 println!(
-                    "No profiles in {}. Import one with `ipsec-client-cli profiles import <file>`.",
+                    "No profiles in {}. Import one with `ikebox-cli profiles import <file>`.",
                     store.dir().display()
                 );
             }
@@ -635,7 +652,7 @@ fn profiles(cmd: ProfilesCmd) -> anyhow::Result<ExitCode> {
         }
         ProfilesCmd::Show { profile } => {
             let p = load_profile(&profile)?;
-            print!("{}", ipsec_client_core::profiles::to_json(&p)?);
+            print!("{}", ikebox_core::profiles::to_json(&p)?);
             // stdout stays the profile JSON; the security level goes to stderr.
             eprint!("{}", security_text(&p));
         }
@@ -643,7 +660,7 @@ fn profiles(cmd: ProfilesCmd) -> anyhow::Result<ExitCode> {
             let p = store.import(&file, force)?;
             println!("✔ Profile '{}' ({}) imported.", p.id, p.name);
             print!("{}", security_text(&p));
-            println!("  Next step: ipsec-client-cli secrets set {}", p.id);
+            println!("  Next step: ikebox-cli secrets set {}", p.id);
         }
         ProfilesCmd::Export { profile, file } => {
             store.export(&profile, &file)?;
@@ -656,9 +673,7 @@ fn profiles(cmd: ProfilesCmd) -> anyhow::Result<ExitCode> {
         ProfilesCmd::Delete { profile } => {
             store.delete(&profile)?;
             println!("✔ Profile '{profile}' removed.");
-            println!(
-                "  The credentials stay in the keyring: ipsec-client-cli secrets forget {profile}"
-            );
+            println!("  The credentials stay in the keyring: ikebox-cli secrets forget {profile}");
         }
         ProfilesCmd::ImportSwanctl {
             file,
@@ -958,7 +973,7 @@ fn choose_token_certificate(
             Ok(cert)
         }
         n => bail!(
-            "{n} certificates on the tokens: choose one with its key id (see `ipsec-client-cli \
+            "{n} certificates on the tokens: choose one with its key id (see `ikebox-cli \
              secrets token-list`)"
         ),
     }
@@ -1050,13 +1065,13 @@ async fn connect(
         if profile.auth.uses_token() {
             bail!(
                 "this profile signs in with a certificate on a smartcard or token: choose it \
-                 once with `ipsec-client-cli secrets token-use {}`, or pass --token-module",
+                 once with `ikebox-cli secrets token-use {}`, or pass --token-module",
                 profile.id
             );
         }
         bail!(
             "this profile signs in with a client certificate: import it once with \
-             `ipsec-client-cli secrets import-p12 {} <file>`, or pass --client-p12 <file>",
+             `ikebox-cli secrets import-p12 {} <file>`, or pass --client-p12 <file>",
             profile.id
         );
     }
@@ -1068,7 +1083,7 @@ async fn connect(
         if !prompt::interactive() {
             bail!(
                 "credentials are missing and there is no terminal to ask for them; run \
-                 `ipsec-client-cli secrets set {}` first",
+                 `ikebox-cli secrets set {}` first",
                 profile.id
             );
         }
@@ -1113,7 +1128,7 @@ async fn connect(
     }
 
     if detach {
-        println!("\nConnected in the background. To disconnect: ipsec-client-cli disconnect");
+        println!("\nConnected in the background. To disconnect: ikebox-cli disconnect");
         return Ok(ExitCode::SUCCESS);
     }
     println!("\nPress Ctrl+C to disconnect.");

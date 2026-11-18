@@ -1,6 +1,6 @@
 [package]
-name = "ipsec-client-core"
-description = "ipsec-client core: profiles, secrets, engine, session and diagnostics"
+name = "ikebox-core"
+description = "Ikebox core: profiles, secrets, engine, session and diagnostics"
 version.workspace = true
 edition.workspace = true
 rust-version.workspace = true
@@ -25,7 +25,7 @@ cryptoki = "0.12.1"
 dbus-secret-service-keyring-store = { version = "1.0.1", features = ["crypto-rust"] }
 futures-util = { version = "0.3.34", optional = true }
 hex = "0.4.3"
-ipsec-client-proto = { version = "0.9.0", path = "../proto" }
+ikebox-proto = { version = "0.9.0", path = "../proto" }
 keyring-core = "1.0.1"
 p12-keystore = "0.4.1"
 pkcs1 = "0.8.0"

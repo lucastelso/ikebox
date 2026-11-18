@@ -4,13 +4,13 @@
 # environment: the end user gets the result ready inside the app.
 #
 # Usage: native-engine/build.sh [VERSION|all]     (default: the first in the list)
-# Output: native-engine/dist/ipsec-client-engine-<version>-x86_64.tar.gz (engine)
-#         native-engine/dist/ipsec-client-engine-tools-<version>-x86_64.tar.gz (swanctl, tests only)
+# Output: native-engine/dist/ikebox-engine-<version>-x86_64.tar.gz (engine)
+#         native-engine/dist/ikebox-engine-tools-<version>-x86_64.tar.gz (swanctl, tests only)
 
 set -euo pipefail
 
 here=$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)
-readonly BUILDER=ipsec-client-engine-builder:local
+readonly BUILDER=ikebox-engine-builder:local
 wanted=${1:-}
 
 mapfile -t entries < <(grep -vE '^\s*(#|$)' "$here/versions.txt")

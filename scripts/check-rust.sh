@@ -22,7 +22,7 @@ command -v cargo >/dev/null 2>&1 || {
 }
 
 if [[ ${1:-} == --docker-tests ]]; then
-    exec cargo test -p ipsec-client-core --features docker-tests --locked --test '*' -- --test-threads=1 --nocapture
+    exec cargo test -p ikebox-core --features docker-tests --locked --test '*' -- --test-threads=1 --nocapture
 fi
 
 cargo fmt --all --check
@@ -33,7 +33,7 @@ cargo fmt --all --check
 cargo clippy --workspace --all-targets --locked -- -D warnings
 cargo clippy --workspace --all-targets --all-features --locked -- -D warnings
 cargo test --workspace --locked
-cargo test --workspace --locked --features ipsec-client-core/docker,ipsec-client-cli/docker,ipsec-client-app/docker
+cargo test --workspace --locked --features ikebox-core/docker,ikebox-cli/docker,ikebox-app/docker
 
 if command -v cargo-deny >/dev/null 2>&1; then
     cargo deny --log-level error check

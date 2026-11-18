@@ -2,13 +2,13 @@
 //!
 //! The component bundle comes among the app's resources (`<resources>/network`,
 //! only in release builds: `tauri.release.conf.json`). In development builds, a
-//! bundle can be pointed to with `IPSEC_CLIENT_COMPONENT_BUNDLE`.
+//! bundle can be pointed to with `IKEBOX_COMPONENT_BUNDLE`.
 
 use std::path::PathBuf;
 
-use ipsec_client_core::component::{self, BUNDLE_RESOURCE, Bundle, Origin};
-use ipsec_client_core::session;
-use ipsec_client_core::{tr, trf};
+use ikebox_core::component::{self, BUNDLE_RESOURCE, Bundle, Origin};
+use ikebox_core::session;
+use ikebox_core::{tr, trf};
 use tauri::{AppHandle, Manager};
 
 use crate::commands::{ConnectionLock, blocking};
@@ -17,7 +17,7 @@ use crate::dto::{ComponentInfo, UiError, UiErrorKind};
 /// Directory of the bundle that comes with the app, if any.
 fn bundle_dir(app: &AppHandle) -> Option<PathBuf> {
     #[cfg(debug_assertions)]
-    if let Some(dir) = std::env::var_os("IPSEC_CLIENT_COMPONENT_BUNDLE") {
+    if let Some(dir) = std::env::var_os("IKEBOX_COMPONENT_BUNDLE") {
         return Some(PathBuf::from(dir));
     }
     app.path()

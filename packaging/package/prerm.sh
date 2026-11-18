@@ -10,7 +10,7 @@
 # an upgrade).
 set -u
 
-prefix=/opt/ipsec-client
+prefix=/opt/ikebox
 
 case "${1:-}" in
 remove | 0) ;;
@@ -20,7 +20,7 @@ esac
 [ "$(cat "$prefix/ORIGIN" 2>/dev/null)" = package ] || exit 0
 if [ -f "$prefix/libexec/install-native.sh" ]; then
     bash "$prefix/libexec/install-native.sh" uninstall ||
-        echo "ipsec-client: warning: the network component could not be removed;" \
+        echo "ikebox: warning: the network component could not be removed;" \
             "run: sudo $prefix/libexec/install-native.sh uninstall" >&2
 fi
 exit 0

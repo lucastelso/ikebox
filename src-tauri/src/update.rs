@@ -14,9 +14,9 @@
 use std::time::{Duration, SystemTime, UNIX_EPOCH};
 
 /// Where releases are published.
-pub const RELEASES_URL: &str = "https://github.com/lucastelso/ipsec-client/releases";
+pub const RELEASES_URL: &str = "https://github.com/lucastelso/ikebox/releases";
 #[cfg(feature = "update-check")]
-const LATEST_API: &str = "https://api.github.com/repos/lucastelso/ipsec-client/releases/latest";
+const LATEST_API: &str = "https://api.github.com/repos/lucastelso/ikebox/releases/latest";
 
 /// How often the check runs.
 pub const INTERVAL: Duration = Duration::from_secs(24 * 60 * 60);
@@ -54,10 +54,7 @@ pub fn parse_version(text: &str) -> Option<(u64, u64, u64)> {
 /// `latest` is newer than this app.
 #[must_use]
 pub fn is_newer(latest: &str) -> bool {
-    match (
-        parse_version(latest),
-        parse_version(ipsec_client_core::VERSION),
-    ) {
+    match (parse_version(latest), parse_version(ikebox_core::VERSION)) {
         (Some(l), Some(c)) => l > c,
         _ => false,
     }
@@ -83,7 +80,7 @@ pub fn latest_version() -> Result<String, String> {
     let agent: ureq::Agent = ureq::Agent::config_builder()
         .timeout_global(Some(Duration::from_secs(15)))
         .https_only(true)
-        .user_agent(format!("ipsec-client/{}", ipsec_client_core::VERSION))
+        .user_agent(format!("ikebox/{}", ikebox_core::VERSION))
         .build()
         .into();
     let mut response = agent
@@ -140,7 +137,7 @@ mod tests {
         assert!(!is_newer("junk"));
         assert_eq!(
             release_page("v1.4.2").as_deref(),
-            Some("https://github.com/lucastelso/ipsec-client/releases/tag/v1.4.2")
+            Some("https://github.com/lucastelso/ikebox/releases/tag/v1.4.2")
         );
         assert_eq!(release_page("1.4.2/../../evil"), None);
     }

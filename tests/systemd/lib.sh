@@ -4,10 +4,10 @@
 # root. Credentials and addresses belong to the test gateways (FAKE,
 # RFC 5737).
 
-readonly CLI=/test/ipsec-client-cli
+readonly CLI=/test/ikebox-cli
 readonly IFACE=ipsc0
 readonly RT_PROTO=241
-readonly ALICE_SOCKET=/run/ipsec-client/1000/charon.vici
+readonly ALICE_SOCKET=/run/ikebox/1000/charon.vici
 # Fixed if_id of the embedded engine (audit P10).
 readonly ENGINE_IF_ID=0x49504331
 # swanctl comes from the engine's test tools tarball: it is not shipped.
@@ -26,7 +26,7 @@ as() {
     local user=$1
     shift
     runuser -u "$user" -- env XDG_CONFIG_HOME="/tmp/$user-config" \
-        IPSEC_CLIENT_BACKEND=native "$@"
+        IKEBOX_BACKEND=native "$@"
 }
 # The output of `ip xfrm state` has keys: it is only counted, never printed.
 count_xfrm_state() { ip -o xfrm state 2>/dev/null | grep -c "if_id $1" || true; }
@@ -56,11 +56,11 @@ install_component() {
     }
     # No polkit in the container: authorization by a uid list. Only root can
     # change the helper command line.
-    install -d /etc/systemd/system/ipsec-client-helper.service.d
-    printf '[Service]\nExecStart=\nExecStart=/opt/ipsec-client/bin/ipsec-client-helper --allow-uid 1000 --allow-uid 1001\n' \
-        >/etc/systemd/system/ipsec-client-helper.service.d/test.conf
+    install -d /etc/systemd/system/ikebox-helper.service.d
+    printf '[Service]\nExecStart=\nExecStart=/opt/ikebox/bin/ikebox-helper --allow-uid 1000 --allow-uid 1001\n' \
+        >/etc/systemd/system/ikebox-helper.service.d/test.conf
     systemctl daemon-reload
-    systemctl stop ipsec-client-helper.service 2>/dev/null || true
+    systemctl stop ikebox-helper.service 2>/dev/null || true
     # Some base images come with a user of their own on uid 1000 (Ubuntu 24.04).
     local uid existing
     for uid in 1000 1001; do

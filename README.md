@@ -1,6 +1,12 @@
-# IPsec Client
+<p align="center"><img src="assets/logo.svg" width="96" alt=""></p>
+
+# Ikebox — Sandboxed IPsec VPN client for Linux (legacy IKEv1 & IKEv2)
 
 **[Português](README.pt-BR.md)** · English
+
+**IKE** in a **box**: [strongSwan](https://www.strongswan.org/)'s IKE engine,
+running in an isolated sandbox without root. Up to 0.9 the project was called
+*IPsec Client*; updating from it keeps your profiles and stored credentials.
 
 IPsec VPN client for **Linux**, built for **legacy** VPNs: IKEv1, aggressive
 mode, group PSK + XAuth, old DH groups. It is the kind of corporate VPN that
@@ -21,7 +27,7 @@ on seven distributions.
   <img src="docs/screenshots/system-en-dark.png" width="260" alt="System: the network component and the diagnostics, in the dark theme">
 </p>
 
-Downloads: [Releases](https://github.com/lucastelso/ipsec-client/releases)
+Downloads: [Releases](https://github.com/lucastelso/ikebox/releases)
 (AppImage, `.deb`, `.rpm`, signed). What changed: [CHANGELOG](CHANGELOG.md).
 
 ---
@@ -38,7 +44,7 @@ was dropped, and the native tools do not help:
 - NetworkManager does not handle the **group PSK + XAuth in aggressive mode**
   combination well.
 
-IPsec Client solves this by shipping **its own strongSwan** (6.1.0, compiled
+Ikebox solves this by shipping **its own strongSwan** (6.1.0, compiled
 from the official source code). It keeps the legacy algorithms without
 weakening anything in the system. For the user, it is an app with profiles,
 safely stored credentials, diagnostics and a tray icon.
@@ -50,7 +56,7 @@ safely stored credentials, diagnostics and a tray icon.
 - **Teams** that want to hand a ready-made profile to colleagues, with the
   gateway, proposals, routes and DNS. Each person only enters their own
   credentials.
-- **Automation:** there is a command line (`ipsec-client-cli`) with the same
+- **Automation:** there is a command line (`ikebox-cli`) with the same
   logic as the app.
 
 ### Who it is not for
@@ -64,15 +70,15 @@ safely stored credentials, diagnostics and a tray icon.
 ## Installation
 
 Download the file for your distribution from the
-[Releases](https://github.com/lucastelso/ipsec-client/releases) page:
+[Releases](https://github.com/lucastelso/ikebox/releases) page:
 
 | Your distribution | File | How to install |
 |---|---|---|
-| Fedora, openSUSE, RHEL 10 (with EPEL) | `.rpm` | `sudo dnf install ./ipsec-client-*.x86_64.rpm` |
-| Ubuntu, Debian, Mint | `.deb` | `sudo apt install ./ipsec-client_*_amd64.deb` |
+| Fedora, openSUSE, RHEL 10 (with EPEL) | `.rpm` | `sudo dnf install ./ikebox-*.x86_64.rpm` |
+| Ubuntu, Debian, Mint | `.deb` | `sudo apt install ./ikebox_*_amd64.deb` |
 | Others | `.AppImage` | `chmod +x` and open it |
 
-Then open **IPsec Client** from the applications menu. With the `.rpm` or the
+Then open **Ikebox** from the applications menu. With the `.rpm` or the
 `.deb`, the package also installs the network component (the part that runs
 the VPN); with the AppImage, the app asks for the administrator password
 **once** to install it.
@@ -98,11 +104,11 @@ technical documentation is in English.
 
 ```
 ┌──────────────────────────────── Linux host ─────────────────────────────────┐
-│  IPsec Client (app)  or  ipsec-client-cli                (your user)        │
-│     │ profiles: ~/.config/ipsec-client   credentials: system keyring        │
+│  Ikebox (app)  or  ikebox-cli                (your user)        │
+│     │ profiles: ~/.config/ikebox   credentials: system keyring        │
 │     │ "start the engine" (socket + polkit)   │ VICI (socket 0600, yours)    │
 │     ▼                                        │                              │
-│  ipsec-client-helper (root, minimal API)     │                              │
+│  ikebox-helper (root, minimal API)     │                              │
 │     │ systemd-run, sandboxed                 ▼                              │
 │     └──► charon (embedded strongSwan 6.1.0) ── updown → routes + DNS        │
 │              │ XFRM SAs and policies (with if_id)                           │
@@ -179,16 +185,16 @@ behind each choice is in the [ADRs](docs/adr/README.md).
 
 ## Command line
 
-`ipsec-client-cli` does the same as the app, from the terminal. The `.rpm` and
-the `.deb` install it, with a manual page (`man ipsec-client-cli`) and shell
+`ikebox-cli` does the same as the app, from the terminal. The `.rpm` and
+the `.deb` install it, with a manual page (`man ikebox-cli`) and shell
 completions; with the AppImage, build it from source (see the
 [CLI guide](docs/cli.md)):
 
 ```bash
-ipsec-client-cli doctor             # is this computer ready?
-ipsec-client-cli profiles import my-vpn.json
-ipsec-client-cli secrets set my-vpn
-ipsec-client-cli connect my-vpn     # Ctrl+C disconnects
+ikebox-cli doctor             # is this computer ready?
+ikebox-cli profiles import my-vpn.json
+ikebox-cli secrets set my-vpn
+ikebox-cli connect my-vpn     # Ctrl+C disconnects
 ```
 
 A profile is a JSON file without credentials: see
@@ -258,9 +264,9 @@ No test uses a real VPN.
 
 ```
 crates/core/     Rust core: profiles, secrets, engine, session, diagnostics, network component, i18n
-crates/cli/      ipsec-client-cli
+crates/cli/      ikebox-cli
 crates/proto/    protocol between the app and the helper (shared validation)
-crates/helper/   ipsec-client-helper: the network component that runs as root
+crates/helper/   ikebox-helper: the network component that runs as root
 src-tauri/       desktop app (Tauri v2): thin commands over the core, DTOs, tray, packages
 src/             interface (React 19 + TypeScript + Tailwind 4 + shadcn/ui components), src/i18n
 native-engine/   embedded strongSwan build (source verified by SHA-256 + GPG, security patches)
@@ -289,7 +295,7 @@ Using it:
 - **[Installation guide](docs/installation.md)** ([pt-BR](docs/pt-BR/instalacao.md))
 - **[Quick start: connect with a profile you received](docs/quick-start.md)** ([pt-BR](docs/pt-BR/guia-rapido.md))
 - [Connection profiles (format, importing, sharing with colleagues)](docs/profiles.md)
-- [Command line (ipsec-client-cli)](docs/cli.md)
+- [Command line (ikebox-cli)](docs/cli.md)
 - [Security](SECURITY.md) ([pt-BR](docs/pt-BR/seguranca.md)) · [Support](SUPPORT.md) · [Changelog](CHANGELOG.md)
 
 How it is built:
@@ -304,6 +310,19 @@ Development records, kept public for transparency: the
 [security audit](docs/audits/v0.2.0.md) and the
 [current state](docs/resume.md).
 
+## Built on strongSwan
+
+Ikebox would not exist without [strongSwan](https://www.strongswan.org/), the
+open-source IPsec implementation of the strongSwan project and its
+contributors. Every key exchange, every SA and every packet that Ikebox
+protects goes through strongSwan's charon: Ikebox builds it from the official,
+signature-checked release, adds a few small patches that narrow what a local
+client may ask of it (all in `native-engine/patches/`, each explained in an
+ADR), and wraps it in the sandbox, the interface and the profiles. Security
+problems in strongSwan itself go to [the strongSwan project](https://www.strongswan.org/security.html).
+Ikebox is an independent project, not affiliated with or endorsed by
+strongSwan.
+
 ## License
 
 [GPL-3.0-or-later](LICENSE). Any redistributed version must stay open source,
@@ -311,6 +330,6 @@ which is what you expect from a security tool. The reason for the choice is in
 [ADR-0017](docs/adr/0017-gpl-3-license.md). strongSwan, OpenSSL and musl, embedded
 in the engine, and the libraries compiled into the app have their own
 licenses: see [THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md). The installed
-app carries every text in `/usr/lib/ipsec-client/licenses/`, and each release
+app carries every text in `/usr/lib/ikebox/licenses/`, and each release
 attaches the source of the embedded engine. The logo (`assets/logo.svg`) was
 made for this project and is under the same license.

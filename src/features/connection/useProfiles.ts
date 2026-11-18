@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useState } from 'react';
 import { commands, type ProfileList, type UiError } from '@/bindings';
 
-const SELECTED_KEY = 'ipsec-client:perfil-selecionado';
+const SELECTED_KEY = 'ikebox:perfil-selecionado';
 
 function readSelected(): string | null {
   try {

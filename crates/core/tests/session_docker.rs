@@ -2,7 +2,7 @@
 //! `session::connect` (preflight, image, engine, events, negotiation),
 //! `status`, `disconnect` and the diagnosis of a wrong XAuth password.
 //!
-//! It uses the production names (container `ipsec-client-engine`, interface
+//! It uses the production names (container `ikebox-engine`, interface
 //! `ipsc0`): the test refuses to run if there is already an active connection
 //! or if the IKE ports are taken.
 #![cfg(feature = "docker-tests")]
@@ -12,10 +12,10 @@ mod support;
 
 use std::time::Duration;
 
-use ipsec_client_core::engine::{CONTAINER_NAME, DEFAULT_IFACE, DockerEngine};
-use ipsec_client_core::profiles::{CredentialKind, Profile, parse_profile};
-use ipsec_client_core::secrets::{Credentials, MemoryStore, SecretStore};
-use ipsec_client_core::session::{
+use ikebox_core::engine::{CONTAINER_NAME, DEFAULT_IFACE, DockerEngine};
+use ikebox_core::profiles::{CredentialKind, Profile, parse_profile};
+use ikebox_core::secrets::{Credentials, MemoryStore, SecretStore};
+use ikebox_core::session::{
     self, ConnectOptions, FailureKind, SessionError, SessionEvent, SessionState,
 };
 use secrecy::SecretString;
@@ -50,11 +50,11 @@ async fn session_connect_status_disconnect_and_failure_diagnosis() {
     }
     let engine = DockerEngine::connect().expect("Docker");
     if engine.is_running(CONTAINER_NAME).await.expect("inspect") {
-        eprintln!("pulando: já existe um engine do ipsec-client rodando");
+        eprintln!("pulando: já existe um engine do ikebox rodando");
         return;
     }
     let image = engine.ensure_image(|_| {}).await.expect("imagem");
-    let gateway = TestGateway::start(&image, "ipsec-client-rs-session").await;
+    let gateway = TestGateway::start(&image, "ikebox-rs-session").await;
 
     let result = tokio::spawn(scenario(gateway.ip.clone())).await;
 

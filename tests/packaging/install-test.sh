@@ -8,7 +8,7 @@
 #
 # Scenarios: install, reinstall with another origin, remove, and refuse a
 # tampered bundle, a symlink, an incomplete bundle, a tarball outside
-# /opt/ipsec-client/engine or with a link inside, and running without root. In a second container
+# /opt/ikebox/engine or with a link inside, and running without root. In a second container
 # set up like an image-based distribution (Fedora Silverblue/Kinoite): a
 # read-only policy directory, where the policy goes to /etc with a new enough
 # polkit and an old polkit is refused before anything is installed; and /opt
@@ -36,7 +36,7 @@ expect_refusal() {
         fail "$why: the installer accepted it"
     fi
     grep -q -- "$pattern" <<<"$out" || fail "$why: unexpected message: $out"
-    [[ ! -e /opt/ipsec-client ]] || fail "$why: installed anyway"
+    [[ ! -e /opt/ikebox ]] || fail "$why: installed anyway"
     ok "$why: refused"
 }
 
@@ -65,15 +65,15 @@ STUB
 
     step "install without systemd running (image build, container)"
     bash /bundle/install-native.sh install --bundle /bundle --origin package >/dev/null
-    grep -qx "enable ipsec-client-helper.socket" /tmp/systemctl.log ||
+    grep -qx "enable ikebox-helper.socket" /tmp/systemctl.log ||
         fail "socket not enabled for the next boot"
-    id -u ipsec-client-engine >/dev/null 2>&1 || fail "system user ipsec-client-engine not created"
-    [[ $(id -u ipsec-client-engine) != 0 ]] || fail "the engine user is root"
+    id -u ikebox-engine >/dev/null 2>&1 || fail "system user ikebox-engine not created"
+    [[ $(id -u ikebox-engine) != 0 ]] || fail "the engine user is root"
     if grep -qE "daemon-reload|--now|^stop" /tmp/systemctl.log; then
         fail "talked to a systemd that is not running: $(tr '\n' ';' </tmp/systemctl.log)"
     fi
-    bash /opt/ipsec-client/libexec/install-native.sh uninstall >/dev/null
-    [[ ! -e /opt/ipsec-client ]] || fail "not removed without systemd"
+    bash /opt/ikebox/libexec/install-native.sh uninstall >/dev/null
+    [[ ! -e /opt/ikebox ]] || fail "not removed without systemd"
     ok "files installed, socket enabled for the next boot, removed again"
     : >/tmp/systemctl.log
     # From here on, systemd manages the system.
@@ -81,20 +81,20 @@ STUB
 
     step "install (origin app)"
     bash /bundle/install-native.sh install --bundle /bundle --origin app
-    local p=/opt/ipsec-client
-    [[ -x $p/bin/ipsec-client-helper && -x $p/libexec/entrypoint.sh && -x $p/libexec/updown ]] ||
+    local p=/opt/ikebox
+    [[ -x $p/bin/ikebox-helper && -x $p/libexec/entrypoint.sh && -x $p/libexec/updown ]] ||
         fail "binaries/scripts missing"
     [[ -x $p/libexec/install-native.sh ]] || fail "installer not copied"
-    [[ -f $p/engine/etc/strongswan.d/zz-ipsec-client.conf ]] || fail "configuration missing"
+    [[ -f $p/engine/etc/strongswan.d/zz-ikebox.conf ]] || fail "configuration missing"
     [[ $(cat "$p/ORIGIN") == app ]] || fail "wrong ORIGIN"
     cmp -s /bundle/SHA256SUMS "$p/SHA256SUMS" || fail "SHA256SUMS not recorded"
     cmp -s /bundle/VERSION "$p/VERSION" || fail "VERSION not recorded"
-    [[ $(stat -c %U "$p/bin/ipsec-client-helper") == root ]] || fail "wrong owner"
+    [[ $(stat -c %U "$p/bin/ikebox-helper") == root ]] || fail "wrong owner"
     [[ -z $(find "$p" -perm /022 -print -quit) ]] || fail "file writable by others"
-    [[ -f /etc/systemd/system/ipsec-client-helper.socket ]] || fail "unit missing"
-    [[ -f /usr/share/polkit-1/actions/io.github.lucastelso.ipsecclient.policy ]] ||
+    [[ -f /etc/systemd/system/ikebox-helper.socket ]] || fail "unit missing"
+    [[ -f /usr/share/polkit-1/actions/io.github.lucastelso.ikebox.policy ]] ||
         fail "policy missing"
-    grep -q "enable --now ipsec-client-helper.socket" /tmp/systemctl.log ||
+    grep -q "enable --now ikebox-helper.socket" /tmp/systemctl.log ||
         fail "socket not enabled"
     ok "files, owners, permissions, units, policy and version record"
 
@@ -105,9 +105,9 @@ STUB
 
     step "remove (with the copied installer)"
     bash "$p/libexec/install-native.sh" uninstall >/dev/null
-    [[ ! -e $p && ! -e /etc/systemd/system/ipsec-client-helper.socket ]] ||
+    [[ ! -e $p && ! -e /etc/systemd/system/ikebox-helper.socket ]] ||
         fail "something was left behind"
-    [[ ! -e /usr/share/polkit-1/actions/io.github.lucastelso.ipsecclient.policy ]] ||
+    [[ ! -e /usr/share/polkit-1/actions/io.github.lucastelso.ikebox.policy ]] ||
         fail "policy not removed"
     ok "completely removed"
 
@@ -118,18 +118,18 @@ STUB
     expect_refusal "tampered file" "does not match" "$b"
 
     b=$(copy_bundle)
-    ln -sf /etc/shadow "$b/packaging/polkit/io.github.lucastelso.ipsecclient.policy"
+    ln -sf /etc/shadow "$b/packaging/polkit/io.github.lucastelso.ikebox.policy"
     expect_refusal "symlink" "links" "$b"
 
     b=$(copy_bundle)
-    rm "$b/packaging/systemd/ipsec-client-helper.service"
+    rm "$b/packaging/systemd/ikebox-helper.service"
     resum "$b"
-    expect_refusal "incomplete bundle" "missing packaging/systemd/ipsec-client-helper.service" "$b"
+    expect_refusal "incomplete bundle" "missing packaging/systemd/ikebox-helper.service" "$b"
 
     b=$(copy_bundle)
     local evil
     evil=$(mktemp -d)
-    mkdir -p "$evil/opt/ipsec-client/engine" "$evil/etc/cron.d"
+    mkdir -p "$evil/opt/ikebox/engine" "$evil/etc/cron.d"
     echo x >"$evil/etc/cron.d/evil"
     tar -czf "$b/engine.tar.gz" -C "$evil" opt etc
     resum "$b"
@@ -137,8 +137,8 @@ STUB
 
     b=$(copy_bundle)
     evil=$(mktemp -d)
-    mkdir -p "$evil/opt/ipsec-client/engine"
-    ln -s /etc "$evil/opt/ipsec-client/engine/etc-link"
+    mkdir -p "$evil/opt/ikebox/engine"
+    ln -s /etc "$evil/opt/ikebox/engine/etc-link"
     tar -czf "$b/engine.tar.gz" -C "$evil" opt
     resum "$b"
     expect_refusal "link inside the engine tarball" "links or special files" "$b"
@@ -146,7 +146,7 @@ STUB
     if bash /bundle/install-native.sh install --bundle /bundle --origin root >/dev/null 2>&1; then
         fail "invalid origin accepted"
     fi
-    [[ ! -e /opt/ipsec-client ]] || fail "invalid origin: installed anyway"
+    [[ ! -e /opt/ikebox ]] || fail "invalid origin: installed anyway"
     ok "invalid origin: refused"
 
     if setpriv --reuid=65534 --regid=65534 --clear-groups \
@@ -168,7 +168,7 @@ echo "$*" >>/tmp/systemctl.log
 STUB
     chmod 0755 /usr/local/bin/systemctl
     mkdir -p /etc/systemd/system
-    local policy=io.github.lucastelso.ipsecclient.policy out version
+    local policy=io.github.lucastelso.ikebox.policy out version
     if touch /usr/share/polkit-1/actions/probe 2>/dev/null; then
         fail "the test needs a read-only /usr/share/polkit-1/actions"
     fi
@@ -186,7 +186,7 @@ STUB
             fail "polkit $version: the installer went ahead"
         fi
         grep -q "polkit 124 or newer is needed" <<<"$out" || fail "polkit $version: unexpected message: $out"
-        [[ ! -e /opt/ipsec-client && ! -e /etc/polkit-1/actions/$policy ]] ||
+        [[ ! -e /opt/ikebox && ! -e /etc/polkit-1/actions/$policy ]] ||
             fail "polkit $version: something was installed"
     done
     ok "polkit 0.105 and 122: refused with the reason, nothing installed"
@@ -201,18 +201,18 @@ STUB
         [[ -f /etc/polkit-1/actions/$policy ]] || fail "polkit $version: policy not in /etc/polkit-1/actions"
         [[ -L /opt && $(readlink /opt) == var/opt ]] ||
             fail "polkit $version: the /opt link was replaced by the installation"
-        [[ -x /var/opt/ipsec-client/bin/ipsec-client-helper &&
-            -f /var/opt/ipsec-client/engine/libexec/ipsec/charon ]] ||
-            fail "polkit $version: the component is not in /var/opt/ipsec-client"
+        [[ -x /var/opt/ikebox/bin/ikebox-helper &&
+            -f /var/opt/ikebox/engine/libexec/ipsec/charon ]] ||
+            fail "polkit $version: the component is not in /var/opt/ikebox"
         [[ $(stat -c '%a %U' "/etc/polkit-1/actions/$policy") == "644 root" ]] ||
             fail "polkit $version: wrong mode or owner of the policy"
         grep -q "goes to /etc/polkit-1/actions" /tmp/install.log || fail "polkit $version: the log does not say where the policy went"
-        bash /opt/ipsec-client/libexec/install-native.sh uninstall >/dev/null
-        [[ ! -e /opt/ipsec-client && ! -e /etc/polkit-1/actions/$policy ]] ||
+        bash /opt/ikebox/libexec/install-native.sh uninstall >/dev/null
+        [[ ! -e /opt/ikebox && ! -e /etc/polkit-1/actions/$policy ]] ||
             fail "polkit $version: something was left behind"
     done
     ok "polkit 124 and 127: policy installed in /etc/polkit-1/actions and removed with the component"
-    ok "/opt stays a link to var/opt: the component lands in /var/opt/ipsec-client"
+    ok "/opt stays a link to var/opt: the component lands in /var/opt/ikebox"
 }
 
 # --- On the host ---------------------------------------------------------------
@@ -225,8 +225,8 @@ main() {
     trap "rm -rf '$work'" EXIT
 
     step "building a bundle with a fake engine and helper"
-    mkdir -p "$work/root/opt/ipsec-client/engine/etc/strongswan.d" \
-        "$work/root/opt/ipsec-client/engine/libexec/ipsec"
+    mkdir -p "$work/root/opt/ikebox/engine/etc/strongswan.d" \
+        "$work/root/opt/ikebox/engine/libexec/ipsec"
     # BUILDINFO declares the patches of this commit, like a really compiled
     # engine: without it, the production script refuses the engine (ADR-0019).
     local patches=() patch_file
@@ -234,11 +234,11 @@ main() {
         patches+=("$(basename "$patch_file"):$(sha256sum "$patch_file" | cut -c1-64)")
     done
     printf 'strongswan=0.0.0-teste\npatches=%s\n' "${patches[*]}" \
-        >"$work/root/opt/ipsec-client/engine/BUILDINFO"
-    printf '#!/bin/sh\nexit 0\n' >"$work/root/opt/ipsec-client/engine/libexec/ipsec/charon"
-    chmod 0755 "$work/root/opt/ipsec-client/engine/libexec/ipsec/charon"
+        >"$work/root/opt/ikebox/engine/BUILDINFO"
+    printf '#!/bin/sh\nexit 0\n' >"$work/root/opt/ikebox/engine/libexec/ipsec/charon"
+    chmod 0755 "$work/root/opt/ikebox/engine/libexec/ipsec/charon"
     tar -czf "$work/engine.tar.gz" -C "$work/root" opt
-    printf '#!/bin/sh\necho "ipsec-client-helper 0.0.0-teste"\n' >"$work/helper"
+    printf '#!/bin/sh\necho "ikebox-helper 0.0.0-teste"\n' >"$work/helper"
     chmod 0755 "$work/helper"
     "$repo/scripts/stage-network-component.sh" --out "$work/bundle" \
         --engine "$work/engine.tar.gz" --helper "$work/helper" >/dev/null

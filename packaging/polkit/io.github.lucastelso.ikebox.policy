@@ -2,11 +2,11 @@
 <!DOCTYPE policyconfig PUBLIC
  "-//freedesktop//DTD PolicyKit Policy Configuration 1.0//EN"
  "http://www.freedesktop.org/standards/PolicyKit/1/policyconfig.dtd">
-<!-- IPsec Client (ADR-0014): the user of the active local session connects
+<!-- Ikebox (ADR-0014): the user of the active local session connects
      and disconnects without a password; remote or inactive sessions do not. -->
 <policyconfig>
-  <vendor>IPsec Client</vendor>
-  <action id="io.github.lucastelso.ipsecclient.connect">
+  <vendor>Ikebox</vendor>
+  <action id="io.github.lucastelso.ikebox.connect">
     <description>Connect and disconnect IPsec VPNs</description>
     <description xml:lang="pt_BR">Conectar e desconectar VPNs IPsec</description>
     <message>Authentication is required to control IPsec VPNs</message>

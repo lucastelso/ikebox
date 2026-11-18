@@ -1,12 +1,12 @@
-//! Commands exposed to the UI. Thin: they delegate to `ipsec-client-core`.
+//! Commands exposed to the UI. Thin: they delegate to `ikebox-core`.
 //!
 //! All of them are `async` (synchronous Tauri commands run on the UI thread),
 //! and blocking operations (disk, keyring over D-Bus) go to `spawn_blocking`.
 
-use ipsec_client_core::profiles::{CredentialKind, Profile, ProfileStore};
-use ipsec_client_core::secrets::{ClientCertificate, Credentials, KeyringStore, SecretStore, mask};
-use ipsec_client_core::session::{self, ConnectOptions};
-use ipsec_client_core::{tr, trf};
+use ikebox_core::profiles::{CredentialKind, Profile, ProfileStore};
+use ikebox_core::secrets::{ClientCertificate, Credentials, KeyringStore, SecretStore, mask};
+use ikebox_core::session::{self, ConnectOptions};
+use ikebox_core::{tr, trf};
 use secrecy::{ExposeSecret, SecretString};
 use tauri::AppHandle;
 use tauri_specta::Event as _;
@@ -50,7 +50,7 @@ fn load_profile(id: &str) -> Result<Profile, UiError> {
 #[must_use]
 pub fn app_info() -> AppInfo {
     AppInfo {
-        version: ipsec_client_core::VERSION.to_owned(),
+        version: ikebox_core::VERSION.to_owned(),
         engine_image: engine_label(),
     }
 }
@@ -59,16 +59,16 @@ pub fn app_info() -> AppInfo {
 /// development builds, "embedded" in release builds (no Docker engine).
 fn engine_label() -> String {
     #[cfg(feature = "docker")]
-    return ipsec_client_core::engine::context::image_tag();
+    return ikebox_core::engine::context::image_tag();
     #[cfg(not(feature = "docker"))]
     return tr!("embedded", "embutido").to_owned();
 }
 
-/// Environment diagnostics (the same as `ipsec-client-cli doctor`).
+/// Environment diagnostics (the same as `ikebox-cli doctor`).
 #[tauri::command]
 #[specta::specta]
 pub async fn run_diagnostics() -> Vec<DiagnosticCheck> {
-    ipsec_client_core::diagnostics::doctor()
+    ikebox_core::diagnostics::doctor()
         .await
         .iter()
         .map(DiagnosticCheck::from)
@@ -194,7 +194,7 @@ pub async fn connect(
                 .to_owned(),
                 details: missing
                     .iter()
-                    .map(|k| ipsec_client_core::secrets::describe(*k).to_owned())
+                    .map(|k| ikebox_core::secrets::describe(*k).to_owned())
                     .collect(),
             });
         }
@@ -245,7 +245,7 @@ pub async fn connect(
 
 /// Completes the credentials with what was typed (empty fields are ignored).
 fn apply_input(creds: &mut Credentials, input: CredentialsInput) {
-    use ipsec_client_core::profiles::CredentialKind as K;
+    use ikebox_core::profiles::CredentialKind as K;
     for (kind, value) in [
         (K::Psk, input.psk),
         (K::XauthUser, input.xauth_user),
@@ -289,7 +289,7 @@ pub async fn forget_credentials(profile_id: String) -> Result<(), UiError> {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use ipsec_client_core::profiles::CredentialKind;
+    use ikebox_core::profiles::CredentialKind;
 
     #[test]
     fn input_fills_only_given_fields() {
@@ -342,6 +342,6 @@ pub async fn anonymize_log(profile_id: String, lines: Vec<String>) -> Result<Str
 #[tauri::command]
 #[specta::specta]
 pub fn set_language(lang: String) {
-    use ipsec_client_core::i18n::{Lang, set_lang};
+    use ikebox_core::i18n::{Lang, set_lang};
     set_lang(if lang == "pt" { Lang::Pt } else { Lang::En });
 }

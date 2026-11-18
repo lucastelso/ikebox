@@ -50,9 +50,9 @@ if command -v gh >/dev/null 2>&1 && [[ -n ${GH_TOKEN:-} ]]; then
     work=$(mktemp -d)
     trap 'rm -rf "$work"' EXIT
     if gh release download --pattern '*.deb' --dir "$work" >/dev/null 2>&1; then
-        (cd "$work" && ar x ./*.deb && tar -xf data.tar.* ./usr/lib/ipsec-client/network/engine.tar.gz) &&
-            shipped=$(tar -xzOf "$work/usr/lib/ipsec-client/network/engine.tar.gz" \
-                opt/ipsec-client/engine/BUILDINFO 2>/dev/null || true)
+        (cd "$work" && ar x ./*.deb && tar -xf data.tar.* ./usr/lib/ikebox/network/engine.tar.gz) &&
+            shipped=$(tar -xzOf "$work/usr/lib/ikebox/network/engine.tar.gz" \
+                opt/ikebox/engine/BUILDINFO 2>/dev/null || true)
     fi
 fi
 if [[ -z $shipped ]]; then

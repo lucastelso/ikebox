@@ -4,7 +4,7 @@ Português · **[English](../../SECURITY.md)**
 
 ## Reportando vulnerabilidades
 
-**Relate em privado:** [Report a vulnerability](https://github.com/lucastelso/ipsec-client/security/advisories/new)
+**Relate em privado:** [Report a vulnerability](https://github.com/lucastelso/ikebox/security/advisories/new)
 (o relato privado de vulnerabilidades do GitHub, na aba **Security**). Não
 abra issue, discussão nem pull request públicos sobre o assunto.
 
@@ -48,10 +48,10 @@ app oferece a atualização). Versões anteriores à 1.0 não têm suporte.
 | Ativo | Proteção |
 |---|---|
 | PSK, usuário e senha XAuth | Ficam em memória (`secrecy`/`zeroize`) ou no chaveiro do sistema. Vão do app direto ao charon pelo socket VICI; o componente de rede (root) nunca as recebe. Nunca vão para disco, env, argumentos ou logs (ADR-0007; os ADRs estão em inglês, em [docs/adr](../adr/README.md)) |
-| Socket de controle VICI | Socket Unix `0600`, dono = uid da sessão, em `/run/ipsec-client/<uid>` (`0711`, do root). Só o dono da sessão fala com o charon (ADRs 0003, 0014 e 0019) |
+| Socket de controle VICI | Socket Unix `0600`, dono = uid da sessão, em `/run/ikebox/<uid>` (`0711`, do root). Só o dono da sessão fala com o charon (ADRs 0003, 0014 e 0019) |
 | Comandos executados como root | Quem fala VICI **não escolhe** o `updown` nem o `if_id`: o charon embutido tem um patch que os força para os valores definidos pelo root, e os argumentos do `updown` vão num arquivo, nunca por um shell (ADR-0019) |
 | Componente de rede (root) | API mínima por socket: aceita só números, o id do perfil e o DNS, validados, nunca caminhos, comandos ou segredos. Cada pedido é autorizado pelo polkit (`allow_active`: só a sessão local ativa) e o uid vem do kernel (`SO_PEERCRED`). A única interface que ele cria ou remove é a da sessão (`ipsc<N>`, e só se for uma interface XFRM). Parar a VPN e ler o log só para o dono da sessão, e o log traz só as linhas daquela sessão; conexões atendidas em paralelo, com limite por usuário e prazo (ADRs 0014 e 0019) |
-| Host durante a conexão | O charon roda **sem root**, como o usuário de sistema `ipsec-client-engine` e só com `NET_ADMIN` (sem como ganhar outras capabilities), dentro de um serviço transitório do systemd com sandbox: sistema somente leitura, `/proc/sys` e `/sys` somente leitura, sem dispositivos reais, sem ver outros processos, filtro de syscalls e sem novos privilégios. O DNS da VPN é aplicado pela parte root do motor, e só na interface da sessão (ADRs 0014, 0019 e 0028) |
+| Host durante a conexão | O charon roda **sem root**, como o usuário de sistema `ikebox-engine` e só com `NET_ADMIN` (sem como ganhar outras capabilities), dentro de um serviço transitório do systemd com sandbox: sistema somente leitura, `/proc/sys` e `/sys` somente leitura, sem dispositivos reais, sem ver outros processos, filtro de syscalls e sem novos privilégios. O DNS da VPN é aplicado pela parte root do motor, e só na interface da sessão (ADRs 0014, 0019 e 0028) |
 | Instalação do componente | O instalador confere o `SHA256SUMS` numa cópia só do root e recusa links e caminhos fora do lugar. Com o `.rpm`/`.deb`, ele roda a partir do diretório do próprio app, que pertence ao root: nenhum arquivo que o usuário possa alterar é executado como root. A remoção só executa o instalador que pertence ao root (ADR-0018) |
 | Rede do host | Rotas, VIP e DNS só na interface dedicada `ipsc0`, sem flush global de XFRM e sem tocar na interface física (ADR-0004) |
 | Dados da organização do usuário | Nunca entram no repositório; há um guarda automático, que também varre os pacotes de release por dentro (ADR-0010) |

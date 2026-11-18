@@ -59,7 +59,7 @@ jobs:
           scripts/release-sources.sh "$version"
           mkdir dist
           cp "$built"/*.AppImage "$built"/*.deb "$built"/*.rpm dist/
-          cp "target/release-sources/$version/ipsec-client-$version-sources.tar" dist/
+          cp "target/release-sources/$version/ikebox-$version-sources.tar" dist/
           echo "version=$version" >>"$GITHUB_OUTPUT"
       - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
@@ -152,4 +152,4 @@ jobs:
             cat "docs/releases/$TAG.pt-BR.md" >>"$notes"
           fi
           gh release create "$TAG" dist/* --draft --verify-tag \
-            --title "IPsec Client $VERSION" --notes-file "$notes"
+            --title "Ikebox $VERSION" --notes-file "$notes"

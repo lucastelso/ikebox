@@ -2,7 +2,7 @@
   "schema_version": 1,
   "id": "gateway-teste",
   "name": "Local IPsec test gateway",
-  "gateway": "gw.ipsec-client.test",
+  "gateway": "gw.ikebox.test",
   "ike": {
     "version": 1,
     "aggressive": true,
@@ -25,7 +25,7 @@
   },
   "network": {
     "dns": {
-      "domains": ["~ipsec-client.test"],
+      "domains": ["~ikebox.test"],
       "use_received": true
     }
   }

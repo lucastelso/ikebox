@@ -15,7 +15,7 @@
 //! read the FUSE mount, so the bundle is copied to a private directory and
 //! checked. Either way the installer, as root, checks it again in a copy of its
 //! own before installing. Removing uses the installer copy left in
-//! `/opt/ipsec-client` (root's), never a file of the user's.
+//! `/opt/ikebox` (root's), never a file of the user's.
 
 use std::ffi::OsStr;
 use std::fs;
@@ -29,7 +29,7 @@ use sha2::{Digest, Sha256};
 use crate::engine::NativeEngine;
 
 /// Where the component is installed.
-pub const PREFIX: &str = "/opt/ipsec-client";
+pub const PREFIX: &str = "/opt/ikebox";
 /// Name of the bundle directory among the app's resources.
 pub const BUNDLE_RESOURCE: &str = "network";
 
@@ -37,10 +37,10 @@ const SUMS: &str = "SHA256SUMS";
 const VERSION_FILE: &str = "VERSION";
 const ORIGIN_FILE: &str = "ORIGIN";
 const INSTALLER: &str = "install-native.sh";
-const HELPER: &str = "ipsec-client-helper";
+const HELPER: &str = "ikebox-helper";
 /// The helper goes compressed in the bundle: linuxdeploy (AppImage) rewrites the
 /// RPATH of every loose ELF inside the app, and the hash would no longer match.
-const HELPER_GZ: &str = "ipsec-client-helper.gz";
+const HELPER_GZ: &str = "ikebox-helper.gz";
 
 /// Files the bundle must have (the same list as `install-native.sh`).
 pub const REQUIRED_FILES: [&str; 10] = [
@@ -50,10 +50,10 @@ pub const REQUIRED_FILES: [&str; 10] = [
     HELPER_GZ,
     "engine/entrypoint.sh",
     "engine/updown.sh",
-    "engine/strongswan.d/zz-ipsec-client.conf",
-    "packaging/systemd/ipsec-client-helper.socket",
-    "packaging/systemd/ipsec-client-helper.service",
-    "packaging/polkit/io.github.lucastelso.ipsecclient.policy",
+    "engine/strongswan.d/zz-ikebox.conf",
+    "packaging/systemd/ikebox-helper.socket",
+    "packaging/systemd/ikebox-helper.service",
+    "packaging/polkit/io.github.lucastelso.ikebox.policy",
 ];
 
 /// Files that are made executable in the copy.
@@ -85,9 +85,9 @@ pub enum ComponentError {
     /// No `pkexec`.
     #[error("{}", crate::tr!(
         "pkexec was not found; install it (package pkexec, or polkit on Fedora) or use \
-         the IPsec Client .rpm/.deb package",
+         the Ikebox .rpm/.deb package",
         "o pkexec não foi encontrado; instale-o (pacote pkexec, ou polkit no Fedora) ou \
-         use o pacote .rpm/.deb do IPsec Client"
+         use o pacote .rpm/.deb do Ikebox"
     ))]
     NoPkexec,
 
@@ -143,7 +143,7 @@ fn invalid(msg: impl Into<String>) -> ComponentError {
 /// Versions recorded in `VERSION` (`version=` and `strongswan=`).
 #[derive(Debug, Clone, Default, PartialEq, Eq)]
 pub struct Version {
-    /// Version of IPsec Client that put the bundle together.
+    /// Version of Ikebox that put the bundle together.
     pub app: Option<String>,
     /// Version of the embedded strongSwan.
     pub strongswan: Option<String>,
@@ -291,7 +291,7 @@ impl Bundle {
     /// I/O, or a copy that does not match.
     pub fn stage_in(&self, parent: &Path) -> Result<StagedBundle, ComponentError> {
         let dir = tempfile::Builder::new()
-            .prefix("ipsec-client-setup-")
+            .prefix("ikebox-setup-")
             .permissions(fs::Permissions::from_mode(0o700))
             .tempdir_in(parent)?;
         for (_, rel) in &self.entries {
@@ -946,14 +946,11 @@ mod tests {
             for stream in listener.incoming().flatten() {
                 let mut line = String::new();
                 let _ = BufReader::new(&stream).read_line(&mut line);
-                let reply = ipsec_client_proto::Response::Pong {
+                let reply = ikebox_proto::Response::Pong {
                     version: "9.9.9".into(),
                 };
-                let _ = (&stream).write_all(
-                    ipsec_client_proto::encode(&reply)
-                        .expect("encode")
-                        .as_bytes(),
-                );
+                let _ =
+                    (&stream).write_all(ikebox_proto::encode(&reply).expect("encode").as_bytes());
             }
         });
         NativeEngine::new(path)

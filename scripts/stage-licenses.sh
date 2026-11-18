@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # Prepares the license folder that goes into every package (release builds,
-# src-tauri/tauri.release.conf.json), installed as /usr/lib/ipsec-client/
+# src-tauri/tauri.release.conf.json), installed as /usr/lib/ikebox/
 # licenses (inside the AppImage too):
 #   LICENSE                     the project's license (GPL-3.0-or-later)
 #   THIRD_PARTY_NOTICES.md      what is distributed, and where its source is
@@ -26,7 +26,7 @@ install -d "$out/engine"
 install -m 0644 LICENSE THIRD_PARTY_NOTICES.md "$out/"
 node scripts/third-party-licenses.mjs "$out/THIRD_PARTY_LICENSES.txt"
 tar -xzf "$engine" -C "$out/engine" --strip-components=5 --no-same-owner \
-    opt/ipsec-client/engine/share/licenses
+    opt/ikebox/engine/share/licenses
 [[ -n $(find "$out/engine" -type f -print -quit) ]] || {
     echo "error: the engine carries no license texts" >&2
     exit 1

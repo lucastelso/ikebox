@@ -1,15 +1,15 @@
-//! `ipsec-client-helper`: the only IPsec Client component that runs as root
+//! `ikebox-helper`: the only Ikebox component that runs as root
 //! (ADR-0014). It starts and stops the embedded engine under a systemd sandbox.
 //!
-//! In production it is activated by systemd (`ipsec-client-helper.socket`).
+//! In production it is activated by systemd (`ikebox-helper.socket`).
 //! For tests, root can start it by hand:
 //!
 //! ```text
-//! sudo ipsec-client-helper --socket /run/test.sock --allow-uid 1000 \
+//! sudo ikebox-helper --socket /run/test.sock --allow-uid 1000 \
 //!     --engine-dir /path/engine --libexec-dir /path/libexec
 //! ```
 //!
-//! Protocol and validation: the `ipsec-client-proto` crate. The helper never
+//! Protocol and validation: the `ikebox-proto` crate. The helper never
 //! receives secrets (they go from the app straight to charon, over the VICI
 //! socket).
 
@@ -25,13 +25,13 @@ use std::path::PathBuf;
 use std::sync::{Arc, Mutex, PoisonError};
 use std::time::{Duration, Instant};
 
-use ipsec_client_proto::{MAX_LINE, Request, Response, decode, encode};
+use ikebox_proto::{MAX_LINE, Request, Response, decode, encode};
 
 use crate::authz::{Authorizer, Peer, peer_of};
 use crate::engine::Paths;
 
-const DEFAULT_ENGINE_DIR: &str = "/opt/ipsec-client/engine";
-const DEFAULT_LIBEXEC_DIR: &str = "/opt/ipsec-client/libexec";
+const DEFAULT_ENGINE_DIR: &str = "/opt/ikebox/engine";
+const DEFAULT_LIBEXEC_DIR: &str = "/opt/ikebox/libexec";
 /// Connections served at the same time. The socket accepts any user: without
 /// a limit (and with one connection at a time), a stalled client would block
 /// the helper.
@@ -125,7 +125,7 @@ fn parse_args() -> Result<Options, String> {
             "--libexec-dir" => libexec_dir = PathBuf::from(value()?),
             "--allow-uid" => allow.push(value()?.parse().map_err(|_| "invalid uid".to_owned())?),
             "--version" => {
-                println!("ipsec-client-helper {}", env!("CARGO_PKG_VERSION"));
+                println!("ikebox-helper {}", env!("CARGO_PKG_VERSION"));
                 std::process::exit(0);
             }
             other => return Err(format!("unknown argument: {other}")),
@@ -245,12 +245,12 @@ fn main() {
     let options = match parse_args() {
         Ok(o) => o,
         Err(e) => {
-            eprintln!("ipsec-client-helper: {e}");
+            eprintln!("ikebox-helper: {e}");
             std::process::exit(2);
         }
     };
     if !rustix::process::geteuid().is_root() {
-        eprintln!("ipsec-client-helper: must run as root (from systemd)");
+        eprintln!("ikebox-helper: must run as root (from systemd)");
         std::process::exit(1);
     }
     let listener = match (&options.socket, inherited_listener()) {
@@ -263,12 +263,12 @@ fn main() {
     let listener = match listener {
         Ok(l) => l,
         Err(e) => {
-            eprintln!("ipsec-client-helper: {e}");
+            eprintln!("ikebox-helper: {e}");
             std::process::exit(1);
         }
     };
     eprintln!(
-        "ipsec-client-helper {} ready (authorization: {})",
+        "ikebox-helper {} ready (authorization: {})",
         env!("CARGO_PKG_VERSION"),
         match options.authorizer {
             Authorizer::Polkit => "polkit",

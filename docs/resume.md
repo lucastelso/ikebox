@@ -24,7 +24,7 @@
 - **Waiting for the maintainer:**
   0. **The release signing key and the `release` environment** (phase G):
      the steps are in [release.md](release.md#signing-key-once) ("Signing
-     key" and "GitHub setup"); commit `packaging/keys/ipsec-client-release.asc`
+     key" and "GitHub setup"); commit `packaging/keys/ikebox-release.asc`
      and run a rehearsal (**Actions → Release → Run workflow** on `main`).
      Until then the signing job of a tag fails, by design.
   1. A development build on the real VPN (phases A, D, F): connect, check
@@ -60,7 +60,7 @@ npm run test:compat    # test:systemd on seven distributions (~4 min after the f
 ```
 
 While the network component installed on this computer is older than the
-code, run `test:docker` and `test:cli` with `IPSEC_CLIENT_BACKEND=docker`: the
+code, run `test:docker` and `test:cli` with `IKEBOX_BACKEND=docker`: the
 old helper refuses the new request, as it should.
 
 ## Rules that do not change

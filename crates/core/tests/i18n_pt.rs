@@ -1,11 +1,11 @@
 //! Messages in Brazilian Portuguese. Its own test binary (own process): the
 //! language is global, and the unit tests run in English.
 
-use ipsec_client_core::engine::EngineError;
-use ipsec_client_core::i18n::{Lang, lang, set_lang};
-use ipsec_client_core::profiles::CredentialKind;
-use ipsec_client_core::secrets::describe;
-use ipsec_client_core::session::FailureKind;
+use ikebox_core::engine::EngineError;
+use ikebox_core::i18n::{Lang, lang, set_lang};
+use ikebox_core::profiles::CredentialKind;
+use ikebox_core::secrets::describe;
+use ikebox_core::session::FailureKind;
 
 #[test]
 fn messages_follow_the_chosen_language() {

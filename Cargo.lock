@@ -2121,6 +2121,94 @@ dependencies = [
 ]
 
 [[package]]
+name = "ikebox-app"
+version = "0.9.0"
+dependencies = [
+ "dbus",
+ "ikebox-core",
+ "secrecy",
+ "serde",
+ "serde_json",
+ "specta",
+ "specta-typescript",
+ "tauri",
+ "tauri-build",
+ "tauri-plugin-dialog",
+ "tauri-specta",
+ "tempfile",
+ "tokio",
+ "tracing",
+ "ureq",
+ "zeroize",
+]
+
+[[package]]
+name = "ikebox-cli"
+version = "0.9.0"
+dependencies = [
+ "anyhow",
+ "clap",
+ "clap_complete",
+ "clap_mangen",
+ "ikebox-core",
+ "rpassword",
+ "secrecy",
+ "tokio",
+ "tracing-subscriber",
+ "zeroize",
+]
+
+[[package]]
+name = "ikebox-core"
+version = "0.9.0"
+dependencies = [
+ "bollard",
+ "cryptoki",
+ "dbus-secret-service-keyring-store",
+ "futures-util",
+ "hex",
+ "ikebox-proto",
+ "insta",
+ "keyring-core",
+ "p12-keystore",
+ "pkcs1",
+ "pkcs8",
+ "roxmltree",
+ "rustix",
+ "secrecy",
+ "serde",
+ "serde_json",
+ "sha1",
+ "sha2 0.11.1",
+ "tar",
+ "tempfile",
+ "thiserror 2.0.21",
+ "tokio",
+ "tracing",
+ "x509-cert",
+ "zeroize",
+]
+
+[[package]]
+name = "ikebox-helper"
+version = "0.9.0"
+dependencies = [
+ "dbus",
+ "ikebox-proto",
+ "rustix",
+ "serde_json",
+ "tempfile",
+]
+
+[[package]]
+name = "ikebox-proto"
+version = "0.9.0"
+dependencies = [
+ "serde",
+ "serde_json",
+]
+
+[[package]]
 name = "image"
 version = "0.25.10"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -2202,94 +2290,6 @@ name = "ipnet"
 version = "2.12.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "791930b43c0d5973160d90a8f3894509f2b273430f5c5c73b668636d0287c5c0"
-
-[[package]]
-name = "ipsec-client-app"
-version = "0.9.0"
-dependencies = [
- "dbus",
- "ipsec-client-core",
- "secrecy",
- "serde",
- "serde_json",
- "specta",
- "specta-typescript",
- "tauri",
- "tauri-build",
- "tauri-plugin-dialog",
- "tauri-specta",
- "tempfile",
- "tokio",
- "tracing",
- "ureq",
- "zeroize",
-]
-
-[[package]]
-name = "ipsec-client-cli"
-version = "0.9.0"
-dependencies = [
- "anyhow",
- "clap",
- "clap_complete",
- "clap_mangen",
- "ipsec-client-core",
- "rpassword",
- "secrecy",
- "tokio",
- "tracing-subscriber",
- "zeroize",
-]
-
-[[package]]
-name = "ipsec-client-core"
-version = "0.9.0"
-dependencies = [
- "bollard",
- "cryptoki",
- "dbus-secret-service-keyring-store",
- "futures-util",
- "hex",
- "insta",
- "ipsec-client-proto",
- "keyring-core",
- "p12-keystore",
- "pkcs1",
- "pkcs8",
- "roxmltree",
- "rustix",
- "secrecy",
- "serde",
- "serde_json",
- "sha1",
- "sha2 0.11.1",
- "tar",
- "tempfile",
- "thiserror 2.0.21",
- "tokio",
- "tracing",
- "x509-cert",
- "zeroize",
-]
-
-[[package]]
-name = "ipsec-client-helper"
-version = "0.9.0"
-dependencies = [
- "dbus",
- "ipsec-client-proto",
- "rustix",
- "serde_json",
- "tempfile",
-]
-
-[[package]]
-name = "ipsec-client-proto"
-version = "0.9.0"
-dependencies = [
- "serde",
- "serde_json",
-]
 
 [[package]]
 name = "is_terminal_polyfill"

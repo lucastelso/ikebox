@@ -1,4 +1,4 @@
-"""Sends a request (JSON) to ipsec-client-helper and prints the reply.
+"""Sends a request (JSON) to ikebox-helper and prints the reply.
 
 Usage: python3 -I helper_client.py '<json>' [--hold SECONDS | --drip SECONDS]
 With --hold, it only opens the connection and stays idle (slow/malicious client).
@@ -11,7 +11,7 @@ import socket
 import sys
 import time
 
-SOCKET = "/run/ipsec-client-helper.sock"
+SOCKET = "/run/ikebox-helper.sock"
 
 
 def main() -> None:

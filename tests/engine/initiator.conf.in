@@ -41,7 +41,7 @@ connections {
                 close_action = start
                 if_id_in = @IF_ID@
                 if_id_out = @IF_ID@
-                updown = /usr/local/libexec/ipsec-client/updown --iface '@IFACE@'@UPDOWN_EXTRA@
+                updown = /usr/local/libexec/ikebox/updown --iface '@IFACE@'@UPDOWN_EXTRA@
             }
         }
     }
@@ -50,7 +50,7 @@ connections {
 secrets {
     ike-grupo-teste {
         id = keyid:grupo-teste
-        secret = ipsec-client-test-psk
+        secret = ikebox-test-psk
     }
     xauth-usuario-teste {
         id = usuario.teste

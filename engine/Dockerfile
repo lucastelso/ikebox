@@ -1,4 +1,4 @@
-# ipsec-client Docker engine and test gateway: Debian's strongSwan in a
+# ikebox Docker engine and test gateway: Debian's strongSwan in a
 # container. Development and tests only (ADR-0001, amended by ADR-0020):
 # release builds of the app have no Docker engine, and users get the embedded
 # engine. See docs/architecture.md.
@@ -32,18 +32,18 @@ RUN set -eux; \
     /usr/lib/ipsec/charon --version | grep -q "strongSwan ${STRONGSWAN_VERSION}\b"; \
     command -v resolvectl
 
-COPY strongswan.d/zz-ipsec-client.conf /etc/strongswan.d/zz-ipsec-client.conf
-COPY entrypoint.sh /usr/local/sbin/ipsec-client-entrypoint
-COPY updown.sh /usr/local/libexec/ipsec-client/updown
+COPY strongswan.d/zz-ikebox.conf /etc/strongswan.d/zz-ikebox.conf
+COPY entrypoint.sh /usr/local/sbin/ikebox-entrypoint
+COPY updown.sh /usr/local/libexec/ikebox/updown
 
 RUN set -eux; \
-    chmod 0644 /etc/strongswan.d/zz-ipsec-client.conf; \
-    chmod 0755 /usr/local/sbin/ipsec-client-entrypoint /usr/local/libexec/ipsec-client/updown; \
-    mkdir -p /run/ipsec-client
+    chmod 0644 /etc/strongswan.d/zz-ikebox.conf; \
+    chmod 0755 /usr/local/sbin/ikebox-entrypoint /usr/local/libexec/ikebox/updown; \
+    mkdir -p /run/ikebox
 
-LABEL org.opencontainers.image.title="ipsec-client-engine" \
-      org.opencontainers.image.description="Debian strongSwan for ipsec-client development and tests" \
-      io.github.ipsec-client.strongswan="${STRONGSWAN_VERSION}"
+LABEL org.opencontainers.image.title="ikebox-engine" \
+      org.opencontainers.image.description="Debian strongSwan for ikebox development and tests" \
+      io.github.ikebox.strongswan="${STRONGSWAN_VERSION}"
 
 STOPSIGNAL SIGTERM
-ENTRYPOINT ["/usr/local/sbin/ipsec-client-entrypoint"]
+ENTRYPOINT ["/usr/local/sbin/ikebox-entrypoint"]

@@ -11,22 +11,22 @@
     "linux": {
       "deb": {
         "files": {
-          "/usr/bin/ipsec-client-cli": "../target/cli-assets/ipsec-client-cli",
-          "/usr/share/man/man1/ipsec-client-cli.1.gz": "../target/cli-assets/ipsec-client-cli.1.gz",
-          "/usr/share/bash-completion/completions/ipsec-client-cli": "../target/cli-assets/ipsec-client-cli.bash",
-          "/usr/share/fish/vendor_completions.d/ipsec-client-cli.fish": "../target/cli-assets/ipsec-client-cli.fish",
-          "/usr/share/zsh/vendor-completions/_ipsec-client-cli": "../target/cli-assets/_ipsec-client-cli",
-          "/usr/share/metainfo/io.github.lucastelso.ipsecclient.metainfo.xml": "linux/io.github.lucastelso.ipsecclient.metainfo.xml"
+          "/usr/bin/ikebox-cli": "../target/cli-assets/ikebox-cli",
+          "/usr/share/man/man1/ikebox-cli.1.gz": "../target/cli-assets/ikebox-cli.1.gz",
+          "/usr/share/bash-completion/completions/ikebox-cli": "../target/cli-assets/ikebox-cli.bash",
+          "/usr/share/fish/vendor_completions.d/ikebox-cli.fish": "../target/cli-assets/ikebox-cli.fish",
+          "/usr/share/zsh/vendor-completions/_ikebox-cli": "../target/cli-assets/_ikebox-cli",
+          "/usr/share/metainfo/io.github.lucastelso.ikebox.metainfo.xml": "linux/io.github.lucastelso.ikebox.metainfo.xml"
         }
       },
       "rpm": {
         "files": {
-          "/usr/bin/ipsec-client-cli": "../target/cli-assets/ipsec-client-cli",
-          "/usr/share/man/man1/ipsec-client-cli.1.gz": "../target/cli-assets/ipsec-client-cli.1.gz",
-          "/usr/share/bash-completion/completions/ipsec-client-cli": "../target/cli-assets/ipsec-client-cli.bash",
-          "/usr/share/fish/vendor_completions.d/ipsec-client-cli.fish": "../target/cli-assets/ipsec-client-cli.fish",
-          "/usr/share/zsh/site-functions/_ipsec-client-cli": "../target/cli-assets/_ipsec-client-cli",
-          "/usr/share/metainfo/io.github.lucastelso.ipsecclient.metainfo.xml": "linux/io.github.lucastelso.ipsecclient.metainfo.xml"
+          "/usr/bin/ikebox-cli": "../target/cli-assets/ikebox-cli",
+          "/usr/share/man/man1/ikebox-cli.1.gz": "../target/cli-assets/ikebox-cli.1.gz",
+          "/usr/share/bash-completion/completions/ikebox-cli": "../target/cli-assets/ikebox-cli.bash",
+          "/usr/share/fish/vendor_completions.d/ikebox-cli.fish": "../target/cli-assets/ikebox-cli.fish",
+          "/usr/share/zsh/site-functions/_ikebox-cli": "../target/cli-assets/_ikebox-cli",
+          "/usr/share/metainfo/io.github.lucastelso.ikebox.metainfo.xml": "linux/io.github.lucastelso.ikebox.metainfo.xml"
         }
       }
     }

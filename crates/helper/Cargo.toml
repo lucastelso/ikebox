@@ -1,6 +1,6 @@
 [package]
-name = "ipsec-client-helper"
-description = "Privileged ipsec-client helper: starts and stops the embedded engine (root, systemd)"
+name = "ikebox-helper"
+description = "Privileged Ikebox helper: starts and stops the embedded engine (root, systemd)"
 version.workspace = true
 edition.workspace = true
 rust-version.workspace = true
@@ -24,12 +24,12 @@ dbg_macro = "warn"
 todo = "warn"
 
 [[bin]]
-name = "ipsec-client-helper"
+name = "ikebox-helper"
 path = "src/main.rs"
 
 [dependencies]
 dbus = "0.9.12"
-ipsec-client-proto = { path = "../proto" }
+ikebox-proto = { path = "../proto" }
 rustix = { version = "1.1.6", features = ["net", "process", "fs"] }
 serde_json = "1.0.154"
 

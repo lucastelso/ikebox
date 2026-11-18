@@ -8,7 +8,7 @@ minutes the first time.
 
 You will need:
 
-- the **IPsec Client installer** (`.rpm`, `.deb` or `.AppImage`): from the
+- the **Ikebox installer** (`.rpm`, `.deb` or `.AppImage`): from the
   repository's Releases page or from whoever gave you the profile;
 - the **profile file** (`something.json`);
 - the **group PSK** (the "group key"): ask whoever gave you the profile,
@@ -18,22 +18,22 @@ You will need:
 
 ---
 
-## 1. Install IPsec Client (once)
+## 1. Install Ikebox (once)
 
 In the folder where the installer is:
 
-- **Fedora:** `sudo dnf install ./ipsec-client-*.x86_64.rpm`
-- **Ubuntu/Debian:** `sudo apt install ./ipsec-client_*_amd64.deb`
+- **Fedora:** `sudo dnf install ./ikebox-*.x86_64.rpm`
+- **Ubuntu/Debian:** `sudo apt install ./ikebox_*_amd64.deb`
 - **Other distributions:** use the AppImage, as in section 2 of the
   [installation guide](installation.md#other-distributions-appimage).
 
-After that, **IPsec Client** shows up in the applications menu. It speaks the
+After that, **Ikebox** shows up in the applications menu. It speaks the
 language of your system (English or Portuguese); you can change it in
 **System → Appearance → Language**.
 
 ## 2. Install the network component (once)
 
-Open **IPsec Client** from the menu. The main screen shows *"One step left:
+Open **Ikebox** from the menu. The main screen shows *"One step left:
 install the network component"*. Click **Install now** and type the
 **administrator password**. After that, connecting no longer asks for it.
 
@@ -107,5 +107,5 @@ Send the file, the installer and the link to this guide. The group PSK goes
 **over a different channel**, never together with the file nor in an open chat
 group.
 
-> Prefer the terminal? There is `ipsec-client-cli`, with the same commands:
+> Prefer the terminal? There is `ikebox-cli`, with the same commands:
 > see [docs/cli.md](cli.md).

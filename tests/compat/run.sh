@@ -29,12 +29,12 @@ fail() {
     exit 1
 }
 
-# Builds ipsec-client-helper and ipsec-client-cli from the working tree in the
+# Builds ikebox-helper and ikebox-cli from the working tree in the
 # release image and leaves them in target/compat/bin.
 build_portable() {
     local rust image
     rust=$(awk -F'"' '/^channel/ {print $2}' "$repo/rust-toolchain.toml")
-    image="ipsec-client-release:rust$rust-$(sha256sum "$repo/packaging/release/Dockerfile" | cut -c1-12)"
+    image="ikebox-release:rust$rust-$(sha256sum "$repo/packaging/release/Dockerfile" | cut -c1-12)"
     if ! docker image inspect "$image" >/dev/null 2>&1; then
         step "preparing the build image ($image)"
         docker build --build-arg "RUST_VERSION=$rust" -t "$image" "$repo/packaging/release"
@@ -42,13 +42,13 @@ build_portable() {
     mkdir -p "$BIN"
     docker run --rm --security-opt label=disable \
         -v "$repo:/src:ro" -v "$BIN:/out" \
-        -v ipsec-client-release-cargo:/root/.cargo/registry \
-        -v ipsec-client-compat-target:/target \
+        -v ikebox-release-cargo:/root/.cargo/registry \
+        -v ikebox-compat-target:/target \
         -e CARGO_TARGET_DIR=/target -e "HOST_UID=$(id -u)" -e "HOST_GID=$(id -g)" \
         -w /src "$image" bash -euo pipefail -c '
-            cargo build -q --release --locked -p ipsec-client-helper -p ipsec-client-cli
-            install -m 0755 /target/release/ipsec-client-helper /target/release/ipsec-client-cli /out/
-            chown "$HOST_UID:$HOST_GID" /out/ipsec-client-helper /out/ipsec-client-cli
+            cargo build -q --release --locked -p ikebox-helper -p ikebox-cli
+            install -m 0755 /target/release/ikebox-helper /target/release/ikebox-cli /out/
+            chown "$HOST_UID:$HOST_GID" /out/ikebox-helper /out/ikebox-cli
         '
 }
 
@@ -71,8 +71,8 @@ main() {
 
     for i in "${!names[@]}"; do
         step "${names[$i]}"
-        if ! IPSEC_CLIENT_TEST_NAME="${names[$i]}" IPSEC_CLIENT_TEST_BASE="${bases[$i]}" \
-            IPSEC_CLIENT_TEST_BIN_DIR="$BIN" "$repo/tests/systemd/run.sh"; then
+        if ! IKEBOX_TEST_NAME="${names[$i]}" IKEBOX_TEST_BASE="${bases[$i]}" \
+            IKEBOX_TEST_BIN_DIR="$BIN" "$repo/tests/systemd/run.sh"; then
             failed+=("${names[$i]}")
         fi
     done

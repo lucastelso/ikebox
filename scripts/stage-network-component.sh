@@ -14,18 +14,18 @@
 #   SHA256SUMS                      hash of every other file
 #   install-native.sh               installer (runs as root)
 #   engine.tar.gz                   compiled strongSwan
-#   ipsec-client-helper.gz          privileged helper, compressed: linuxdeploy
+#   ikebox-helper.gz          privileged helper, compressed: linuxdeploy
 #                                   (AppImage) rewrites the RPATH of every
 #                                   loose ELF in the bundle, and the hash
 #                                   would no longer match
-#   engine/{entrypoint.sh,updown.sh,strongswan.d/zz-ipsec-client.conf}
-#   packaging/systemd/ipsec-client-helper.{socket,service}
-#   packaging/polkit/io.github.lucastelso.ipsecclient.policy
+#   engine/{entrypoint.sh,updown.sh,strongswan.d/zz-ikebox.conf}
+#   packaging/systemd/ikebox-helper.{socket,service}
+#   packaging/polkit/io.github.lucastelso.ikebox.policy
 
 set -euo pipefail
 
 repo=$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)
-readonly POLICY=io.github.lucastelso.ipsecclient.policy
+readonly POLICY=io.github.lucastelso.ikebox.policy
 
 die() {
     printf 'stage-network-component: error: %s\n' "$*" >&2
@@ -49,7 +49,7 @@ app_version=$(awk -F'"' '/^\[workspace.package\]/ {s = 1} s && /^version *=/ {pr
 [[ -n $strongswan && -n $app_version ]] || die "could not read the versions"
 
 if [[ -z $engine ]]; then
-    engine="$repo/native-engine/dist/ipsec-client-engine-$strongswan-x86_64.tar.gz"
+    engine="$repo/native-engine/dist/ikebox-engine-$strongswan-x86_64.tar.gz"
     [[ -f $engine ]] || "$repo/native-engine/build.sh" "$strongswan"
 fi
 if [[ -z $helper ]]; then
@@ -59,8 +59,8 @@ if [[ -z $helper ]]; then
         # shellcheck source=/dev/null
         . "$HOME/.cargo/env"
     fi
-    (cd "$repo" && cargo build --release --locked -p ipsec-client-helper)
-    helper="$repo/target/release/ipsec-client-helper"
+    (cd "$repo" && cargo build --release --locked -p ikebox-helper)
+    helper="$repo/target/release/ikebox-helper"
 fi
 [[ -f $engine ]] || die "engine tarball not found: $engine"
 [[ -f $helper ]] || die "helper not found: $helper"
@@ -73,7 +73,7 @@ for patch_file in "$repo"/native-engine/patches/*.patch; do
     [[ -f $patch_file ]] || continue
     expected_patches+=("$(basename "$patch_file"):$(sha256sum "$patch_file" | cut -c1-64)")
 done
-engine_patches=$(tar -xzOf "$engine" opt/ipsec-client/engine/BUILDINFO 2>/dev/null |
+engine_patches=$(tar -xzOf "$engine" opt/ikebox/engine/BUILDINFO 2>/dev/null |
     sed -n 's/^patches=//p')
 [[ $engine_patches == "${expected_patches[*]}" ]] ||
     die "the engine $engine lacks the patches of this commit (native-engine/patches): rebuild it with native-engine/build.sh"
@@ -81,13 +81,13 @@ engine_patches=$(tar -xzOf "$engine" opt/ipsec-client/engine/BUILDINFO 2>/dev/nu
 rm -rf "${out:?}"
 install -d -m 0755 "$out" "$out/engine/strongswan.d" "$out/packaging/systemd" "$out/packaging/polkit"
 install -m 0644 "$engine" "$out/engine.tar.gz"
-gzip -9 -n -c "$helper" >"$out/ipsec-client-helper.gz"
-chmod 0644 "$out/ipsec-client-helper.gz"
+gzip -9 -n -c "$helper" >"$out/ikebox-helper.gz"
+chmod 0644 "$out/ikebox-helper.gz"
 install -m 0755 "$repo/packaging/install-native.sh" "$out/install-native.sh"
 install -m 0755 "$repo/engine/entrypoint.sh" "$repo/engine/updown.sh" "$out/engine/"
-install -m 0644 "$repo/engine/strongswan.d/zz-ipsec-client.conf" "$out/engine/strongswan.d/"
-install -m 0644 "$repo/packaging/systemd/ipsec-client-helper.socket" \
-    "$repo/packaging/systemd/ipsec-client-helper.service" "$out/packaging/systemd/"
+install -m 0644 "$repo/engine/strongswan.d/zz-ikebox.conf" "$out/engine/strongswan.d/"
+install -m 0644 "$repo/packaging/systemd/ikebox-helper.socket" \
+    "$repo/packaging/systemd/ikebox-helper.service" "$out/packaging/systemd/"
 install -m 0644 "$repo/packaging/polkit/$POLICY" "$out/packaging/polkit/"
 printf 'version=%s\nstrongswan=%s\n' "$app_version" "$strongswan" >"$out/VERSION"
 

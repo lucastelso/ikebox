@@ -12,12 +12,12 @@ use std::path::{Path, PathBuf};
 use std::sync::Mutex;
 use std::sync::atomic::{AtomicU64, Ordering};
 
-use ipsec_client_core::profiles::{
+use ikebox_core::profiles::{
     DnsSettings, Profile, ProfileError, ProfileStore, SwanctlImport, SwanctlImportOptions,
     detect_legacy, import_legacy, import_swanctl, parse_profile, read_profile_file, to_json,
 };
-use ipsec_client_core::secrets::{Credentials, KeyringStore};
-use ipsec_client_core::{tr, trf};
+use ikebox_core::secrets::{Credentials, KeyringStore};
+use ikebox_core::{tr, trf};
 use tauri::{AppHandle, Manager};
 use tauri_plugin_dialog::DialogExt;
 
@@ -163,8 +163,8 @@ pub async fn choose_import_file(app: AppHandle) -> Result<Option<ImportPreview>,
             .set_title(tr!("Import profile", "Importar perfil"))
             .add_filter(
                 tr!(
-                    "IPsec Client profile (.json)",
-                    "Perfil do IPsec Client (.json)"
+                    "Ikebox profile (.json)",
+                    "Perfil do Ikebox (.json)"
                 ),
                 &["json"],
             )
@@ -309,7 +309,7 @@ pub async fn export_profile(app: AppHandle, profile_id: String) -> Result<Option
                 "Exportar perfil (sem credenciais)"
             ))
             .set_file_name(format!("{profile_id}.json"))
-            .add_filter("Perfil do IPsec Client (.json)", &["json"])
+            .add_filter("Perfil do Ikebox (.json)", &["json"])
             .blocking_save_file())
     })
     .await?;

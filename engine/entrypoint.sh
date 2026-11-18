@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Entrypoint of the ipsec-client engine.
+# Entrypoint of the ikebox engine.
 #
 # 1. Validates the environment (non-sensitive data only: secrets arrive over
 #    VICI).
@@ -12,64 +12,64 @@
 #
 # Embedded engine (ADR-0028): this script stays root, inside the sandbox, for
 # what needs it (the interface, handing the socket over, DNS, cleanup), and
-# charon runs as IPSEC_CLIENT_ENGINE_USER with only the network capabilities.
+# charon runs as IKEBOX_ENGINE_USER with only the network capabilities.
 # DNS needs root (systemd-resolved does not accept CAP_NET_ADMIN), so the
 # updown, unprivileged, only asks for it through a FIFO; this script checks
 # the request and applies it to the session's interface only.
 #
 # Variables (see docs/architecture.md):
-#   IPSEC_CLIENT_IFACE       XFRM interface name             (default: ipsc0)
-#   IPSEC_CLIENT_IF_ID       if_id of the SAs/policies, 1..2^32-1 (required)
-#   IPSEC_CLIENT_MTU         interface MTU, 576..9000        (default: 1400)
-#   IPSEC_CLIENT_SOCKET_UID  uid that owns the VICI socket (0600). Embedded
+#   IKEBOX_IFACE       XFRM interface name             (default: ipsc0)
+#   IKEBOX_IF_ID       if_id of the SAs/policies, 1..2^32-1 (required)
+#   IKEBOX_MTU         interface MTU, 576..9000        (default: 1400)
+#   IKEBOX_SOCKET_UID  uid that owns the VICI socket (0600). Embedded
 #                            engine.
-#   IPSEC_CLIENT_SOCKET_GID  gid that may use the VICI socket (0660). Docker
+#   IKEBOX_SOCKET_GID  gid that may use the VICI socket (0660). Docker
 #                            engine; required if there is no SOCKET_UID
-#   IPSEC_CLIENT_LOG_LEVEL   charon log level, 0..2          (default: 1)
-#   IPSEC_CLIENT_CHARON      charon path    (default: the Ubuntu package's)
-#   IPSEC_CLIENT_STRONGSWAN_D strongswan.d directory (default: /etc/strongswan.d)
-#   IPSEC_CLIENT_SOCKET_DIR  VICI socket directory (default: /run/ipsec-client)
-#   IPSEC_CLIENT_STATE_DIR   native mode (systemd, read-only root): writable
+#   IKEBOX_LOG_LEVEL   charon log level, 0..2          (default: 1)
+#   IKEBOX_CHARON      charon path    (default: the Ubuntu package's)
+#   IKEBOX_STRONGSWAN_D strongswan.d directory (default: /etc/strongswan.d)
+#   IKEBOX_SOCKET_DIR  VICI socket directory (default: /run/ikebox)
+#   IKEBOX_STATE_DIR   native mode (systemd, read-only root): writable
 #                            directory for the runtime config; charon reads it
 #                            through STRONGSWAN_CONF, which includes the base
 #                            config
-#   IPSEC_CLIENT_STRONGSWAN_CONF  base config included in native mode
-#   IPSEC_CLIENT_UPDOWN      FORCED updown (ADR-0019): the embedded charon
-#                            (with the IPsec Client patch) ignores the updown
+#   IKEBOX_STRONGSWAN_CONF  base config included in native mode
+#   IKEBOX_UPDOWN      FORCED updown (ADR-0019): the embedded charon
+#                            (with the Ikebox patch) ignores the updown
 #                            and if_id sent by the VICI client and uses these.
 #                            The arguments go in a file only root owns.
-#   IPSEC_CLIENT_DNS_SERVERS fixed DNS server IPs, comma-separated
-#   IPSEC_CLIENT_DNS_DOMAINS domains (~domain, ~.), comma-separated
-#   IPSEC_CLIENT_DNS_FLAGS   use-received and/or default-route, comma-separated
-#   IPSEC_CLIENT_ENGINE_USER system user charon runs as (embedded engine,
+#   IKEBOX_DNS_SERVERS fixed DNS server IPs, comma-separated
+#   IKEBOX_DNS_DOMAINS domains (~domain, ~.), comma-separated
+#   IKEBOX_DNS_FLAGS   use-received and/or default-route, comma-separated
+#   IKEBOX_ENGINE_USER system user charon runs as (embedded engine,
 #                            ADR-0028); empty: charon runs as root (Docker)
 
 set -euo pipefail
 
-readonly SOCKET_DIR=${IPSEC_CLIENT_SOCKET_DIR:-/run/ipsec-client}
+readonly SOCKET_DIR=${IKEBOX_SOCKET_DIR:-/run/ikebox}
 readonly SOCKET="$SOCKET_DIR/charon.vici"
-readonly STATE_DIR=${IPSEC_CLIENT_STATE_DIR:-}
-readonly BASE_CONF=${IPSEC_CLIENT_STRONGSWAN_CONF:-/etc/strongswan.conf}
-readonly CHARON=${IPSEC_CLIENT_CHARON:-/usr/lib/ipsec/charon}
-readonly RUNTIME_CONF=${IPSEC_CLIENT_STRONGSWAN_D:-/etc/strongswan.d}/zzz-ipsec-client-runtime.conf
+readonly STATE_DIR=${IKEBOX_STATE_DIR:-}
+readonly BASE_CONF=${IKEBOX_STRONGSWAN_CONF:-/etc/strongswan.conf}
+readonly CHARON=${IKEBOX_CHARON:-/usr/lib/ipsec/charon}
+readonly RUNTIME_CONF=${IKEBOX_STRONGSWAN_D:-/etc/strongswan.d}/zzz-ikebox-runtime.conf
 # Route protocol the updown uses to tag the session's routes.
 readonly RT_PROTO=241
 
-IFACE=${IPSEC_CLIENT_IFACE:-ipsc0}
-IF_ID=${IPSEC_CLIENT_IF_ID:-}
-MTU=${IPSEC_CLIENT_MTU:-1400}
-SOCKET_GID=${IPSEC_CLIENT_SOCKET_GID:-}
-SOCKET_UID=${IPSEC_CLIENT_SOCKET_UID:-}
-LOG_LEVEL=${IPSEC_CLIENT_LOG_LEVEL:-1}
-UPDOWN=${IPSEC_CLIENT_UPDOWN:-}
-DNS_SERVERS=${IPSEC_CLIENT_DNS_SERVERS:-}
-DNS_DOMAINS=${IPSEC_CLIENT_DNS_DOMAINS:-}
-DNS_FLAGS=${IPSEC_CLIENT_DNS_FLAGS:-}
-ENGINE_USER=${IPSEC_CLIENT_ENGINE_USER:-}
+IFACE=${IKEBOX_IFACE:-ipsc0}
+IF_ID=${IKEBOX_IF_ID:-}
+MTU=${IKEBOX_MTU:-1400}
+SOCKET_GID=${IKEBOX_SOCKET_GID:-}
+SOCKET_UID=${IKEBOX_SOCKET_UID:-}
+LOG_LEVEL=${IKEBOX_LOG_LEVEL:-1}
+UPDOWN=${IKEBOX_UPDOWN:-}
+DNS_SERVERS=${IKEBOX_DNS_SERVERS:-}
+DNS_DOMAINS=${IKEBOX_DNS_DOMAINS:-}
+DNS_FLAGS=${IKEBOX_DNS_FLAGS:-}
+ENGINE_USER=${IKEBOX_ENGINE_USER:-}
 ENGINE_UID=""
 ENGINE_GID=""
 # Arguments of the forced updown (a directory only root owns).
-ARGS_DIR=${IPSEC_CLIENT_STATE_DIR:-/run/ipsec-client-engine}
+ARGS_DIR=${IKEBOX_STATE_DIR:-/run/ikebox-engine}
 UPDOWN_ARGS="$ARGS_DIR/updown.args"
 # DNS requests from the unprivileged updown (ADR-0028).
 DNS_FIFO="$ARGS_DIR/dns.requests"
@@ -96,20 +96,20 @@ uint_in_range() {
 
 validate_env() {
     [[ $IFACE =~ ^[a-z][a-z0-9_-]{0,14}$ ]] ||
-        die "invalid IPSEC_CLIENT_IFACE (use ^[a-z][a-z0-9_-]{0,14}\$)"
+        die "invalid IKEBOX_IFACE (use ^[a-z][a-z0-9_-]{0,14}\$)"
     uint_in_range "$IF_ID" 1 4294967295 ||
-        die "invalid IPSEC_CLIENT_IF_ID (integer 1-4294967295)"
+        die "invalid IKEBOX_IF_ID (integer 1-4294967295)"
     uint_in_range "$MTU" 576 9000 ||
-        die "invalid IPSEC_CLIENT_MTU (integer 576-9000)"
+        die "invalid IKEBOX_MTU (integer 576-9000)"
     if [[ -n $SOCKET_UID ]]; then
-        uint_in_range "$SOCKET_UID" 0 2147483647 || die "invalid IPSEC_CLIENT_SOCKET_UID"
+        uint_in_range "$SOCKET_UID" 0 2147483647 || die "invalid IKEBOX_SOCKET_UID"
         SOCKET_UID=$((10#$SOCKET_UID))
     else
-        uint_in_range "$SOCKET_GID" 0 2147483647 || die "invalid IPSEC_CLIENT_SOCKET_GID"
+        uint_in_range "$SOCKET_GID" 0 2147483647 || die "invalid IKEBOX_SOCKET_GID"
         SOCKET_GID=$((10#$SOCKET_GID))
     fi
     [[ $LOG_LEVEL =~ ^[0-2]$ ]] ||
-        die "IPSEC_CLIENT_LOG_LEVEL must be 0, 1 or 2"
+        die "IKEBOX_LOG_LEVEL must be 0, 1 or 2"
     local path
     for path in "$SOCKET_DIR" ${STATE_DIR:+"$STATE_DIR"} "$BASE_CONF" "$ARGS_DIR" ${UPDOWN:+"$UPDOWN"}; do
         [[ $path =~ ^/[A-Za-z0-9/._-]+$ && $path != *..* ]] || die "invalid path: $path"
@@ -125,9 +125,9 @@ validate_env() {
         validate_dns_env
     fi
     if [[ -n $ENGINE_USER ]]; then
-        [[ $ENGINE_USER =~ ^[a-z_][a-z0-9_-]{0,31}$ ]] || die "invalid IPSEC_CLIENT_ENGINE_USER"
+        [[ $ENGINE_USER =~ ^[a-z_][a-z0-9_-]{0,31}$ ]] || die "invalid IKEBOX_ENGINE_USER"
         [[ -n $STATE_DIR && -n $SOCKET_UID && -n $UPDOWN ]] ||
-            die "IPSEC_CLIENT_ENGINE_USER needs the embedded engine (state dir, socket uid, updown)"
+            die "IKEBOX_ENGINE_USER needs the embedded engine (state dir, socket uid, updown)"
         command -v setpriv >/dev/null || die "setpriv (util-linux) is needed to run charon without root"
         ENGINE_UID=$(id -u "$ENGINE_USER" 2>/dev/null) ||
             die "user $ENGINE_USER does not exist; reinstall the network component"
@@ -147,7 +147,7 @@ validate_dns_env() {
     local -a list
     IFS=, read -r -a list <<<"$DNS_SERVERS"
     for item in "${list[@]}"; do
-        [[ $item =~ ^[0-9A-Fa-f:.]{2,45}$ ]] || die "invalid IPSEC_CLIENT_DNS_SERVERS"
+        [[ $item =~ ^[0-9A-Fa-f:.]{2,45}$ ]] || die "invalid IKEBOX_DNS_SERVERS"
         n=$((n + 1))
     done
     ((n <= 8)) || die "more than 8 DNS servers"
@@ -155,13 +155,13 @@ validate_dns_env() {
     IFS=, read -r -a list <<<"$DNS_DOMAINS"
     for item in "${list[@]}"; do
         [[ $item == "~." || $item =~ ^~?[A-Za-z0-9][A-Za-z0-9.-]{0,252}$ ]] ||
-            die "invalid IPSEC_CLIENT_DNS_DOMAINS"
+            die "invalid IKEBOX_DNS_DOMAINS"
         n=$((n + 1))
     done
     ((n <= 16)) || die "more than 16 DNS domains"
     IFS=, read -r -a list <<<"$DNS_FLAGS"
     for item in "${list[@]}"; do
-        [[ $item == use-received || $item == default-route ]] || die "invalid IPSEC_CLIENT_DNS_FLAGS"
+        [[ $item == use-received || $item == default-route ]] || die "invalid IKEBOX_DNS_FLAGS"
     done
 }
 
@@ -304,7 +304,7 @@ create_iface() {
 
 write_runtime_conf() {
     local overrides forced=""
-    # Read only by charon with the IPsec Client patch (embedded engine); a charon
+    # Read only by charon with the Ikebox patch (embedded engine); a charon
     # without the patch ignores the options.
     if [[ -n $UPDOWN ]]; then
         write_updown_args
@@ -332,7 +332,7 @@ write_runtime_conf() {
     if [[ -n $STATE_DIR ]]; then
         # Native mode: the root is read-only; the runtime config includes the base
         # and overrides what depends on the session.
-        printf '# Generated by the ipsec-client entrypoint. Do not edit.\ninclude %s\n%s\n' \
+        printf '# Generated by the ikebox entrypoint. Do not edit.\ninclude %s\n%s\n' \
             "$BASE_CONF" "$overrides" >"$STATE_DIR/strongswan.conf"
         if [[ -n $ENGINE_USER ]]; then
             chgrp "$ENGINE_GID" "$STATE_DIR/strongswan.conf"
@@ -340,7 +340,7 @@ write_runtime_conf() {
         fi
         export STRONGSWAN_CONF="$STATE_DIR/strongswan.conf"
     else
-        printf '# Generated by the ipsec-client entrypoint. Do not edit.\n%s\n' "$overrides" >"$RUNTIME_CONF"
+        printf '# Generated by the ikebox entrypoint. Do not edit.\n%s\n' "$overrides" >"$RUNTIME_CONF"
     fi
 }
 

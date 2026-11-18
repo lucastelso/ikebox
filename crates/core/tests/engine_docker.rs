@@ -12,11 +12,11 @@
 use std::os::unix::fs::{MetadataExt, PermissionsExt};
 use std::process::Command;
 
-use ipsec_client_core::engine::{DockerEngine, EngineSpec, current_gid, default_runtime_dir};
+use ikebox_core::engine::{DockerEngine, EngineSpec, current_gid, default_runtime_dir};
 
 const IFACE: &str = "ipsct1";
 const IF_ID: u32 = 7342;
-const CONTAINER: &str = "ipsec-client-rs-test-engine";
+const CONTAINER: &str = "ikebox-rs-test-engine";
 
 fn ike_ports_busy() -> bool {
     Command::new("ss")
@@ -57,7 +57,7 @@ async fn engine_lifecycle_on_host_network() {
     let base = default_runtime_dir().expect("XDG_RUNTIME_DIR");
     let parent = base.parent().expect("pai do runtime dir").to_path_buf();
     let tmp = tempfile::Builder::new()
-        .prefix("ipsec-client-rs-test.")
+        .prefix("ikebox-rs-test.")
         .tempdir_in(parent)
         .expect("tempdir");
     let mut spec = EngineSpec::new(tmp.path().join("run"), current_gid(), IF_ID);

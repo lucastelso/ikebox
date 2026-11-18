@@ -121,7 +121,7 @@ function mockEditor(list: ProfileList = { profiles: [], broken: [] }) {
           preset: null,
           schema: d.otp || d.auth !== 'psk' ? 2 : 1,
           cas: d.ca.map(() => ({
-            subject: 'CN=IPsec Client Test CA (RSA),O=Example',
+            subject: 'CN=Ikebox Test CA (RSA),O=Example',
             notAfter: '2076-11-04',
             key: 'RSA',
           })),
@@ -234,7 +234,7 @@ describe('ProfileEditor', () => {
     await userEvent.click(screen.getByLabelText('Gateway CA'));
     await userEvent.paste('-----BEGIN CERTIFICATE-----\nMIIB\n-----END CERTIFICATE-----');
     await userEvent.click(screen.getByRole('button', { name: 'Add' }));
-    expect(await screen.findByText(/IPsec Client Test CA/)).toBeInTheDocument();
+    expect(await screen.findByText(/Ikebox Test CA/)).toBeInTheDocument();
     expect(screen.getByText(/valid until 2076-11-04/)).toBeInTheDocument();
     await waitFor(() =>
       expect(lastDraft(calls, 'check_profile_draft')).toMatchObject({

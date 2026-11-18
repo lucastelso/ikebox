@@ -25,6 +25,6 @@ children {
         close_action = none
         if_id_in = 7
         if_id_out = 7
-        updown = /usr/local/libexec/ipsec-client/updown --iface 'ipsc0' --use-received-dns
+        updown = /usr/local/libexec/ikebox/updown --iface 'ipsc0' --use-received-dns
     }
 }

@@ -155,12 +155,12 @@ pub fn validate(p: &Profile) -> Vec<ValidationIssue> {
         ),
     );
     v.check(
-        net.dns.servers.len() <= ipsec_client_proto::MAX_DNS_SERVERS,
+        net.dns.servers.len() <= ikebox_proto::MAX_DNS_SERVERS,
         "network.dns.servers",
         crate::tr!("at most 8 servers", "no máximo 8 servidores"),
     );
     v.check(
-        net.dns.domains.len() <= ipsec_client_proto::MAX_DNS_DOMAINS,
+        net.dns.domains.len() <= ikebox_proto::MAX_DNS_DOMAINS,
         "network.dns.domains",
         crate::tr!("at most 16 domains", "no máximo 16 domínios"),
     );
@@ -440,9 +440,9 @@ pub(crate) fn is_host(s: &str) -> bool {
 }
 
 /// Domain for systemd-resolved: `~.`, `domain` or `~domain`. The rule lives in
-/// `ipsec-client-proto`, because the helper validates the same data.
+/// `ikebox-proto`, because the helper validates the same data.
 pub(crate) fn is_dns_domain(s: &str) -> bool {
-    ipsec_client_proto::valid_dns_domain(s)
+    ikebox_proto::valid_dns_domain(s)
 }
 
 /// CIDR (`192.0.2.0/24`, `2001:db8::/32`) or a single IP.

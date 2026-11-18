@@ -42,21 +42,21 @@ if [[ $ref == HEAD && -n $(git status --porcelain) ]]; then
 fi
 
 strongswan=$(git show "$commit:native-engine/versions.txt" | grep -vE '^\s*(#|$)' | head -n 1 | awk '{print $1}')
-engine="native-engine/dist/ipsec-client-engine-$strongswan-x86_64.tar.gz"
+engine="native-engine/dist/ikebox-engine-$strongswan-x86_64.tar.gz"
 # Security patches of the commit (ADR-0019), in the BUILDINFO format.
 expected_patches=$(git ls-tree --name-only "$commit" native-engine/patches/ | grep '\.patch$' | sort |
     while read -r path; do
         printf '%s:%s\n' "$(basename "$path")" "$(git show "$commit:$path" | sha256sum | cut -c1-64)"
     done | paste -sd ' ')
 engine_patches=""
-[[ -f $engine ]] && engine_patches=$(tar -xzOf "$engine" opt/ipsec-client/engine/BUILDINFO | sed -n 's/^patches=//p')
+[[ -f $engine ]] && engine_patches=$(tar -xzOf "$engine" opt/ikebox/engine/BUILDINFO | sed -n 's/^patches=//p')
 if [[ ! -f $engine || $engine_patches != "$expected_patches" ]]; then
     step "building strongSwan $strongswan (with the patches of the commit)"
     native-engine/build.sh "$strongswan"
 fi
 
 rust=$(git show "$commit:rust-toolchain.toml" | awk -F'"' '/^channel/ {print $2}')
-image="ipsec-client-release:rust$rust-$(sha256sum packaging/release/Dockerfile | cut -c1-12)"
+image="ikebox-release:rust$rust-$(sha256sum packaging/release/Dockerfile | cut -c1-12)"
 if ! docker image inspect "$image" >/dev/null 2>&1; then
     step "preparing the build image ($image)"
     docker build --build-arg "RUST_VERSION=$rust" -t "$image" packaging/release
@@ -78,8 +78,8 @@ git archive --format=tar "$commit" |
     docker run --rm -i \
         -v "$repo/$engine:/dist/engine.tar.gz:ro" \
         -v "$out:/out" \
-        -v ipsec-client-release-cargo:/root/.cargo/registry \
-        -v ipsec-client-release-npm:/root/.npm \
+        -v ikebox-release-cargo:/root/.cargo/registry \
+        -v ikebox-release-npm:/root/.npm \
         -e "ENGINE_FILE=$(basename "$engine")" \
         -e "HOST_UID=$(id -u)" -e "HOST_GID=$(id -g)" \
         "$image" bash -euo pipefail -c '
@@ -88,9 +88,9 @@ git archive --format=tar "$commit" |
             npm ci --ignore-scripts --no-audit --no-fund
             npm run bundle
             echo "==> checking the AppImage tools Tauri used (pinned in the image)"
-            (cd /root/.cache/tauri && sha256sum -c --quiet /etc/ipsec-client-tauri-tools.sha256)
+            (cd /root/.cache/tauri && sha256sum -c --quiet /etc/ikebox-tauri-tools.sha256)
             extra=$(cd /root/.cache/tauri && find . -type f ! -name "linuxdeploy-plugin-g*.sh" |
-                sed "s#^\./##" | sort | comm -23 - <(sed "s#.*  \./##" /etc/ipsec-client-tauri-tools.sha256 | sort))
+                sed "s#^\./##" | sort | comm -23 - <(sed "s#.*  \./##" /etc/ikebox-tauri-tools.sha256 | sort))
             if [[ -n $extra ]]; then
                 echo "Tauri downloaded tools that are not pinned in the image: $extra" >&2
                 exit 1

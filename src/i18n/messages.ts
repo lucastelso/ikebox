@@ -102,7 +102,7 @@ export const en = {
     tokenPin: 'PIN of the smartcard or token',
     tokenPinHint: 'Used to unlock the token for this connection; never stored.',
     tokenKeepOpen:
-      'Keep IPsec Client open while connected: it signs for the VPN with your token when the keys are renewed.',
+      'Keep Ikebox open while connected: it signs for the VPN with your token when the keys are renewed.',
     otpHint: 'This VPN uses a one-time code: it is asked at every connection and never stored.',
     noKeyring: 'Keyring unavailable: the credentials will be asked on every connection.',
     cancel: 'Cancel',
@@ -277,7 +277,7 @@ export const en = {
   },
   importDialog: {
     title: 'Import profile',
-    jsonKind: 'IPsec Client profile',
+    jsonKind: 'Ikebox profile',
     kind: {
       swanctl: 'swanctl.conf',
       ciscoPcf: 'Cisco VPN Client (.pcf)',
@@ -335,7 +335,7 @@ export const en = {
     passwordHint: 'The system will ask for the administrator password.',
     removeTitle: 'Remove the network component?',
     removeBody:
-      'Without it, IPsec Client cannot connect. Your profiles and credentials stay stored. The system will ask for the administrator password.',
+      'Without it, Ikebox cannot connect. Your profiles and credentials stay stored. The system will ask for the administrator password.',
     cancel: 'Cancel',
     now: (label: string) => `${label} now`,
     banner: {
@@ -361,6 +361,7 @@ export const en = {
     },
   },
   system: {
+    poweredBy: 'IPsec by strongSwan (strongswan.org), the open-source engine that does the work',
     diagnostics: 'Diagnostics',
     checkingComputer: 'Checking this computer…',
     problems: (n: number) =>
@@ -389,7 +390,7 @@ export const en = {
       'Once a day, asks GitHub which version is the latest. Nothing is downloaded or installed.',
   },
   update: {
-    available: (version: string) => `IPsec Client ${version} is available.`,
+    available: (version: string) => `Ikebox ${version} is available.`,
     view: 'See what is new',
   },
 } as const;
@@ -504,7 +505,7 @@ export const pt: Messages = {
     tokenPin: 'PIN do smartcard ou token',
     tokenPinHint: 'Usado para destravar o token nesta conexão; nunca é guardado.',
     tokenKeepOpen:
-      'Mantenha o IPsec Client aberto enquanto estiver conectado: ele assina pela VPN com o seu token quando as chaves são renovadas.',
+      'Mantenha o Ikebox aberto enquanto estiver conectado: ele assina pela VPN com o seu token quando as chaves são renovadas.',
     otpHint: 'Esta VPN usa um código de uso único: ele é pedido a cada conexão e nunca é guardado.',
     noKeyring: 'Chaveiro indisponível: as credenciais serão pedidas a cada conexão.',
     cancel: 'Cancelar',
@@ -679,7 +680,7 @@ export const pt: Messages = {
   },
   importDialog: {
     title: 'Importar perfil',
-    jsonKind: 'perfil do IPsec Client',
+    jsonKind: 'perfil do Ikebox',
     kind: {
       swanctl: 'swanctl.conf',
       ciscoPcf: 'Cisco VPN Client (.pcf)',
@@ -736,7 +737,7 @@ export const pt: Messages = {
     passwordHint: 'O sistema vai pedir a senha de administrador.',
     removeTitle: 'Remover o componente de rede?',
     removeBody:
-      'Sem ele, o IPsec Client não consegue conectar. Seus perfis e credenciais continuam guardados. O sistema vai pedir a senha de administrador.',
+      'Sem ele, o Ikebox não consegue conectar. Seus perfis e credenciais continuam guardados. O sistema vai pedir a senha de administrador.',
     cancel: 'Cancelar',
     now: (label) => `${label} agora`,
     banner: {
@@ -762,6 +763,8 @@ export const pt: Messages = {
     },
   },
   system: {
+    poweredBy:
+      'IPsec pelo strongSwan (strongswan.org), o motor de código aberto que faz o trabalho',
     diagnostics: 'Diagnóstico',
     checkingComputer: 'Verificando o computador…',
     problems: (n) =>
@@ -790,7 +793,7 @@ export const pt: Messages = {
       'Uma vez por dia, pergunta ao GitHub qual é a última versão. Nada é baixado nem instalado.',
   },
   update: {
-    available: (version) => `O IPsec Client ${version} está disponível.`,
+    available: (version) => `O Ikebox ${version} está disponível.`,
     view: 'Ver as novidades',
   },
 };

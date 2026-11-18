@@ -7,7 +7,7 @@ export type Language = 'en' | 'pt';
 /** The user's choice: follow the system, or a fixed language. */
 export type LanguagePref = 'system' | Language;
 
-const KEY = 'ipsec-client:language';
+const KEY = 'ikebox:language';
 const MESSAGES: Record<Language, Messages> = { en, pt };
 
 /** Saved choice (default: follow the system). */

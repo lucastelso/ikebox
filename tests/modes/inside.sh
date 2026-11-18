@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # The part of tests/modes/run.sh that runs INSIDE the test "computer" (the
 # container of tests/systemd, with the real helper and the embedded engine),
-# as root. Each scenario imports a profile, connects with ipsec-client-cli as
+# as root. Each scenario imports a profile, connects with ikebox-cli as
 # alice, checks what was negotiated and disconnects.
 #
 # Usage: inside.sh MODE=GATEWAY_IP...   (modes: the files in tests/modes/gateways)
@@ -15,8 +15,8 @@ set -euo pipefail
 # shellcheck source=tests/systemd/lib.sh
 . /test/lib.sh
 
-readonly PSK='psk=ipsec-client-test-psk'
-readonly XAUTH='psk=ipsec-client-test-psk
+readonly PSK='psk=ikebox-test-psk'
+readonly XAUTH='psk=ikebox-test-psk
 xauth-user=usuario.teste
 xauth-password=senha-de-teste'
 readonly EAP='eap-identity=usuario.teste
@@ -317,7 +317,7 @@ disconnect
 # ---------------------------------------------------------------------------
 step "IKEv2 + PSK: gateway identity checked, virtual IP, PFS on rekey, plain ESP"
 gw=${GW[ikev2-psk]}
-connect v2-psk "$PSK" gateway="$gw" version=2 method=psk remote_id=gw.ipsec-client.test \
+connect v2-psk "$PSK" gateway="$gw" version=2 method=psk remote_id=gw.ikebox.test \
     ike=aes256gcm16-prfsha256-curve25519 esp=aes256gcm16-curve25519 remote_ts=192.0.2.0/24
 expect_ike 2 ""
 expect_vip yes
@@ -350,7 +350,7 @@ disconnect
 
 step "IKEv2 + PSK: no virtual IP"
 connect v2-psk-novip "$PSK" gateway="$gw" version=2 method=psk vip=no \
-    local_id=novip.ipsec-client.test \
+    local_id=novip.ikebox.test \
     ike=aes256gcm16-prfsha256-curve25519 esp=aes256gcm16 remote_ts=192.0.2.0/24
 expect_ike 2 ""
 expect_vip no
@@ -363,7 +363,7 @@ disconnect
 # ---------------------------------------------------------------------------
 step "IKEv2 + EAP-MSCHAPv2: username and password, gateway certificate checked"
 gw=${GW[ikev2-eap]}
-eap=(gateway="$gw" version=2 method=eap remote_id=gw.ipsec-client.test ca="$CA"
+eap=(gateway="$gw" version=2 method=eap remote_id=gw.ikebox.test ca="$CA"
     ike=aes256-sha256-modp2048 esp=aes256-sha256 remote_ts=192.0.2.0/24)
 connect v2-eap "$EAP" "${eap[@]}"
 expect_ike 2 ""
@@ -376,7 +376,7 @@ log=$(as alice "$CLI" logs -n 300)
     fail "the log does not show the gateway certificate checked against the profile CA"
 [[ $log != *usuario.teste* ]] || fail "the EAP username is not masked in the log"
 # The password stays in charon's memory: not in the journal of the session.
-journalctl -u ipsec-client-engine --no-pager | grep -q senha-de-teste &&
+journalctl -u ikebox-engine --no-pager | grep -q senha-de-teste &&
     fail "the EAP password is in the system journal"
 log=$(as alice "$CLI" logs -n 300 --anonymize)
 [[ $log != *"Mode Test CA"* && $log == *'"<certificate>"'* ]] ||
@@ -387,7 +387,7 @@ disconnect
 # ---------------------------------------------------------------------------
 step "IKEv2 with your certificate (.p12 in memory), gateway certificate checked"
 gw=${GW[ikev2-cert]}
-cert=(gateway="$gw" version=2 method=cert remote_id=gw.ipsec-client.test ca="$CA"
+cert=(gateway="$gw" version=2 method=cert remote_id=gw.ikebox.test ca="$CA"
     ike=aes256-sha256-modp2048 esp=aes256-sha256 remote_ts=192.0.2.0/24)
 connect_args=(--client-p12 "$P12/alice.p12")
 connect v2-cert "$P12_CREDS" "${cert[@]}"
@@ -400,7 +400,7 @@ log=$(as alice "$CLI" logs -n 300)
     fail "the log does not show the client authenticated by its RSA certificate"
 [[ $log != *"Alice Teste"* && $log != *alice@example.com* ]] ||
     fail "the names in the client certificate are not masked in the log"
-journal=$(journalctl -u ipsec-client-engine --no-pager)
+journal=$(journalctl -u ikebox-engine --no-pager)
 [[ $journal != *senha-p12-teste* && $journal != *"PRIVATE KEY"* ]] ||
     fail "the .p12 password or the private key is in the system journal"
 ok "IKEv2: client and gateway RSA certificates from the test CA, names masked, nothing secret in the journal"
@@ -412,7 +412,7 @@ connect_args=(--client-p12 "$P12/alice-legacy.p12")
 connect v1-cert-xauth "$P12_CREDS
 xauth-user=usuario.teste
 xauth-password=senha-de-teste" gateway="$gw" version=1 method=cert-xauth \
-    remote_id=gw.ipsec-client.test ca="$CA" ike=aes256-sha256-modp2048 \
+    remote_id=gw.ikebox.test ca="$CA" ike=aes256-sha256-modp2048 \
     esp=aes256-sha256-modp2048 remote_ts=192.0.2.0/24
 expect_ike 1 Main
 expect_vip yes
@@ -425,7 +425,7 @@ step "IKEv2 with ECDSA certificates (yours P-256, the gateway's P-384) and ECP g
 gw=${GW[ikev2-ecdsa]}
 connect_args=(--client-p12 "$P12/alice-ec.p12")
 connect v2-ecdsa "$P12_CREDS" gateway="$gw" version=2 method=cert \
-    remote_id=gw.ipsec-client.test ca="$EC_CA" ike=aes256gcm16-prfsha384-ecp384 \
+    remote_id=gw.ikebox.test ca="$EC_CA" ike=aes256gcm16-prfsha384-ecp384 \
     esp=aes256gcm16-ecp384 remote_ts=192.0.2.0/24
 expect_ike 2 ""
 expect_vip yes
@@ -460,7 +460,7 @@ token_setup() {
     # alice's (the packaged one is not hers to write).
     install -d -m 0700 -o alice /tmp/softhsm-tokens
     printf 'directories.tokendir = /tmp/softhsm-tokens\nobjectstore.backend = file\n' >/etc/softhsm2.conf
-    as alice softhsm2-util --init-token --free --label ipsec-client-test \
+    as alice softhsm2-util --init-token --free --label ikebox-test \
         --pin "$TOKEN_PIN" --so-pin so-pin-6420 >/dev/null
     for name in alice:01 alice-ec:02; do
         id=${name#*:}
@@ -470,7 +470,7 @@ token_setup() {
         openssl pkcs12 -in "$P12/$name.p12" -passin pass:senha-p12-teste -nokeys -clcerts 2>/dev/null |
             openssl x509 -outform DER -out "$dir/$name.der"
         chown alice "$dir/$name.key" "$dir/$name.der"
-        as alice softhsm2-util --import "$dir/$name.key" --token ipsec-client-test \
+        as alice softhsm2-util --import "$dir/$name.key" --token ikebox-test \
             --label "$name" --id "$id" --pin "$TOKEN_PIN" >/dev/null
         as alice pkcs11-tool --module "$SOFTHSM" --login --pin "$TOKEN_PIN" \
             --write-object "$dir/$name.der" --type cert --id "$id" --label "$name" >"$dir/p11.log" 2>&1 ||
@@ -516,7 +516,7 @@ step "IKEv2 with your certificate on a token (RSA), signed by the CLI's key agen
 gw=${GW[ikev2-cert]}
 connect_args=(--token-module "$SOFTHSM" --token-id 01)
 connect_token v2-token "token-pin=$TOKEN_PIN" gateway="$gw" version=2 method=cert token=yes \
-    remote_id=gw.ipsec-client.test ca="$CA" ike=aes256-sha256-modp2048 \
+    remote_id=gw.ikebox.test ca="$CA" ike=aes256-sha256-modp2048 \
     esp=aes256-sha256 remote_ts=192.0.2.0/24
 expect_ike 2 ""
 expect_vip yes
@@ -524,18 +524,18 @@ traffic
 log=$(as alice "$CLI" logs -n 300)
 [[ $log == *"(myself) with RSA_EMSA_PKCS1"*"successful"* ]] ||
     fail "the log does not show the token's RSA key signing"
-[[ -S /run/ipsec-client/1000/agent/agent.sock ]] || fail "no key agent socket during the session"
-[[ $(stat -c '%U %G %a' /run/ipsec-client/1000/agent) == "alice ipsec-client-engine 750" ]] ||
+[[ -S /run/ikebox/1000/agent/agent.sock ]] || fail "no key agent socket during the session"
+[[ $(stat -c '%U %G %a' /run/ikebox/1000/agent) == "alice ikebox-engine 750" ]] ||
     fail "the agent directory is not alice's with charon's group (0750)"
 ok "IKEv2: the token's RSA key signed through the agent; the key never left the token"
 disconnect_token
-[[ ! -e /run/ipsec-client/1000/agent/agent.sock ]] || fail "the agent socket stayed after disconnecting"
+[[ ! -e /run/ikebox/1000/agent/agent.sock ]] || fail "the agent socket stayed after disconnecting"
 
 step "IKEv2 with an ECDSA certificate on a token"
 gw=${GW[ikev2-ecdsa]}
 connect_args=(--token-module "$SOFTHSM" --token-id 02)
 connect_token v2-token-ec "token-pin=$TOKEN_PIN" gateway="$gw" version=2 method=cert token=yes \
-    remote_id=gw.ipsec-client.test ca="$EC_CA" ike=aes256gcm16-prfsha384-ecp384 \
+    remote_id=gw.ikebox.test ca="$EC_CA" ike=aes256gcm16-prfsha384-ecp384 \
     esp=aes256gcm16-ecp384 remote_ts=192.0.2.0/24
 expect_ike 2 ""
 traffic
@@ -551,7 +551,7 @@ connect_args=(--token-module "$SOFTHSM" --token-id 01)
 connect_token v1-token-xauth "token-pin=$TOKEN_PIN
 xauth-user=usuario.teste
 xauth-password=senha-de-teste" gateway="$gw" version=1 method=cert-xauth token=yes \
-    remote_id=gw.ipsec-client.test ca="$CA" ike=aes256-sha256-modp2048 \
+    remote_id=gw.ikebox.test ca="$CA" ike=aes256-sha256-modp2048 \
     esp=aes256-sha256-modp2048 remote_ts=192.0.2.0/24
 expect_ike 1 Main
 traffic
@@ -561,7 +561,7 @@ disconnect_token
 step "Token: a wrong PIN is said as such, and the PIN is nowhere"
 connect_args=(--token-module "$SOFTHSM" --token-id 01)
 python3 -I /test/modes/make_profile.py /tmp/modes/v2-token-badpin.json id=v2-token-badpin \
-    gateway="${GW[ikev2-cert]}" version=2 method=cert token=yes remote_id=gw.ipsec-client.test \
+    gateway="${GW[ikev2-cert]}" version=2 method=cert token=yes remote_id=gw.ikebox.test \
     ca="$CA" ike=aes256-sha256-modp2048 esp=aes256-sha256 remote_ts=192.0.2.0/24
 as alice "$CLI" profiles import /tmp/modes/v2-token-badpin.json >/dev/null
 if out=$(as alice "$CLI" connect v2-token-badpin --credentials-stdin "${connect_args[@]}" \
@@ -589,29 +589,29 @@ v2=(gateway="$gw" version=2 method=psk remote_ts=192.0.2.0/24
 expect_failure v2-bad-psk "psk=wrong-psk" "rejected phase 1 authentication" "${v2[@]}"
 # A strongSwan gateway refuses an IDr that is not its own with the same
 # AUTHENTICATION_FAILED as a wrong PSK: the diagnosis names both.
-expect_failure v2-bad-gateway-id "$PSK" "auth.remote_id" "${v2[@]}" remote_id=other.ipsec-client.test
+expect_failure v2-bad-gateway-id "$PSK" "auth.remote_id" "${v2[@]}" remote_id=other.ikebox.test
 expect_failure v2-bad-ike "$PSK" "none of the phase 1 proposals" \
     "${v2[@]/#ike=*/ike=aes128-sha1-modp1024}"
 expect_failure v2-bad-esp "$PSK" "none of the phase 2 proposals" "${v2[@]/#esp=*/esp=aes128-sha1}"
 # The connection without a pool has no full tunnel child to narrow into.
 expect_failure v2-bad-ts "$PSK" "rejected the requested networks" \
-    "${v2[@]/#remote_ts=*/remote_ts=203.0.113.0/24}" vip=no local_id=novip.ipsec-client.test
+    "${v2[@]/#remote_ts=*/remote_ts=203.0.113.0/24}" vip=no local_id=novip.ikebox.test
 expect_failure v2-vip-required "$PSK" "ask for a virtual IP" "${v2[@]}" vip=no
 gw=${GW[ikev1-main-psk]}
 expect_failure v1-main-bad-psk "psk=wrong-psk" "rejected phase 1 authentication" \
     gateway="$gw" version=1 method=psk remote_ts=192.0.2.0/24 \
     ike=aes256-sha256-modp2048 esp=aes256-sha256
 gw=${GW[ikev2-eap]}
-eap=(gateway="$gw" version=2 method=eap remote_id=gw.ipsec-client.test ca="$CA"
+eap=(gateway="$gw" version=2 method=eap remote_id=gw.ikebox.test ca="$CA"
     ike=aes256-sha256-modp2048 esp=aes256-sha256 remote_ts=192.0.2.0/24)
 expect_failure v2-eap-bad-password "eap-identity=usuario.teste
 eap-password=wrong" "wrong username or password (EAP)" "${eap[@]}"
 expect_failure v2-eap-other-ca "$EAP" "certificate could not be verified" \
     "${eap[@]/#ca=*/ca=$OTHER_CA}"
 expect_failure v2-eap-bad-gateway-id "$EAP" "check the gateway's name" \
-    "${eap[@]/#remote_id=*/remote_id=other.ipsec-client.test}"
+    "${eap[@]/#remote_id=*/remote_id=other.ikebox.test}"
 gw=${GW[ikev2-cert]}
-cert=(gateway="$gw" version=2 method=cert remote_id=gw.ipsec-client.test ca="$CA"
+cert=(gateway="$gw" version=2 method=cert remote_id=gw.ikebox.test ca="$CA"
     ike=aes256-sha256-modp2048 esp=aes256-sha256 remote_ts=192.0.2.0/24)
 connect_args=(--client-p12 "$P12/mallory.p12")
 expect_failure v2-cert-rejected "$P12_CREDS" "did not accept your certificate" "${cert[@]}"

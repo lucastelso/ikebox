@@ -8,7 +8,7 @@ the user does not need Docker (ADR-0013 and ADR-0016).
 | `versions.txt` | Supported versions, each with its path and the tarball **SHA-256** |
 | `keys/strongswan-release.asc` | strongSwan release public key (to check the GPG signature) |
 | `build/Dockerfile` | Alpine builder (musl): charon comes out as one fully static executable (ADR-0020) |
-| `patches/*.patch` | IPsec Client security patches, applied **after** checking the source, in order: `0001`, the VICI client does not choose the `updown` (run as root) or the `if_id` (ADR-0019); `0002`, it cannot make charon open certificate files by path or use tokens (audit of 0.2.0, P9) |
+| `patches/*.patch` | Ikebox security patches, applied **after** checking the source, in order: `0001`, the VICI client does not choose the `updown` (run as root) or the `if_id` (ADR-0019); `0002`, it cannot make charon open certificate files by path or use tokens (audit of 0.2.0, P9) |
 | `licenses/` | License texts of GMP and musl, which go into the static executable; where they came from is in `licenses/README.md` |
 | `build/build-strongswan.sh` | Downloads the tarball, checks SHA-256 and GPG, applies the patches (all must apply), compiles (static, monolithic, no OpenSSL) and builds a deterministic tarball |
 | `build.sh` | Runs the builder: `native-engine/build.sh [version\|all]` |
@@ -23,10 +23,10 @@ native-engine/build.sh all && native-engine/spike/run-e2e.sh 5.8.2   # fallback
 
 The result goes to `native-engine/dist/` (ignored by git):
 
-- `ipsec-client-engine-<version>-x86_64.tar.gz`: what users get. charon,
+- `ikebox-engine-<version>-x86_64.tar.gz`: what users get. charon,
   its configuration, the license texts and a `BUILDINFO` (version, hash,
   patches with SHA-256, builder, GMP and musl versions, build options);
-- `ipsec-client-engine-tools-<version>-x86_64.tar.gz`: `swanctl`, used only
+- `ikebox-engine-tools-<version>-x86_64.tar.gz`: `swanctl`, used only
   by the tests to drive charon. It never goes into a package.
 
 Staging (`scripts/stage-network-component.sh`), the release build and

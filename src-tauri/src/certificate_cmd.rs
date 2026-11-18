@@ -8,9 +8,9 @@ use std::path::PathBuf;
 use std::sync::Mutex;
 use std::sync::atomic::{AtomicU64, Ordering};
 
-use ipsec_client_core::profiles::ProfileStore;
-use ipsec_client_core::secrets::{ClientCertificate, Credentials, KeyringStore, MAX_PKCS12_BYTES};
-use ipsec_client_core::{tr, trf};
+use ikebox_core::profiles::ProfileStore;
+use ikebox_core::secrets::{ClientCertificate, Credentials, KeyringStore, MAX_PKCS12_BYTES};
+use ikebox_core::{tr, trf};
 use serde::Serialize;
 use specta::Type;
 use tauri::AppHandle;

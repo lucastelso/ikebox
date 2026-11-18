@@ -1,7 +1,7 @@
 //! The app's own settings (phase F of the program to 1.0.0): what closing the
 //! window does and the optional update notice. Kept by Rust, which needs them
 //! when the window is closed and to check for updates, in
-//! `~/.config/ipsec-client/settings.json` (0600, written atomically). The
+//! `~/.config/ikebox/settings.json` (0600, written atomically). The
 //! interface's preferences (theme, language) stay in the webview.
 
 use std::io::Write as _;
@@ -9,7 +9,7 @@ use std::os::unix::fs::OpenOptionsExt as _;
 use std::path::PathBuf;
 use std::sync::Mutex;
 
-use ipsec_client_core::profiles::ProfileStore;
+use ikebox_core::profiles::ProfileStore;
 use serde::{Deserialize, Serialize};
 
 /// What is stored.

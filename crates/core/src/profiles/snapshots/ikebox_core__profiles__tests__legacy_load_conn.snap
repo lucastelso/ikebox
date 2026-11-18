@@ -30,7 +30,7 @@ children {
         close_action = restart
         if_id_in = 1486177937
         if_id_out = 1486177937
-        updown = /usr/local/libexec/ipsec-client/updown --iface 'ipsc0' --dns '192.0.2.53' --domain '~corp.example.com'
+        updown = /usr/local/libexec/ikebox/updown --iface 'ipsc0' --dns '192.0.2.53' --domain '~corp.example.com'
         rekey_time = 43200s
     }
 }

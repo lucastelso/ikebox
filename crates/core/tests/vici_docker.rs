@@ -13,10 +13,10 @@ mod support;
 
 use std::time::Duration;
 
-use ipsec_client_core::engine::{DockerEngine, EngineSpec, current_gid, default_runtime_dir};
-use ipsec_client_core::profiles::{ConnParams, CredentialKind, Profile, parse_profile};
-use ipsec_client_core::secrets::{Credentials, Redactor};
-use ipsec_client_core::vici::{Charon, CharonEvent, ViciClient, ViciEvents};
+use ikebox_core::engine::{DockerEngine, EngineSpec, current_gid, default_runtime_dir};
+use ikebox_core::profiles::{ConnParams, CredentialKind, Profile, parse_profile};
+use ikebox_core::secrets::{Credentials, Redactor};
+use ikebox_core::vici::{Charon, CharonEvent, ViciClient, ViciEvents};
 use secrecy::SecretString;
 use support::{
     TEST_GROUP_ID, TEST_PSK, TEST_XAUTH_PASSWORD, TEST_XAUTH_USER, TestGateway, host_cmd,
@@ -24,7 +24,7 @@ use support::{
 };
 use tokio::sync::mpsc;
 
-const PREFIX: &str = "ipsec-client-rs-vici";
+const PREFIX: &str = "ikebox-rs-vici";
 const IFACE: &str = "ipsct2";
 const IF_ID: u32 = 7343;
 
@@ -72,7 +72,7 @@ async fn full_tunnel_through_rust_vici_client() {
         .expect("pai")
         .to_path_buf();
     let tmp = tempfile::Builder::new()
-        .prefix("ipsec-client-rs-vici.")
+        .prefix("ikebox-rs-vici.")
         .tempdir_in(parent)
         .expect("tempdir");
     let mut spec = EngineSpec::new(tmp.path().join("run"), current_gid(), IF_ID);
@@ -101,7 +101,7 @@ async fn scenario(spec: EngineSpec, gateway_ip: String) {
     let load_conn = profile
         .to_load_conn(&ConnParams {
             iface: IFACE,
-            updown: Some(ipsec_client_core::profiles::UPDOWN_PATH),
+            updown: Some(ikebox_core::profiles::UPDOWN_PATH),
             if_id: IF_ID,
             xauth_user: Some(TEST_XAUTH_USER),
             eap_identity: None,
@@ -131,7 +131,7 @@ async fn scenario(spec: EngineSpec, gateway_ip: String) {
     assert_eq!(version.daemon, "charon");
     assert_eq!(
         version.version,
-        ipsec_client_core::engine::context::STRONGSWAN_VERSION
+        ikebox_core::engine::context::STRONGSWAN_VERSION
     );
 
     let mut credentials = Credentials::new();

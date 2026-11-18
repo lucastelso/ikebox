@@ -71,7 +71,7 @@ RUN set -eu; \
     printf '\0\0\0' | dd of=linuxdeploy-07333c6-x86_64.AppImage bs=1 seek=8 conv=notrunc status=none; \
     echo "bd9521cd5ff3ca351fecb78cd9b236a4e37b3621014ac05cac0c2d767ffa0474  linuxdeploy-07333c6-x86_64.AppImage" | sha256sum -c -; \
     chmod 0755 ./*; \
-    sha256sum ./* >/etc/ipsec-client-tauri-tools.sha256
+    sha256sum ./* >/etc/ikebox-tauri-tools.sha256
 
 # linuxdeploy (used by Tauri for the AppImage) is an AppImage itself: without
 # FUSE in the container, it extracts itself and runs.

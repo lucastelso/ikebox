@@ -46,14 +46,14 @@ pub enum ProfileError {
     Json(#[from] serde_json::Error),
     /// No `schema_version`.
     #[error("{}", crate::tr!(
-        "the file does not look like an IPsec Client profile (schema_version is missing)",
-        "o arquivo não parece um perfil do ipsec-client (falta schema_version)"
+        "the file does not look like an Ikebox profile (schema_version is missing)",
+        "o arquivo não parece um perfil do ikebox (falta schema_version)"
     ))]
     MissingSchemaVersion,
     /// Unknown format version.
     #[error("{}", crate::trf!(
-        "unsupported profile version ({}); update IPsec Client",
-        "versão de perfil não suportada ({}); atualize o ipsec-client",
+        "unsupported profile version ({}); update Ikebox",
+        "versão de perfil não suportada ({}); atualize o ikebox",
         .0
     ))]
     UnsupportedVersion(u64),

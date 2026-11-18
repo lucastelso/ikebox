@@ -258,7 +258,7 @@ impl DockerEngine {
                 while let Some(pos) = pending.find('\n') {
                     let line: String = pending.drain(..=pos).collect();
                     let line = line.trim_end().to_owned();
-                    debug!(target: "ipsec_client::engine::log", "{line}");
+                    debug!(target: "ikebox::engine::log", "{line}");
                     let ready = line.starts_with(READY_LINE);
                     if recent.len() == RECENT_LOG_LINES {
                         recent.pop_front();
@@ -402,7 +402,7 @@ mod tests {
     #[test]
     fn runtime_dir_is_created_private() {
         let base = tempfile::tempdir().expect("tempdir");
-        let dir = base.path().join("ipsec-client");
+        let dir = base.path().join("ikebox");
         prepare_runtime_dir(&dir).expect("cria");
         let mode = std::fs::metadata(&dir).expect("meta").permissions().mode() & 0o777;
         assert_eq!(mode, 0o700);

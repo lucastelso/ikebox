@@ -1,4 +1,4 @@
-# Command line: `ipsec-client-cli`
+# Command line: `ikebox-cli`
 
 The CLI has the same logic as the desktop app, without a GUI. It is for using
 the VPN from a terminal, in scripts, and for validating the core. It speaks
@@ -7,21 +7,21 @@ English.
 ## Installation
 
 The `.rpm` and the `.deb` install it in `/usr/bin`, with a manual page
-(`man ipsec-client-cli`) and completions for bash, zsh and fish. With the
+(`man ikebox-cli`) and completions for bash, zsh and fish. With the
 AppImage, build it from source:
 
 ```bash
-cargo build --release -p ipsec-client-cli
-install -Dm755 target/release/ipsec-client-cli ~/.local/bin/ipsec-client-cli
+cargo build --release -p ikebox-cli
+install -Dm755 target/release/ikebox-cli ~/.local/bin/ikebox-cli
 # completions, for example for bash:
-ipsec-client-cli completions bash > ~/.local/share/bash-completion/completions/ipsec-client-cli
+ikebox-cli completions bash > ~/.local/share/bash-completion/completions/ikebox-cli
 ```
 
 Usage prerequisites: the network component installed (by the app or with
 `component install`), a kernel with `xfrm_interface`, systemd-resolved and,
 optionally, the system keyring. Without the network component, the CLI falls
 back to the Docker engine if Docker is available (development). To check
-everything: `ipsec-client-cli doctor`.
+everything: `ikebox-cli doctor`.
 
 > **Do not use `sudo`.** The CLI runs as your user. The network privileges
 > live in the network component (ADR-0014).
@@ -29,12 +29,12 @@ everything: `ipsec-client-cli doctor`.
 ## First use
 
 ```bash
-ipsec-client-cli doctor                                   # is this computer ready?
-ipsec-client-cli profiles import presets.local/vpn.json   # the profile (see docs/profiles.md)
+ikebox-cli doctor                                   # is this computer ready?
+ikebox-cli profiles import presets.local/vpn.json   # the profile (see docs/profiles.md)
 # or, from a swanctl.conf that already works:
-ipsec-client-cli profiles import-swanctl swanctl.conf --id vpn --dns 192.0.2.53 --domain '~corp.example.com'
-ipsec-client-cli secrets set vpn                          # PSK, username and password → keyring
-ipsec-client-cli connect vpn                              # Ctrl+C disconnects
+ikebox-cli profiles import-swanctl swanctl.conf --id vpn --dns 192.0.2.53 --domain '~corp.example.com'
+ikebox-cli secrets set vpn                          # PSK, username and password → keyring
+ikebox-cli connect vpn                              # Ctrl+C disconnects
 ```
 
 ## Commands
@@ -89,7 +89,7 @@ Never pass secrets as arguments or environment variables: they show up in
 redirection:
 
 ```bash
-ipsec-client-cli connect vpn --detach --credentials-stdin < ~/.config/my-vpn.cred
+ikebox-cli connect vpn --detach --credentials-stdin < ~/.config/my-vpn.cred
 ```
 
 ## Common errors

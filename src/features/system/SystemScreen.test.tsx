@@ -59,12 +59,12 @@ describe('SystemScreen', () => {
     expect(await screen.findByText('Diagnóstico')).toBeInTheDocument();
     expect(screen.getByRole('group', { name: 'Idioma' })).toBeInTheDocument();
     expect(document.documentElement.lang).toBe('pt-BR');
-    expect(localStorage.getItem('ipsec-client:language')).toBe('pt');
+    expect(localStorage.getItem('ikebox:language')).toBe('pt');
     expect(languages).toEqual(['en', 'pt']);
     await userEvent.click(
       within(screen.getByRole('group', { name: 'Idioma' })).getByRole('radio', { name: 'Sistema' }),
     );
-    expect(localStorage.getItem('ipsec-client:language')).toBeNull();
+    expect(localStorage.getItem('ikebox:language')).toBeNull();
     expect(await screen.findByText('Diagnostics')).toBeInTheDocument();
   });
 

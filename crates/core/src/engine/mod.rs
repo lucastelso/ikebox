@@ -96,11 +96,11 @@ pub enum EngineError {
     Docker(String),
 
     /// This build has no Docker engine (release builds), and it was asked
-    /// for (`IPSEC_CLIENT_BACKEND=docker`).
+    /// for (`IKEBOX_BACKEND=docker`).
     #[error("{}", crate::tr!(
-        "this build of IPsec Client has no Docker engine; install the network \
+        "this build of Ikebox has no Docker engine; install the network \
          component (System tab)",
-        "esta versão do IPsec Client não tem o engine em Docker; instale o \
+        "esta versão do Ikebox não tem o engine em Docker; instale o \
          componente de rede (aba Sistema)"
     ))]
     NoDockerEngine,
@@ -117,13 +117,13 @@ impl From<bollard::errors::Error> for EngineError {
     }
 }
 
-/// Default VICI socket directory: `$XDG_RUNTIME_DIR/ipsec-client`.
+/// Default VICI socket directory: `$XDG_RUNTIME_DIR/ikebox`.
 ///
 /// # Errors
 /// [`EngineError::RuntimeDir`] if `XDG_RUNTIME_DIR` is not set.
 pub fn default_runtime_dir() -> Result<PathBuf, EngineError> {
     std::env::var_os("XDG_RUNTIME_DIR")
-        .map(|dir| PathBuf::from(dir).join("ipsec-client"))
+        .map(|dir| PathBuf::from(dir).join("ikebox"))
         .filter(|dir| dir.is_absolute())
         .ok_or_else(|| {
             EngineError::RuntimeDir(
