@@ -14,7 +14,7 @@ use std::time::Duration;
 
 use ipsec_client_core::engine::{CONTAINER_NAME, DEFAULT_IFACE, DockerEngine};
 use ipsec_client_core::profiles::{CredentialKind, Profile, parse_profile};
-use ipsec_client_core::secrets::Credentials;
+use ipsec_client_core::secrets::{Credentials, MemoryStore, SecretStore};
 use ipsec_client_core::session::{
     self, ConnectOptions, FailureKind, SessionError, SessionEvent, SessionState,
 };
@@ -72,15 +72,28 @@ async fn session_connect_status_disconnect_and_failure_diagnosis() {
 async fn scenario(gateway_ip: String) {
     let profile = profile(&gateway_ip);
 
-    // 1) Senha XAuth errada: erro diagnosticado e nada fica de pé.
-    let err = session::connect(
+    // 1) Wrong XAuth password: diagnosed error, nothing left running, and
+    //    with "remember" nothing is stored (audit P2).
+    let store = MemoryStore::new();
+    let err = session::connect_then_remember(
         &profile,
         &credentials("senha-errada"),
         &ConnectOptions::default(),
         None,
+        Some(&store),
     )
     .await
     .expect_err("deveria falhar");
+    for kind in [
+        CredentialKind::Psk,
+        CredentialKind::XauthUser,
+        CredentialKind::XauthPassword,
+    ] {
+        assert!(
+            store.get(&profile.id, kind).expect("store").is_none(),
+            "{kind:?} stored after a failed connection"
+        );
+    }
     match &err {
         SessionError::Negotiation { kind, detail } => {
             assert_eq!(*kind, FailureKind::XauthCredentials, "{err}");
@@ -96,14 +109,23 @@ async fn scenario(gateway_ip: String) {
 
     // 2) Conexão real, com eventos.
     let (tx, mut rx) = mpsc::unbounded_channel();
-    let info = session::connect(
+    let (info, stored) = session::connect_then_remember(
         &profile,
         &credentials(TEST_XAUTH_PASSWORD),
         &ConnectOptions::default(),
         Some(tx),
+        Some(&store),
     )
     .await
     .expect("conexão");
+    assert!(matches!(stored, Some(Ok(()))), "credentials not stored");
+    assert!(
+        store
+            .get(&profile.id, CredentialKind::XauthPassword)
+            .expect("store")
+            .is_some(),
+        "the password of the established connection was not stored"
+    );
     assert!(info.is_established());
     assert_eq!(info.profile_id.as_deref(), Some("gateway-teste"));
     assert!(info.vip.as_deref().unwrap_or("").starts_with("198.51.100."));

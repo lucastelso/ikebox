@@ -54,7 +54,7 @@ ipsec-client-cli connect vpn                              # Ctrl+C disconnects
 | `secrets forget <id>` | Deletes the credentials from the keyring |
 | `connect <id>` | Connects in the foreground. **Ctrl+C disconnects.** Tunnel drops and recoveries show up on screen |
 | `connect <id> --detach` | Connects and returns to the terminal; the tunnel stays up |
-| `connect <id> --remember` | Stores the credentials asked now in the keyring |
+| `connect <id> --remember` | Stores the credentials asked now in the keyring, once the connection is up (a wrong password is not stored) |
 | `connect <id> --client-p12 <file>` | Uses that certificate for this connection only, in memory (with `--remember`, also in the keyring). The file's password is asked, or read from the `p12-password` line of `--credentials-stdin` |
 | `connect <id> --timeout N` | Maximum negotiation time (default 30 s) |
 | `connect <id> --privileged` | Fallback privileged container mode, Docker engine only (avoid it; see SECURITY.md) |
