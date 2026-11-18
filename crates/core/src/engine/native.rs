@@ -1,8 +1,8 @@
-//! Cliente do `ipsec-client-helper` (engine embutido, ADR-0013/0014).
+//! Client of `ipsec-client-helper` (embedded engine, ADR-0013/0014).
 //!
-//! Fala o protocolo de `ipsec-client-proto` pelo socket do helper. As
-//! chamadas são bloqueantes (o `start` espera o engine ficar pronto) e, em
-//! código async, rodam em `spawn_blocking`.
+//! It speaks the `ipsec-client-proto` protocol over the helper's socket. The
+//! calls are blocking (`start` waits for the engine to be ready) and, in async
+//! code, run in `spawn_blocking`.
 
 use std::io::{BufRead, BufReader, Read, Write};
 use std::os::unix::net::UnixStream;
@@ -15,10 +15,10 @@ use ipsec_client_proto::{
 
 use super::EngineError;
 
-/// Tempo máximo de uma requisição (o `start` inclui a espera do engine).
+/// Maximum time of a request (`start` includes waiting for the engine).
 const REQUEST_TIMEOUT: Duration = Duration::from_secs(60);
 
-/// Cliente do helper.
+/// Helper client.
 #[derive(Debug, Clone)]
 pub struct NativeEngine {
     socket: PathBuf,
@@ -43,14 +43,14 @@ fn default_socket() -> PathBuf {
 }
 
 impl NativeEngine {
-    /// Cliente para o socket indicado (testes); o padrão usa [`HELPER_SOCKET`]
-    /// (ou `$IPSEC_CLIENT_HELPER_SOCKET`, só em builds de desenvolvimento).
+    /// Client for the given socket (tests); the default uses [`HELPER_SOCKET`]
+    /// (or `$IPSEC_CLIENT_HELPER_SOCKET`, in development builds only).
     #[must_use]
     pub fn new(socket: PathBuf) -> Self {
         Self { socket }
     }
 
-    /// O helper está instalado (o socket existe)?
+    /// Is the helper installed (does the socket exist)?
     #[must_use]
     pub fn installed(&self) -> bool {
         self.socket.exists()
@@ -77,7 +77,7 @@ impl NativeEngine {
             .read_line(&mut reply)
             .map_err(unavailable)?;
         match decode::<Response>(&reply).map_err(|e| EngineError::Helper(e.to_string()))? {
-            // Um helper antigo recusa campos que ele não conhece.
+            // An old helper refuses fields it does not know.
             Response::Error { message } if message.contains("unknown field") => {
                 Err(EngineError::HelperOutdated)
             }
@@ -93,10 +93,10 @@ impl NativeEngine {
         ))
     }
 
-    /// Versão do helper (também confirma que ele responde).
+    /// Helper version (it also confirms the helper answers).
     ///
     /// # Errors
-    /// Helper indisponível.
+    /// Helper unavailable.
     pub fn ping(&self) -> Result<String, EngineError> {
         match self.call(&Request::Ping)? {
             Response::Pong { version } => Ok(version),
@@ -104,10 +104,12 @@ impl NativeEngine {
         }
     }
 
-    /// Sobe o engine e espera ficar pronto. Devolve o caminho do socket VICI.
+    /// Starts the engine and waits for it to be ready. Returns the VICI socket's
+    /// path.
     ///
     /// # Errors
-    /// Recusa do helper (autorização, parâmetros, engine que não subiu).
+    /// Refused by the helper (authorization, parameters, engine that did not
+    /// start).
     pub fn start(&self, params: &StartParams) -> Result<PathBuf, EngineError> {
         params.validate().map_err(EngineError::InvalidSpec)?;
         match self.call(&Request::Start(params.clone()))? {
@@ -116,10 +118,10 @@ impl NativeEngine {
         }
     }
 
-    /// Para o engine. Devolve se havia um rodando.
+    /// Stops the engine. Returns whether one was running.
     ///
     /// # Errors
-    /// Helper indisponível ou recusa.
+    /// Helper unavailable or refusal.
     pub fn stop(&self) -> Result<bool, EngineError> {
         match self.call(&Request::Stop)? {
             Response::Stopped { was_running } => Ok(was_running),
@@ -127,10 +129,10 @@ impl NativeEngine {
         }
     }
 
-    /// Estado do engine.
+    /// Engine state.
     ///
     /// # Errors
-    /// Helper indisponível ou recusa.
+    /// Helper unavailable or refusal.
     pub fn status(&self) -> Result<EngineStatus, EngineError> {
         match self.call(&Request::Status)? {
             Response::Status(status) => Ok(status),
@@ -138,10 +140,10 @@ impl NativeEngine {
         }
     }
 
-    /// Últimas linhas do log do engine.
+    /// Last lines of the engine's log.
     ///
     /// # Errors
-    /// Helper indisponível ou recusa.
+    /// Helper unavailable or refusal.
     pub fn logs(&self, tail: u32) -> Result<Vec<String>, EngineError> {
         match self.call(&Request::Logs { tail })? {
             Response::Logs { lines } => Ok(lines),
@@ -155,7 +157,7 @@ mod tests {
     use super::*;
     use std::os::unix::net::UnixListener;
 
-    /// Helper de mentira: responde uma linha fixa a cada conexão.
+    /// Fake helper: answers a fixed line on every connection.
     fn fake_helper(reply: Response) -> (tempfile::TempDir, NativeEngine) {
         let dir = tempfile::tempdir().expect("tempdir");
         let path = dir.path().join("helper.sock");

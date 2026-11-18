@@ -1,7 +1,7 @@
 {
   "schema_version": 1,
-  "id": "exemplo-legado",
-  "name": "Exemplo: VPN legada (IKEv1 agressivo, PSK de grupo + XAuth)",
+  "id": "example-legacy",
+  "name": "Example: legacy VPN (IKEv1 aggressive, group PSK + XAuth)",
   "gateway": "vpn.example.com",
   "ike": {
     "version": 1,
@@ -13,10 +13,10 @@
   },
   "auth": {
     "method": "psk-xauth",
-    "local_id": "keyid:nome-do-grupo"
+    "local_id": "keyid:group-name"
   },
   "child": {
-    "name": "rede-interna",
+    "name": "internal-network",
     "esp_proposals": ["aes256-sha1-modp1024", "aes256-sha1-modp768", "aes128-sha1-modp1024"],
     "rekey_time_secs": 43200,
     "remote_ts": ["192.0.2.0/24"],

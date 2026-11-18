@@ -1,22 +1,23 @@
 #!/usr/bin/env bash
-# Monta o pacote do componente de rede: o diretório que vai dentro do app
-# (recurso do Tauri, ADR-0018) e que o instalador usa com --bundle.
+# Builds the network component bundle: the directory that goes inside the app
+# (a Tauri resource, ADR-0018) and that the installer uses with --bundle.
 #
-# Uso:
-#   scripts/stage-network-component.sh [--out <dir>] [--engine <tarball>] [--helper <binário>]
+# Usage:
+#   scripts/stage-network-component.sh [--out <dir>] [--engine <tarball>] [--helper <binary>]
 #
-# Sem --engine/--helper, compila o que faltar (strongSwan embutido via Docker,
-# helper com cargo). Saída padrão: target/network-component/
+# Without --engine/--helper, it builds what is missing (the embedded
+# strongSwan through Docker, the helper with cargo). Default output:
+# target/network-component/
 #
-# Conteúdo (caminhos relativos ao pacote):
-#   VERSION                         version=<app> e strongswan=<versão>
-#   SHA256SUMS                      hash de todos os outros arquivos
-#   install-native.sh               instalador (roda como root)
-#   engine.tar.gz                   strongSwan compilado
-#   ipsec-client-helper.gz          helper com privilégio, compactado: o
-#                                   linuxdeploy (AppImage) reescreve o RPATH
-#                                   de todo ELF solto no pacote, e o hash
-#                                   deixaria de bater
+# Content (paths relative to the bundle):
+#   VERSION                         version=<app> and strongswan=<version>
+#   SHA256SUMS                      hash of every other file
+#   install-native.sh               installer (runs as root)
+#   engine.tar.gz                   compiled strongSwan
+#   ipsec-client-helper.gz          privileged helper, compressed: linuxdeploy
+#                                   (AppImage) rewrites the RPATH of every
+#                                   loose ELF in the bundle, and the hash
+#                                   would no longer match
 #   engine/{entrypoint.sh,updown.sh,strongswan.d/zz-ipsec-client.conf}
 #   packaging/systemd/ipsec-client-helper.{socket,service}
 #   packaging/polkit/io.github.lucastelso.ipsecclient.policy
@@ -52,7 +53,8 @@ if [[ -z $engine ]]; then
     [[ -f $engine ]] || "$repo/native-engine/build.sh" "$strongswan"
 fi
 if [[ -z $helper ]]; then
-    # O cargo do rustup (respeita o rust-toolchain.toml), mesmo com outro no PATH.
+    # rustup's cargo (it honors rust-toolchain.toml), even with another one in
+    # PATH.
     if [[ -f "$HOME/.cargo/env" ]]; then
         # shellcheck source=/dev/null
         . "$HOME/.cargo/env"
@@ -63,8 +65,9 @@ fi
 [[ -f $engine ]] || die "engine tarball not found: $engine"
 [[ -f $helper ]] || die "helper not found: $helper"
 
-# O engine precisa ter exatamente os patches de segurança deste commit
-# (ADR-0019): um tarball velho em native-engine/dist/ deixaria o app vulnerável.
+# The engine must have exactly the security patches of this commit
+# (ADR-0019): an old tarball in native-engine/dist/ would leave the app
+# vulnerable.
 expected_patches=()
 for patch_file in "$repo"/native-engine/patches/*.patch; do
     [[ -f $patch_file ]] || continue
@@ -88,9 +91,9 @@ install -m 0644 "$repo/packaging/systemd/ipsec-client-helper.socket" \
 install -m 0644 "$repo/packaging/polkit/$POLICY" "$out/packaging/polkit/"
 printf 'version=%s\nstrongswan=%s\n' "$app_version" "$strongswan" >"$out/VERSION"
 
-# Ordem fixa: o SHA256SUMS também identifica o pacote (o app compara com o
-# instalado para saber se há atualização).
-# shellcheck disable=SC2094 # o find exclui o próprio SHA256SUMS
+# Fixed order: SHA256SUMS also identifies the bundle (the app compares it with
+# the installed one to know whether there is an update).
+# shellcheck disable=SC2094 # find excludes SHA256SUMS itself
 (
     cd "$out"
     find . -type f ! -name SHA256SUMS -printf '%P\n' | LC_ALL=C sort |

@@ -120,7 +120,7 @@ the client and how the gateway authenticates:
   Ed25519** key (ECDSA since 1.0, ADR-0027). Revocation (CRL/OCSP) is not checked
   ([SECURITY.md](../SECURITY.md)). The username and password are
   credentials, asked when connecting (`eap-identity`, `eap-password` in the
-  CLI). Example: [`presets/exemplo-ikev2-eap.json`](../presets/exemplo-ikev2-eap.json).
+  CLI). Example: [`presets/example-ikev2-eap.json`](../presets/example-ikev2-eap.json).
 - **Your certificate** (since 0.8.0,
   [ADR-0024](adr/0024-client-certificates.md)): one round
   `{ "method": "certificate" }` (an optional `id` is the IKE identity the

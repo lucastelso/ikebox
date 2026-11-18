@@ -91,7 +91,7 @@ main() {
 
     step "profiles import / list / validate"
     sed "s/\"gw.ipsec-client.test\"/\"$gw_ip\"/" \
-        "$repo_root/crates/core/tests/fixtures/perfil-gateway-teste.json" >"$workdir/perfil.json"
+        "$repo_root/crates/core/tests/fixtures/test-gateway.json" >"$workdir/perfil.json"
     "$cli" profiles validate "$workdir/perfil.json" >/dev/null || fail "invalid profile"
     "$cli" profiles import "$workdir/perfil.json" >/dev/null
     "$cli" profiles list | grep -q '^gateway-teste ' || fail "profile not listed"

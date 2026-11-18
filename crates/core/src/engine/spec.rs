@@ -1,8 +1,8 @@
-//! Configuração de uma instância do engine e sua tradução para a Docker API.
+//! Configuration of an engine instance and its translation to the Docker API.
 //!
-//! Tudo aqui é puro (sem I/O de rede), para ser testado sem Docker. As regras
-//! de validação espelham as do `engine/entrypoint.sh`: o Rust valida antes, o
-//! script valida de novo (defesa em profundidade).
+//! Everything here is pure (no network I/O), so it can be tested without
+//! Docker. The validation rules mirror those of `engine/entrypoint.sh`: Rust
+//! validates first, the script validates again (defense in depth).
 
 use std::collections::HashMap;
 use std::path::{Path, PathBuf};
@@ -12,28 +12,28 @@ use bollard::models::{ContainerCreateBody, HostConfig};
 use super::context;
 use super::{DBUS_SYSTEM_SOCKET, DEFAULT_IFACE, DEFAULT_MTU, EngineError};
 
-/// Nome padrão do container do engine.
+/// Default name of the engine container.
 pub const CONTAINER_NAME: &str = "ipsec-client-engine";
-/// Onde o diretório do socket VICI é montado dentro do container.
+/// Where the VICI socket directory is mounted inside the container.
 pub const CONTAINER_SOCKET_DIR: &str = "/run/ipsec-client";
-/// Nome do arquivo do socket VICI.
+/// File name of the VICI socket.
 pub const SOCKET_FILE: &str = "charon.vici";
-/// Label que marca containers gerenciados pelo app.
+/// Label that marks the containers managed by the app.
 pub const MANAGED_LABEL: &str = "io.github.ipsec-client.managed";
-/// Label com o id do perfil conectado (para status/disconnect/logs).
+/// Label with the connected profile's id (for status/disconnect/logs).
 pub const PROFILE_LABEL: &str = "io.github.ipsec-client.profile";
 
-/// Opções de segurança do container que dependem do host (ADR-0005).
+/// Container security options that depend on the host (ADR-0005).
 #[derive(Debug, Clone, Copy, Default, PartialEq, Eq)]
 pub struct HostSecurity {
-    /// Host com SELinux: `--security-opt label=disable`.
+    /// Host with SELinux: `--security-opt label=disable`.
     pub selinux: bool,
-    /// Host com AppArmor: `--security-opt apparmor=unconfined`.
+    /// Host with AppArmor: `--security-opt apparmor=unconfined`.
     pub apparmor: bool,
 }
 
 impl HostSecurity {
-    /// Detecta SELinux/AppArmor pelo sysfs.
+    /// Detects SELinux/AppArmor through sysfs.
     #[must_use]
     pub fn detect() -> Self {
         Self {
@@ -43,38 +43,38 @@ impl HostSecurity {
     }
 }
 
-/// Tudo o que define uma instância do engine. Nada aqui é sensível: os
-/// segredos chegam ao charon só via VICI (ADR-0007).
+/// Everything that defines an engine instance. Nothing here is sensitive: the
+/// secrets reach charon only over VICI (ADR-0007).
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct EngineSpec {
-    /// Nome do container.
+    /// Container name.
     pub container_name: String,
-    /// Imagem (normalmente [`context::image_tag`]).
+    /// Image (usually [`context::image_tag`]).
     pub image: String,
-    /// Interface XFRM dedicada.
+    /// Dedicated XFRM interface.
     pub iface: String,
-    /// `if_id` das SAs/políticas (≠ 0).
+    /// `if_id` of the SAs and policies (≠ 0).
     pub if_id: u32,
-    /// MTU da interface.
+    /// Interface MTU.
     pub mtu: u16,
-    /// gid que pode usar o socket VICI.
+    /// gid that may use the VICI socket.
     pub socket_gid: u32,
-    /// Nível de log do charon (0..=2).
+    /// charon log level (0..=2).
     pub log_level: u8,
-    /// Diretório do host onde fica o socket VICI (0700, do usuário).
+    /// Host directory holding the VICI socket (0700, the user's).
     pub runtime_dir: PathBuf,
-    /// Socket D-Bus do sistema (para o resolvectl), se existir.
+    /// System D-Bus socket (for resolvectl), if it exists.
     pub dbus_socket: Option<PathBuf>,
-    /// Ajustes para SELinux/AppArmor.
+    /// Adjustments for SELinux/AppArmor.
     pub security: HostSecurity,
-    /// Modo privilegiado de reserva (desligado por padrão).
+    /// Fallback privileged mode (off by default).
     pub privileged: bool,
-    /// Id do perfil desta sessão (vira label do container).
+    /// Profile id of this session (it becomes the container's label).
     pub profile_id: Option<String>,
 }
 
 impl EngineSpec {
-    /// Spec padrão para uma sessão: imagem embutida, `ipsc0`, MTU 1400, log 1.
+    /// Default spec for a session: embedded image, `ipsc0`, MTU 1400, log 1.
     #[must_use]
     pub fn new(runtime_dir: PathBuf, socket_gid: u32, if_id: u32) -> Self {
         let dbus = PathBuf::from(DBUS_SYSTEM_SOCKET);
@@ -94,16 +94,16 @@ impl EngineSpec {
         }
     }
 
-    /// Caminho do socket VICI no host.
+    /// Path of the VICI socket on the host.
     #[must_use]
     pub fn socket_path(&self) -> PathBuf {
         self.runtime_dir.join(SOCKET_FILE)
     }
 
-    /// Valida a spec com as mesmas regras do entrypoint.
+    /// Validates the spec with the same rules as the entrypoint.
     ///
     /// # Errors
-    /// [`EngineError::InvalidSpec`] com a descrição do campo inválido.
+    /// [`EngineError::InvalidSpec`] with the description of the invalid field.
     pub fn validate(&self) -> Result<(), EngineError> {
         let invalid = |msg: &str| Err(EngineError::InvalidSpec(msg.to_owned()));
         if !is_valid_iface(&self.iface) {
@@ -150,7 +150,7 @@ impl EngineSpec {
         Ok(())
     }
 
-    /// Variáveis de ambiente do container (só dados não sensíveis).
+    /// Container environment variables (non-sensitive data only).
     #[must_use]
     pub fn env(&self) -> Vec<String> {
         vec![
@@ -162,7 +162,7 @@ impl EngineSpec {
         ]
     }
 
-    /// `HostConfig`: rede do host, só `NET_ADMIN`, binds do socket e do D-Bus.
+    /// `HostConfig`: host network, `NET_ADMIN` only, binds of the socket and D-Bus.
     #[must_use]
     pub fn host_config(&self) -> HostConfig {
         let mut binds = vec![format!(
@@ -191,7 +191,7 @@ impl EngineSpec {
         }
     }
 
-    /// Corpo do `POST /containers/create`.
+    /// Body of `POST /containers/create`.
     #[must_use]
     pub fn create_body(&self) -> ContainerCreateBody {
         let mut labels = HashMap::from([

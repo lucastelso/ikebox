@@ -1,7 +1,7 @@
 {
   "schema_version": 1,
   "id": "gateway-teste",
-  "name": "Gateway IPsec de teste (local)",
+  "name": "Local IPsec test gateway",
   "gateway": "gw.ipsec-client.test",
   "ike": {
     "version": 1,

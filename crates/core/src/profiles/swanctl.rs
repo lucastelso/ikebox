@@ -1,13 +1,14 @@
-//! Importação de um `swanctl.conf` existente para um perfil.
+//! Import of an existing `swanctl.conf` into a profile.
 //!
-//! Segurança: a seção `secrets` é **pulada sem ser armazenada** (o parser só
-//! conta chaves de abertura e fechamento), e qualquer chave `secret` fora
-//! dela é recusada. O perfil gerado nunca contém credenciais (ADR-0007), e o
-//! usuário XAuth (`xauth_id`) não é copiado.
+//! Security: the `secrets` section is **skipped without being stored** (the
+//! parser only counts opening and closing braces), and any `secret` key
+//! outside it is refused. The generated profile never contains credentials
+//! (ADR-0007), and the XAuth username (`xauth_id`) is not copied.
 //!
-//! Formato aceito (o do strongswan.conf/swanctl.conf): `nome {` … `}`,
-//! `chave = valor` e comentários com `#`. `include` não é seguido (gera
-//! aviso). O DNS não existe no swanctl.conf e vem das opções de importação.
+//! Accepted format (that of strongswan.conf/swanctl.conf): `name {` … `}`,
+//! `key = value` and comments with `#`. `include` is not followed (it gives a
+//! warning). DNS does not exist in swanctl.conf and comes from the import
+//! options.
 
 use std::net::IpAddr;
 
@@ -17,25 +18,25 @@ use super::model::{
 };
 use super::validate::{is_slug, validate};
 
-/// Opções da importação.
+/// Import options.
 #[derive(Debug, Clone, Default)]
 pub struct SwanctlImportOptions {
-    /// Conexão a importar (padrão: a única, ou a primeira).
+    /// Connection to import (default: the only one, or the first).
     pub connection: Option<String>,
-    /// Id do perfil (padrão: derivado do nome da conexão).
+    /// Profile id (default: derived from the connection name).
     pub id: Option<String>,
-    /// Nome exibido (padrão: o nome da conexão).
+    /// Display name (default: the connection name).
     pub name: Option<String>,
-    /// DNS da VPN (o swanctl.conf não tem essa informação).
+    /// VPN DNS (swanctl.conf does not have this information).
     pub dns: DnsSettings,
 }
 
-/// Resultado: o perfil e o que foi ignorado ou ajustado.
+/// Result: the profile and what was ignored or adjusted.
 #[derive(Debug, Clone)]
 pub struct SwanctlImport {
-    /// Perfil gerado (já validado).
+    /// Generated profile (already validated).
     pub profile: Profile,
-    /// Avisos para o usuário revisar.
+    /// Warnings for the user to review.
     pub warnings: Vec<String>,
 }
 
@@ -81,7 +82,7 @@ fn err(msg: impl Into<String>) -> ProfileError {
     ProfileError::Swanctl(msg.into())
 }
 
-/// Remove o comentário (`#` fora de aspas).
+/// Strips the comment (`#` outside quotes).
 fn strip_comment(line: &str) -> &str {
     let mut quoted = false;
     for (i, c) in line.char_indices() {
@@ -100,7 +101,7 @@ fn is_name(s: &str) -> bool {
             .all(|c| c.is_ascii_alphanumeric() || matches!(c, '_' | '-' | '.' | '%'))
 }
 
-/// Interpreta o arquivo numa árvore de seções, pulando `secrets`.
+/// Parses the file into a tree of sections, skipping `secrets`.
 fn parse(text: &str, warnings: &mut Vec<String>) -> Result<Section, ProfileError> {
     let mut stack: Vec<(String, Section)> = vec![(String::new(), Section::default())];
     let mut skip_depth = 0usize; // > 0 enquanto estiver dentro de `secrets`
@@ -111,7 +112,7 @@ fn parse(text: &str, warnings: &mut Vec<String>) -> Result<Section, ProfileError
             continue;
         }
         if skip_depth > 0 {
-            // Dentro de `secrets`: só acompanha as chaves, sem guardar nada.
+            // Inside `secrets`: only track the braces, storing nothing.
             skip_depth += line.matches('{').count();
             skip_depth = skip_depth.saturating_sub(line.matches('}').count());
             continue;
@@ -203,7 +204,7 @@ fn yes(value: Option<&str>) -> bool {
     matches!(value, Some("yes" | "true" | "1"))
 }
 
-/// Duração do strongSwan: número (segundos) com sufixo opcional s/m/h/d.
+/// strongSwan duration: a number (seconds) with an optional s/m/h/d suffix.
 pub(super) fn duration(value: &str) -> Option<u32> {
     let value = value.trim();
     let (number, factor) = match value.chars().last()? {
@@ -231,7 +232,7 @@ fn action(value: Option<&str>, field: &str, warnings: &mut Vec<String>) -> Child
     }
 }
 
-/// Converte um nome do swanctl num id de perfil (`[a-z0-9-]`).
+/// Turns a swanctl name into a profile id (`[a-z0-9-]`).
 pub(super) fn slugify(name: &str) -> String {
     let mut slug: String = name
         .to_lowercase()
@@ -250,12 +251,12 @@ pub(super) fn slugify(name: &str) -> String {
     }
 }
 
-/// Converte o conteúdo de um `swanctl.conf` num perfil.
+/// Turns the content of a `swanctl.conf` into a profile.
 ///
 /// # Errors
-/// [`ProfileError::Swanctl`] se o arquivo não puder ser interpretado ou usar
-/// recursos não suportados (ex.: certificados); [`ProfileError::Invalid`] se
-/// o perfil resultante for inválido.
+/// [`ProfileError::Swanctl`] if the file cannot be parsed or uses unsupported
+/// features (e.g. certificates); [`ProfileError::Invalid`] if the resulting
+/// profile is invalid.
 pub fn import_swanctl(
     text: &str,
     options: &SwanctlImportOptions,
@@ -330,7 +331,7 @@ pub fn import_swanctl(
         }
     };
 
-    // Rodadas de autenticação.
+    // Authentication rounds.
     let mut xauth = false;
     let mut local_id = None;
     let mut remote_id = None;
@@ -371,7 +372,7 @@ pub fn import_swanctl(
         );
     }
 
-    // Fase 2.
+    // Phase 2.
     let children = conn.section("children").ok_or_else(|| {
         err(crate::tr!(
             "the connection has no 'children'",
@@ -518,9 +519,8 @@ pub fn import_swanctl(
 mod tests {
     use super::*;
 
-    /// Mesma estrutura de um swanctl.conf real de VPN legada (tabs,
-    /// comentários, rodadas local-1/local-2, seção secrets), com valores
-    /// FALSOS.
+    /// The same structure as a real swanctl.conf of a legacy VPN (tabs, comments,
+    /// local-1/local-2 rounds, a secrets section), with FAKE values.
     const LEGACY: &str = "\
 connections {
     vpn_trabalho {
@@ -670,7 +670,7 @@ secrets {
     #[test]
     fn picks_named_connection_and_warns_about_extras() {
         let text = format!("{LEGACY}\nconnections {{\n}}\n");
-        // Duas seções 'connections': usa a primeira (que tem a conexão).
+        // Two 'connections' sections: uses the first (which has the connection).
         assert!(import_swanctl(&text, &options()).is_ok());
         let mut opts = options();
         opts.connection = Some("inexistente".into());

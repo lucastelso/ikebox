@@ -1,8 +1,8 @@
-//! Operações tipadas sobre o charon (ADR-0003): a trait [`Charon`], os tipos
-//! das respostas e o parse dos eventos.
+//! Typed operations on charon (ADR-0003): the [`Charon`] trait, the response
+//! types and the event parsing.
 //!
-//! A sessão (`core::session`) depende só da trait, então os testes dela podem
-//! usar um charon de mentira.
+//! The session (`core::session`) depends on the trait only, so its tests can
+//! use a fake charon.
 
 use std::fmt;
 use std::time::Duration;
@@ -11,14 +11,14 @@ use zeroize::Zeroizing;
 
 use super::{Message, ViciClient, ViciError};
 
-/// Tipo de segredo para `load-shared`.
+/// Kind of secret for `load-shared`.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum SecretKind {
-    /// PSK do IKE (ex.: PSK do grupo).
+    /// IKE PSK (e.g. the group PSK).
     Ike,
-    /// Senha XAuth (IKEv1).
+    /// XAuth password (IKEv1).
     Xauth,
-    /// Senha EAP (IKEv2).
+    /// EAP password (IKEv2).
     Eap,
 }
 
@@ -32,16 +32,16 @@ impl SecretKind {
     }
 }
 
-/// Uma chave privada a carregar no charon (`load-key`), como dados (PEM,
-/// PKCS#8): nunca um caminho (ADR-0019, ADR-0024). O `Debug` não mostra nada
-/// dela, e o buffer é zerado no drop.
+/// A private key to load into charon (`load-key`), as data (PEM, PKCS#8):
+/// never a path (ADR-0019, ADR-0024). `Debug` shows nothing of it, and the
+/// buffer is zeroed on drop.
 #[derive(Clone)]
 pub struct PrivateKey {
     data: Zeroizing<Vec<u8>>,
 }
 
 impl PrivateKey {
-    /// Copia `data` para um buffer zerado no drop.
+    /// Copies `data` into a buffer zeroed on drop.
     #[must_use]
     pub fn new(data: &[u8]) -> Self {
         Self {
@@ -63,20 +63,20 @@ impl fmt::Debug for PrivateKey {
     }
 }
 
-/// Um segredo a carregar no charon. O `Debug` não mostra os dados nem os
-/// donos (identidades como id do grupo e usuário XAuth).
+/// A secret to load into charon. `Debug` shows neither the data nor the owners
+/// (identities such as the group id and the XAuth username).
 #[derive(Clone)]
 pub struct SharedSecret {
-    /// Identificador único do segredo no charon (para `unload-shared`).
+    /// Unique identifier of the secret in charon (for `unload-shared`).
     pub id: String,
-    /// Tipo do segredo.
+    /// Kind of secret.
     pub kind: SecretKind,
     owners: Vec<String>,
     data: Zeroizing<Vec<u8>>,
 }
 
 impl SharedSecret {
-    /// Cria um segredo. `data` é copiado para um buffer zerado no drop.
+    /// Creates a secret. `data` is copied into a buffer zeroed on drop.
     #[must_use]
     pub fn new(id: &str, kind: SecretKind, owners: Vec<String>, data: &[u8]) -> Self {
         Self {
@@ -87,7 +87,7 @@ impl SharedSecret {
         }
     }
 
-    /// Mensagem `load-shared` correspondente.
+    /// Matching `load-shared` message.
     fn to_message(&self) -> Message {
         Message::new()
             .kv("id", &self.id)
@@ -111,55 +111,55 @@ impl fmt::Debug for SharedSecret {
     }
 }
 
-/// Resposta de `version`.
+/// Response to `version`.
 #[derive(Debug, Clone, Default, PartialEq, Eq)]
 pub struct VersionInfo {
-    /// Nome do daemon (`charon`).
+    /// Daemon name (`charon`).
     pub daemon: String,
-    /// Versão do strongSwan.
+    /// strongSwan version.
     pub version: String,
-    /// Sistema (`Linux`).
+    /// System (`Linux`).
     pub sysname: String,
-    /// Versão do kernel.
+    /// Kernel version.
     pub release: String,
-    /// Arquitetura.
+    /// Architecture.
     pub machine: String,
 }
 
-/// Um CHILD_SA (fase 2) de `list-sas`. Sem identidades.
+/// A CHILD_SA (phase 2) from `list-sas`. No identities.
 #[derive(Debug, Clone, Default, PartialEq, Eq)]
 pub struct ChildSa {
-    /// Nome do child na configuração.
+    /// Name of the child in the configuration.
     pub name: String,
-    /// Estado (`INSTALLED`, `REKEYING`...).
+    /// State (`INSTALLED`, `REKEYING`...).
     pub state: String,
-    /// Bytes recebidos.
+    /// Bytes received.
     pub bytes_in: u64,
-    /// Bytes enviados.
+    /// Bytes sent.
     pub bytes_out: u64,
-    /// Segundos desde a instalação.
+    /// Seconds since it was installed.
     pub install_time: Option<u64>,
-    /// Traffic selectors locais.
+    /// Local traffic selectors.
     pub local_ts: Vec<String>,
-    /// Traffic selectors remotos.
+    /// Remote traffic selectors.
     pub remote_ts: Vec<String>,
 }
 
-/// Um IKE_SA (fase 1) de `list-sas`. Sem identidades (id do grupo, usuário
-/// XAuth), para não vazarem pela UI ou por logs.
+/// An IKE_SA (phase 1) from `list-sas`. No identities (group id, XAuth
+/// username), so they do not leak through the UI or logs.
 #[derive(Debug, Clone, Default, PartialEq, Eq)]
 pub struct IkeSa {
-    /// Nome da conexão.
+    /// Connection name.
     pub name: String,
-    /// Id único do IKE_SA no charon.
+    /// Unique id of the IKE_SA in charon.
     pub uniqueid: String,
-    /// Estado (`ESTABLISHED`, `CONNECTING`...).
+    /// State (`ESTABLISHED`, `CONNECTING`...).
     pub state: String,
-    /// Endereço do gateway.
+    /// Gateway address.
     pub remote_host: String,
-    /// IPs virtuais recebidos.
+    /// Virtual IPs received.
     pub local_vips: Vec<String>,
-    /// Segundos desde o estabelecimento.
+    /// Seconds since it was established.
     pub established_secs: Option<u64>,
     /// CHILD_SAs.
     pub children: Vec<ChildSa>,
@@ -208,43 +208,43 @@ impl ChildSa {
     }
 }
 
-/// Evento do charon, já interpretado.
+/// A charon event, already interpreted.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum CharonEvent {
-    /// IKE_SA subiu (`up = true`) ou caiu.
+    /// IKE_SA went up (`up = true`) or down.
     IkeUpDown {
-        /// Subiu?
+        /// Up?
         up: bool,
-        /// Nome da conexão.
+        /// Connection name.
         ike: String,
     },
-    /// CHILD_SA subiu ou caiu.
+    /// CHILD_SA went up or down.
     ChildUpDown {
-        /// Subiu?
+        /// Up?
         up: bool,
-        /// Nome da conexão.
+        /// Connection name.
         ike: String,
-        /// Nomes dos children afetados.
+        /// Names of the affected children.
         children: Vec<String>,
     },
-    /// Linha de log do charon (nível ≤ 1). Pode conter identidades: quem
-    /// exibe deve mascarar (ADR-0007).
+    /// A charon log line (level ≤ 1). It may contain identities: whoever shows it
+    /// must mask them (ADR-0007).
     Log {
-        /// Nível (0 = básico, 1 = controle).
+        /// Level (0 = basic, 1 = control).
         level: i32,
-        /// Subsistema (`IKE`, `CFG`, `NET`...).
+        /// Subsystem (`IKE`, `CFG`, `NET`...).
         group: String,
-        /// Conexão relacionada, se houver.
+        /// Related connection, if any.
         ike: Option<String>,
-        /// Texto.
+        /// Text.
         message: String,
     },
-    /// Outro evento.
+    /// Another event.
     Other(String),
 }
 
 impl CharonEvent {
-    /// Interpreta um evento VICI.
+    /// Interprets a VICI event.
     #[must_use]
     pub fn parse(name: &str, msg: &Message) -> Self {
         let up = msg.get_str("up") == Some("yes");
@@ -292,42 +292,43 @@ fn first_section_name(msg: &Message) -> String {
         .unwrap_or_default()
 }
 
-/// Operações usadas pelo app (ADR-0003).
-#[allow(async_fn_in_trait)] // uso interno: sempre com tipos concretos/genéricos
+/// Operations used by the app (ADR-0003).
+#[allow(async_fn_in_trait)] // internal use: always with concrete or generic types
 pub trait Charon {
     /// `version`.
     async fn version(&mut self) -> Result<VersionInfo, ViciError>;
-    /// `load-shared`: carrega um segredo na memória do charon.
+    /// `load-shared`: loads a secret into charon's memory.
     async fn load_shared(&mut self, secret: &SharedSecret) -> Result<(), ViciError>;
     /// `unload-shared`.
     async fn unload_shared(&mut self, id: &str) -> Result<(), ViciError>;
-    /// `load-key`: carrega a chave privada do cliente na memória do charon.
+    /// `load-key`: loads the client's private key into charon's memory.
     async fn load_key(&mut self, key: &PrivateKey) -> Result<(), ViciError>;
     /// `load-key` of type `agent` (patch 0004, ADR-0029): a key held by the
     /// person's key agent, named by its public key (SubjectPublicKeyInfo,
     /// PEM). charon uses the agent socket root configured, never one named
     /// here.
     async fn load_agent_key(&mut self, public_key_pem: &str) -> Result<(), ViciError>;
-    /// `load-conn` com a configuração da conexão `name`.
+    /// `load-conn` with the configuration of the connection `name`.
     async fn load_conn(&mut self, name: &str, conn: &Message) -> Result<(), ViciError>;
     /// `unload-conn`.
     async fn unload_conn(&mut self, name: &str) -> Result<(), ViciError>;
-    /// `list-conns`: nomes das conexões carregadas.
+    /// `list-conns`: names of the loaded connections.
     async fn list_conns(&mut self) -> Result<Vec<String>, ViciError>;
-    /// `initiate` do child `child` da conexão `ike`, esperando até `timeout`.
+    /// `initiate` of the child `child` of the connection `ike`, waiting up to
+    /// `timeout`.
     async fn initiate(
         &mut self,
         ike: &str,
         child: &str,
         timeout: Duration,
     ) -> Result<(), ViciError>;
-    /// `terminate` do IKE_SA `ike` (envia DELETE ao gateway).
+    /// `terminate` of the IKE_SA `ike` (sends DELETE to the gateway).
     async fn terminate(&mut self, ike: &str, timeout: Duration) -> Result<(), ViciError>;
     /// `list-sas`.
     async fn list_sas(&mut self) -> Result<Vec<IkeSa>, ViciError>;
 }
 
-/// Confere `success = yes`; senão, devolve o `errmsg` do charon.
+/// Checks `success = yes`; otherwise, returns charon's `errmsg`.
 fn check(command: &str, response: &Message) -> Result<(), ViciError> {
     if response.get_str("success") == Some("yes") {
         return Ok(());

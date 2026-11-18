@@ -2348,3 +2348,40 @@ distributions), `test:native` and `npm run check` pass.
   OpenSSL 3.5.9-r0 and musl 1.2.6-r3, the ones the engine links.
 - **Not run here:** the workflows themselves (they run on GitHub). The
   signing job needs the maintainer's key and environment first.
+
+### Step 58: phase H, the opening
+
+- **Contact only through GitHub** (maintainer's decision): SECURITY.md and
+  its Portuguese copy point to private vulnerability reporting, say what to
+  include (never real credentials; RFC addresses; the anonymized log), the
+  response times (7 days to acknowledge, 14 to assess), what goes to
+  strongSwan upstream, credit, and the supported versions (the latest 1.x).
+  The code of conduct (adapted Contributor Covenant 2.1) sends reports
+  through the same private form, with the title starting with "Conduct:".
+- **Issue forms:** a bug report with the privacy warning, the version, the
+  package format, the distribution, the VPN mode, the gateway's vendor and
+  model (never its address), the diagnostics and the anonymized log, and a
+  required checkbox that credentials and internal names were removed; a
+  feature request; blank issues off, security pointed to advisories.
+- **README for 1.0:** what it does, three screenshots from
+  `scripts/ui-review` (mock data, RFC 5737/2606 values only), signed
+  releases and how to check them, smartcards and charon without root in the
+  security list; the logo stays under the project license (it is no longer
+  "temporary"). The private-repository wording left the installation
+  guides.
+- **English leftovers:** about 1,400 comment lines in some 95 files translated
+  (Rust doc comments, which also regenerate `src/bindings.ts`, shell, TOML,
+  TypeScript JSDoc), done with an inventory, extraction into numbered blocks
+  and an exact replacement that never touched code. Two stale comments were
+  fixed on the way (the engine build still said "no OpenSSL" and listed the
+  GMP license; the UI error type said its message was in Portuguese). The
+  lefthook commands and the cargo-deny reasons are in English, and the
+  generated strongswan.conf header too.
+- **Presets:** `presets/example-ikev1-aggressive-xauth.json`,
+  `example-ikev2-psk.json` and `example-ikev2-eap.json`, with English ids,
+  names and placeholders (`keyid:group-name`, `internal-network`). The test
+  fixture became `crates/core/tests/fixtures/test-gateway.json`; its ids
+  (`gateway-teste`, `grupo-teste`) match the test gateway's configuration,
+  so they, and the other fake values inside the tests, stay for after 1.0.
+  The legacy snapshot changed only by the `if_id`, which derives from the
+  profile id.

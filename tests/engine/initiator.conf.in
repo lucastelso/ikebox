@@ -1,11 +1,12 @@
-# Conexão de TESTE carregada no engine pelo e2e.sh (via swanctl dentro do
-# container). No app, o equivalente é gerado a partir do perfil e enviado por
-# VICI (load-conn), e os segredos vão por load-shared, nunca por arquivo.
+# TEST connection loaded into the engine by e2e.sh (through swanctl inside
+# the container). In the app, the equivalent is built from the profile and
+# sent over VICI (load-conn), and the secrets go through load-shared, never
+# through a file.
 #
-# Mesma forma de uma VPN legada típica: IKEv1 agressivo, PSK de grupo (keyid)
-# + XAuth, modp1024/modp768, split tunnel. Credenciais FALSAS.
-# @GATEWAY@, @IFACE@, @IF_ID@, @REMOTE_TS@ e @UPDOWN_EXTRA@ são substituídos
-# pelo e2e.sh.
+# The same shape as a typical legacy VPN: IKEv1 aggressive, group PSK (keyid)
+# + XAuth, modp1024/modp768, split tunnel. FAKE credentials.
+# @GATEWAY@, @IFACE@, @IF_ID@, @REMOTE_TS@ and @UPDOWN_EXTRA@ are replaced by
+# e2e.sh.
 
 connections {
     teste {

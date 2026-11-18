@@ -6,9 +6,9 @@ the tests.
 
 | File | Scenario |
 |---|---|
-| `exemplo-ikev1-agressivo-xauth.json` | Typical legacy VPN (e.g. FortiGate): IKEv1 aggressive, group PSK (`keyid:`) + XAuth, modp1024/768, split tunnel |
-| `exemplo-ikev2-psk.json` | IKEv2 with PSK, modern proposals, IPv4 + IPv6 |
-| `exemplo-ikev2-eap.json` | IKEv2 with username and password (EAP-MSCHAPv2), gateway proven by its certificate (schema 2). Its CA is a fake test CA: replace it with your gateway's |
+| `example-ikev1-aggressive-xauth.json` | Typical legacy VPN (e.g. FortiGate): IKEv1 aggressive, group PSK (`keyid:`) + XAuth, modp1024/768, split tunnel |
+| `example-ikev2-psk.json` | IKEv2 with PSK, modern proposals, IPv4 + IPv6 |
+| `example-ikev2-eap.json` | IKEv2 with username and password (EAP-MSCHAPv2), gateway proven by its certificate (schema 2). Its CA is a fake test CA: replace it with your gateway's |
 
 To create yours, copy an example to `presets.local/`, which git ignores, and
 adjust it. The format and the mapping from `swanctl.conf` are in

@@ -1,92 +1,92 @@
-//! Modelo do perfil de conexão (ADR-0008, ADR-0022), serializado em JSON.
+//! Connection profile model (ADR-0008, ADR-0022), serialized as JSON.
 //!
-//! Um perfil descreve a VPN (gateway, propostas, rotas, DNS) e **nunca** contém
-//! credenciais: nem PSK, nem usuário ou senha XAuth (ADR-0007). Assim ele pode
-//! ser passado a colegas, e cada pessoa informa as próprias credenciais.
+//! A profile describes the VPN (gateway, proposals, routes, DNS) and **never**
+//! contains credentials: no PSK, no XAuth username or password (ADR-0007). So it
+//! can be handed to colleagues, and each person enters their own credentials.
 //!
-//! Em memória o perfil tem a forma do formato 2 (rodadas de autenticação). O
-//! formato 1 é lido e convertido, e o perfil é gravado no formato mais baixo
-//! que o expressa (ver `schema.rs`).
+//! In memory the profile has the shape of format 2 (authentication rounds).
+//! Format 1 is read and converted, and the profile is saved in the lowest
+//! format that expresses it (see `schema.rs`).
 
 use std::net::IpAddr;
 
 use serde::{Deserialize, Serialize};
 
-/// Versão mais nova do formato do perfil.
+/// Newest version of the profile format.
 pub const SCHEMA_VERSION: u32 = 2;
 
-/// Perfil de conexão.
+/// Connection profile.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct Profile {
-    /// Identificador (`[a-z0-9-]`): nome do arquivo, da conexão no charon e
-    /// chave no chaveiro.
+    /// Identifier (`[a-z0-9-]`): name of the file, of the connection in charon and
+    /// key in the keyring.
     pub id: String,
-    /// Nome exibido.
+    /// Display name.
     pub name: String,
-    /// Gateway: nome DNS ou IP.
+    /// Gateway: DNS name or IP.
     pub gateway: String,
-    /// Fase 1.
+    /// Phase 1.
     pub ike: IkeSettings,
-    /// Autenticação.
+    /// Authentication.
     pub auth: AuthSettings,
-    /// Fase 2.
+    /// Phase 2.
     pub child: ChildSettings,
-    /// Rede e DNS.
+    /// Network and DNS.
     #[serde(default)]
     pub network: NetworkSettings,
 }
 
-/// Fase 1 (IKE_SA).
+/// Phase 1 (IKE_SA).
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct IkeSettings {
-    /// Versão do IKE: 1 ou 2.
+    /// IKE version: 1 or 2.
     pub version: u8,
-    /// Modo agressivo (só IKEv1).
+    /// Aggressive mode (IKEv1 only).
     #[serde(default)]
     pub aggressive: bool,
-    /// Força encapsulamento UDP (NAT-T) mesmo sem NAT.
+    /// Forces UDP encapsulation (NAT-T) even without NAT.
     #[serde(default)]
     pub encap: bool,
-    /// Propostas IKE (ex.: `aes256-sha1-modp1024`), em ordem de preferência.
+    /// IKE proposals (e.g. `aes256-sha1-modp1024`), in order of preference.
     pub proposals: Vec<String>,
-    /// Intervalo de rekey do IKE_SA, em segundos (ausente = padrão do charon).
+    /// IKE_SA rekey interval, in seconds (missing = charon's default).
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub rekey_time_secs: Option<u32>,
-    /// Intervalo do DPD, em segundos (ausente = sem DPD).
+    /// DPD interval, in seconds (missing = no DPD).
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub dpd_delay_secs: Option<u32>,
 }
 
-/// Método de uma rodada de autenticação do cliente.
+/// Method of a client authentication round.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "kebab-case")]
 pub enum LocalMethod {
-    /// Chave pré-compartilhada (muitas vezes a do grupo).
+    /// Pre-shared key (often the group's).
     Psk,
-    /// Usuário e senha XAuth (IKEv1, segunda rodada).
+    /// XAuth username and password (IKEv1, second round).
     Xauth,
-    /// Usuário e senha por EAP-MSCHAPv2 (IKEv2; o gateway se autentica por
-    /// certificado, ADR-0023).
+    /// Username and password through EAP-MSCHAPv2 (IKEv2; the gateway
+    /// authenticates with a certificate, ADR-0023).
     EapMschapv2,
-    /// Certificado do cliente (IKEv2, ou IKEv1 em modo principal): chave e
-    /// certificado vêm do chaveiro, nunca do perfil (ADR-0024).
+    /// Client certificate (IKEv2, or IKEv1 in main mode): the key and certificate
+    /// come from the keyring, never from the profile (ADR-0024).
     Certificate,
 }
 
-/// Uma rodada de autenticação do cliente.
+/// A client authentication round.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct LocalRound {
-    /// Método.
+    /// Method.
     pub method: LocalMethod,
-    /// Identidade enviada nesta rodada (ex.: `keyid:nome-do-grupo` na rodada
-    /// PSK). Ausente = o endereço do computador.
+    /// Identity sent in this round (e.g. `keyid:group-name` in the PSK round).
+    /// Missing = the computer's address.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub id: Option<String>,
-    /// A senha é um código de uso único: nunca é guardada no chaveiro e é
-    /// pedida a cada conexão (só XAuth; ADR-0025).
+    /// The password is a one-time code: it is never stored in the keyring and is
+    /// asked on every connection (XAuth only; ADR-0025).
     #[serde(default, skip_serializing_if = "is_false")]
     pub otp: bool,
     /// The certificate's private key is on a smartcard or token, used
@@ -97,7 +97,7 @@ pub struct LocalRound {
 }
 
 impl LocalRound {
-    /// Rodada sem identidade nem OTP.
+    /// Round with neither identity nor OTP.
     #[must_use]
     pub fn new(method: LocalMethod) -> Self {
         Self {
@@ -109,51 +109,51 @@ impl LocalRound {
     }
 }
 
-#[allow(clippy::trivially_copy_pass_by_ref)] // assinatura exigida pelo serde
+#[allow(clippy::trivially_copy_pass_by_ref)] // signature required by serde
 fn is_false(value: &bool) -> bool {
     !*value
 }
 
-/// Como o gateway prova quem é.
+/// How the gateway proves who it is.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "kebab-case")]
 pub enum RemoteMethod {
-    /// A mesma PSK do cliente.
+    /// The same PSK as the client.
     Psk,
-    /// Certificado, conferido contra a CA do perfil (`ca`) e a identidade
-    /// `id` (ADR-0022): nunca "aceitar qualquer certificado".
+    /// Certificate, checked against the profile's CA (`ca`) and the identity
+    /// `id` (ADR-0022): never "accept any certificate".
     Certificate,
 }
 
-/// Autenticação do gateway.
+/// Gateway authentication.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct RemoteAuth {
-    /// Método.
+    /// Method.
     pub method: RemoteMethod,
-    /// Identidade que o gateway deve apresentar (ausente = qualquer; com
-    /// certificado, obrigatória).
+    /// Identity the gateway must present (missing = any; required with a
+    /// certificate).
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub id: Option<String>,
-    /// CAs (PEM) em que o certificado do gateway deve terminar. Dados
-    /// públicos, enviados ao charon como dados (nunca como caminho).
+    /// CAs (PEM) the gateway's certificate must chain to. Public data, sent to
+    /// charon as data (never as a path).
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub ca: Vec<String>,
 }
 
-/// Autenticação: as rodadas do cliente, em ordem, e a do gateway.
+/// Authentication: the client's rounds, in order, and the gateway's.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct AuthSettings {
-    /// Rodadas do cliente (1 ou 2).
+    /// The client's rounds (1 or 2).
     pub local: Vec<LocalRound>,
     /// Gateway.
     pub remote: RemoteAuth,
 }
 
 impl AuthSettings {
-    /// PSK (com a identidade `psk_id`), opcionalmente seguida de XAuth, e o
-    /// gateway autenticado pela mesma PSK.
+    /// PSK (with the identity `psk_id`), optionally followed by XAuth, and the
+    /// gateway authenticated by the same PSK.
     #[must_use]
     pub fn psk(psk_id: Option<String>, xauth: bool, remote_id: Option<String>) -> Self {
         let mut local = vec![LocalRound {
@@ -173,8 +173,8 @@ impl AuthSettings {
         }
     }
 
-    /// Usuário e senha por EAP-MSCHAPv2, com o gateway autenticado por
-    /// certificado da identidade `gateway_id`, emitido por uma das `ca`.
+    /// Username and password through EAP-MSCHAPv2, with the gateway authenticated
+    /// by a certificate for the identity `gateway_id`, issued by one of the `ca`.
     #[must_use]
     pub fn eap(local_id: Option<String>, gateway_id: String, ca: Vec<String>) -> Self {
         Self {
@@ -190,13 +190,13 @@ impl AuthSettings {
         }
     }
 
-    /// Há uma rodada EAP?
+    /// Is there an EAP round?
     #[must_use]
     pub fn uses_eap(&self) -> bool {
         self.round(LocalMethod::EapMschapv2).is_some()
     }
 
-    /// A pessoa se autentica com certificado?
+    /// Does the person authenticate with a certificate?
     #[must_use]
     pub fn uses_client_certificate(&self) -> bool {
         self.round(LocalMethod::Certificate).is_some()
@@ -209,9 +209,9 @@ impl AuthSettings {
             .is_some_and(|r| r.token)
     }
 
-    /// Certificado do cliente (com XAuth opcional no IKEv1), e o gateway
-    /// autenticado pelo certificado dele, da identidade `gateway_id` e
-    /// emitido por uma das `ca`.
+    /// Client certificate (with optional XAuth in IKEv1), and the gateway
+    /// authenticated by its certificate, for the identity `gateway_id` and issued
+    /// by one of the `ca`.
     #[must_use]
     pub fn certificate(
         local_id: Option<String>,
@@ -240,65 +240,66 @@ impl AuthSettings {
         self.local.iter().find(|r| r.method == method)
     }
 
-    /// Identidade da rodada PSK (ex.: id do grupo).
+    /// Identity of the PSK round (e.g. the group id).
     #[must_use]
     pub fn psk_id(&self) -> Option<&str> {
         self.round(LocalMethod::Psk).and_then(|r| r.id.as_deref())
     }
 
-    /// Identidade esperada do gateway.
+    /// Identity expected from the gateway.
     #[must_use]
     pub fn remote_id(&self) -> Option<&str> {
         self.remote.id.as_deref()
     }
 
-    /// Há uma rodada XAuth?
+    /// Is there an XAuth round?
     #[must_use]
     pub fn uses_xauth(&self) -> bool {
         self.round(LocalMethod::Xauth).is_some()
     }
 
-    /// A senha XAuth é de uso único?
+    /// Is the XAuth password one-time?
     #[must_use]
     pub fn otp(&self) -> bool {
         self.round(LocalMethod::Xauth).is_some_and(|r| r.otp)
     }
 }
 
-/// Ação do CHILD_SA após DPD ou fechamento pelo gateway.
+/// CHILD_SA action after DPD or when the gateway closes it.
 #[derive(Debug, Clone, Copy, Default, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "kebab-case")]
 pub enum ChildAction {
-    /// Não faz nada (o túnel cai).
+    /// Does nothing (the tunnel goes down).
     #[default]
     None,
-    /// Instala uma política de trap: reconecta quando houver tráfego.
+    /// Installs a trap policy: reconnects when there is traffic.
     Trap,
-    /// Reconecta imediatamente.
+    /// Reconnects immediately.
     Restart,
 }
 
-/// Fase 2 (CHILD_SA).
+/// Phase 2 (CHILD_SA).
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct ChildSettings {
-    /// Nome do child (`[a-z0-9-]`).
+    /// Child name (`[a-z0-9-]`).
     #[serde(default = "default_child_name")]
     pub name: String,
-    /// Propostas ESP, em ordem de preferência (incluir o grupo DH ativa PFS).
+    /// ESP proposals, in order of preference (including the DH group enables PFS).
     pub esp_proposals: Vec<String>,
-    /// Intervalo de rekey do CHILD_SA, em segundos.
+    /// CHILD_SA rekey interval, in seconds.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub rekey_time_secs: Option<u32>,
-    /// Redes remotas acessadas pelo túnel (CIDR ou IP). `0.0.0.0/0` = túnel completo.
+    /// Remote networks reached through the tunnel (CIDR or IP). `0.0.0.0/0` = full
+    /// tunnel.
     pub remote_ts: Vec<String>,
-    /// Redes locais (vazio = o IP virtual recebido).
+    /// Local networks (empty = the virtual IP received).
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub local_ts: Vec<String>,
-    /// Ação após o DPD detectar o gateway inacessível.
+    /// Action after DPD finds the gateway unreachable.
     #[serde(default)]
     pub dpd_action: ChildAction,
-    /// Ação quando o gateway fecha o túnel.
+    /// Action when the gateway closes the tunnel.
     #[serde(default)]
     pub close_action: ChildAction,
 }
@@ -307,13 +308,13 @@ fn default_child_name() -> String {
     "rede".to_owned()
 }
 
-/// Rede e DNS.
+/// Network and DNS.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields, default)]
 pub struct NetworkSettings {
-    /// Pede um IP virtual ao gateway (mode config).
+    /// Asks the gateway for a virtual IP (mode config).
     pub request_vip: bool,
-    /// MTU da interface do túnel.
+    /// MTU of the tunnel interface.
     pub mtu: u16,
     /// DNS.
     pub dns: DnsSettings,
@@ -329,18 +330,18 @@ impl Default for NetworkSettings {
     }
 }
 
-/// DNS da interface do túnel (systemd-resolved).
+/// DNS of the tunnel interface (systemd-resolved).
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields, default)]
 pub struct DnsSettings {
-    /// Servidores DNS fixos.
+    /// Fixed DNS servers.
     pub servers: Vec<IpAddr>,
-    /// Domínios: `~dominio` só roteia consultas; `dominio` também entra na
-    /// busca; `~.` manda todas as consultas para estes servidores.
+    /// Domains: `~domain` only routes queries; `domain` also goes into the search
+    /// list; `~.` sends every query to these servers.
     pub domains: Vec<String>,
-    /// Usa também os servidores enviados pelo gateway.
+    /// Also use the servers sent by the gateway.
     pub use_received: bool,
-    /// Usa estes servidores para nomes fora dos domínios.
+    /// Use these servers for names outside the domains.
     pub default_route: bool,
 }
 
@@ -355,23 +356,23 @@ impl Default for DnsSettings {
     }
 }
 
-/// Credencial que o perfil exige do usuário.
+/// Credential the profile requires from the user.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize)]
 #[serde(rename_all = "kebab-case")]
 pub enum CredentialKind {
-    /// PSK (normalmente a do grupo).
+    /// PSK (usually the group's).
     Psk,
-    /// Usuário XAuth (ex.: matrícula).
+    /// XAuth username (e.g. employee id).
     XauthUser,
-    /// Senha XAuth.
+    /// XAuth password.
     XauthPassword,
-    /// Identidade EAP (o usuário; não é segredo, mas é pessoal).
+    /// EAP identity (the username; not a secret, but personal).
     EapIdentity,
-    /// Senha EAP.
+    /// EAP password.
     EapPassword,
-    /// Certificado do cliente (PEM): público, mas com o nome da pessoa.
+    /// Client certificate (PEM): public, but with the person's name.
     ClientCert,
-    /// Chave privada do cliente (PEM, PKCS#8).
+    /// The client's private key (PEM, PKCS#8).
     ClientKey,
     /// Where the key is on a smartcard or token (ADR-0029): the PKCS#11
     /// module and the key's identifier. Public, stored like the certificate.
@@ -382,7 +383,7 @@ pub enum CredentialKind {
 }
 
 impl CredentialKind {
-    /// Nome estável (chave no chaveiro: `<perfil>:<campo>`).
+    /// Stable name (keyring key: `<profile>:<field>`).
     #[must_use]
     pub fn key(self) -> &'static str {
         match self {
@@ -398,8 +399,8 @@ impl CredentialKind {
         }
     }
 
-    /// O valor é secreto (nunca exibido)? O usuário XAuth não é segredo, mas é
-    /// mascarado na exibição.
+    /// Is the value secret (never shown)? The XAuth username is not a secret, but
+    /// it is masked when shown.
     #[must_use]
     pub fn is_secret(self) -> bool {
         !matches!(
@@ -416,7 +417,7 @@ impl CredentialKind {
 }
 
 impl Profile {
-    /// Credenciais necessárias para conectar, na ordem das rodadas.
+    /// Credentials needed to connect, in the order of the rounds.
     #[must_use]
     pub fn required_credentials(&self) -> Vec<CredentialKind> {
         let mut kinds = Vec::new();
@@ -444,8 +445,8 @@ impl Profile {
         kinds
     }
 
-    /// Credenciais que podem ficar no chaveiro: todas, menos a senha de uso
-    /// único (`otp`) e o PIN do token, pedidos a cada conexão.
+    /// Credentials that may stay in the keyring: all but the one-time password
+    /// (`otp`) and the token PIN, asked on every connection.
     #[must_use]
     pub fn storable_credentials(&self) -> Vec<CredentialKind> {
         let otp = self.auth.otp();

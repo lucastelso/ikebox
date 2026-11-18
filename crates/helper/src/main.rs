@@ -1,16 +1,17 @@
-//! `ipsec-client-helper`: o único componente do IPsec Client que roda como
-//! root (ADR-0014). Sobe e derruba o engine embutido sob sandbox do systemd.
+//! `ipsec-client-helper`: the only IPsec Client component that runs as root
+//! (ADR-0014). It starts and stops the embedded engine under a systemd sandbox.
 //!
-//! Em produção é ativado pelo systemd (`ipsec-client-helper.socket`). Para
-//! testes, o root pode iniciá-lo à mão:
+//! In production it is activated by systemd (`ipsec-client-helper.socket`).
+//! For tests, root can start it by hand:
 //!
 //! ```text
-//! sudo ipsec-client-helper --socket /run/teste.sock --allow-uid 1000 \
-//!     --engine-dir /caminho/engine --libexec-dir /caminho/libexec
+//! sudo ipsec-client-helper --socket /run/test.sock --allow-uid 1000 \
+//!     --engine-dir /path/engine --libexec-dir /path/libexec
 //! ```
 //!
-//! Protocolo e validação: crate `ipsec-client-proto`. O helper nunca recebe
-//! segredos (eles vão do app direto ao charon, pelo socket VICI).
+//! Protocol and validation: the `ipsec-client-proto` crate. The helper never
+//! receives secrets (they go from the app straight to charon, over the VICI
+//! socket).
 
 mod authz;
 mod engine;
@@ -31,8 +32,9 @@ use crate::engine::Paths;
 
 const DEFAULT_ENGINE_DIR: &str = "/opt/ipsec-client/engine";
 const DEFAULT_LIBEXEC_DIR: &str = "/opt/ipsec-client/libexec";
-/// Conexões atendidas ao mesmo tempo. O socket aceita qualquer usuário: sem
-/// limite (e com uma conexão por vez), um cliente parado travaria o helper.
+/// Connections served at the same time. The socket accepts any user: without
+/// a limit (and with one connection at a time), a stalled client would block
+/// the helper.
 const MAX_CLIENTS: usize = 8;
 /// Connections served at the same time for one uid. Lower than
 /// [`MAX_CLIENTS`]: one user who opens connections in a loop cannot take
@@ -74,7 +76,7 @@ impl Slots {
 
 static SLOTS: Mutex<Option<Slots>> = Mutex::new(None);
 
-/// Libera a vaga da conexão mesmo se a thread entrar em pânico.
+/// Frees the connection slot even if the thread panics.
 struct ClientSlot {
     uid: u32,
 }
@@ -143,7 +145,7 @@ fn parse_args() -> Result<Options, String> {
     })
 }
 
-/// Socket herdado do systemd (ativação por socket: descritor 3).
+/// Socket inherited from systemd (socket activation: descriptor 3).
 fn inherited_listener() -> Option<UnixListener> {
     let pid_matches = std::env::var("LISTEN_PID")
         .ok()
@@ -154,9 +156,9 @@ fn inherited_listener() -> Option<UnixListener> {
         return None;
     }
     use std::os::fd::FromRawFd;
-    // SAFETY: com LISTEN_PID igual ao nosso pid e LISTEN_FDS >= 1, o protocolo
-    // de ativação do systemd garante que o descritor 3 é um socket aberto e que
-    // pertence a este processo. Ele é adotado uma única vez, aqui.
+    // SAFETY: with LISTEN_PID equal to our pid and LISTEN_FDS >= 1, systemd's
+    // activation protocol guarantees that descriptor 3 is an open socket that
+    // belongs to this process. It is adopted only once, here.
     #[allow(unsafe_code)]
     let listener = unsafe { UnixListener::from_raw_fd(3) };
     Some(listener)
@@ -165,7 +167,7 @@ fn inherited_listener() -> Option<UnixListener> {
 fn bind(path: &PathBuf) -> std::io::Result<UnixListener> {
     let _ = std::fs::remove_file(path);
     let listener = UnixListener::bind(path)?;
-    // Qualquer usuário conecta; quem pode agir é decidido por SO_PEERCRED + polkit.
+    // Any user connects; who may act is decided by SO_PEERCRED + polkit.
     std::fs::set_permissions(path, std::fs::Permissions::from_mode(0o666))?;
     Ok(listener)
 }
@@ -227,7 +229,8 @@ fn serve(mut stream: UnixStream, peer: &Peer, options: &Options) -> std::io::Res
     stream.write_all(encoded.as_bytes())
 }
 
-/// Descrição curta para o log (sem nada sensível: não há segredos aqui).
+/// Short description for the log (nothing sensitive: there are no secrets
+/// here).
 fn describe(request: &Request) -> String {
     match request {
         Request::Ping => "ping".to_owned(),

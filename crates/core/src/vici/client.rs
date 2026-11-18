@@ -1,11 +1,11 @@
-//! Transporte VICI sobre socket Unix: pacotes, conexão de comandos e conexão
-//! de eventos (ADR-0003, ADR-0011).
+//! VICI transport over a Unix socket: packets, the command connection and the
+//! event connection (ADR-0003, ADR-0011).
 //!
-//! Pacote: `u32` (big-endian) com o tamanho + payload. Payload: tipo (`u8`),
-//! nome (`u8` + bytes) nos tipos nomeados, e a mensagem.
+//! Packet: a `u32` (big-endian) with the length + payload. Payload: type
+//! (`u8`), name (`u8` + bytes) in the named types, and the message.
 //!
-//! Usamos **duas conexões**, como recomenda a documentação do VICI: uma para
-//! comandos (respostas em ordem) e outra só para eventos assinados.
+//! We use **two connections**, as the VICI documentation recommends: one for
+//! commands (responses in order) and another only for subscribed events.
 
 use std::path::Path;
 
@@ -16,7 +16,7 @@ use zeroize::Zeroizing;
 
 use super::{Message, ViciError};
 
-/// Tamanho máximo de pacote aceito (o mesmo limite padrão do charon).
+/// Maximum packet size accepted (the same default limit as charon).
 pub const MAX_PACKET: usize = 512 * 1024;
 
 const CMD_REQUEST: u8 = 0;
@@ -28,7 +28,7 @@ const EVENT_CONFIRM: u8 = 5;
 const EVENT_UNKNOWN: u8 = 6;
 const EVENT: u8 = 7;
 
-/// Um pacote recebido.
+/// A received packet.
 #[derive(Debug)]
 enum Packet {
     Response(Message),
@@ -44,7 +44,7 @@ async fn write_packet(
     name: Option<&str>,
     message: Option<&Message>,
 ) -> Result<(), ViciError> {
-    // Buffer zerado no drop: pode conter PSK/senha (load-shared).
+    // Buffer zeroed on drop: it may hold a PSK or password (load-shared).
     let mut payload = Zeroizing::new(vec![kind]);
     if let Some(name) = name {
         let len = u8::try_from(name.len()).map_err(|_| {
@@ -128,28 +128,28 @@ fn parse_packet(payload: &[u8]) -> Result<Packet, ViciError> {
     }
 }
 
-/// Conexão de comandos com o charon.
+/// Command connection to charon.
 #[derive(Debug)]
 pub struct ViciClient {
     stream: UnixStream,
 }
 
 impl ViciClient {
-    /// Conecta ao socket VICI.
+    /// Connects to the VICI socket.
     ///
     /// # Errors
-    /// Erro de E/S (socket ausente, permissão negada...).
+    /// I/O error (socket missing, permission denied...).
     pub async fn connect(path: impl AsRef<Path>) -> Result<Self, ViciError> {
         Ok(Self {
             stream: UnixStream::connect(path).await?,
         })
     }
 
-    /// Envia um comando e devolve a resposta.
+    /// Sends a command and returns the response.
     ///
     /// # Errors
-    /// [`ViciError::UnknownCommand`], erros de protocolo ou de E/S. Não
-    /// interpreta `success = no`: isso fica para [`super::Charon`].
+    /// [`ViciError::UnknownCommand`], protocol or I/O errors. It does not
+    /// interpret `success = no`: that is left to [`super::Charon`].
     pub async fn request(
         &mut self,
         command: &str,
@@ -166,12 +166,12 @@ impl ViciClient {
         }
     }
 
-    /// Comando com resposta em fluxo (ex.: `list-sas` → eventos `list-sa`):
-    /// assina o evento, envia o comando, coleta os eventos até a resposta
-    /// final e cancela a assinatura.
+    /// Command with a streamed response (e.g. `list-sas` → `list-sa` events):
+    /// subscribes to the event, sends the command, collects the events until the
+    /// final response and unsubscribes.
     ///
     /// # Errors
-    /// Como [`Self::request`], mais [`ViciError::UnknownEvent`].
+    /// As [`Self::request`], plus [`ViciError::UnknownEvent`].
     pub async fn streamed_request(
         &mut self,
         command: &str,
@@ -209,7 +209,7 @@ impl ViciClient {
             match read_packet(&mut self.stream).await? {
                 Packet::EventConfirm => return Ok(()),
                 Packet::UnknownEvent => return Err(ViciError::UnknownEvent(event.to_owned())),
-                // Um evento atrasado do fluxo anterior pode chegar antes da confirmação.
+                // A late event of the previous stream may arrive before the confirmation.
                 Packet::Event(..) => {}
                 other => {
                     return Err(ViciError::Protocol(crate::trf!(
@@ -222,17 +222,18 @@ impl ViciClient {
     }
 }
 
-/// Conexão dedicada a eventos assinados (`ike-updown`, `child-updown`, `log`).
+/// Connection dedicated to subscribed events (`ike-updown`, `child-updown`,
+/// `log`).
 #[derive(Debug)]
 pub struct ViciEvents {
     stream: UnixStream,
 }
 
 impl ViciEvents {
-    /// Conecta e assina os eventos indicados.
+    /// Connects and subscribes to the given events.
     ///
     /// # Errors
-    /// Erro de E/S, de protocolo ou evento desconhecido.
+    /// I/O or protocol error, or an unknown event.
     pub async fn subscribe(path: impl AsRef<Path>, events: &[&str]) -> Result<Self, ViciError> {
         let mut stream = UnixStream::connect(path).await?;
         for event in events {
@@ -251,11 +252,11 @@ impl ViciEvents {
         Ok(Self { stream })
     }
 
-    /// Próximo evento (nome, mensagem).
+    /// Next event (name, message).
     ///
     /// # Errors
-    /// [`ViciError::Closed`] quando o charon fecha a conexão (ex.: engine
-    /// parado), ou erros de protocolo/E/S.
+    /// [`ViciError::Closed`] when charon closes the connection (e.g. engine
+    /// stopped), or protocol or I/O errors.
     pub async fn next(&mut self) -> Result<(String, Message), ViciError> {
         loop {
             if let Packet::Event(name, message) = read_packet(&mut self.stream).await? {
@@ -297,8 +298,8 @@ mod tests {
         ));
     }
 
-    /// Servidor VICI de mentira num socketpair: confere o fluxo de
-    /// `streamed_request` (registro → eventos → resposta → cancelamento).
+    /// Fake VICI server on a socketpair: checks the `streamed_request` flow
+    /// (register → events → response → unregister).
     #[tokio::test]
     async fn streamed_request_flow() {
         let (client_side, mut server) = UnixStream::pair().expect("socketpair");

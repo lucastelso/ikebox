@@ -15,7 +15,7 @@ import { ProfileCard } from './ProfileCard';
 import { ProfileEditor } from './ProfileEditor';
 import { TemplateDialog } from './TemplateDialog';
 
-/** Gerenciador de perfis: criar, editar, importar, exportar, ver e excluir. */
+/** Profile manager: create, edit, import, export, view and delete. */
 export function ProfilesScreen({ onImport }: { onImport: () => void }) {
   const t = useT();
   const [list, setList] = useState<ProfileList | null>(null);

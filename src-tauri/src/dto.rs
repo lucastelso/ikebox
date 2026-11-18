@@ -1,8 +1,9 @@
-//! Tipos trocados com a UI (o contrato do IPC).
+//! Types exchanged with the UI (the IPC contract).
 //!
-//! São separados dos tipos do `core` de propósito: só o que a UI precisa ver
-//! atravessa para o webview. **Segredos só entram** (em [`CredentialsInput`]),
-//! nunca saem: a UI vê apenas se cada credencial existe e o usuário mascarado.
+//! They are kept apart from the `core` types on purpose: only what the UI needs
+//! to see crosses into the webview. **Secrets only go in** (in
+//! [`CredentialsInput`]), never out: the UI only sees whether each credential
+//! exists, and the masked username.
 
 use std::fmt;
 
@@ -18,33 +19,33 @@ use ipsec_client_core::{tr, trf};
 use serde::{Deserialize, Serialize};
 use specta::Type;
 
-/// Informações do app (tela "Sobre", diagnóstico).
+/// App information ("About" screen, diagnostics).
 #[derive(Debug, Clone, Serialize, Type)]
 #[serde(rename_all = "camelCase")]
 pub struct AppInfo {
-    /// Versão do app.
+    /// App version.
     pub version: String,
-    /// Imagem do engine usada nesta versão.
+    /// Engine image used by this version.
     pub engine_image: String,
 }
 
-/// Resumo de um perfil para listas.
+/// Profile summary for lists.
 #[derive(Debug, Clone, Serialize, Type)]
 #[serde(rename_all = "camelCase")]
 pub struct ProfileSummary {
-    /// Id do perfil.
+    /// Profile id.
     pub id: String,
-    /// Nome exibido.
+    /// Display name.
     pub name: String,
     /// Gateway.
     pub gateway: String,
-    /// Usa XAuth (pede usuário e senha)?
+    /// Uses XAuth (asks for username and password)?
     pub uses_xauth: bool,
-    /// A senha é um código de uso único (nunca guardada).
+    /// The password is a one-time code (never stored).
     pub otp: bool,
-    /// Redes acessadas pelo túnel.
+    /// Networks reached through the tunnel.
     pub remote_ts: Vec<String>,
-    /// Nível de segurança (selo); o motivo vem nos detalhes.
+    /// Security level (badge); the reason comes in the details.
     pub security: Security,
 }
 
@@ -62,15 +63,15 @@ impl From<&Profile> for ProfileSummary {
     }
 }
 
-/// Nível de segurança de um perfil: só avisa, nunca impede de conectar.
+/// Security level of a profile: it only warns, never prevents connecting.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, Type)]
 #[serde(rename_all = "camelCase")]
 pub enum Security {
-    /// Nada a apontar.
+    /// Nothing to point out.
     Good,
-    /// Obsoleto, sem ataque barato conhecido.
+    /// Obsolete, with no known cheap attack.
     Legacy,
-    /// Há ataque prático conhecido.
+    /// There is a known practical attack.
     Weak,
 }
 
@@ -84,13 +85,13 @@ impl From<SecurityLevel> for Security {
     }
 }
 
-/// Um ponto fraco do perfil, explicado no idioma da interface.
+/// A weakness of the profile, explained in the interface language.
 #[derive(Debug, Clone, Serialize, Type)]
 #[serde(rename_all = "camelCase")]
 pub struct SecurityNote {
-    /// Gravidade.
+    /// Severity.
     pub level: Security,
-    /// Explicação.
+    /// Explanation.
     pub message: String,
 }
 
@@ -103,42 +104,41 @@ impl From<&SecurityFinding> for SecurityNote {
     }
 }
 
-/// Arquivo de perfil que não pôde ser lido.
+/// Profile file that could not be read.
 #[derive(Debug, Clone, Serialize, Type)]
 #[serde(rename_all = "camelCase")]
 pub struct BrokenProfile {
-    /// Nome do arquivo.
+    /// File name.
     pub file: String,
-    /// Motivo.
+    /// Reason.
     pub error: String,
 }
 
-/// Lista de perfis.
+/// List of profiles.
 #[derive(Debug, Clone, Serialize, Type)]
 #[serde(rename_all = "camelCase")]
 pub struct ProfileList {
-    /// Perfis válidos, por nome.
+    /// Valid profiles, by name.
     pub profiles: Vec<ProfileSummary>,
-    /// Arquivos com problema.
+    /// Broken files.
     pub broken: Vec<BrokenProfile>,
 }
 
-/// Campo de credencial.
+/// Credential field.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, Type)]
 #[serde(rename_all = "camelCase")]
 pub enum CredentialField {
-    /// PSK do grupo.
+    /// Group PSK.
     Psk,
-    /// Usuário XAuth.
+    /// XAuth username.
     XauthUser,
-    /// Senha XAuth.
+    /// XAuth password.
     XauthPassword,
-    /// Usuário EAP.
+    /// EAP username.
     EapIdentity,
-    /// Senha EAP.
+    /// EAP password.
     EapPassword,
-    /// Certificado do cliente e a chave dele: importados de um `.p12`,
-    /// nunca digitados.
+    /// Client certificate and its key: imported from a `.p12`, never typed.
     ClientCertificate,
     /// The certificate on a smartcard or token, chosen once (ADR-0029).
     TokenCertificate,
@@ -161,17 +161,17 @@ impl From<CredentialKind> for CredentialField {
     }
 }
 
-/// O que se mostra de um certificado do cliente (nada secreto).
+/// What is shown of a client certificate (nothing secret).
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Type)]
 #[serde(rename_all = "camelCase")]
 pub struct ClientCertSummary {
-    /// Titular.
+    /// Subject.
     pub subject: String,
-    /// Emissor.
+    /// Issuer.
     pub issuer: String,
-    /// Último dia de validade (`YYYY-MM-DD`).
+    /// Last day of validity (`YYYY-MM-DD`).
     pub not_after: String,
-    /// Dias até vencer (negativo: vencido).
+    /// Days until it expires (negative: expired).
     pub days_left: i32,
     /// `RSA`, `ECDSA` or `Ed25519`.
     pub key: String,
@@ -189,44 +189,44 @@ impl From<&ipsec_client_core::secrets::ClientCertInfo> for ClientCertSummary {
     }
 }
 
-/// O que está guardado para um perfil (sem revelar valores).
+/// What is stored for a profile (without revealing values).
 #[derive(Debug, Clone, Serialize, Type)]
 #[serde(rename_all = "camelCase")]
 pub struct CredentialsStatus {
-    /// Campos que o perfil exige.
+    /// Fields the profile requires.
     pub required: Vec<CredentialField>,
-    /// Campos já guardados no chaveiro.
+    /// Fields already in the keyring.
     pub stored: Vec<CredentialField>,
-    /// Usuário (XAuth ou EAP) guardado, mascarado (ex.: `us***lo`).
+    /// Stored username (XAuth or EAP), masked (e.g. `us***lo`).
     pub masked_user: Option<String>,
-    /// O chaveiro do sistema está disponível ("lembrar" possível)?
+    /// Is the system keyring available ("remember" possible)?
     pub keyring_available: bool,
-    /// Certificado do cliente guardado (perfis com certificado).
+    /// Stored client certificate (profiles with a certificate).
     pub client_certificate: Option<ClientCertSummary>,
 }
 
-/// Credenciais digitadas na UI (vazias = usar as guardadas). O `Debug` não
-/// mostra os valores.
+/// Credentials typed in the UI (empty = use the stored ones). `Debug` does not
+/// show the values.
 #[derive(Clone, Default, Deserialize, Type)]
 #[serde(rename_all = "camelCase")]
 pub struct CredentialsInput {
-    /// PSK do grupo.
+    /// Group PSK.
     #[serde(default)]
     #[specta(optional)]
     pub psk: Option<String>,
-    /// Usuário XAuth.
+    /// XAuth username.
     #[serde(default)]
     #[specta(optional)]
     pub xauth_user: Option<String>,
-    /// Senha XAuth.
+    /// XAuth password.
     #[serde(default)]
     #[specta(optional)]
     pub xauth_password: Option<String>,
-    /// Usuário EAP.
+    /// EAP username.
     #[serde(default)]
     #[specta(optional)]
     pub eap_identity: Option<String>,
-    /// Senha EAP.
+    /// EAP password.
     #[serde(default)]
     #[specta(optional)]
     pub eap_password: Option<String>,
@@ -251,30 +251,30 @@ impl fmt::Debug for CredentialsInput {
     }
 }
 
-/// Conexão ativa (sem identidades).
+/// Active connection (without identities).
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize, Type)]
 #[serde(rename_all = "camelCase")]
 pub struct Connection {
-    /// Perfil conectado.
+    /// Connected profile.
     pub profile_id: Option<String>,
-    /// Túnel estabelecido (senão: engine de pé negociando/reconectando).
+    /// Tunnel established (otherwise: engine up, negotiating or reconnecting).
     pub established: bool,
     /// Gateway.
     pub gateway: String,
     /// IP virtual.
     pub vip: Option<String>,
-    /// Redes acessíveis.
+    /// Reachable networks.
     pub remote_ts: Vec<String>,
-    /// Segundos desde o estabelecimento.
+    /// Seconds since it was established.
     pub established_secs: Option<u32>,
-    /// Bytes recebidos.
+    /// Bytes received.
     pub bytes_in: f64,
-    /// Bytes enviados.
+    /// Bytes sent.
     pub bytes_out: f64,
 }
 
 impl From<&ConnectionInfo> for Connection {
-    #[allow(clippy::cast_precision_loss)] // contadores de bytes: f64 é exato até 2^53
+    #[allow(clippy::cast_precision_loss)] // byte counters: f64 is exact up to 2^53
     fn from(info: &ConnectionInfo) -> Self {
         Self {
             profile_id: info.profile_id.clone(),
@@ -322,37 +322,37 @@ pub struct AppSettingsView {
     pub available_update: Option<String>,
 }
 
-/// Atualização da sessão, enviada como evento para a UI.
+/// Session update, sent to the UI as an event.
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize, Type, tauri_specta::Event)]
 #[serde(tag = "kind", rename_all = "camelCase")]
 pub enum SessionUpdate {
-    /// Preparando (etapa em texto).
+    /// Preparing (the step, as text).
     Preparing {
-        /// Etapa.
+        /// Step.
         step: String,
     },
-    /// Negociando com o gateway.
+    /// Negotiating with the gateway.
     Negotiating,
-    /// Conectado.
+    /// Connected.
     Connected {
-        /// Conexão.
+        /// Connection.
         connection: Connection,
     },
-    /// Linha de log do charon (identidades mascaradas).
+    /// A charon log line (identities masked).
     Log {
-        /// Linha.
+        /// Line.
         line: String,
     },
-    /// Linha do build da imagem do engine (primeiro uso).
+    /// A line of the engine image build (first use).
     Build {
-        /// Linha.
+        /// Line.
         line: String,
     },
-    /// O túnel caiu (pode reconectar sozinho).
+    /// The tunnel went down (it may reconnect by itself).
     TunnelDown,
-    /// O túnel (re)subiu.
+    /// The tunnel came (back) up.
     TunnelUp,
-    /// O engine parou.
+    /// The engine stopped.
     EngineGone,
 }
 
@@ -373,52 +373,53 @@ impl From<SessionEvent> for SessionUpdate {
     }
 }
 
-/// Tipo de erro, para a UI escolher a apresentação.
+/// Kind of error, so the UI can choose how to show it.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Type)]
 #[serde(rename_all = "camelCase")]
 pub enum UiErrorKind {
-    /// Já há uma conexão ativa.
+    /// There is already an active connection.
     AlreadyConnected,
-    /// O ambiente não permite conectar (detalhes com dicas).
+    /// The environment does not allow connecting (details with hints).
     Preflight,
-    /// A negociação falhou (mensagem = causa provável).
+    /// The negotiation failed (message = likely cause).
     Negotiation,
-    /// Falta alguma credencial.
+    /// A credential is missing.
     MissingCredentials,
-    /// Perfil inexistente ou inválido.
+    /// Profile missing or invalid.
     Profile,
-    /// Chaveiro do sistema.
+    /// System keyring.
     Keyring,
     /// Engine/Docker.
     Engine,
-    /// Falta instalar o componente de rede (a UI oferece instalar).
+    /// The network component is not installed (the UI offers to install it).
     ComponentMissing,
-    /// O componente de rede instalado é antigo (a UI oferece atualizar).
+    /// The installed network component is old (the UI offers to update it).
     ComponentOutdated,
-    /// Instalação/remoção do componente de rede.
+    /// Installing or removing the network component.
     Component,
-    /// O usuário cancelou (ex.: fechou o pedido de senha).
+    /// The user cancelled (e.g. closed the password prompt).
     Cancelled,
-    /// Outra operação em andamento.
+    /// Another operation in progress.
     Busy,
-    /// Outro erro.
+    /// Another error.
     Other,
 }
 
-/// Erro para a UI: mensagem em pt-BR e detalhes opcionais (sem segredos).
+/// Error for the UI: a message in the interface language and optional details
+/// (no secrets).
 #[derive(Debug, Clone, Serialize, Type)]
 #[serde(rename_all = "camelCase")]
 pub struct UiError {
-    /// Tipo.
+    /// Kind.
     pub kind: UiErrorKind,
-    /// Mensagem principal.
+    /// Main message.
     pub message: String,
-    /// Detalhes (ex.: verificações que falharam, mensagem do charon).
+    /// Details (e.g. checks that failed, charon's message).
     pub details: Vec<String>,
 }
 
 impl UiError {
-    /// Erro sem detalhes.
+    /// Error without details.
     #[must_use]
     pub fn new(kind: UiErrorKind, message: impl Into<String>) -> Self {
         Self {
@@ -535,46 +536,46 @@ impl From<ComponentError> for UiError {
     }
 }
 
-/// Situação do componente de rede.
+/// State of the network component.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Type)]
 #[serde(rename_all = "camelCase")]
 pub enum ComponentState {
-    /// Nada instalado.
+    /// Nothing installed.
     NotInstalled,
-    /// Instalado e funcionando.
+    /// Installed and working.
     Ready,
-    /// Instalado, mas o app traz uma versão diferente.
+    /// Installed, but the app carries a different version.
     Outdated,
-    /// Instalação com problema (helper não responde).
+    /// Broken installation (the helper does not answer).
     Broken,
 }
 
-/// Componente de rede: o que está instalado e o que dá para fazer.
+/// Network component: what is installed and what can be done.
 #[derive(Debug, Clone, Serialize, Type)]
 #[serde(rename_all = "camelCase")]
 pub struct ComponentInfo {
-    /// Situação.
+    /// State.
     pub state: ComponentState,
-    /// Versão do IPsec Client que instalou o componente.
+    /// Version of IPsec Client that installed the component.
     pub installed_version: Option<String>,
-    /// strongSwan instalado.
+    /// Installed strongSwan.
     pub installed_strongswan: Option<String>,
-    /// Versão do componente que vem com este app.
+    /// Version of the component that comes with this app.
     pub bundled_version: Option<String>,
-    /// strongSwan que vem com este app.
+    /// strongSwan that comes with this app.
     pub bundled_strongswan: Option<String>,
-    /// Instalado por pacote do sistema (.rpm/.deb): o app não mexe.
+    /// Installed by a system package (.rpm/.deb): the app does not touch it.
     pub managed_by_package: bool,
-    /// O app pode instalar/atualizar daqui.
+    /// The app can install or update it from here.
     pub can_install: bool,
-    /// O app pode remover daqui.
+    /// The app can remove it from here.
     pub can_uninstall: bool,
-    /// Motivo, quando há problema.
+    /// Reason, when there is a problem.
     pub problem: Option<String>,
 }
 
 impl ComponentInfo {
-    /// Junta o estado, o pacote do app e a disponibilidade do `pkexec`.
+    /// Combines the state, the app's package and whether `pkexec` is available.
     #[must_use]
     pub fn new(status: &component::Status, bundle: Option<&Bundle>, pkexec: bool) -> Self {
         let installed = status.installed.as_ref();
@@ -598,7 +599,7 @@ impl ComponentInfo {
     }
 }
 
-/// Primeira letra maiúscula (as mensagens do core começam em minúscula).
+/// First letter in upper case (the core's messages start in lower case).
 fn capitalize(s: &str) -> String {
     let mut chars = s.chars();
     chars
@@ -733,28 +734,28 @@ mod tests {
     }
 }
 
-/// Tipo do arquivo importado.
+/// Kind of the imported file.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, Type)]
 #[serde(rename_all = "camelCase")]
 pub enum ImportKind {
-    /// Perfil do IPsec Client (.json).
+    /// IPsec Client profile (.json).
     Json,
-    /// `swanctl.conf` de uma VPN que já funciona.
+    /// `swanctl.conf` of a VPN that already works.
     Swanctl,
-    /// Perfil do Cisco VPN Client (`.pcf`).
+    /// Cisco VPN Client profile (`.pcf`).
     CiscoPcf,
-    /// Configuração do vpnc.
+    /// vpnc configuration.
     Vpnc,
-    /// Conexão do NetworkManager (`.nmconnection`).
+    /// NetworkManager connection (`.nmconnection`).
     NetworkManager,
-    /// `ipsec.conf` do strongSwan/libreswan.
+    /// strongSwan/libreswan `ipsec.conf`.
     IpsecConf,
-    /// Backup de configuração do FortiClient (XML).
+    /// FortiClient configuration backup (XML).
     FortiClient,
 }
 
 impl ImportKind {
-    /// O formato de outro cliente VPN, se for um deles.
+    /// The format of another VPN client, if it is one of them.
     #[must_use]
     pub fn legacy(self) -> Option<ipsec_client_core::profiles::LegacyFormat> {
         use ipsec_client_core::profiles::LegacyFormat as L;
@@ -768,7 +769,7 @@ impl ImportKind {
         })
     }
 
-    /// O tipo de um formato de outro cliente VPN.
+    /// The kind of a format from another VPN client.
     #[must_use]
     pub fn from_legacy(format: ipsec_client_core::profiles::LegacyFormat) -> Self {
         use ipsec_client_core::profiles::LegacyFormat as L;
@@ -782,86 +783,86 @@ impl ImportKind {
     }
 }
 
-/// Prévia de um arquivo a importar. O arquivo fica guardado no Rust, e a UI
-/// só recebe o `token` (o webview nunca manipula caminhos).
+/// Preview of a file to import. The file stays in Rust, and the UI only gets
+/// the `token` (the webview never handles paths).
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize, Type, tauri_specta::Event)]
 #[serde(rename_all = "camelCase")]
 pub struct ImportPreview {
-    /// Identifica o arquivo na confirmação.
+    /// Identifies the file on confirmation.
     pub token: String,
-    /// Nome do arquivo (sem diretório).
+    /// File name (without directory).
     pub file_name: String,
-    /// Tipo detectado.
+    /// Detected kind.
     pub kind: ImportKind,
-    /// Id sugerido.
+    /// Suggested id.
     pub suggested_id: String,
-    /// Nome sugerido.
+    /// Suggested name.
     pub suggested_name: String,
-    /// Gateway (se o arquivo pôde ser lido).
+    /// Gateway (if the file could be read).
     pub gateway: Option<String>,
-    /// Redes remotas.
+    /// Remote networks.
     pub remote_ts: Vec<String>,
-    /// Avisos (ex.: chaves ignoradas do swanctl.conf).
+    /// Warnings (e.g. ignored swanctl.conf keys).
     pub warnings: Vec<String>,
-    /// Problema que impede importar (arquivo inválido).
+    /// Problem that prevents importing (invalid file).
     pub error: Option<String>,
-    /// Já existe perfil com o id sugerido?
+    /// Is there already a profile with the suggested id?
     pub exists: bool,
-    /// Nível de segurança (se o arquivo pôde ser lido).
+    /// Security level (if the file could be read).
     pub security: Option<Security>,
 }
 
-/// Opções da confirmação de importação.
+/// Import confirmation options.
 #[derive(Debug, Clone, Default, Deserialize, Type)]
 #[serde(rename_all = "camelCase")]
 pub struct ImportOptions {
-    /// Id do perfil (vazio = o sugerido).
+    /// Profile id (empty = the suggested one).
     #[serde(default)]
     #[specta(optional)]
     pub id: Option<String>,
-    /// Nome exibido (vazio = o sugerido).
+    /// Display name (empty = the suggested one).
     #[serde(default)]
     #[specta(optional)]
     pub name: Option<String>,
-    /// Servidores DNS (só swanctl.conf; o JSON já tem os seus).
+    /// DNS servers (swanctl.conf only; the JSON has its own).
     #[serde(default)]
     pub dns_servers: Vec<String>,
-    /// Domínios DNS (só swanctl.conf).
+    /// DNS domains (swanctl.conf only).
     #[serde(default)]
     pub dns_domains: Vec<String>,
-    /// Usar também os DNS enviados pelo gateway (só swanctl.conf).
+    /// Also use the DNS servers sent by the gateway (swanctl.conf only).
     #[serde(default)]
     pub use_received_dns: bool,
-    /// Substituir um perfil existente com o mesmo id.
+    /// Replace an existing profile with the same id.
     #[serde(default)]
     pub overwrite: bool,
 }
 
-/// Detalhes de um perfil (somente leitura; não há credenciais no perfil).
+/// Profile details (read-only; there are no credentials in a profile).
 #[derive(Debug, Clone, Serialize, Type)]
 #[serde(rename_all = "camelCase")]
 pub struct ProfileDetails {
-    /// Resumo.
+    /// Summary.
     pub summary: ProfileSummary,
-    /// "IKEv1 agressivo", "IKEv2"...
+    /// "IKEv1 aggressive", "IKEv2"...
     pub ike: String,
-    /// Propostas da fase 1.
+    /// Phase 1 proposals.
     pub ike_proposals: Vec<String>,
-    /// Propostas da fase 2.
+    /// Phase 2 proposals.
     pub esp_proposals: Vec<String>,
-    /// Autenticação, em texto.
+    /// Authentication, as text.
     pub auth: String,
-    /// Identidade local (ex.: id do grupo).
+    /// Local identity (e.g. the group id).
     pub local_id: Option<String>,
-    /// Servidores DNS fixos.
+    /// Fixed DNS servers.
     pub dns_servers: Vec<String>,
-    /// Domínios DNS.
+    /// DNS domains.
     pub dns_domains: Vec<String>,
-    /// Usa os DNS enviados pelo gateway.
+    /// Uses the DNS servers sent by the gateway.
     pub use_received_dns: bool,
     /// MTU.
     pub mtu: u16,
-    /// Pontos fracos, o pior primeiro (vazio = nada a apontar).
+    /// Weaknesses, the worst first (empty = nothing to point out).
     pub security_notes: Vec<SecurityNote>,
 }
 
@@ -934,29 +935,29 @@ impl From<&Profile> for ProfileDetails {
     }
 }
 
-/// Resultado de uma verificação do ambiente.
+/// Result of an environment check.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Type)]
 #[serde(rename_all = "camelCase")]
 pub enum CheckLevel {
-    /// Tudo certo.
+    /// All good.
     Ok,
-    /// Funciona com limitação.
+    /// Works, with a limitation.
     Warn,
-    /// Impede a conexão.
+    /// Prevents connecting.
     Fail,
 }
 
-/// Uma verificação do diagnóstico (o `doctor` do CLI).
+/// A diagnostics check (the CLI's `doctor`).
 #[derive(Debug, Clone, Serialize, Type)]
 #[serde(rename_all = "camelCase")]
 pub struct DiagnosticCheck {
-    /// O que foi verificado.
+    /// What was checked.
     pub name: String,
-    /// Resultado.
+    /// Result.
     pub level: CheckLevel,
-    /// Detalhe.
+    /// Detail.
     pub detail: String,
-    /// Como corrigir.
+    /// How to fix it.
     pub hint: Option<String>,
 }
 

@@ -1,9 +1,9 @@
-//! Formatação da saída do CLI (pt-BR).
+//! Formatting of the CLI's output.
 
 use ipsec_client_core::diagnostics::{Check, CheckStatus};
 use ipsec_client_core::session::ConnectionInfo;
 
-/// Bytes em unidades binárias legíveis.
+/// Bytes in readable binary units.
 pub fn bytes(n: u64) -> String {
     const UNITS: [&str; 5] = ["B", "KiB", "MiB", "GiB", "TiB"];
     let mut value = n as f64;
@@ -19,7 +19,7 @@ pub fn bytes(n: u64) -> String {
     }
 }
 
-/// Duração legível (`1 h 2 min`, `3 min 4 s`, `5 s`).
+/// Readable duration (`1 h 2 min`, `3 min 4 s`, `5 s`).
 pub fn duration(secs: u64) -> String {
     let (h, m, s) = (secs / 3600, (secs % 3600) / 60, secs % 60);
     match (h, m) {
@@ -29,7 +29,7 @@ pub fn duration(secs: u64) -> String {
     }
 }
 
-/// Símbolo de uma verificação.
+/// Symbol of a check.
 pub fn symbol(status: CheckStatus) -> &'static str {
     match status {
         CheckStatus::Ok => "✔",
@@ -38,7 +38,7 @@ pub fn symbol(status: CheckStatus) -> &'static str {
     }
 }
 
-/// Linhas de uma verificação.
+/// Lines of a check.
 pub fn check(c: &Check) -> String {
     let mut out = format!("{} {}: {}", symbol(c.status), c.name, c.detail);
     if let Some(hint) = &c.hint {
@@ -47,7 +47,7 @@ pub fn check(c: &Check) -> String {
     out
 }
 
-/// Resumo de uma conexão.
+/// Summary of a connection.
 pub fn connection(info: &ConnectionInfo) -> String {
     let profile = info.profile_id.as_deref().unwrap_or("?");
     if !info.is_established() {

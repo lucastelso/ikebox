@@ -1,10 +1,10 @@
-//! Segredos e credenciais (ADR-0007).
+//! Secrets and credentials (ADR-0007).
 //!
-//! - [`Credentials`]: PSK, usuário e senha XAuth de uma sessão, em memória
-//!   zerada no drop, com `Debug` redigido;
-//! - [`SecretStore`]: onde lembrar as credenciais ([`KeyringStore`] = chaveiro
-//!   do sistema, [`MemoryStore`] = só memória);
-//! - [`Redactor`]/[`mask`]: mascaramento de identidades em logs exibidos.
+//! - [`Credentials`]: a session's PSK, XAuth username and password, in memory
+//!   zeroed on drop, with a redacted `Debug`;
+//! - [`SecretStore`]: where to remember the credentials ([`KeyringStore`] =
+//!   the system keyring, [`MemoryStore`] = memory only);
+//! - [`Redactor`]/[`mask`]: masking identities in displayed logs.
 
 mod client_cert;
 mod credentials;

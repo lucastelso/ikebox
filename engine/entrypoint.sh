@@ -1,12 +1,14 @@
 #!/usr/bin/env bash
-# Entrypoint do engine ipsec-client.
+# Entrypoint of the ipsec-client engine.
 #
-# 1. Valida o ambiente (só dados não sensíveis: os segredos chegam via VICI).
-# 2. Limpa restos de uma sessão anterior que tenha morrido de forma abrupta.
-# 3. Cria a interface XFRM dedicada (ADR-0004) e escreve a config de runtime.
-# 4. Sobe o charon e libera o socket VICI para o usuário (dono <uid>, 0600;
-#    ou root:<gid>, 0660, no engine Docker).
-# 5. No SIGTERM (docker stop): encerra o charon e desfaz tudo.
+# 1. Validates the environment (non-sensitive data only: secrets arrive over
+#    VICI).
+# 2. Cleans up what a previous session that died abruptly left behind.
+# 3. Creates the dedicated XFRM interface (ADR-0004) and writes the runtime
+#    config.
+# 4. Starts charon and hands the VICI socket to the user (owner <uid>, 0600;
+#    or root:<gid>, 0660, in the Docker engine).
+# 5. On SIGTERM (docker stop): stops charon and undoes everything.
 #
 # Embedded engine (ADR-0028): this script stays root, inside the sandbox, for
 # what needs it (the interface, handing the socket over, DNS, cleanup), and
@@ -16,27 +18,29 @@
 # the request and applies it to the session's interface only.
 #
 # Variables (see docs/architecture.md):
-#   IPSEC_CLIENT_IFACE       nome da interface XFRM          (padrão: ipsc0)
-#   IPSEC_CLIENT_IF_ID       if_id das SAs/políticas, 1..2^32-1 (obrigatória)
-#   IPSEC_CLIENT_MTU         MTU da interface, 576..9000      (padrão: 1400)
-#   IPSEC_CLIENT_SOCKET_UID  uid dono do socket VICI (0600). Engine embutido.
-#   IPSEC_CLIENT_SOCKET_GID  gid que pode usar o socket VICI (0660). Engine
-#                            Docker; obrigatória se não houver SOCKET_UID
-#   IPSEC_CLIENT_LOG_LEVEL   nível de log do charon, 0..2     (padrão: 1)
-#   IPSEC_CLIENT_CHARON      caminho do charon   (padrão: o do pacote do Ubuntu)
-#   IPSEC_CLIENT_STRONGSWAN_D diretório strongswan.d (padrão: /etc/strongswan.d)
-#   IPSEC_CLIENT_SOCKET_DIR  diretório do socket VICI   (padrão: /run/ipsec-client)
-#   IPSEC_CLIENT_STATE_DIR   modo nativo (systemd, raiz somente leitura): diretório
-#                            gravável onde vai a config de runtime; o charon a lê
-#                            via STRONGSWAN_CONF, que inclui a config base
-#   IPSEC_CLIENT_STRONGSWAN_CONF  config base incluída no modo nativo
-#   IPSEC_CLIENT_UPDOWN      updown FORÇADO (ADR-0019): o charon embutido
-#                            (com o patch do IPsec Client) ignora o updown e o
-#                            if_id enviados pelo cliente VICI e usa estes. Os
-#                            argumentos vão num arquivo só do root.
-#   IPSEC_CLIENT_DNS_SERVERS IPs dos DNS fixos, separados por vírgula
-#   IPSEC_CLIENT_DNS_DOMAINS domínios (~dominio, ~.), separados por vírgula
-#   IPSEC_CLIENT_DNS_FLAGS   use-received e/ou default-route, por vírgula
+#   IPSEC_CLIENT_IFACE       XFRM interface name             (default: ipsc0)
+#   IPSEC_CLIENT_IF_ID       if_id of the SAs/policies, 1..2^32-1 (required)
+#   IPSEC_CLIENT_MTU         interface MTU, 576..9000        (default: 1400)
+#   IPSEC_CLIENT_SOCKET_UID  uid that owns the VICI socket (0600). Embedded
+#                            engine.
+#   IPSEC_CLIENT_SOCKET_GID  gid that may use the VICI socket (0660). Docker
+#                            engine; required if there is no SOCKET_UID
+#   IPSEC_CLIENT_LOG_LEVEL   charon log level, 0..2          (default: 1)
+#   IPSEC_CLIENT_CHARON      charon path    (default: the Ubuntu package's)
+#   IPSEC_CLIENT_STRONGSWAN_D strongswan.d directory (default: /etc/strongswan.d)
+#   IPSEC_CLIENT_SOCKET_DIR  VICI socket directory (default: /run/ipsec-client)
+#   IPSEC_CLIENT_STATE_DIR   native mode (systemd, read-only root): writable
+#                            directory for the runtime config; charon reads it
+#                            through STRONGSWAN_CONF, which includes the base
+#                            config
+#   IPSEC_CLIENT_STRONGSWAN_CONF  base config included in native mode
+#   IPSEC_CLIENT_UPDOWN      FORCED updown (ADR-0019): the embedded charon
+#                            (with the IPsec Client patch) ignores the updown
+#                            and if_id sent by the VICI client and uses these.
+#                            The arguments go in a file only root owns.
+#   IPSEC_CLIENT_DNS_SERVERS fixed DNS server IPs, comma-separated
+#   IPSEC_CLIENT_DNS_DOMAINS domains (~domain, ~.), comma-separated
+#   IPSEC_CLIENT_DNS_FLAGS   use-received and/or default-route, comma-separated
 #   IPSEC_CLIENT_ENGINE_USER system user charon runs as (embedded engine,
 #                            ADR-0028); empty: charon runs as root (Docker)
 
@@ -48,7 +52,7 @@ readonly STATE_DIR=${IPSEC_CLIENT_STATE_DIR:-}
 readonly BASE_CONF=${IPSEC_CLIENT_STRONGSWAN_CONF:-/etc/strongswan.conf}
 readonly CHARON=${IPSEC_CLIENT_CHARON:-/usr/lib/ipsec/charon}
 readonly RUNTIME_CONF=${IPSEC_CLIENT_STRONGSWAN_D:-/etc/strongswan.d}/zzz-ipsec-client-runtime.conf
-# Protocolo de rota usado pelo updown para marcar as rotas da sessão.
+# Route protocol the updown uses to tag the session's routes.
 readonly RT_PROTO=241
 
 IFACE=${IPSEC_CLIENT_IFACE:-ipsc0}
@@ -64,7 +68,7 @@ DNS_FLAGS=${IPSEC_CLIENT_DNS_FLAGS:-}
 ENGINE_USER=${IPSEC_CLIENT_ENGINE_USER:-}
 ENGINE_UID=""
 ENGINE_GID=""
-# Argumentos do updown forçado (diretório só do root).
+# Arguments of the forced updown (a directory only root owns).
 ARGS_DIR=${IPSEC_CLIENT_STATE_DIR:-/run/ipsec-client-engine}
 UPDOWN_ARGS="$ARGS_DIR/updown.args"
 # DNS requests from the unprivileged updown (ADR-0028).
@@ -84,7 +88,7 @@ die() {
     exit 1
 }
 
-# uint_in_range VALOR MIN MAX: inteiro decimal sem sinal dentro do intervalo.
+# uint_in_range VALUE MIN MAX: unsigned decimal integer within the range.
 uint_in_range() {
     [[ $1 =~ ^[0-9]{1,10}$ ]] || return 1
     ((10#$1 >= $2 && 10#$1 <= $3))
@@ -130,14 +134,14 @@ validate_env() {
         ENGINE_GID=$(id -g "$ENGINE_USER")
         ((ENGINE_UID != 0)) || die "$ENGINE_USER must not be root"
     fi
-    # Normaliza zeros à esquerda.
+    # Strips leading zeros.
     IF_ID=$((10#$IF_ID))
     MTU=$((10#$MTU))
 }
 
-# Primeira barreira para o DNS vindo do helper (o updown valida de novo).
-# Os valores nunca passam por um shell: vão, um por linha, para um arquivo
-# que o updown lê como dados.
+# First barrier for the DNS coming from the helper (the updown checks it
+# again). The values never go through a shell: they go, one per line, into a
+# file the updown reads as data.
 validate_dns_env() {
     local item n=0
     local -a list
@@ -161,7 +165,7 @@ validate_dns_env() {
     done
 }
 
-# Argumentos do updown forçado, um por linha (ADR-0019).
+# Arguments of the forced updown, one per line (ADR-0019).
 write_updown_args() {
     local item
     local -a list
@@ -191,10 +195,10 @@ write_updown_args() {
     mv -f "$UPDOWN_ARGS.tmp" "$UPDOWN_ARGS"
 }
 
-# Remove SAs e políticas XFRM marcadas com o nosso if_id que tenham sobrado de
-# uma sessão encerrada de forma abrupta (SIGKILL). Nunca faz flush global:
-# outros IPsec do host não são afetados. A saída do `ip xfrm state` contém
-# chaves; ela só é lida pelo awk e nunca é impressa.
+# Removes XFRM SAs and policies tagged with our if_id left behind by a session
+# that ended abruptly (SIGKILL). It never flushes everything: other IPsec on
+# the host is not affected. The output of `ip xfrm state` contains keys; it is
+# only read by awk and never printed.
 #
 # Policies are only removed with an iproute2 that accepts `if_id` on delete
 # (the host's, in the embedded engine). With the iproute2 5.5 of Ubuntu 20.04
@@ -204,7 +208,8 @@ flush_stale_xfrm() {
     local hex_id src dst proto spi stale_policies
     hex_id=$(printf '0x%x' "$IF_ID")
 
-    # `ip -o` separa os blocos com "\": troca por espaço antes de ler os campos.
+    # `ip -o` separates the blocks with "\": replace it with a space before
+    # reading the fields.
     while read -r src dst proto spi; do
         [[ -n $spi ]] || continue
         ip xfrm state delete src "$src" dst "$dst" proto "$proto" spi "$spi" 2>/dev/null || true
@@ -222,8 +227,9 @@ flush_stale_xfrm() {
             if (ok) print s, d, p, spi
         }')
 
-    # Políticas: o iproute2 moderno (host) aceita if_id no delete; o 5.5 do
-    # Ubuntu 20.04 não, e aí elas ficam (inertes) e só geram o aviso abaixo.
+    # Policies: modern iproute2 (host) accepts if_id on delete; the 5.5 of
+    # Ubuntu 20.04 does not, and then they stay (inert) and only cause the
+    # warning below.
     while read -r src dst dir; do
         [[ -n $dir ]] || continue
         ip xfrm policy delete src "$src" dst "$dst" dir "$dir" if_id "$IF_ID" 2>/dev/null || true
@@ -266,11 +272,11 @@ remove_iface() {
     ip link del "$IFACE" >/dev/null 2>&1 || true
 }
 
-# Desfaz tudo o que a sessão criou no host.
+# Undoes everything the session created on the host.
 cleanup() {
     remove_iface
-    # Rotas fora da interface (ex.: rota de host para o gateway no modo túnel
-    # completo) são marcadas pelo updown com o protocolo RT_PROTO.
+    # Routes outside the interface (e.g. the host route to the gateway in full
+    # tunnel mode) are tagged by the updown with the RT_PROTO protocol.
     ip -4 route flush proto "$RT_PROTO" >/dev/null 2>&1 || true
     ip -6 route flush proto "$RT_PROTO" >/dev/null 2>&1 || true
     flush_stale_xfrm
@@ -285,7 +291,7 @@ cleanup() {
 
 create_iface() {
     if ! ip link add "$IFACE" type xfrm if_id "$IF_ID" 2>/dev/null; then
-        # Kernels/iproute2 mais antigos exigem um dispositivo subjacente.
+        # Older kernels/iproute2 require an underlying device.
         local dev
         dev=$(ip -4 route show default | awk '{ for (i = 1; i < NF; i++) if ($i == "dev") { print $(i + 1); exit } }')
         [[ -n $dev ]] || die "could not create $IFACE (is the xfrm_interface module available?)"
@@ -298,8 +304,8 @@ create_iface() {
 
 write_runtime_conf() {
     local overrides forced=""
-    # Lidos só pelo charon com o patch do IPsec Client (engine embutido); um
-    # charon sem o patch ignora as opções.
+    # Read only by charon with the IPsec Client patch (embedded engine); a charon
+    # without the patch ignores the options.
     if [[ -n $UPDOWN ]]; then
         write_updown_args
         forced="
@@ -324,9 +330,9 @@ write_runtime_conf() {
     }
 }"
     if [[ -n $STATE_DIR ]]; then
-        # Modo nativo: a raiz é somente leitura; a config de runtime inclui a
-        # base e sobrescreve o que depende da sessão.
-        printf '# Gerado pelo entrypoint do ipsec-client. Não editar.\ninclude %s\n%s\n' \
+        # Native mode: the root is read-only; the runtime config includes the base
+        # and overrides what depends on the session.
+        printf '# Generated by the ipsec-client entrypoint. Do not edit.\ninclude %s\n%s\n' \
             "$BASE_CONF" "$overrides" >"$STATE_DIR/strongswan.conf"
         if [[ -n $ENGINE_USER ]]; then
             chgrp "$ENGINE_GID" "$STATE_DIR/strongswan.conf"
@@ -334,7 +340,7 @@ write_runtime_conf() {
         fi
         export STRONGSWAN_CONF="$STATE_DIR/strongswan.conf"
     else
-        printf '# Gerado pelo entrypoint do ipsec-client. Não editar.\n%s\n' "$overrides" >"$RUNTIME_CONF"
+        printf '# Generated by the ipsec-client entrypoint. Do not edit.\n%s\n' "$overrides" >"$RUNTIME_CONF"
     fi
 }
 
@@ -486,14 +492,14 @@ wait_for_socket() {
     die "the VICI socket did not show up within 10 s"
 }
 
-# Chamada pelo trap de TERM/INT (docker stop). Só o trap a chama: o shellcheck
-# acha que é código morto (SC2329 no 0.11, SC2317 nas versões anteriores).
+# Called by the TERM/INT trap (docker stop). Only the trap calls it: shellcheck
+# thinks it is dead code (SC2329 in 0.11, SC2317 in earlier versions).
 # shellcheck disable=SC2317,SC2329
 shutdown() {
     trap - TERM INT
     log "shutting down..."
     if [[ -n $charon_pid ]] && kill -0 "$charon_pid" 2>/dev/null; then
-        # O charon encerra as SAs (envia DELETE ao gateway) e remove o VIP.
+        # charon ends the SAs (sends DELETE to the gateway) and removes the VIP.
         kill -TERM "$charon_pid" 2>/dev/null || true
         wait "$charon_pid" 2>/dev/null || true
     fi
@@ -522,9 +528,9 @@ main() {
 
     wait_for_socket
     if [[ -n $SOCKET_UID ]]; then
-        # Só o dono da sessão conecta (o diretório do socket é do root). O
-        # chmod vem antes: depois do chown, o root sem CAP_FOWNER (sandbox do
-        # engine embutido) não pode mais mudar a permissão.
+        # Only the session's owner connects (the socket directory is root's). The
+        # chmod comes first: after the chown, root without CAP_FOWNER (the embedded
+        # engine's sandbox) can no longer change the permission.
         hand_over_socket
         log "ready: VICI socket handed over to uid $SOCKET_UID${ENGINE_USER:+ (charon runs as $ENGINE_USER)}"
     else
@@ -536,7 +542,7 @@ main() {
     [[ -z $ENGINE_USER ]] || serve_dns_requests
     local status=0
     wait "$charon_pid" || status=$?
-    # Só chega aqui se o charon morrer sozinho (o SIGTERM sai pelo trap).
+    # Only reached if charon dies by itself (SIGTERM leaves through the trap).
     log "charon exited unexpectedly (status $status)"
     charon_pid=""
     cleanup

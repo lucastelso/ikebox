@@ -1,18 +1,18 @@
 #!/usr/bin/env bash
-# Confere os pacotes de release antes de publicar:
+# Checks the release packages before publishing:
 #
-# - em cada pacote (AppImage, deb e rpm), o componente de rede embutido
-#   precisa bater com o próprio SHA256SUMS. O app recusa instalar um
-#   componente que não bate, e o empacotamento já alterou arquivos antes (o
-#   linuxdeploy reescreve o RPATH de executáveis dentro do AppImage);
-# - o strongSwan embutido precisa ter os patches de segurança do commit
-#   (native-engine/patches, ADR-0019) e ser um executável totalmente estático
-#   (ADR-0020), com as versões de OpenSSL e musl registradas no BUILDINFO;
-# - o AppImage não pode exigir uma glibc mais nova que a do Ubuntu 22.04.
+# - in each package (AppImage, deb and rpm), the embedded network component
+#   must match its own SHA256SUMS. The app refuses to install a component that
+#   does not match, and packaging has changed files before (linuxdeploy
+#   rewrites the RPATH of executables inside the AppImage);
+# - the embedded strongSwan must have the commit's security patches
+#   (native-engine/patches, ADR-0019) and be a fully static executable
+#   (ADR-0020), with the OpenSSL and musl versions recorded in BUILDINFO;
+# - the AppImage must not require a glibc newer than Ubuntu 22.04's.
 #
-# Uso: scripts/verify-release.sh <diretório com os pacotes>
-# Precisa de: binutils (ar, objdump), rpm2cpio e cpio. Roda sozinho no fim do
-# scripts/build-release.sh.
+# Usage: scripts/verify-release.sh <directory with the packages>
+# Needs: binutils (ar, objdump), rpm2cpio and cpio. Runs by itself at the end
+# of scripts/build-release.sh.
 
 set -euo pipefail
 
@@ -36,7 +36,7 @@ work=$(mktemp -d)
 # shellcheck disable=SC2064 # caminho fixado agora
 trap "rm -rf '$work'" EXIT
 
-# Patches de segurança do strongSwan esperados (ADR-0019), como no BUILDINFO.
+# Expected strongSwan security patches (ADR-0019), as in BUILDINFO.
 repo=$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)
 expected_patches=()
 for patch_file in "$repo"/native-engine/patches/*.patch; do

@@ -30,11 +30,11 @@ pub use spec::{
     SOCKET_FILE,
 };
 
-/// Nome padrão da interface XFRM.
+/// Default name of the XFRM interface.
 pub const DEFAULT_IFACE: &str = "ipsc0";
-/// MTU padrão da interface XFRM (evita blackhole em Wi-Fi, ADR-0004).
+/// Default MTU of the XFRM interface (avoids a blackhole on Wi-Fi, ADR-0004).
 pub const DEFAULT_MTU: u16 = 1400;
-/// Caminho do socket D-Bus do sistema no host.
+/// Path of the system D-Bus socket on the host.
 pub const DBUS_SYSTEM_SOCKET: &str = "/run/dbus/system_bus_socket";
 
 /// Whether this build carries the Docker engine (the `docker` feature).
@@ -117,10 +117,10 @@ impl From<bollard::errors::Error> for EngineError {
     }
 }
 
-/// Diretório padrão do socket VICI: `$XDG_RUNTIME_DIR/ipsec-client`.
+/// Default VICI socket directory: `$XDG_RUNTIME_DIR/ipsec-client`.
 ///
 /// # Errors
-/// [`EngineError::RuntimeDir`] se `XDG_RUNTIME_DIR` não estiver definido.
+/// [`EngineError::RuntimeDir`] if `XDG_RUNTIME_DIR` is not set.
 pub fn default_runtime_dir() -> Result<PathBuf, EngineError> {
     std::env::var_os("XDG_RUNTIME_DIR")
         .map(|dir| PathBuf::from(dir).join("ipsec-client"))
@@ -136,7 +136,7 @@ pub fn default_runtime_dir() -> Result<PathBuf, EngineError> {
         })
 }
 
-/// gid primário do usuário atual (dono do socket VICI).
+/// Primary gid of the current user (owner of the VICI socket).
 #[must_use]
 pub fn current_gid() -> u32 {
     rustix::process::getgid().as_raw()

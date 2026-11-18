@@ -22,7 +22,7 @@ pub mod secrets;
 pub mod session;
 pub mod vici;
 
-/// Versão do núcleo (a mesma do workspace).
+/// Core version (the same as the workspace).
 pub const VERSION: &str = env!("CARGO_PKG_VERSION");
 
 #[cfg(test)]

@@ -10,8 +10,8 @@ const STYLE: Record<Security, { icon: typeof ShieldCheck; color: string }> = {
 };
 
 /**
- * Selo do nível de segurança de um perfil. Só avisa: o perfil continua
- * conectando. `onHero` usa as cores do topo da tela de conexão.
+ * Badge of a profile's security level. It only warns: the profile still
+ * connects. `onHero` uses the colors of the connection screen's top.
  */
 export function SecurityBadge({
   level,
@@ -38,7 +38,7 @@ export function SecurityBadge({
   );
 }
 
-/** Os pontos fracos do perfil, o pior primeiro, com a explicação de cada um. */
+/** The profile's weaknesses, the worst first, each with its explanation. */
 export function SecurityNotes({ notes }: { notes: SecurityNote[] }) {
   const t = useT().profiles.security;
   if (notes.length === 0) return null;

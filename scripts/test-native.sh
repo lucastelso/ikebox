@@ -1,22 +1,23 @@
 #!/usr/bin/env bash
-# Teste do engine embutido de verdade (sem Docker no caminho da VPN), para o
-# mantenedor rodar no próprio computador:
+# Test of the real embedded engine (no Docker in the VPN's path), for the
+# maintainer to run on their own computer:
 #
-#   1. monta o pacote do componente de rede, compilando o strongSwan embutido
-#      e o helper (como usuário);
-#   2. instala o pacote, como o app faz (PEDE SENHA: sudo);
-#   3. roda o E2E completo do CLI forçando o engine embutido
-#      (IPSEC_CLIENT_BACKEND=native), contra o gateway de teste local.
+#   1. builds the network component bundle, compiling the embedded strongSwan
+#      and the helper (as the user);
+#   2. installs the bundle, as the app does (ASKS FOR A PASSWORD: sudo);
+#   3. runs the CLI's complete E2E forcing the embedded engine
+#      (IPSEC_CLIENT_BACKEND=native), against the local test gateway.
 #
-# O passo 3 também testa o polkit de verdade: rode num terminal da sua sessão
-# gráfica (sessão local ativa). Para desinstalar depois:
+# Step 3 also tests the real polkit: run it in a terminal of your graphical
+# session (active local session). To uninstall afterwards:
 #   sudo /opt/ipsec-client/libexec/install-native.sh uninstall
 
 set -euo pipefail
 
 repo=$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)
 cd "$repo"
-# O cargo do rustup (respeita o rust-toolchain.toml), mesmo com outro no PATH.
+# rustup's cargo (it honors rust-toolchain.toml), even with another one in
+# PATH.
 if [[ -f "$HOME/.cargo/env" ]]; then
     # shellcheck source=/dev/null
     . "$HOME/.cargo/env"

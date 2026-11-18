@@ -1,11 +1,11 @@
 #!/usr/bin/env bash
-# Compila o strongSwan do engine embutido para uma (ou todas as) versões de
-# native-engine/versions.txt. Usa Docker só como ambiente de build
-# reproduzível: o usuário final recebe o resultado pronto dentro do app.
+# Builds the embedded engine's strongSwan for one (or all) of the versions in
+# native-engine/versions.txt. It uses Docker only as a reproducible build
+# environment: the end user gets the result ready inside the app.
 #
-# Uso: native-engine/build.sh [VERSAO|all]     (padrão: a primeira da lista)
-# Saída: native-engine/dist/ipsec-client-engine-<versão>-x86_64.tar.gz (engine)
-#        native-engine/dist/ipsec-client-engine-tools-<versão>-x86_64.tar.gz (swanctl, tests only)
+# Usage: native-engine/build.sh [VERSION|all]     (default: the first in the list)
+# Output: native-engine/dist/ipsec-client-engine-<version>-x86_64.tar.gz (engine)
+#         native-engine/dist/ipsec-client-engine-tools-<version>-x86_64.tar.gz (swanctl, tests only)
 
 set -euo pipefail
 

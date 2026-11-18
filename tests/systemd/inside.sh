@@ -80,7 +80,7 @@ done
 ok "gw.ipsec-client.test resolves to $GW_IP through systemd-resolved"
 
 step "alice connects with ipsec-client-cli (the profile DNS goes through the helper)"
-cp /test/perfil-gateway-teste.json /tmp/profile.json
+cp /test/test-gateway.json /tmp/profile.json
 chmod 0644 /tmp/profile.json
 as alice "$CLI" profiles import /tmp/profile.json >/dev/null
 out=$(as alice "$CLI" connect gateway-teste --detach --credentials-stdin <<<"$CREDS" 2>&1) || {

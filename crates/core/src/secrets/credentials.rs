@@ -1,7 +1,7 @@
-//! Credenciais de uma sessão: PSK, usuário e senha XAuth ou EAP (ADR-0007).
+//! A session's credentials: PSK, XAuth or EAP username and password (ADR-0007).
 //!
-//! Ficam em [`SecretString`] (zerada no drop) e saem da memória do app só
-//! para a memória do charon, via `load-shared` ([`SharedSecret`]).
+//! They are kept in [`SecretString`] (zeroed on drop) and leave the app's
+//! memory only for charon's memory, through `load-shared` ([`SharedSecret`]).
 
 use std::fmt;
 
@@ -11,7 +11,7 @@ use super::{ClientCertificate, SecretStore, SecretsError, mask};
 use crate::profiles::{CredentialKind, Profile};
 use crate::vici::{PrivateKey, SecretKind, SharedSecret};
 
-/// Credenciais de um perfil (algumas podem faltar até o usuário informar).
+/// A profile's credentials (some may be missing until the user enters them).
 #[derive(Default, Clone)]
 pub struct Credentials {
     psk: Option<SecretString>,
@@ -55,7 +55,7 @@ impl fmt::Debug for Credentials {
 }
 
 impl Credentials {
-    /// Sem nenhuma credencial.
+    /// No credential at all.
     #[must_use]
     pub fn new() -> Self {
         Self::default()
@@ -75,7 +75,7 @@ impl Credentials {
         }
     }
 
-    /// Lê uma credencial.
+    /// Reads a credential.
     #[must_use]
     pub fn get(&self, kind: CredentialKind) -> Option<&SecretString> {
         match kind {
@@ -91,24 +91,24 @@ impl Credentials {
         }
     }
 
-    /// Define uma credencial. Valores vazios são tratados como ausentes.
+    /// Sets a credential. Empty values are treated as missing.
     pub fn set(&mut self, kind: CredentialKind, value: SecretString) {
         *self.slot(kind) = (!value.expose_secret().is_empty()).then_some(value);
     }
 
-    /// Usuário XAuth (não é segredo, mas é pessoal: mascarar ao exibir).
+    /// XAuth username (not a secret, but personal: mask it when showing).
     #[must_use]
     pub fn xauth_user(&self) -> Option<&str> {
         self.xauth_user.as_ref().map(ExposeSecret::expose_secret)
     }
 
-    /// Identidade EAP (não é segredo, mas é pessoal: mascarar ao exibir).
+    /// EAP identity (not a secret, but personal: mask it when showing).
     #[must_use]
     pub fn eap_identity(&self) -> Option<&str> {
         self.eap_identity.as_ref().map(ExposeSecret::expose_secret)
     }
 
-    /// Usa o certificado e a chave lidos de um `.p12` (ver
+    /// Uses the certificate and key read from a `.p12` (see
     /// [`ClientCertificate`]).
     pub fn set_client_certificate(&mut self, cert: &ClientCertificate) {
         self.set(
@@ -121,11 +121,11 @@ impl Credentials {
         );
     }
 
-    /// O certificado do cliente, conferido de novo contra a chave (o que
-    /// estiver no chaveiro pode ter sido trocado por fora).
+    /// The client certificate, checked again against the key (what is in the
+    /// keyring may have been swapped from outside).
     ///
     /// # Errors
-    /// Par incompleto ou inválido.
+    /// Incomplete or invalid pair.
     pub fn client_certificate(&self) -> Option<Result<ClientCertificate, String>> {
         let cert = self.get(CredentialKind::ClientCert)?;
         let key = self.get(CredentialKind::ClientKey)?;
@@ -135,21 +135,21 @@ impl Credentials {
         ))
     }
 
-    /// Certificado do cliente em PEM (para o `load-conn`).
+    /// Client certificate in PEM (for `load-conn`).
     #[must_use]
     pub fn client_cert_pem(&self) -> Option<&str> {
         self.get(CredentialKind::ClientCert)
             .map(ExposeSecret::expose_secret)
     }
 
-    /// A chave privada do cliente, para o `load-key`.
+    /// The client's private key, for `load-key`.
     #[must_use]
     pub fn private_key(&self) -> Option<PrivateKey> {
         self.get(CredentialKind::ClientKey)
             .map(|key| PrivateKey::new(key.expose_secret().as_bytes()))
     }
 
-    /// Credenciais que o perfil exige e ainda faltam.
+    /// Credentials the profile requires that are still missing.
     #[must_use]
     pub fn missing(&self, profile: &Profile) -> Vec<CredentialKind> {
         profile
@@ -159,10 +159,10 @@ impl Credentials {
             .collect()
     }
 
-    /// Carrega do armazenamento o que houver (o que faltar fica ausente).
+    /// Loads whatever is in the store (what is missing stays missing).
     ///
     /// # Errors
-    /// Erro do armazenamento (ex.: chaveiro bloqueado).
+    /// Store error (e.g. a locked keyring).
     pub fn load(store: &dyn SecretStore, profile: &Profile) -> Result<Self, SecretsError> {
         let mut credentials = Self::new();
         for kind in profile.storable_credentials() {
@@ -173,13 +173,13 @@ impl Credentials {
         Ok(credentials)
     }
 
-    /// Grava no armazenamento ("lembrar credenciais").
+    /// Saves to the store ("remember credentials").
     ///
     /// # Errors
-    /// Erro do armazenamento.
+    /// Store error.
     pub fn save(&self, store: &dyn SecretStore, profile: &Profile) -> Result<(), SecretsError> {
-        // Uma senha de uso único nunca é guardada, e a que tiver sido
-        // guardada antes de o perfil passar a usar OTP sai do chaveiro.
+        // A one-time password is never stored, and one stored before the profile
+        // started using OTP is removed from the keyring.
         if profile.auth.otp() {
             store.delete(&profile.id, CredentialKind::XauthPassword)?;
         }
@@ -191,10 +191,10 @@ impl Credentials {
         Ok(())
     }
 
-    /// Esquece tudo o que estiver guardado para o perfil.
+    /// Forgets everything stored for the profile.
     ///
     /// # Errors
-    /// Erro do armazenamento.
+    /// Store error.
     pub fn forget(store: &dyn SecretStore, profile: &Profile) -> Result<(), SecretsError> {
         for kind in [
             CredentialKind::Psk,
@@ -211,15 +211,15 @@ impl Credentials {
         Ok(())
     }
 
-    /// Segredos a carregar no charon (`load-shared`) para o perfil.
+    /// Secrets to load into charon (`load-shared`) for the profile.
     ///
-    /// - PSK: donos = identidade local da rodada PSK (se houver; sem dono, ela
-    ///   vale para qualquer par);
-    /// - XAuth: dono = usuário XAuth;
-    /// - EAP: dono = identidade EAP.
+    /// - PSK: owners = local identity of the PSK round (if any; without an owner,
+    ///   it applies to any peer);
+    /// - XAuth: owner = the XAuth username;
+    /// - EAP: owner = the EAP identity.
     ///
     /// # Errors
-    /// [`SecretsError::Missing`] se faltar alguma credencial exigida.
+    /// [`SecretsError::Missing`] if a required credential is missing.
     pub fn shared_secrets(&self, profile: &Profile) -> Result<Vec<SharedSecret>, SecretsError> {
         if let Some(kind) = self.missing(profile).first() {
             return Err(SecretsError::Missing(*kind));
@@ -289,7 +289,7 @@ mod tests {
 
     fn profile() -> Profile {
         parse_profile(include_str!(
-            "../../../../presets/exemplo-ikev1-agressivo-xauth.json"
+            "../../../../presets/example-ikev1-aggressive-xauth.json"
         ))
         .expect("preset")
     }
@@ -335,9 +335,9 @@ mod tests {
     fn shared_secrets_have_the_right_owners() {
         let secrets = complete().shared_secrets(&profile()).expect("segredos");
         assert_eq!(secrets.len(), 2);
-        assert_eq!(secrets[0].id, "ike-exemplo-legado");
+        assert_eq!(secrets[0].id, "ike-example-legacy");
         assert_eq!(secrets[0].kind, SecretKind::Ike);
-        assert_eq!(secrets[1].id, "xauth-exemplo-legado");
+        assert_eq!(secrets[1].id, "xauth-example-legacy");
         assert_eq!(secrets[1].kind, SecretKind::Xauth);
         let debug = format!("{secrets:?}");
         assert!(!debug.contains("psk-falsa") && !debug.contains("senha-falsa"));

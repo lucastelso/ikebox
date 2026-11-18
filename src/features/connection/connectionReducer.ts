@@ -1,6 +1,6 @@
 import type { Connection, SessionUpdate, UiError } from '@/bindings';
 
-/** Fase da conexão vista pela UI. */
+/** Connection phase as the UI sees it. */
 export type Phase =
   | 'idle'
   | 'preparing'
@@ -11,13 +11,13 @@ export type Phase =
 
 export interface ConnectionState {
   phase: Phase;
-  /** Etapa atual da preparação (ex.: "imagem do engine"). */
+  /** Current preparation step (e.g. "engine image"). */
   step: string | null;
   connection: Connection | null;
   error: UiError | null;
-  /** Últimas linhas de log (identidades já mascaradas pelo Rust). */
+  /** Last log lines (identities already masked by Rust). */
   logs: string[];
-  /** A imagem do engine está sendo construída (primeiro uso). */
+  /** The engine image is being built (first use). */
   building: boolean;
 }
 
@@ -43,7 +43,7 @@ export type Action =
   | { type: 'sessionUpdate'; update: SessionUpdate }
   | { type: 'dismissError' };
 
-/** Fases em que há uma operação em andamento (o status periódico não interfere). */
+/** Phases with an operation in progress (the status reading does not interfere). */
 export function isBusy(phase: Phase): boolean {
   return phase === 'preparing' || phase === 'negotiating' || phase === 'disconnecting';
 }

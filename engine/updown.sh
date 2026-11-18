@@ -1,34 +1,37 @@
 #!/usr/bin/env bash
-# updown do ipsec-client (ADR-0004).
+# ipsec-client updown (ADR-0004).
 #
-# O charon chama este script (via /bin/sh -c) a cada par de traffic selectors
-# que sobe ou desce. Ele roda como root no namespace de rede do host e:
-#   - instala/remove a rota do TS remoto na interface XFRM dedicada;
-#   - configura o DNS split da interface no systemd-resolved do host.
+# charon calls this script (through /bin/sh -c) for every pair of traffic
+# selectors that goes up or down. It runs as root in the host's network
+# namespace and:
+#   - installs/removes the route of the remote TS on the dedicated XFRM
+#     interface;
+#   - sets the interface's split DNS in the host's systemd-resolved.
 #
-# Argumentos (validados de novo aqui). No engine embutido, o charon chama
-# `updown --args-file ARQUIVO`, e os argumentos vêm, um por linha, desse
-# arquivo escrito pelo entrypoint (root): quem fala VICI não escolhe o comando
-# nem os argumentos (ADR-0019). No engine Docker, vêm do app na linha de
-# comando:
-#   --iface NOME            interface XFRM da sessão (obrigatório)
-#   --dns IP                servidor DNS fixo (repetível)
-#   --domain DOMINIO        domínio de busca/roteamento; "~dominio" só roteia
-#                           consultas, "~." manda todas (repetível)
-#   --use-received-dns      usa também os DNS enviados pelo gateway
-#   --dns-default-route     usa estes DNS para consultas fora dos domínios
-#   --dns-fifo CAMINHO      embedded engine, charon without root (ADR-0028):
+# Arguments (validated again here). In the embedded engine, charon calls
+# `updown --args-file FILE`, and the arguments come, one per line, from that
+# file written by the entrypoint (root): whoever speaks VICI chooses neither
+# the command nor the arguments (ADR-0019). In the Docker engine, they come
+# from the app on the command line:
+#   --iface NAME            the session's XFRM interface (required)
+#   --dns IP                fixed DNS server (repeatable)
+#   --domain DOMAIN         search/routing domain; "~domain" only routes
+#                           queries, "~." sends all of them (repeatable)
+#   --use-received-dns      also use the DNS servers sent by the gateway
+#   --dns-default-route     use these DNS servers for queries outside the
+#                           domains
+#   --dns-fifo PATH         embedded engine, charon without root (ADR-0028):
 #                           DNS needs root, so the request goes to the
 #                           entrypoint through this FIFO instead of resolvectl
 #
-# Ambiente fornecido pelo charon: PLUTO_VERB, PLUTO_PEER, PLUTO_PEER_CLIENT,
+# Environment provided by charon: PLUTO_VERB, PLUTO_PEER, PLUTO_PEER_CLIENT,
 # PLUTO_MY_SOURCEIP*, PLUTO_DNS4_<n>, PLUTO_DNS6_<n>.
 #
-# A saída vai para o log do charon. Este script nunca recebe segredos.
+# The output goes to charon's log. This script never receives secrets.
 
 set -euo pipefail
 
-# Marca as rotas da sessão; o entrypoint remove o que sobrar na limpeza.
+# Tags the session's routes; the entrypoint removes what is left at cleanup.
 readonly RT_PROTO=241
 
 log() { printf 'ipsec-client-updown: %s\n' "$*"; }
@@ -40,7 +43,7 @@ die() {
 is_ipv4() {
     local IFS=. octet
     [[ $1 =~ ^[0-9]{1,3}(\.[0-9]{1,3}){3}$ ]] || return 1
-    # shellcheck disable=SC2086 # divisão proposital pelos pontos
+    # shellcheck disable=SC2086 # deliberate splitting on the dots
     for octet in $1; do
         ((10#$octet <= 255)) || return 1
     done
@@ -62,7 +65,7 @@ is_domain() {
         ((${#1} <= 254))
 }
 
-# --- argumentos -------------------------------------------------------------
+# --- arguments --------------------------------------------------------------
 if [[ ${1:-} == --args-file ]]; then
     (($# == 2)) || die "--args-file takes only the file path"
     args_file=$2
@@ -114,7 +117,7 @@ done
 
 [[ $iface =~ ^[a-z][a-z0-9_-]{0,14}$ ]] || die "missing or invalid --iface"
 
-# --- ambiente do charon -----------------------------------------------------
+# --- charon's environment ---------------------------------------------------
 verb=${PLUTO_VERB:-}
 peer=${PLUTO_PEER:-}
 peer_client=${PLUTO_PEER_CLIENT:-}
@@ -161,14 +164,15 @@ ts_contains_peer() {
 # that contains it.
 needs_gateway_route() { is_full_tunnel || ts_contains_peer; }
 
-# --- rotas ------------------------------------------------------------------
+# --- routes -----------------------------------------------------------------
 
-# No túnel completo, o próprio gateway precisa continuar alcançável pelo
-# caminho original. Sem isso, o tráfego IKE/ESP entraria no túnel (loop).
+# In full tunnel mode, the gateway itself must stay reachable through the
+# original path. Without this, the IKE/ESP traffic would enter the tunnel
+# (a loop).
 add_gateway_host_route() {
     is_ip "$peer" || die "invalid PLUTO_PEER: $peer"
     if [[ -n $(ip "$family" route show "$peer/$host_prefix" proto "$RT_PROTO") ]]; then
-        return 0 # já existe (rekey/reconexão)
+        return 0 # already exists (rekey or reconnection)
     fi
     local route via dev
     route=$(ip "$family" route get "$peer" 2>/dev/null | head -n 1)
@@ -266,7 +270,7 @@ dns_up() {
         return 0
     fi
 
-    # Falha de DNS não derruba o túnel: só registra.
+    # A DNS failure does not bring the tunnel down: it is only logged.
     if ((${#servers[@]} > 0)); then
         resolvectl dns "$iface" "${servers[@]}" || log "warning: failed to set the DNS servers"
     fi
@@ -287,7 +291,7 @@ dns_down() {
         dns_request down
         return 0
     fi
-    # Com vários TS por conexão, só reverte quando a última rota sair.
+    # With several TS per connection, only revert when the last route goes.
     if [[ -z "$(ip -4 route show dev "$iface" proto "$RT_PROTO" 2>/dev/null)$(ip -6 route show dev "$iface" proto "$RT_PROTO" 2>/dev/null)" ]]; then
         resolvectl revert "$iface" 2>/dev/null || true
         resolvectl flush-caches 2>/dev/null || true
@@ -295,7 +299,7 @@ dns_down() {
     fi
 }
 
-# --- principal --------------------------------------------------------------
+# --- main -------------------------------------------------------------------
 # "-host" says that OUR side of the tunnel is this computer's own address
 # (no virtual IP), not that the tunnel is host-to-host: the remote side may
 # still be a network that needs a route. route_up skips the true

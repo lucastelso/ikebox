@@ -17,7 +17,7 @@ function Row({ label, value }: { label: string; value: string | undefined }) {
   );
 }
 
-/** Um perfil na lista: resumo, detalhes sob demanda, exportar e excluir. */
+/** A profile in the list: summary, details on demand, export and delete. */
 export function ProfileCard({
   profile,
   onEdit,

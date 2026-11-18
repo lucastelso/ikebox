@@ -23,7 +23,7 @@ function splitList(value: string): string[] {
     .filter(Boolean);
 }
 
-/** Confirma a importação de um perfil (.json) ou da configuração de outro cliente VPN. */
+/** Confirms the import of a profile (.json) or of another VPN client's configuration. */
 export function ImportDialog({
   preview,
   onClose,

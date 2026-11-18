@@ -82,7 +82,7 @@ export function SystemScreen() {
 
   const failures = checks?.filter((c) => c.level === 'fail').length ?? 0;
 
-  /** Instala/remove e, se mudou algo, refaz o diagnóstico. */
+  /** Installs or removes and, if something changed, runs the diagnostics again. */
   async function changeComponent(action: () => Promise<boolean>) {
     if (await action()) void run();
   }

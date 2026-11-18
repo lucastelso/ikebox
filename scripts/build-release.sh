@@ -1,21 +1,22 @@
 #!/usr/bin/env bash
-# Gera os pacotes de release (AppImage, deb e rpm) num container Ubuntu 22.04.
+# Builds the release packages (AppImage, deb and rpm) in an Ubuntu 22.04
+# container.
 #
-# Uso:
-#   scripts/build-release.sh [<tag ou commit>]     (padrão: HEAD)
+# Usage:
+#   scripts/build-release.sh [<tag or commit>]     (default: HEAD)
 #
-# - O código vem do commit indicado (git archive): mudanças não commitadas
-#   ficam de fora, e nenhum caminho do seu computador entra nos binários.
-# - O strongSwan embutido vem de native-engine/dist/ (compilado aqui, com o
-#   código-fonte conferido por SHA-256 + GPG, se ainda não existir).
-# - Saída: target/release-artifacts/<versão>/ com os três pacotes e o
-#   SHA256SUMS, depois de conferidos por scripts/verify-release.sh e varridos
-#   por scripts/check-private.sh --artifacts (dados privados, no host).
+# - The code comes from the given commit (git archive): uncommitted changes
+#   stay out, and no path of your computer gets into the binaries.
+# - The embedded strongSwan comes from native-engine/dist/ (built here, with
+#   the source checked by SHA-256 + GPG, if it does not exist yet).
+# - Output: target/release-artifacts/<version>/ with the three packages and
+#   SHA256SUMS, after being checked by scripts/verify-release.sh and scanned
+#   by scripts/check-private.sh --artifacts (private data, on the host).
 #   Built from anything that is not the version tag (HEAD, a commit), the
 #   output goes to target/release-artifacts/<version>-dev-<commit>/: a test
 #   build never replaces the packages of a published version.
 #
-# Ver docs/release.md para publicar no GitHub.
+# See docs/release.md to publish on GitHub.
 
 set -euo pipefail
 
@@ -42,7 +43,7 @@ fi
 
 strongswan=$(git show "$commit:native-engine/versions.txt" | grep -vE '^\s*(#|$)' | head -n 1 | awk '{print $1}')
 engine="native-engine/dist/ipsec-client-engine-$strongswan-x86_64.tar.gz"
-# Patches de segurança do commit (ADR-0019), no formato do BUILDINFO.
+# Security patches of the commit (ADR-0019), in the BUILDINFO format.
 expected_patches=$(git ls-tree --name-only "$commit" native-engine/patches/ | grep '\.patch$' | sort |
     while read -r path; do
         printf '%s:%s\n' "$(basename "$path")" "$(git show "$commit:$path" | sha256sum | cut -c1-64)"
@@ -104,8 +105,8 @@ git archive --format=tar "$commit" |
 
 (cd "$out" && sha256sum -- *.AppImage *.deb *.rpm >SHA256SUMS)
 
-# Aqui no host, onde estão os padrões privados (o container não os vê):
-# nada do mantenedor pode ter entrado nos pacotes.
+# Here on the host, where the private patterns are (the container does not
+# see them): nothing of the maintainer's may have got into the packages.
 step "looking for private data inside the packages"
 scripts/check-private.sh --artifacts "$out"
 step "packages ready in ${out#"$repo"/}"

@@ -82,7 +82,7 @@ cleanup() {
         printf '\n--- last gateway lines ---\n'
         docker logs "$GW" 2>&1 | tail -n 30
     fi
-    # stop (gracioso) antes do rm, para o entrypoint limpar o host.
+    # stop (graceful) before rm, so the entrypoint cleans the host.
     docker stop -t 10 "$ENGINE" >/dev/null 2>&1
     docker rm -f "$ENGINE" "$GW" >/dev/null 2>&1
     docker network rm "$NET" >/dev/null 2>&1
@@ -93,12 +93,12 @@ cleanup() {
     exit "$rc"
 }
 
-# start_engine [host|isolado]
-#   host:    the way the app starts it (--network host + the host D-Bus).
-#   isolado: in the network namespace of the test network and WITHOUT the host
-#            D-Bus. resolvectl resolves the interface index in its own
-#            namespace and could configure the wrong interface in the host's
-#            systemd-resolved.
+# start_engine [host|isolated]
+#   host:     the way the app starts it (--network host + the host D-Bus).
+#   isolated: in the network namespace of the test network and WITHOUT the
+#             host D-Bus. resolvectl resolves the interface index in its own
+#             namespace and could configure the wrong interface in the host's
+#             systemd-resolved.
 start_engine() {
     local mode=${1:-host} net_args
     if [[ $mode == host ]]; then
@@ -106,12 +106,13 @@ start_engine() {
     else
         net_args=(--network "$NET")
     fi
-    # Um socket velho (de um engine morto com SIGKILL) não indica prontidão:
-    # remove antes e espera o entrypoint anunciar "pronto".
+    # An old socket (from an engine killed with SIGKILL) does not mean readiness:
+    # remove it first and wait for the entrypoint to announce "ready".
     rm -f "$rundir/charon.vici"
     local env_args
     if ((FORCED)); then
-        # Como o helper sobe o engine embutido: o DNS vem do root, não do VICI.
+        # The way the helper starts the embedded engine: DNS comes from root, not
+        # from VICI.
         env_args=(
             -e IPSEC_CLIENT_SOCKET_UID="$(id -u)"
             -e IPSEC_CLIENT_UPDOWN="$UPDOWN"
@@ -155,14 +156,14 @@ start_engine() {
     fail "the engine did not become ready within 15 s"
 }
 
-# render_conf ARQUIVO TS_REMOTO ARGS_EXTRAS_DO_UPDOWN
+# render_conf FILE REMOTE_TS UPDOWN_EXTRA_ARGS
 render_conf() {
     sed -e "s|@GATEWAY@|$gw_ip|" -e "s|@IFACE@|$IFACE|" -e "s|@IF_ID@|$IF_ID|" \
         -e "s|@REMOTE_TS@|$2|" -e "s|@UPDOWN_EXTRA@|$3|" \
         "$here/initiator.conf.in" >"$confdir/$1"
 }
 
-# connect_tunnel [ARQUIVO]
+# connect_tunnel [FILE]
 connect_tunnel() {
     local conf=${1:-initiator.conf}
     docker exec "$ENGINE" swanctl --load-all --uri "$VICI_URI" --file "/test/$conf" \
@@ -217,14 +218,14 @@ main() {
         " --dns '192.0.2.54' --domain '~ipsec-client.test' --use-received-dns"
     render_conf initiator-full.conf 0.0.0.0/0 ""
     render_conf initiator-modp768.conf 203.0.113.0/24 ""
-    # Cliente malicioso: tenta rodar um comando como root pelo updown e tirar
-    # as SAs da interface da sessão com outro if_id.
+    # Malicious client: tries to run a command as root through the updown and to
+    # take the SAs off the session's interface with another if_id.
     render_conf initiator-evil.conf 192.0.2.0/24 ""
     sed -i -e "s|updown = .*|updown = /bin/touch /run/ipsec-client/PWNED|" \
         -e "s|if_id_in = .*|if_id_in = 999|" -e "s|if_id_out = .*|if_id_out = 999|" \
         "$confdir/initiator-evil.conf"
-    # No IKEv1, a fase 2 só leva um grupo DH (o da primeira proposta): para
-    # oferecer modp768, ele precisa vir primeiro.
+    # In IKEv1, phase 2 carries only one DH group (the first proposal's): to
+    # offer modp768, it must come first.
     sed -i 's/esp_proposals = .*/esp_proposals = aes256-sha1-modp768/' "$confdir/initiator-modp768.conf"
     ok "gateway at $gw_ip (protected network 192.0.2.0/24)"
 
@@ -336,10 +337,10 @@ main() {
     ok "remaining orphan policies: $policies"
 
     step "Scenario 2: reconnecting on top of the leftovers"
-    # Simula o gateway real descartando a sessão morta (timeout de DPD): o
-    # mesmo usuário recebe de volta o mesmo VIP, e o charon substitui as
-    # políticas órfãs (que têm o mesmo seletor) e as remove ao sair. Sem isso,
-    # elas continuariam inertes no kernel de quem roda o teste.
+    # Simulates the real gateway dropping the dead session (DPD timeout): the
+    # same user gets the same VIP back, and charon replaces the orphan policies
+    # (which have the same selector) and removes them on exit. Without this, they
+    # would stay, inert, in the kernel of whoever runs the test.
     docker exec "$GW" swanctl --terminate --ike gateway-teste --force --timeout 2 >/dev/null 2>&1 || true
     connect_tunnel
     [[ $(ip -4 -o addr show dev "$IFACE") == *" $vip/"* ]] || fail "expected the same VIP $vip on reconnection"
@@ -355,7 +356,7 @@ main() {
     # ------------------------------------------------------------------ 3 --
     step "Scenario 3: full tunnel (0.0.0.0/0), engine on an isolated network"
     docker rm "$ENGINE" >/dev/null
-    start_engine isolado
+    start_engine isolated
     connect_tunnel initiator-full.conf
     local routes default_before default_after
     routes=$(docker exec "$ENGINE" ip -4 route show proto "$RT_PROTO")
@@ -378,7 +379,7 @@ main() {
     # ------------------------------------------------------------------ 4 --
     step "Scenario 4: PFS with modp768 (DH1) only in phase 2, like legacy VPNs"
     docker rm "$ENGINE" >/dev/null
-    start_engine isolado
+    start_engine isolated
     connect_tunnel initiator-modp768.conf
     grep -q "MODP_768" < <(docker exec "$ENGINE" swanctl --list-sas --uri "$VICI_URI" 2>/dev/null) ||
         fail "phase 2 did not negotiate MODP_768"

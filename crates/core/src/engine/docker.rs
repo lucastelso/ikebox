@@ -25,35 +25,35 @@ use tracing::{debug, info};
 
 use super::{BuildProgress, EngineError, EngineSpec, context};
 
-/// Linha que o entrypoint escreve quando o socket VICI está liberado.
+/// Line the entrypoint writes when the VICI socket is handed over.
 pub const READY_LINE: &str = "[engine] ready";
-/// Tempo máximo para o engine ficar pronto.
+/// Maximum time for the engine to become ready.
 pub const READY_TIMEOUT: Duration = Duration::from_secs(20);
-/// Tempo do `docker stop` antes do SIGKILL (o entrypoint precisa limpar).
+/// `docker stop` time before SIGKILL (the entrypoint needs to clean up).
 pub const STOP_TIMEOUT_SECS: i32 = 10;
 const RECENT_LOG_LINES: usize = 40;
 
-/// Cliente do engine sobre a Docker API.
+/// Engine client over the Docker API.
 #[derive(Debug, Clone)]
 pub struct DockerEngine {
     docker: Docker,
 }
 
 impl DockerEngine {
-    /// Conecta ao Docker pelo socket Unix padrão (`/var/run/docker.sock`).
+    /// Connects to Docker through the default Unix socket (`/var/run/docker.sock`).
     ///
     /// # Errors
-    /// [`EngineError::DockerUnavailable`] se o cliente não puder ser criado.
+    /// [`EngineError::DockerUnavailable`] if the client cannot be created.
     pub fn connect() -> Result<Self, EngineError> {
         Docker::connect_with_unix_defaults()
             .map(|docker| Self { docker })
             .map_err(|e| EngineError::DockerUnavailable(e.to_string()))
     }
 
-    /// Verifica se o daemon responde (e se o usuário tem permissão).
+    /// Checks that the daemon answers (and that the user has permission).
     ///
     /// # Errors
-    /// [`EngineError::DockerUnavailable`] com a causa.
+    /// [`EngineError::DockerUnavailable`] with the cause.
     pub async fn ping(&self) -> Result<(), EngineError> {
         self.docker
             .ping()
@@ -62,10 +62,10 @@ impl DockerEngine {
             .map_err(|e| EngineError::DockerUnavailable(e.to_string()))
     }
 
-    /// A imagem existe localmente?
+    /// Does the image exist locally?
     ///
     /// # Errors
-    /// Erros do Docker que não sejam "não encontrada".
+    /// Docker errors other than "not found".
     pub async fn image_present(&self, tag: &str) -> Result<bool, EngineError> {
         match self.docker.inspect_image(tag).await {
             Ok(_) => Ok(true),
@@ -74,11 +74,11 @@ impl DockerEngine {
         }
     }
 
-    /// Garante a imagem do engine embutida neste binário, construindo-a a
-    /// partir do contexto em memória se ela não existir (ADR-0006).
+    /// Ensures the engine image embedded in this binary, building it from the
+    /// in-memory context if it does not exist (ADR-0006).
     ///
     /// # Errors
-    /// [`EngineError::Build`] se o build falhar.
+    /// [`EngineError::Build`] if the build fails.
     pub async fn ensure_image(
         &self,
         mut progress: impl FnMut(BuildProgress),
@@ -127,15 +127,15 @@ impl DockerEngine {
         Ok(tag)
     }
 
-    /// Sobe uma instância nova do engine e espera ficar pronta.
+    /// Starts a new engine instance and waits for it to become ready.
     ///
     /// # Errors
-    /// Spec inválida, problema no diretório de runtime, erro do Docker ou
-    /// [`EngineError::NotReady`] (com as últimas linhas do log).
+    /// Invalid spec, a problem with the runtime directory, a Docker error or
+    /// [`EngineError::NotReady`] (with the last log lines).
     pub async fn start(&self, spec: &EngineSpec) -> Result<(), EngineError> {
         spec.validate()?;
         prepare_runtime_dir(&spec.runtime_dir)?;
-        // Um engine anterior sai pelo caminho gracioso (o entrypoint limpa o host).
+        // A previous engine leaves the graceful way (the entrypoint cleans the host).
         self.stop(&spec.container_name).await?;
         remove_stale_socket(&spec.socket_path())?;
 
@@ -152,10 +152,10 @@ impl DockerEngine {
         self.wait_ready(spec).await
     }
 
-    /// Para (graciosamente) e remove o container. Idempotente.
+    /// Stops (gracefully) and removes the container. Idempotent.
     ///
     /// # Errors
-    /// Erros do Docker que não sejam "não existe" / "já parado".
+    /// Docker errors other than "does not exist" / "already stopped".
     pub async fn stop(&self, name: &str) -> Result<(), EngineError> {
         let options = StopContainerOptionsBuilder::default()
             .t(STOP_TIMEOUT_SECS)
@@ -173,10 +173,10 @@ impl DockerEngine {
         }
     }
 
-    /// O container existe e está rodando?
+    /// Does the container exist and is it running?
     ///
     /// # Errors
-    /// Erros do Docker que não sejam "não existe".
+    /// Docker errors other than "does not exist".
     pub async fn is_running(&self, name: &str) -> Result<bool, EngineError> {
         match self
             .docker
@@ -189,10 +189,10 @@ impl DockerEngine {
         }
     }
 
-    /// Id do perfil do engine em execução (label do container), se houver.
+    /// Profile id of the running engine (container label), if any.
     ///
     /// # Errors
-    /// Erros do Docker que não sejam "não existe".
+    /// Docker errors other than "does not exist".
     pub async fn running_profile(&self, name: &str) -> Result<Option<String>, EngineError> {
         match self
             .docker
@@ -211,9 +211,9 @@ impl DockerEngine {
         }
     }
 
-    /// Linhas de log do container (as últimas `tail`; com `follow`, continua
-    /// até o container parar). Os logs do engine não contêm segredos, mas
-    /// contêm identidades: mascarar antes de exibir.
+    /// Container log lines (the last `tail`; with `follow`, it goes on until the
+    /// container stops). The engine's logs contain no secrets, but they contain
+    /// identities: mask them before showing.
     pub fn log_lines(
         &self,
         name: &str,
@@ -312,7 +312,8 @@ impl DockerEngine {
     }
 }
 
-/// Cria (ou confere) o diretório do socket: do usuário atual, 0700, sem symlink.
+/// Creates (or checks) the socket directory: the current user's, 0700, no
+/// symlink.
 fn prepare_runtime_dir(dir: &Path) -> Result<(), EngineError> {
     match std::fs::DirBuilder::new().mode(0o700).create(dir) {
         Ok(()) => {}
@@ -340,7 +341,7 @@ fn prepare_runtime_dir(dir: &Path) -> Result<(), EngineError> {
     Ok(())
 }
 
-/// Apaga um socket velho: um arquivo de socket sozinho não indica prontidão.
+/// Deletes an old socket: a socket file alone does not mean readiness.
 fn remove_stale_socket(path: &Path) -> Result<(), EngineError> {
     match std::fs::remove_file(path) {
         Ok(()) => {
@@ -352,7 +353,7 @@ fn remove_stale_socket(path: &Path) -> Result<(), EngineError> {
     }
 }
 
-/// Remove sequências de escape ANSI (cores) da saída do build.
+/// Strips ANSI escape sequences (colors) from the build output.
 fn strip_ansi(input: &str) -> String {
     let mut out = String::with_capacity(input.len());
     let mut chars = input.chars().peekable();
@@ -360,7 +361,7 @@ fn strip_ansi(input: &str) -> String {
         if c == '\u{1b}' {
             if chars.peek() == Some(&'[') {
                 chars.next();
-                // Parâmetros e intermediários até o byte final (0x40..=0x7e).
+                // Parameters and intermediates up to the final byte (0x40..=0x7e).
                 for c in chars.by_ref() {
                     if ('\u{40}'..='\u{7e}').contains(&c) {
                         break;
@@ -406,7 +407,7 @@ mod tests {
         let mode = std::fs::metadata(&dir).expect("meta").permissions().mode() & 0o777;
         assert_eq!(mode, 0o700);
 
-        // Já existente com permissão aberta: corrige para 0700.
+        // Already existing with open permissions: fix it to 0700.
         std::fs::set_permissions(&dir, std::fs::Permissions::from_mode(0o755)).expect("chmod");
         prepare_runtime_dir(&dir).expect("confere");
         let mode = std::fs::metadata(&dir).expect("meta").permissions().mode() & 0o777;

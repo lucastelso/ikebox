@@ -1,7 +1,8 @@
-//! Verificações do ambiente: preflight do `connect` e o comando `doctor`.
+//! Environment checks: the `connect` preflight and the `doctor` command.
 //!
-//! Nada aqui exige root: as portas vêm de `/proc/net/udp*`, o módulo do kernel
-//! de `/sys` e `/lib/modules`, e o resolved do seu socket em `/run`.
+//! Nothing here needs root: the ports come from `/proc/net/udp*`, the kernel
+//! module from `/sys` and `/lib/modules`, and resolved from its socket in
+//! `/run`.
 
 use std::fs;
 use std::path::Path;
@@ -10,14 +11,14 @@ use crate::engine::NativeEngine;
 #[cfg(feature = "docker")]
 use crate::engine::{DockerEngine, default_runtime_dir};
 
-/// Resultado de uma verificação.
+/// Result of a check.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum CheckStatus {
-    /// Tudo certo.
+    /// All good.
     Ok,
-    /// Funciona, mas com limitação.
+    /// Works, but with a limitation.
     Warn,
-    /// Impede a conexão.
+    /// Prevents connecting.
     Fail,
 }
 
@@ -64,11 +65,11 @@ impl Check {
     }
 }
 
-/// Portas UDP do IKE.
+/// IKE UDP ports.
 pub const IKE_PORTS: [u16; 2] = [500, 4500];
 
-/// Portas locais UDP em uso, lidas de um conteúdo no formato de
-/// `/proc/net/udp` (coluna `local_address` = `IP:PORTA` em hexadecimal).
+/// Local UDP ports in use, read from content in the `/proc/net/udp` format
+/// (column `local_address` = `IP:PORT` in hexadecimal).
 #[must_use]
 pub fn udp_ports_in_use(proc_net_udp: &str) -> Vec<u16> {
     proc_net_udp
@@ -80,7 +81,7 @@ pub fn udp_ports_in_use(proc_net_udp: &str) -> Vec<u16> {
         .collect()
 }
 
-/// Portas do IKE ocupadas no host.
+/// IKE ports taken on the host.
 #[must_use]
 pub fn busy_ike_ports() -> Vec<u16> {
     let mut used = Vec::new();

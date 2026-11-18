@@ -1,18 +1,18 @@
-//! `ipsec-client-cli`: a mesma lógica do app desktop, sem GUI.
+//! `ipsec-client-cli`: the same logic as the desktop app, without a GUI.
 //!
-//! Exemplos:
+//! Examples:
 //! ```text
 //! ipsec-client-cli doctor
-//! ipsec-client-cli profiles import presets.local/trabalho.json
-//! ipsec-client-cli secrets set trabalho
-//! ipsec-client-cli connect trabalho          # Ctrl+C desconecta
-//! ipsec-client-cli connect trabalho --detach # fica conectado em segundo plano
+//! ipsec-client-cli profiles import presets.local/office.json
+//! ipsec-client-cli secrets set office
+//! ipsec-client-cli connect office            # Ctrl+C disconnects
+//! ipsec-client-cli connect office --detach   # stays connected in the background
 //! ipsec-client-cli status
 //! ipsec-client-cli disconnect
 //! ipsec-client-cli component install --bundle target/network-component
 //! ```
 
-// O CLI fala com o usuário pelo terminal.
+// The CLI talks to the user through the terminal.
 #![allow(clippy::print_stdout, clippy::print_stderr)]
 
 mod output;
@@ -452,7 +452,7 @@ fn load_profile(id: &str) -> anyhow::Result<Profile> {
     }
 }
 
-/// Chaveiro do sistema, ou `None` (com aviso) se indisponível.
+/// System keyring, or `None` (with a warning) if unavailable.
 fn keyring() -> Option<KeyringStore> {
     match KeyringStore::new() {
         Ok(k) => Some(k),
@@ -752,7 +752,7 @@ fn profiles(cmd: ProfilesCmd) -> anyhow::Result<ExitCode> {
     Ok(ExitCode::SUCCESS)
 }
 
-/// Grava um arquivo com permissão 0600 (perfis têm dados da organização).
+/// Writes a file with mode 0600 (profiles have the organization's data).
 fn write_private(path: &std::path::Path, content: &str) -> anyhow::Result<()> {
     use std::io::Write as _;
     use std::os::unix::fs::OpenOptionsExt as _;
@@ -1142,8 +1142,8 @@ async fn logs(follow: bool, lines: usize, anonymize: bool) -> anyhow::Result<Exi
         println!("No active connection.");
         return Ok(ExitCode::from(3));
     };
-    // Mascara as identidades do perfil ativo (id do grupo e usuário XAuth);
-    // com --anonymize, também gateway, IPs, DNS e domínios.
+    // Masks the active profile's identities (group id and XAuth username); with
+    // --anonymize, also the gateway, IPs, DNS servers and domains.
     let mut identities: Vec<String> = Vec::new();
     let mut anonymizer = None;
     if let Ok(profile) = store()?.load(&profile_id) {
@@ -1175,8 +1175,8 @@ async fn logs(follow: bool, lines: usize, anonymize: bool) -> anyhow::Result<Exi
         } else {
             printed.min(all.len())
         };
-        // Anonimizado de uma vez: o mesmo endereço mantém o mesmo marcador
-        // em todo o log (e entre as rodadas do --follow).
+        // Anonymized in one go: the same address keeps the same placeholder in the
+        // whole log (and across the --follow rounds).
         let rendered: Vec<String> = match &anonymizer {
             Some(a) => a
                 .anonymize(&all.join("\n"))

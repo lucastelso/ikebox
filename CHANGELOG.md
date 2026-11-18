@@ -9,6 +9,11 @@ and the project uses [Semantic Versioning](https://semver.org/).
 
 ### Added
 
+- **Opening the repository:** a security policy for a public project
+  (private vulnerability reporting on GitHub, response times, supported
+  versions, credit), a code of conduct, SUPPORT.md, and issue forms that
+  warn about private data and ask for the anonymized log. The README shows
+  the app (screenshots with documentation addresses only).
 - **Signed, attested releases built by CI**
   ([ADR-0030](docs/adr/0030-release-signing-and-provenance.md)): a version
   tag builds the packages, the maintainer approves the signature (the
@@ -67,6 +72,9 @@ and the project uses [Semantic Versioning](https://semver.org/).
 
 ### Changed
 
+- Every code comment is in English, and the example presets have English
+  names (`presets/example-*.json`, ids `example-legacy`, `example-ikev2`,
+  `example-ikev2-eap`). A profile imported from an old preset keeps its id.
 - On openSUSE, the `.rpm` installs without `--allow-unsigned-rpm` once the
   project key is imported (audit P17).
 - One status monitor in Rust feeds the tray and the window: the window no

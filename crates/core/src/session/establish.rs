@@ -1,6 +1,7 @@
-//! Etapa de negociação: carrega segredos e conexão no charon e inicia o túnel.
+//! Negotiation step: loads the secrets and the connection into charon and
+//! starts the tunnel.
 //!
-//! Genérica sobre [`Charon`] para ser testada com um charon de mentira.
+//! Generic over [`Charon`] so it can be tested with a fake charon.
 
 use std::time::Duration;
 
@@ -9,13 +10,13 @@ use crate::profiles::{ConnParams, Profile};
 use crate::secrets::{AgentPublicKey, Credentials};
 use crate::vici::{Charon, ViciError};
 
-/// Carrega os segredos (sempre antes da conexão), a conexão, e inicia o
-/// child do perfil, esperando até `timeout`.
+/// Loads the secrets (always before the connection), the connection, and
+/// starts the profile's child, waiting up to `timeout`.
 ///
 /// # Errors
-/// Credenciais incompletas, perfil inválido ou recusa do charon. Uma falha
-/// do `initiate` vira [`SessionError::Negotiation`] sem diagnóstico: quem
-/// chama completa o diagnóstico com o log.
+/// Incomplete credentials, invalid profile or charon's refusal. An `initiate`
+/// failure becomes [`SessionError::Negotiation`] without a diagnosis: the
+/// caller completes the diagnosis with the log.
 pub async fn establish<C: Charon>(
     charon: &mut C,
     profile: &Profile,
@@ -71,7 +72,7 @@ pub(crate) mod tests {
     use crate::vici::{IkeSa, Message, PrivateKey, SharedSecret, VersionInfo};
     use secrecy::SecretString;
 
-    /// Charon de mentira: registra as chamadas e falha onde mandarem.
+    /// Fake charon: records the calls and fails where told.
     #[derive(Default)]
     pub(crate) struct MockCharon {
         pub calls: Vec<String>,
@@ -133,7 +134,7 @@ pub(crate) mod tests {
 
     pub(crate) fn profile() -> Profile {
         parse_profile(include_str!(
-            "../../../../presets/exemplo-ikev1-agressivo-xauth.json"
+            "../../../../presets/example-ikev1-aggressive-xauth.json"
         ))
         .expect("preset")
     }
@@ -169,10 +170,10 @@ pub(crate) mod tests {
         assert_eq!(
             charon.calls,
             [
-                "load-shared ike-exemplo-legado",
-                "load-shared xauth-exemplo-legado",
-                "load-conn exemplo-legado",
-                "initiate exemplo-legado/rede-interna",
+                "load-shared ike-example-legacy",
+                "load-shared xauth-example-legacy",
+                "load-conn example-legacy",
+                "initiate example-legacy/internal-network",
             ]
         );
     }
@@ -198,7 +199,7 @@ pub(crate) mod tests {
     #[tokio::test]
     async fn initiate_failure_becomes_negotiation_error() {
         let mut charon = MockCharon {
-            fail_initiate: Some("establishing CHILD_SA 'rede-interna' failed".into()),
+            fail_initiate: Some("establishing CHILD_SA 'internal-network' failed".into()),
             ..Default::default()
         };
         let err = establish(
