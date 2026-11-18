@@ -18,6 +18,9 @@ RUN set -eux; \
             systemd dbus-broker dbus-libs iproute iputils gawk python3 util-linux \
             procps-ng gzip tar findutils polkit shadow-utils; \
         dnf -y install --setopt=install_weak_deps=False systemd-resolved; \
+        # Smartcard/token tests (ADR-0029): an emulated token, its tools and
+        # openssl to take the test keys out of their .p12 files.
+        dnf -y install --setopt=install_weak_deps=False softhsm opensc openssl; \
         dnf clean all; \
     elif command -v apt-get >/dev/null 2>&1; then \
         export DEBIAN_FRONTEND=noninteractive; \

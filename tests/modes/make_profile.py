@@ -4,7 +4,8 @@ Usage: make_profile.py OUT key=value...
 
 Keys: id, gateway, version (1|2), aggressive (yes|no), encap (yes|no),
 method (psk|psk-xauth|eap|cert|cert-xauth), local_id, remote_id, ca (CA
-certificate files, comma separated: eap and cert only), ike (proposals, comma
+certificate files, comma separated: eap and cert only), token (yes: the
+certificate's key is on a smartcard or token, cert only), ike (proposals, comma
 separated), esp (proposals), remote_ts (comma separated), vip (yes|no),
 schema (1|2, default 1: the file format), otp (yes|no: the XAuth password
 is a one-time code; schema 2 only).
@@ -24,6 +25,8 @@ def main() -> None:
         schema = 2
         method = "eap-mschapv2" if args["method"] == "eap" else "certificate"
         first = {"method": method}
+        if yes[args.get("token", "no")]:
+            first["token"] = True
         if args.get("local_id"):
             first["id"] = args["local_id"]
         local = [first]
