@@ -2292,3 +2292,35 @@ distributions), `test:native` and `npm run check` pass.
   the PIN reaching `connect`, the choice remembered), Rust (the editor
   flag, the PIN in `CredentialsInput` and hidden by its `Debug`).
 - **Docs:** `profiles.md`, SECURITY.md in both languages.
+
+### Step 56: phase F, the app (tray, status monitor, update notice)
+
+- **Close to the tray:** `CloseRequested` hides the window when the setting
+  is on (the default). The first time, a notification says the app keeps
+  running and how to quit (or, without a tray host, how to reopen it from
+  the applications menu: the single-instance socket brings the window
+  back). The app's settings moved to Rust (`settings.json`, 0600, atomic),
+  since Rust needs them when the window closes.
+- **One status monitor:** before, the tray read the status every 3 s and the
+  window every 2 s, each through the helper and VICI (about 0.83 readings a
+  second, the window's also while hidden). Now the tray's monitor reads
+  every 2 s (0.5 a second) and sends the reading to the window as an event
+  only while it is visible; the window reads once when it opens and when it
+  becomes visible again.
+- **Update notice (optional, off by default):** `ureq` over rustls (no
+  gzip), one fixed URL, a 15 s deadline, a 256 KiB answer limit; only a
+  validated `X.Y.Z` is kept, the release page is built from it and opened
+  with `xdg-open` without the AppImage's library variables. A failed check
+  is retried an hour later. The `update-check` feature (default) lets
+  packagers leave it out; the setting is then hidden. It could not be
+  checked against the real API yet: the new repository is private, so the
+  "latest release" endpoint answers 404 (the check then retries hourly and
+  shows nothing).
+- **Tests:** Rust (version parsing, newer/older, release page, settings
+  defaults and old files), vitest (the settings card, the hidden option
+  without the feature, the banner and its link, no banner when nothing is
+  newer); every earlier screen test passes without the window's polling.
+- **Release build:** passed (`verify-release.sh`, private data scan); the
+  AppImage keeps the glibc 2.35 limit with `ring` inside. The `.rpm`/`.deb`
+  are about 10.8 MB now (5.7 MB in 0.9.0): the CLI (phase B), the OpenSSL
+  engine (phase C) and the license texts.
