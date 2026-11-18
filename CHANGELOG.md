@@ -15,6 +15,7 @@ and the project uses [Semantic Versioning](https://semver.org/).
 
 ### Changed
 
+- Tauri 2.12.6, `@tauri-apps/api` and `@tauri-apps/cli` 2.12.5 (audit P3).
 - The release guide pushes tags by name only, never `--tags`.
 
 ## [0.9.0] - 2026-11-17
