@@ -103,6 +103,13 @@ mkdir "$work/appimage" "$work/deb" "$work/rpm"
 (cd "$work/appimage" && "${appimages[0]}" --appimage-extract >/dev/null) ||
     fail "AppImage: could not extract the package"
 component_ok "$work/appimage/squashfs-root" "AppImage"
+# One version everywhere: the component inside and the three file names
+# (from tauri.conf.json, while the component's comes from Cargo.toml).
+version=$(sed -n 's/^version=//p' "$work/appimage/squashfs-root/usr/lib/ipsec-client/network/VERSION")
+[[ ${appimages[0]##*/} == *"_${version}_amd64.AppImage" && ${debs[0]##*/} == *"_${version}_amd64.deb" &&
+    ${rpms[0]##*/} == *"-${version}-1.x86_64.rpm" ]] ||
+    fail "the package names do not all carry version $version (Cargo.toml and tauri.conf.json differ?)"
+ok "one version: $version in the component and in the three packages"
 licenses_ok "$work/appimage/squashfs-root" "AppImage"
 # Every ELF file inside it, not only the app: the bundled libraries
 # (WebKitGTK, among others) are what require the newest glibc.

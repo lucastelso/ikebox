@@ -30,6 +30,28 @@ junto com o `SHA256SUMS`, que serve para conferir o download
 privado, só quem tem acesso a ele consegue baixar: peça acesso, ou receba os
 arquivos de quem te passou o perfil.
 
+### Conferir o download
+
+A partir da 1.0, toda versão é assinada e atestada
+([ADR-0030](../adr/0030-release-signing-and-provenance.md), em inglês).
+Baixe o `SHA256SUMS` e o `SHA256SUMS.asc` junto com o seu arquivo e:
+
+```bash
+# A chave do projeto (uma vez); compare a impressão digital com a do README.
+curl -fsSLO https://raw.githubusercontent.com/lucastelso/ipsec-client/main/packaging/keys/ipsec-client-release.asc
+gpg --import ipsec-client-release.asc
+gpg --verify SHA256SUMS.asc SHA256SUMS            # "Good signature"
+sha256sum -c SHA256SUMS --ignore-missing          # o seu arquivo: OK
+```
+
+Com o [GitHub CLI](https://cli.github.com/), o atestado diz qual commit e
+qual execução da CI gerou o arquivo:
+`gh attestation verify <arquivo> --repo lucastelso/ipsec-client`.
+
+O `.rpm` também é assinado: depois de `sudo rpm --import
+ipsec-client-release.asc`, o `dnf` e o `zypper` o conferem sozinhos (e
+`rpm -K <arquivo>` mostra).
+
 > Prefira o **.rpm** ou o **.deb** quando houver para a sua distribuição: o
 > app entra no menu sozinho, as atualizações passam pelo gerenciador de
 > pacotes e as bibliotecas dele (como o WebKitGTK) recebem as atualizações de
@@ -78,8 +100,10 @@ Ou pelo terminal, na pasta onde está o arquivo:
 sudo dnf install ./ipsec-client-*.x86_64.rpm
 ```
 
-No **openSUSE**: `sudo zypper install --allow-unsigned-rpm ./ipsec-client-*.x86_64.rpm`
-(o pacote ainda não é assinado; confira o download com o `SHA256SUMS`).
+No **openSUSE**: `sudo rpm --import ipsec-client-release.asc` uma vez (veja
+[Conferir o download](#conferir-o-download)), depois
+`sudo zypper install ./ipsec-client-*.x86_64.rpm`. Pacotes anteriores à 1.0
+não eram assinados e precisam de `--allow-unsigned-rpm`.
 
 No **AlmaLinux e no Rocky Linux 10**, o WebKitGTK e a biblioteca da bandeja
 vêm do EPEL. Ative-o uma vez e depois instale:

@@ -39,6 +39,7 @@ English in 0.2.0.
 | [0027](0027-openssl-in-the-engine.md) | OpenSSL in the embedded engine (ECDSA and ECP groups), replacing GMP | Accepted |
 | [0028](0028-charon-without-root.md) | charon runs without root, with the network capabilities only | Accepted |
 | [0029](0029-smartcards-and-tokens.md) | Smartcards and tokens through a key agent in the person's process | Accepted |
+| [0030](0030-release-signing-and-provenance.md) | Releases built in CI, signed with GPG, attested by GitHub | Accepted |
 
 Template for new ADRs: copy an existing one and keep the sections
 **Context · Decision · Consequences · Alternatives considered**.
