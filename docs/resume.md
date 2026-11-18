@@ -68,17 +68,21 @@
   the release build pinned, CI hygiene. **Phase B is done** (step 51): the
   `.rpm`/`.deb` install, update and remove the network component, carry the
   CLI (man page, completions), AppStream metadata and every license text;
-  the engine's corresponding source has its own script. **Next: phase C**
-  (engine with OpenSSL: ECDSA and ECP groups, and the ADR on the strongSwan
-  maintenance policy, audit P1).
+  the engine's corresponding source has its own script. **Phase C is
+  done** (step 52): the engine links OpenSSL instead of GMP (ECDSA, ECP
+  groups), and the strongSwan maintenance policy is ADR-0026. **Next: phase
+  D** (charon without root, and a rekey scenario in `test:modes`).
 - **Waiting for the maintainer:**
   1. A quick look at the app after the Tauri update (phase A): open it,
      connect, check the tray. A development build is in
      `target/release-artifacts/0.9.0-dev-1871e2428f69/`; `npm run
      release:build` from `main` makes a newer one.
-  2. After the switch, `git config --unset remote.origin.tagOpt` (it kept a
+  2. The engine changed (OpenSSL): with a development build installed,
+     connect to the real VPN once (IKEv1 aggressive + XAuth goes through
+     OpenSSL's MODP now).
+  3. After the switch, `git config --unset remote.origin.tagOpt` (it kept a
      fetch from the old repository from bringing `v0.1.1` back).
-  3. P8 (`initiator_only`) is not concluded: it needs a session longer than
+  4. P8 (`initiator_only`) is not concluded: it needs a session longer than
      the gateway's phase 1 lifetime (the [audit report](audits/v0.2.0.md)
      has the steps). It is outside 1.0.
 

@@ -2126,3 +2126,49 @@ revisions (looked up through GitLab's API), which also replaced the moving
   package.
 - `npm run check`, `test:packaging` (new scenario without systemd),
   `check-private.sh --artifacts` clean.
+
+### Step 52: phase C, the engine with OpenSSL
+
+**Decision taken at the start** (the maintainer asked for speed): OpenSSL
+replaces GMP rather than sitting next to it, and strongSwan's own symmetric
+plugins stay, so the tested code keeps AES, SHA, GCM, ChaCha20 and
+X25519/Ed25519; OpenSSL brings RSA, ECDSA and the MODP and ECP groups.
+
+**The build** (`feat/engine-openssl`):
+Alpine's `openssl-libs-static` linked into the same fully static charon at
+the first attempt; the tarball went from about 1 MB to 2.6 MB. The OpenSSL
+license text came from the 3.5.9 tarball, whose signature was checked
+against OpenSSL's release key. `test:native` passed at once, IKEv1
+aggressive with MODP_1024 and MODP_768 PFS included, now through OpenSSL.
+
+**A detour worth recording.** `test:modes` then failed on EAP-MSCHAPv2: the
+gateway said "EAP-MS-CHAPv2 verification failed". The first suspect was the
+client: OpenSSL 3 keeps MD4 and single DES in its legacy provider, which a
+static build cannot load, and the plugin still announced them. A patch
+removing those announcements did not fix it, and a temporary build with
+strongSwan's test vectors and the self-test on registration showed every
+implementation the client uses passing. Running the old engine (from
+`main`) failed the same way, which moved the search to the test gateway:
+`engine/strongswan.d/zz-ipsec-client.conf`, where `load_legacy = no` had
+been added, is shared with the Docker engine that serves as test gateway,
+and Debian's strongSwan takes MD4 and DES from that provider. Removed; the
+engine does not need it (loading the provider just fails there). The patch
+stayed as `0003`, for a different reason: it keeps the engine from
+announcing algorithms it cannot run (Blowfish, CAST, IDEA, RC5 have no
+other provider). The systemd harness now prints the end of every test
+gateway's log when a run fails, which is what showed the gateway's side.
+
+**ECDSA in the app** (`feat(profiles)`): ECDSA CAs and `.p12` keys are
+accepted (the key's match with the certificate is left to charon, as for
+Ed25519); the "modern" preset adds ECP384 and ECP256, and profiles saved
+with the old list still show as "modern". `test:modes` has a new gateway
+with ECDSA on both sides (P-384 gateway, P-256 client) and only ECP groups;
+the first version of its check expected a PFS group on the first CHILD_SA,
+which IKEv2 creates without a key exchange of its own.
+
+**ADR-0026** closes audit P1 (the maintenance policy once upstream drops
+IKEv1); **ADR-0027** records the engine change.
+
+**Verification:** `npm run check`, `test:native`, `test:systemd`,
+`test:modes` (every mode, ECDSA included, and every diagnosed failure), a
+release build from `main` and the corresponding-source script.
