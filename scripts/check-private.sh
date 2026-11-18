@@ -91,7 +91,13 @@ extract_package() {
             die "could not extract $pkg"
         ;;
     *.AppImage)
-        (cd "$dest" && "$pkg" --appimage-extract >/dev/null) || die "could not extract $pkg"
+        # A downloaded file (gh release download, a CI artifact) is not
+        # executable: extract from an executable copy.
+        {
+            install -m 0700 "$pkg" "$dest/.appimage" &&
+                (cd "$dest" && ./.appimage --appimage-extract >/dev/null)
+        } || die "could not extract $pkg"
+        rm -f "$dest/.appimage"
         ;;
     esac
     while IFS= read -r -d '' nested; do
