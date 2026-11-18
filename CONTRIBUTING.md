@@ -1,5 +1,10 @@
 # Contributing
 
+Thanks for helping. Issues and pull requests may be written in English or
+Portuguese. Everyone here follows the [code of conduct](CODE_OF_CONDUCT.md);
+for questions, see [SUPPORT.md](SUPPORT.md), and report security problems
+privately ([SECURITY.md](SECURITY.md)), never in a public issue.
+
 ## Rule #1: no real VPN data in the repository
 
 This project must not contain information that identifies an organization or
@@ -63,7 +68,7 @@ the Rust side.
    ```
    Accepted types: `feat`, `fix`, `docs`, `chore`, `refactor`, `test`, `ci`,
    `build`, `perf`, `style`, `revert`. commitlint checks the message. (The
-   history up to v0.1.1 is in Portuguese.)
+   commits before 0.2.0 are in Portuguese.)
 3. Before merging, `npm run check` must be green.
 4. Merge into `main` with `git merge --no-ff`, then **delete the branch**,
    locally and on the remote (`git branch -d <branch>`,
@@ -94,8 +99,7 @@ the Rust side.
   `grep -q pattern < <(command)`.
 - **Rust:** `cargo fmt`, `clippy -D warnings`, errors with `thiserror` in
   `core`. Never derive `Debug` on types with secrets without redaction.
-- **Language:** documentation, identifiers and code comments in English
-  (older comments are still being translated). User-facing messages are
+- **Language:** documentation, identifiers and code comments in English. User-facing messages are
   bilingual: in Rust, `tr!("English", "Português")` / `trf!(...)` from
   `ipsec_client_core::i18n`; in the UI, the dictionaries in `src/i18n`
   (`pt` must have the same shape as `en`). The CLI, the helper and the scripts

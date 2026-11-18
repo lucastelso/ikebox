@@ -6,21 +6,23 @@ IPsec VPN client for **Linux**, built for **legacy** VPNs: IKEv1, aggressive
 mode, group PSK + XAuth, old DH groups. It is the kind of corporate VPN that
 today's Linux clients can no longer connect to.
 
-> **Status: v0.9.0 (pre-alpha).** The desktop app, installed from the `.rpm`
-> and with its own embedded strongSwan (**no Docker**), connects end to end to
-> a real FortiGate VPN, and every IPsec mode its profiles accept (IKEv1 main
-> or aggressive, PSK with or without XAuth, IKEv2 with PSK, with a username
-> and password, or with your own certificate, the gateway's certificate
-> always checked) is tested on the same path. Profiles can be imported from
-> other clients (Cisco `.pcf`, vpnc, NetworkManager, `ipsec.conf`,
-> FortiClient) without reading their passwords. Profiles can be created and edited in the app, from vendor
-> templates, and each one shows its security level. The interface speaks
-> English and Portuguese. Coming from 0.2.0 or older,
-> update the app **and** the network component (see the [CHANGELOG](CHANGELOG.md)).
-> The packages (AppImage, rpm and deb) are on the
-> [Releases](https://github.com/lucastelso/ipsec-client/releases) page. What
-> exists and what comes next is in the [roadmap](docs/roadmap.md); the steps
-> taken so far are in the [development log](docs/development-log.md).
+It connects to **IKEv1** (aggressive or main mode, group PSK with XAuth,
+your certificate) and **IKEv2** (PSK, username and password with EAP, your
+certificate in a file or on a **smartcard or token**), with its own
+strongSwan inside: nothing to configure in the system, no Docker. Profiles
+can be shared with colleagues (without credentials), created in the app from
+vendor templates, or imported from Cisco `.pcf`, vpnc, NetworkManager,
+`ipsec.conf` and FortiClient. Every mode is tested end to end, and the engine
+on seven distributions.
+
+<p align="center">
+  <img src="docs/screenshots/connected-en-light.png" width="260" alt="Connected: virtual IP, time, traffic, networks and the connection log">
+  <img src="docs/screenshots/profiles-en-light.png" width="260" alt="Profiles, each with its security level">
+  <img src="docs/screenshots/system-en-dark.png" width="260" alt="System: the network component and the diagnostics, in the dark theme">
+</p>
+
+Downloads: [Releases](https://github.com/lucastelso/ipsec-client/releases)
+(AppImage, `.deb`, `.rpm`, signed). What changed: [CHANGELOG](CHANGELOG.md).
 
 ---
 
@@ -70,8 +72,14 @@ Download the file for your distribution from the
 | Ubuntu, Debian, Mint | `.deb` | `sudo apt install ./ipsec-client_*_amd64.deb` |
 | Others | `.AppImage` | `chmod +x` and open it |
 
-Then open **IPsec Client** from the applications menu. The first time, it asks
-for the administrator password **once** to install the network component.
+Then open **IPsec Client** from the applications menu. With the `.rpm` or the
+`.deb`, the package also installs the network component (the part that runs
+the VPN); with the AppImage, the app asks for the administrator password
+**once** to install it.
+
+Every release is signed: check the download with `SHA256SUMS.asc` and the
+project key, or with `gh attestation verify`
+([how](docs/installation.md#check-the-download)).
 
 The full walkthrough (first use, updating, uninstalling and building the
 packages from source) is in the **[installation guide](docs/installation.md)**.
@@ -135,9 +143,15 @@ behind each choice is in the [ADRs](docs/adr/README.md).
     is fixed by root, not by the app (ADR-0019);
   - connecting without a password is only allowed for the user of the active
     local session (polkit); only that user can stop the VPN or read its log.
-- **strongSwan:** runs isolated by systemd (read-only system, no access to
-  devices or kernel settings, network permissions only) and only listens on
-  UDP ports 500/4500 **while the VPN is connected**.
+- **strongSwan:** runs **without root**, as its own user with `NET_ADMIN`
+  only, isolated by systemd (read-only system, no access to devices or
+  kernel settings), and only listens on UDP ports 500/4500 **while the VPN is
+  connected** ([ADR-0028](docs/adr/0028-charon-without-root.md)).
+- **Smartcards and tokens:** the key never leaves the device, and neither the
+  key nor the PIN reaches strongSwan
+  ([ADR-0029](docs/adr/0029-smartcards-and-tokens.md)).
+- **Network use:** only the VPN; the optional update notice (off by default)
+  asks GitHub once a day which version is the latest.
 - **Logs:** "Copy anonymized" replaces the gateway, IPs and domains with
   placeholders before the log leaves the app.
 - **Repository:** contains no data from any real VPN. Profiles with your
@@ -213,7 +227,7 @@ npm install                 # tools, frontend dependencies and git hooks (develo
 npm run dev:app             # opens the desktop app in development mode (with the Docker engine as a fallback)
 npm run check               # everything that must be green before a merge
 npm run bundle -- --bundles rpm   # builds the installable package (rpm, deb or appimage)
-npm run release:build -- v0.9.0   # release packages (all three) in an Ubuntu 22.04 container
+npm run release:build -- vX.Y.Z   # release packages (all three) in an Ubuntu 22.04 container
 npm run test:engine         # end-to-end engine test with a local IPsec gateway
 npm run test:docker         # Rust core integration with real Docker (engine, VICI, session)
 npm run test:cli            # full CLI flow against the test gateway
@@ -263,25 +277,32 @@ presets/         generic profile examples (yours go in presets.local/, ignored)
 
 - One branch per feature.
 - [Conventional Commits](https://www.conventionalcommits.org/) in English
-  (the history up to v0.1.1 is in Portuguese).
+  (the commits before 0.2.0 are in Portuguese).
 - `--no-ff` merges into `main` with `npm run check` green.
 
 The details are in [CONTRIBUTING.md](CONTRIBUTING.md).
 
 ## Documentation
 
+Using it:
+
 - **[Installation guide](docs/installation.md)** ([pt-BR](docs/pt-BR/instalacao.md))
 - **[Quick start: connect with a profile you received](docs/quick-start.md)** ([pt-BR](docs/pt-BR/guia-rapido.md))
-- [Connection profiles (format, swanctl → profile, sharing with colleagues)](docs/profiles.md)
+- [Connection profiles (format, importing, sharing with colleagues)](docs/profiles.md)
 - [Command line (ipsec-client-cli)](docs/cli.md)
-- [Architecture](docs/architecture.md)
-- [Architecture decisions (ADRs)](docs/adr/README.md)
-- [Roadmap](docs/roadmap.md)
-- [How to build and publish a release](docs/release.md)
-- [Current state and how to resume development](docs/resume.md)
-- [Development log](docs/development-log.md)
-- [Audit of 0.2.0](docs/audits/v0.2.0.md)
-- [Security](SECURITY.md) ([pt-BR](docs/pt-BR/seguranca.md)) · [Contributing](CONTRIBUTING.md) · [Changelog](CHANGELOG.md)
+- [Security](SECURITY.md) ([pt-BR](docs/pt-BR/seguranca.md)) · [Support](SUPPORT.md) · [Changelog](CHANGELOG.md)
+
+How it is built:
+
+- [Architecture](docs/architecture.md) and the [architecture decisions (ADRs)](docs/adr/README.md)
+- [Contributing](CONTRIBUTING.md) · [Code of conduct](CODE_OF_CONDUCT.md)
+- [How releases are built, signed and published](docs/release.md)
+
+Development records, kept public for transparency: the
+[roadmap](docs/roadmap.md), the [development log](docs/development-log.md)
+(every step and problem, since the first commit), the
+[security audit](docs/audits/v0.2.0.md) and the
+[current state](docs/resume.md).
 
 ## License
 
@@ -291,4 +312,5 @@ which is what you expect from a security tool. The reason for the choice is in
 in the engine, and the libraries compiled into the app have their own
 licenses: see [THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md). The installed
 app carries every text in `/usr/lib/ipsec-client/licenses/`, and each release
-attaches the source of the embedded engine.
+attaches the source of the embedded engine. The logo (`assets/logo.svg`) was
+made for this project and is under the same license.

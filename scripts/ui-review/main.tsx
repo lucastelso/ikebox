@@ -56,9 +56,9 @@ const connection = {
 
 const component = (state: string) => ({
   state,
-  installedVersion: state === 'notInstalled' ? null : state === 'outdated' ? '0.2.0' : '0.3.0',
+  installedVersion: state === 'notInstalled' ? null : state === 'outdated' ? '0.2.0' : '1.0.0',
   installedStrongswan: state === 'notInstalled' ? null : '6.1.0',
-  bundledVersion: '0.3.0',
+  bundledVersion: '1.0.0',
   bundledStrongswan: '6.1.0',
   managedByPackage: false,
   canInstall: true,
@@ -71,7 +71,7 @@ const checks = [
   {
     name: L('Network component', 'Componente de rede'),
     level: 'ok',
-    detail: L('installed (embedded engine, helper 0.3.0)', 'instalado (engine embutido, helper 0.3.0)'),
+    detail: L('installed (embedded engine, helper 1.0.0)', 'instalado (engine embutido, helper 1.0.0)'),
     hint: null,
   },
   { name: L('xfrm_interface module', 'Módulo xfrm_interface'), level: 'ok', detail: L('loaded', 'carregado'), hint: null },
@@ -161,7 +161,7 @@ mockIPC(
       case 'run_diagnostics':
         return checks;
       case 'app_info':
-        return { version: '0.3.0', engineImage: L('embedded', 'embutido') };
+        return { version: '1.0.0', engineImage: L('embedded', 'embutido') };
       case 'credentials_status':
         if (scenario === 'credentials-cert') {
           return { required: ['clientCertificate'], stored: [], maskedUser: null, keyringAvailable: true, clientCertificate: null };

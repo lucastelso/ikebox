@@ -121,7 +121,7 @@ pre-release from 1.0 on). Or: `gh release edit vX.Y.Z --draft=false`.
 
 ## Building by hand (without CI)
 
-The same build runs on any computer with Docker, which is how the release
+The same build runs on any computer with Docker, which is how the releases
 before 1.0 were made and how the draft is compared:
 
 ```bash

@@ -6,20 +6,24 @@ Cliente de VPN IPsec para **Linux**, feito para VPNs **legadas**: IKEv1, modo
 agressivo, PSK de grupo + XAuth, grupos DH antigos. É o tipo de VPN corporativa
 que os clientes atuais do Linux já não conseguem conectar.
 
-> **Status: v0.9.0 (pré-alfa).** O app desktop, instalado pelo `.rpm` e com o
-> strongSwan embutido (**sem Docker**), conecta de ponta a ponta numa VPN
-> FortiGate real, e todos os modos de IPsec que os perfis aceitam (IKEv1
-> principal ou agressivo, PSK com ou sem XAuth, IKEv2 com PSK, com usuário e
-> senha ou com o seu próprio certificado, sempre conferindo o certificado do
-> gateway) são testados pelo mesmo caminho. Os perfis podem ser importados
-> de outros clientes (Cisco `.pcf`, vpnc, NetworkManager, `ipsec.conf`,
-> FortiClient) sem ler as senhas deles. Os perfis podem ser criados e editados no app, a partir
-> de modelos de fornecedor, e cada um mostra o seu nível de segurança. A
-> interface fala português e inglês. Vindo da 0.2.0 ou anterior, atualize o app
-> **e** o componente de rede (ver o [CHANGELOG](CHANGELOG.md), em inglês). Os
-> pacotes (AppImage, rpm e deb) estão na página
-> [Releases](https://github.com/lucastelso/ipsec-client/releases). O roadmap e
-> o diário de desenvolvimento estão em inglês, em [docs/](docs/).
+Ele conecta em **IKEv1** (modo agressivo ou principal, PSK de grupo com
+XAuth, o seu certificado) e em **IKEv2** (PSK, usuário e senha com EAP, o seu
+certificado em arquivo ou num **smartcard ou token**), com o próprio
+strongSwan dentro: nada para configurar no sistema, sem Docker. Os perfis
+podem ser compartilhados com colegas (sem credenciais), criados no app a
+partir de modelos de fornecedor, ou importados de Cisco `.pcf`, vpnc,
+NetworkManager, `ipsec.conf` e FortiClient. Todos os modos são testados de
+ponta a ponta, e o motor, em sete distribuições.
+
+<p align="center">
+  <img src="docs/screenshots/connected-pt-light.png" width="260" alt="Conectado: IP virtual, tempo, tráfego, redes e o log da conexão">
+  <img src="docs/screenshots/profiles-pt-light.png" width="260" alt="Perfis, cada um com o seu nível de segurança">
+  <img src="docs/screenshots/system-pt-dark.png" width="260" alt="Sistema: o componente de rede e o diagnóstico, no tema escuro">
+</p>
+
+Downloads: [Releases](https://github.com/lucastelso/ipsec-client/releases)
+(AppImage, `.deb`, `.rpm`, assinados). O que mudou:
+[CHANGELOG](CHANGELOG.md) (em inglês).
 
 ---
 
@@ -68,8 +72,14 @@ Baixe o arquivo da sua distribuição na página [Releases](https://github.com/l
 | Ubuntu, Debian, Mint | `.deb` | `sudo apt install ./ipsec-client_*_amd64.deb` |
 | Outras | `.AppImage` | `chmod +x` e abrir |
 
-Depois, abra o **IPsec Client** pelo menu de aplicativos. Na primeira vez, ele
-pede a senha de administrador **uma vez** para instalar o componente de rede.
+Depois, abra o **IPsec Client** pelo menu de aplicativos. Com o `.rpm` ou o
+`.deb`, o próprio pacote instala o componente de rede (a parte que roda a
+VPN); com o AppImage, o app pede a senha de administrador **uma vez** para
+instalá-lo.
+
+Toda versão é assinada: confira o download com o `SHA256SUMS.asc` e a chave
+do projeto, ou com o `gh attestation verify`
+([como](docs/pt-BR/instalacao.md#conferir-o-download)).
 
 O passo a passo completo, com primeiro uso, atualização, desinstalação e
 como gerar os pacotes a partir do código, está no
@@ -133,9 +143,16 @@ cada escolha está nos [ADRs](docs/adr/README.md).
     definido pelo root, não pelo app (ADR-0019);
   - conectar sem senha vale só para quem está na sessão local ativa (polkit),
     e só quem conectou pode desconectar ou ler o log.
-- **strongSwan:** roda isolado pelo systemd (sistema somente leitura, sem
-  acesso a dispositivos nem a configurações do kernel, só permissões de rede) e
-  só escuta nas portas UDP 500/4500 **enquanto a VPN está conectada**.
+- **strongSwan:** roda **sem root**, com usuário próprio e só `NET_ADMIN`,
+  isolado pelo systemd (sistema somente leitura, sem acesso a dispositivos
+  nem a configurações do kernel), e só escuta nas portas UDP 500/4500
+  **enquanto a VPN está conectada**
+  ([ADR-0028](docs/adr/0028-charon-without-root.md), em inglês).
+- **Smartcards e tokens:** a chave nunca sai do dispositivo, e nem a chave
+  nem o PIN chegam ao strongSwan
+  ([ADR-0029](docs/adr/0029-smartcards-and-tokens.md), em inglês).
+- **Uso da rede:** só a VPN; o aviso opcional de versão nova (desligado por
+  padrão) pergunta ao GitHub, uma vez por dia, qual é a última versão.
 - **Logs:** "Copiar anonimizado" troca o gateway, os IPs e os domínios por
   marcadores antes de o log sair do app.
 - **Repositório:** não contém dados de nenhuma VPN real. Perfis com dados da
@@ -212,7 +229,7 @@ npm install                 # ferramentas, dependências do frontend e git hooks
 npm run dev:app             # abre o app desktop em modo de desenvolvimento (com o engine em Docker como reserva)
 npm run check               # tudo o que precisa estar verde antes de um merge
 npm run bundle -- --bundles rpm   # gera o pacote instalável (rpm, deb ou appimage)
-npm run release:build -- v0.9.0   # pacotes de release (os três) num container Ubuntu 22.04
+npm run release:build -- vX.Y.Z   # pacotes de release (os três) num container Ubuntu 22.04
 npm run test:engine         # teste ponta a ponta do engine com um gateway IPsec local
 npm run test:docker         # integração do núcleo Rust com o Docker real (engine, VICI, sessão)
 npm run test:cli            # fluxo completo do CLI contra o gateway de teste
@@ -234,24 +251,26 @@ família das VPNs legadas. Eles verificam:
 - se os logs estão sem segredos;
 - se tudo é limpo ao desconectar, inclusive depois de o engine ser morto à
   força;
-- o túnel completo (`0.0.0.0/0`), num namespace de rede isolado.
+- o túnel completo (`0.0.0.0/0`), num namespace de rede isolado;
+- que um cliente VICI malicioso não consegue escolher o comando que roda como
+  root.
 
 Nenhum teste usa uma VPN real.
 
 ### Estrutura do repositório
 
 ```
-crates/core/     núcleo em Rust: perfis, segredos, engine, sessão, diagnóstico, componente de rede
+crates/core/     núcleo em Rust: perfis, segredos, engine, sessão, diagnóstico, componente de rede, i18n
 crates/cli/      ipsec-client-cli
 crates/proto/    protocolo entre o app e o helper (validação compartilhada)
 crates/helper/   ipsec-client-helper: o componente de rede que roda como root
 src-tauri/       app desktop (Tauri v2): comandos finos sobre o core, DTOs, bandeja, pacotes
-src/             interface (React 19 + TypeScript + Tailwind 4 + componentes shadcn/ui)
-native-engine/   build do strongSwan embutido (código-fonte verificado por SHA-256 + GPG)
+src/             interface (React 19 + TypeScript + Tailwind 4 + componentes shadcn/ui), src/i18n
+native-engine/   build do strongSwan embutido (código-fonte verificado por SHA-256 + GPG, patches de segurança)
 engine/          scripts do engine (entrypoint, updown, config) e a imagem Docker dos testes
 packaging/       units do systemd, policy do polkit e instalador do componente de rede
 scripts/         utilitários (dados privados, shellcheck, pacote do componente, testes)
-tests/           testes ponta a ponta (engine, CLI) e do instalador
+tests/           testes ponta a ponta (engine, CLI, systemd) e do instalador
 docs/            guias, arquitetura, roadmap, diário, ADRs (inglês); docs/pt-BR em português
 assets/          logo (fonte dos ícones)
 presets/         exemplos genéricos de perfis (os seus vão em presets.local/, ignorado)
@@ -261,14 +280,14 @@ presets/         exemplos genéricos de perfis (os seus vão em presets.local/, 
 
 - Um branch por funcionalidade.
 - Commits no padrão [Conventional Commits](https://www.conventionalcommits.org/)
-  em inglês (o histórico até a v0.1.1 está em português).
+  em inglês (os commits anteriores à 0.2.0 estão em português).
 - Merge `--no-ff` em `main` com o `npm run check` verde.
 
 Os detalhes estão em [CONTRIBUTING.md](CONTRIBUTING.md).
 
 ## Documentação
 
-Em português:
+Para usar (em português):
 
 - **[Manual de instalação](docs/pt-BR/instalacao.md)**
 - **[Guia rápido: conectar com um perfil recebido](docs/pt-BR/guia-rapido.md)**
@@ -276,16 +295,18 @@ Em português:
 
 Em inglês:
 
-- [Perfis de conexão (formato, swanctl → perfil, compartilhar com colegas)](docs/profiles.md)
+- [Perfis de conexão (formato, importação, compartilhar com colegas)](docs/profiles.md)
 - [Linha de comando (ipsec-client-cli)](docs/cli.md)
-- [Arquitetura](docs/architecture.md)
-- [Decisões de arquitetura (ADRs)](docs/adr/README.md)
-- [Roadmap](docs/roadmap.md)
-- [Como gerar e publicar uma versão](docs/release.md)
-- [Estado atual e como retomar o desenvolvimento](docs/resume.md)
-- [Diário de desenvolvimento](docs/development-log.md)
-- [Auditoria da 0.2.0](docs/audits/v0.2.0.md)
-- [Contribuindo](CONTRIBUTING.md) · [Changelog](CHANGELOG.md)
+- [Suporte](SUPPORT.md) · [Changelog](CHANGELOG.md)
+- [Arquitetura](docs/architecture.md) e as [decisões de arquitetura (ADRs)](docs/adr/README.md)
+- [Contribuindo](CONTRIBUTING.md) · [Código de conduta](CODE_OF_CONDUCT.md)
+- [Como as versões são geradas, assinadas e publicadas](docs/release.md)
+
+Registros do desenvolvimento, públicos por transparência: o
+[roadmap](docs/roadmap.md), o [diário de desenvolvimento](docs/development-log.md)
+(cada passo e cada problema, desde o primeiro commit), a
+[auditoria de segurança](docs/audits/v0.2.0.md) e o
+[estado atual](docs/resume.md).
 
 ## Licença
 
@@ -295,4 +316,5 @@ da escolha está no [ADR-0017](docs/adr/0017-gpl-3-license.md). O strongSwan, o
 OpenSSL e o musl, embutidos no engine, e as bibliotecas compiladas no app têm
 licenças próprias: ver [THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md). O app
 instalado traz todos os textos em `/usr/lib/ipsec-client/licenses/`, e cada
-release anexa o código-fonte do engine embutido.
+release anexa o código-fonte do engine embutido. O logo (`assets/logo.svg`)
+foi feito para este projeto e está sob a mesma licença.

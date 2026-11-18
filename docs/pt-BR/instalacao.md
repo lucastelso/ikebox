@@ -26,9 +26,7 @@ precisa de Docker, Rust, Node nem terminal para usar.
 
 Os arquivos ficam na página [Releases](https://github.com/lucastelso/ipsec-client/releases) do repositório no GitHub,
 junto com o `SHA256SUMS`, que serve para conferir o download
-(`sha256sum -c SHA256SUMS --ignore-missing`). Enquanto o repositório for
-privado, só quem tem acesso a ele consegue baixar: peça acesso, ou receba os
-arquivos de quem te passou o perfil.
+(`sha256sum -c SHA256SUMS --ignore-missing`).
 
 ### Conferir o download
 

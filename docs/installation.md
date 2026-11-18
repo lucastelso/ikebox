@@ -27,9 +27,7 @@ applications menu, with an icon, and opens like any other program. You do
 The files are on the repository's
 [Releases](https://github.com/lucastelso/ipsec-client/releases) page on GitHub,
 together with `SHA256SUMS`, which lets you check the download
-(`sha256sum -c SHA256SUMS --ignore-missing`). While the repository is
-private, only people with access to it can download: ask for access, or get
-the files from whoever gave you the profile.
+(`sha256sum -c SHA256SUMS --ignore-missing`).
 
 ### Check the download
 
