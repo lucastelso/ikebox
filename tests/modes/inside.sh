@@ -255,6 +255,28 @@ ok "ipsec.conf and FortiClient XML imported and connected (main mode + XAuth, PF
 disconnect
 
 # ---------------------------------------------------------------------------
+step "IKEv1: the gateway renews phase 1 and phase 2 (the client answers, the tunnel stays)"
+gw=${GW[ikev1-rekey]}
+connect v1-rekey "$XAUTH" gateway="$gw" version=1 method=psk-xauth \
+    ike=aes256-sha256-modp2048 esp=aes256-sha256-modp2048 remote_ts=192.0.2.0/24
+expect_ike 1 Main
+traffic
+# The gateway renews phase 2 every 15 s and reauthenticates phase 1 at 40 s.
+sleep 55
+text=$(sas)
+[[ $text =~ ESTABLISHED,\ IKEv1, ]] || fail "no IKE_SA after the gateway's renewals"
+expect_vip yes
+traffic
+log=$(as alice "$CLI" logs -n 1000)
+# charon writes "<address> is initiating a Main Mode IKE_SA" only when the
+# OTHER side starts the negotiation (audit P8 counts the same line).
+gw_phase1=$(grep -c "is initiating a Main Mode IKE_SA" <<<"$log" || true)
+((gw_phase1 >= 1)) || fail "the gateway did not renew phase 1 during the test (lifetimes too long?)"
+child_rekeys=$(grep -c "CHILD_SA rede{[0-9]*} established" <<<"$log" || true)
+((child_rekeys >= 3)) || fail "phase 2 was renewed only $((child_rekeys - 1)) times"
+ok "gateway-initiated: $gw_phase1 phase 1 reauthentication(s), $((child_rekeys - 1)) phase 2 renewals; VIP kept, traffic flows"
+disconnect
+
 step "IKEv1 main mode + PSK only: virtual IP, PFS, plain ESP"
 gw=${GW[ikev1-main-psk]}
 connect v1-main-psk "$PSK" gateway="$gw" version=1 method=psk \
