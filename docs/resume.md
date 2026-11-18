@@ -75,10 +75,17 @@
   without root (ADR-0028), and `test:modes` has the gateway renew phases 1
   and 2. **Phase E is done** (steps 54–55): smartcards and tokens
   (ADR-0029). **Phase F is done** (step 56): close to the tray, one status
-  monitor, the optional update notice. **Next: phase G** (the release
-  pipeline in CI: build, GPG signing, attestations, reproducible network
-  component, weekly matrix).
+  monitor, the optional update notice. **Phase G is done** (step 57): the
+  release pipeline in CI (ADR-0030); the signing key and the GitHub
+  environment are the maintainer's steps (below). **Next: phase H** (the
+  opening: English leftovers, SECURITY.md for a public repository, community
+  files, README for 1.0).
 - **Waiting for the maintainer:**
+  0. **The release signing key and the `release` environment** (phase G):
+     the steps are in [release.md](release.md#signing-key-once) ("Signing
+     key" and "GitHub setup"); commit `packaging/keys/ipsec-client-release.asc`
+     and run a rehearsal (**Actions → Release → Run workflow** on `main`).
+     Until then the signing job of a tag fails, by design.
   1. A quick look at the app after the Tauri update (phase A): open it,
      connect, check the tray. A development build is in
      `target/release-artifacts/0.9.0-dev-1871e2428f69/`; `npm run
