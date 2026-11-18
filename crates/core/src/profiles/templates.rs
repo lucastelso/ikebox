@@ -155,11 +155,29 @@ impl ProposalPreset {
         }
     }
 
+    /// The lists a preset had before (profiles saved then are still
+    /// recognized): "modern" had no ECP groups until 0.9.0.
+    fn previous(self) -> Option<(&'static [&'static str], &'static [&'static str])> {
+        match self {
+            Self::Modern => Some((
+                &["aes256gcm16-prfsha256-curve25519"],
+                &["aes256gcm16-curve25519", "aes256gcm16"],
+            )),
+            Self::Compatible | Self::Legacy => None,
+        }
+    }
+
     /// Phase 1 proposals.
     #[must_use]
     pub fn ike(self, version: u8) -> Vec<String> {
         let list: &[&str] = match (self, version) {
-            (Self::Modern, _) => &["aes256gcm16-prfsha256-curve25519"],
+            // ECP after curve25519 (ADR-0027): many IKEv2 gateways offer only
+            // the NIST groups.
+            (Self::Modern, _) => &[
+                "aes256gcm16-prfsha256-curve25519",
+                "aes256gcm16-prfsha384-ecp384",
+                "aes128gcm16-prfsha256-ecp256",
+            ],
             (Self::Compatible, _) => &["aes256-sha256-modp2048", "aes128-sha256-modp2048"],
             (Self::Legacy, _) => &[
                 "aes256-sha1-modp1024",
@@ -176,7 +194,12 @@ impl ProposalPreset {
     #[must_use]
     pub fn esp(self, version: u8) -> Vec<String> {
         let list: &[&str] = match (self, version) {
-            (Self::Modern, _) => &["aes256gcm16-curve25519", "aes256gcm16"],
+            (Self::Modern, _) => &[
+                "aes256gcm16-curve25519",
+                "aes256gcm16-ecp384",
+                "aes128gcm16-ecp256",
+                "aes256gcm16",
+            ],
             (Self::Compatible, 1) => &["aes256-sha256-modp2048", "aes128-sha256-modp2048"],
             (Self::Compatible, _) => &["aes256-sha256-modp2048", "aes256-sha256"],
             (Self::Legacy, 1) => &[
@@ -198,10 +221,10 @@ impl ProposalPreset {
     /// The preset these proposals are, if any.
     #[must_use]
     pub fn detect(version: u8, ike: &[String], esp: &[String]) -> Option<Self> {
-        Self::for_version(version)
-            .iter()
-            .copied()
-            .find(|p| p.ike(version) == ike && p.esp(version) == esp)
+        Self::for_version(version).iter().copied().find(|p| {
+            (p.ike(version) == ike && p.esp(version) == esp)
+                || p.previous().is_some_and(|(i, e)| i == ike && e == esp)
+        })
     }
 }
 
@@ -264,6 +287,26 @@ mod tests {
         assert_eq!(
             ProposalPreset::detect(1, &p.ike.proposals, &p.child.esp_proposals),
             Some(ProposalPreset::Compatible)
+        );
+    }
+
+    #[test]
+    fn modern_offers_ecp_and_still_recognizes_older_profiles() {
+        let ike = ProposalPreset::Modern.ike(2);
+        assert!(ike.iter().any(|p| p.ends_with("-ecp384")), "{ike:?}");
+        assert_eq!(
+            ProposalPreset::detect(2, &ike, &ProposalPreset::Modern.esp(2)),
+            Some(ProposalPreset::Modern)
+        );
+        // Saved before ECP was added (0.9.0 and older).
+        let old = |v: &[&str]| v.iter().map(|s| (*s).to_owned()).collect::<Vec<_>>();
+        assert_eq!(
+            ProposalPreset::detect(
+                2,
+                &old(&["aes256gcm16-prfsha256-curve25519"]),
+                &old(&["aes256gcm16-curve25519", "aes256gcm16"])
+            ),
+            Some(ProposalPreset::Modern)
         );
     }
 }

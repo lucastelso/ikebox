@@ -167,7 +167,7 @@ pub struct ClientCertSummary {
     pub not_after: String,
     /// Dias até vencer (negativo: vencido).
     pub days_left: i32,
-    /// `RSA` ou `Ed25519`.
+    /// `RSA`, `ECDSA` or `Ed25519`.
     pub key: String,
 }
 

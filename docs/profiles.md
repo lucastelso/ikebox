@@ -116,9 +116,8 @@ the client and how the gateway authenticates:
 
   The certificate must chain to one of `ca` and carry `id`; there is no
   "accept any certificate". The CAs are public data and go to charon as
-  data. They must be CA certificates, valid today, with an **RSA or Ed25519**
-  key: the embedded engine has no ECDSA yet, and an ECDSA CA is refused when
-  the profile is read. Revocation (CRL/OCSP) is not checked
+  data. They must be CA certificates, valid today, with an **RSA, ECDSA or
+  Ed25519** key (ECDSA since 1.0, ADR-0027). Revocation (CRL/OCSP) is not checked
   ([SECURITY.md](../SECURITY.md)). The username and password are
   credentials, asked when connecting (`eap-identity`, `eap-password` in the
   CLI). Example: [`presets/exemplo-ikev2-eap.json`](../presets/exemplo-ikev2-eap.json).
@@ -132,7 +131,7 @@ the client and how the gateway authenticates:
   from a `.p12`/`.pfx` file, imported once into the system keyring (the app
   asks for it when connecting; in the CLI, `secrets import-p12` or
   `connect --client-p12`). Modern and old files (3DES/RC2 with SHA-1) are
-  read; the key must be **RSA or Ed25519**, and the file's password is never
+  read; the key must be **RSA, ECDSA or Ed25519**, and the file's password is never
   stored.
 
 Unknown fields are refused, in both schemas. That way, a typo, or an attempt

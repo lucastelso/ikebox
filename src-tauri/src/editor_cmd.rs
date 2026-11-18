@@ -187,7 +187,7 @@ pub struct CaSummary {
     pub subject: String,
     /// Last day of validity (`YYYY-MM-DD`).
     pub not_after: String,
-    /// `RSA` or `Ed25519`.
+    /// `RSA`, `ECDSA` or `Ed25519`.
     pub key: String,
 }
 
@@ -700,6 +700,7 @@ mod tests {
 
     const RSA_CA: &str = include_str!("../../crates/core/tests/fixtures/ca/rsa-ca.pem");
     const ECDSA_CA: &str = include_str!("../../crates/core/tests/fixtures/ca/ecdsa-ca.pem");
+    const LEAF: &str = include_str!("../../crates/core/tests/fixtures/ca/rsa-leaf.pem");
 
     #[test]
     fn an_eap_draft_needs_the_gateway_name_and_a_usable_ca() {
@@ -710,7 +711,7 @@ mod tests {
         assert_eq!(fields, ["remoteId", "ca"]);
 
         d.remote_id = "vpn.example.com".to_owned();
-        d.ca = vec![RSA_CA.to_owned(), ECDSA_CA.to_owned()];
+        d.ca = vec![RSA_CA.to_owned(), LEAF.to_owned()];
         let (_, c) = checked(&d);
         assert_eq!(c.issues.len(), 1, "{:?}", c.issues);
         assert_eq!(c.issues[0].field, "ca");
@@ -721,6 +722,11 @@ mod tests {
         );
         assert!(c.cas[0].as_ref().is_some_and(|s| s.key == "RSA"));
         assert!(c.cas[1].is_none());
+
+        d.ca[1] = ECDSA_CA.to_owned();
+        let (_, c) = checked(&d);
+        assert!(c.issues.is_empty(), "{:?}", c.issues);
+        assert!(c.cas[1].as_ref().is_some_and(|s| s.key == "ECDSA"));
 
         d.ca.pop();
         let (p, c) = checked(&d);
