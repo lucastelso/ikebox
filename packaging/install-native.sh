@@ -16,6 +16,7 @@
 #   /opt/ipsec-client/bin/           ipsec-client-helper
 #   /opt/ipsec-client/{VERSION,SHA256SUMS,ORIGIN}
 #   /etc/systemd/system/             ipsec-client-helper.{socket,service}
+#   system user ipsec-client-engine  charon runs as it (ADR-0028)
 #   /usr/share/polkit-1/actions/     io.github.lucastelso.ipsecclient.policy
 #                                    (/etc/polkit-1/actions/ when /usr is
 #                                    read-only: image-based distributions)
@@ -30,6 +31,9 @@ readonly POLKIT_DIR=/usr/share/polkit-1/actions
 readonly POLKIT_ETC_DIR=/etc/polkit-1/actions
 readonly POLKIT_ETC_SINCE=124
 readonly POLICY=io.github.lucastelso.ipsecclient.policy
+# System user charon runs as (ADR-0028). It is kept on removal, as system
+# users usually are: its uid may still own something (it never does here).
+readonly ENGINE_USER=ipsec-client-engine
 # Required bundle files (the app checks the same list).
 readonly REQUIRED=(
     VERSION
@@ -127,6 +131,20 @@ choose_polkit_dir() {
     die "$POLKIT_DIR is read-only, and this polkit (version ${version:-unknown}) only reads policies from there; polkit $POLKIT_ETC_SINCE or newer is needed on a system with a read-only /usr"
 }
 
+# The user charon runs as: systemd-sysusers where it exists (every systemd
+# distribution), useradd otherwise. No home, no shell, no password.
+ensure_engine_user() {
+    id -u "$ENGINE_USER" >/dev/null 2>&1 && return 0
+    if command -v systemd-sysusers >/dev/null 2>&1; then
+        systemd-sysusers --inline "u $ENGINE_USER - \"IPsec Client engine\" / /usr/sbin/nologin"
+    else
+        useradd --system --user-group --no-create-home --home-dir / \
+            --shell /usr/sbin/nologin --comment "IPsec Client engine" "$ENGINE_USER"
+    fi
+    id -u "$ENGINE_USER" >/dev/null 2>&1 || die "could not create the system user $ENGINE_USER"
+    log "system user $ENGINE_USER created"
+}
+
 do_install() {
     local bundle="" origin=manual work polkit_dir
     while (($# > 0)); do
@@ -147,6 +165,9 @@ do_install() {
     trap "rm -rf '$work'" EXIT
     verify_bundle "$bundle" "$work"
     polkit_dir=$(choose_polkit_dir)
+    command -v setpriv >/dev/null 2>&1 ||
+        die "setpriv (util-linux) is missing: it starts the VPN engine without root"
+    ensure_engine_user
 
     log "installing in $PREFIX"
     if systemd_running; then

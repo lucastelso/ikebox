@@ -91,9 +91,11 @@ out=$(as alice "$CLI" connect gateway-teste --detach --credentials-stdin <<<"$CR
 ok "connected, with the gateway given by name"
 
 [[ $(stat -c '%a %U' "$ALICE_SOCKET") == "600 alice" ]] || fail "VICI socket without 0600/alice"
-[[ $(stat -c '%a %U %G' "$(dirname "$ALICE_SOCKET")") == "711 root root" ]] ||
-    fail "socket directory without 0711 root:root"
-ok "VICI socket 0600 owned by alice, directory 0711 owned by root"
+# During the session charon's group may create files there (its socket);
+# alice only traverses it (ADR-0028). Root's again after the session.
+[[ $(stat -c '%a %U %G' "$(dirname "$ALICE_SOCKET")") == "1731 root ipsec-client-engine" ]] ||
+    fail "socket directory not 1731 root:ipsec-client-engine during the session"
+ok "VICI socket 0600 owned by alice, directory owned by root (charon's group may create its socket, alice only traverses)"
 
 route=$(ip -4 route show dev "$IFACE" proto "$RT_PROTO")
 [[ $route == *"192.0.2.0/24"* ]] || fail "route missing: '$route'"
@@ -161,6 +163,49 @@ if has_disks /dev && has_disks "/proc/$pid/root/dev"; then
     fail "the engine sees the computer's disks"
 fi
 ok "PrivateDevices, ProtectKernelTunables (read-only /proc/sys), ProtectKernelLogs, ProtectProc, PrivateIPC, SystemCallFilter"
+
+step "charon runs without root (ADR-0028), with the network capabilities only"
+engine_uid=$(id -u ipsec-client-engine) || fail "system user ipsec-client-engine missing"
+cpid=$(pgrep -x charon | head -n 1)
+[[ -n $cpid ]] || fail "charon not found"
+# Real, effective, saved and filesystem uid all the engine user's.
+read -r _ r e sv fs < <(grep '^Uid:' "/proc/$cpid/status")
+[[ $r == "$engine_uid" && $e == "$engine_uid" && $sv == "$engine_uid" && $fs == "$engine_uid" ]] ||
+    fail "charon runs as uid $r/$e/$sv/$fs, not as ipsec-client-engine ($engine_uid)"
+# The bounding set is NET_ADMIN (12), NET_BIND_SERVICE (10) and NET_RAW (13),
+# 0x3400: no way back to anything else. charon itself drops what it no longer
+# needs once its sockets are open, so its effective and ambient sets (the
+# ambient ones pass to the updown) are within that, and always NET_ADMIN.
+cap_set() { awk -v k="$1:" '$1 == k { print $2 }' "/proc/$cpid/status"; }
+[[ $((16#$(cap_set CapBnd))) == $((16#3400)) ]] ||
+    fail "charon CapBnd is $(cap_set CapBnd), expected 0000000000003400"
+for set in CapEff CapAmb; do
+    value=$((16#$(cap_set "$set")))
+    ((value & ~16#3400)) && fail "charon $set has more than the network capabilities: $(cap_set "$set")"
+    ((value & 16#1000)) || fail "charon $set lacks NET_ADMIN: $(cap_set "$set")"
+done
+effective=$(cap_set CapEff)
+grep -q '^NoNewPrivs:[[:space:]]*1' "/proc/$cpid/status" || fail "charon may gain privileges"
+[[ $(stat -c "%U %a" "$ALICE_SOCKET") == "alice 600" ]] || fail "the VICI socket is not alice's (0600)"
+ok "charon: uid $engine_uid (ipsec-client-engine), effective capabilities $effective (network only, bounding set NET_ADMIN/NET_BIND_SERVICE/NET_RAW), no new privileges; socket handed to alice"
+
+step "Attack: what charon's user writes to the DNS FIFO cannot reach further"
+fifo=/run/ipsec-client-engine/dns.requests
+[[ -p $fifo ]] || fail "no DNS FIFO"
+# As charon's user (what a compromised charon could do): shell syntax, other
+# interfaces, junk and an oversized line. Only addresses are ever read.
+# shellcheck disable=SC2016 # the $(...) must reach the FIFO unexpanded
+setpriv --reuid=ipsec-client-engine --regid=ipsec-client-engine --clear-groups bash -c '
+    printf "%s\n" "up 198.51.100.250 \$(id >/tmp/fifo-pwned) lo; touch /tmp/fifo-pwned2" \
+        "down lo" "revert eth0" "$(head -c 5000 /dev/zero | tr "\0" a)" >'"$fifo"
+sleep 2.5
+[[ ! -e /tmp/fifo-pwned && ! -e /tmp/fifo-pwned2 ]] || fail "a request from the FIFO ran a command"
+[[ $(resolvectl dns lo 2>/dev/null) != *198.51.100.250* ]] || fail "a FIFO request changed the DNS of lo"
+[[ $(engine_prop ActiveState) == active ]] || fail "the engine died on junk in the DNS FIFO"
+# A well-formed "up" may change the servers received for $IFACE: charon is the
+# one that reports them anyway. Nothing else can be reached.
+[[ $(resolvectl dns "$IFACE") == *198.51.100.250* ]] || fail "the valid address in the request was not applied to $IFACE"
+ok "shell syntax, other interfaces and junk in the FIFO: nothing ran, only $IFACE is ever touched, the engine keeps running"
 
 step "bob (another user) tries to touch alice's VPN"
 reply=$(helper bob '{"op":"stop"}')

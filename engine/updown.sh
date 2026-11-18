@@ -17,6 +17,9 @@
 #                           consultas, "~." manda todas (repetível)
 #   --use-received-dns      usa também os DNS enviados pelo gateway
 #   --dns-default-route     usa estes DNS para consultas fora dos domínios
+#   --dns-fifo CAMINHO      embedded engine, charon without root (ADR-0028):
+#                           DNS needs root, so the request goes to the
+#                           entrypoint through this FIFO instead of resolvectl
 #
 # Ambiente fornecido pelo charon: PLUTO_VERB, PLUTO_PEER, PLUTO_PEER_CLIENT,
 # PLUTO_MY_SOURCEIP*, PLUTO_DNS4_<n>, PLUTO_DNS6_<n>.
@@ -74,13 +77,18 @@ static_dns=()
 domains=()
 use_received_dns=0
 dns_default_route=0
+dns_fifo=""
 
 while (($# > 0)); do
     case $1 in
-    --iface | --dns | --domain)
+    --iface | --dns | --domain | --dns-fifo)
         (($# >= 2)) || die "$1 requires a value"
         case $1 in
         --iface) iface=$2 ;;
+        --dns-fifo)
+            [[ $2 =~ ^/[A-Za-z0-9/._-]+$ && $2 != *..* ]] || die "invalid --dns-fifo"
+            dns_fifo=$2
+            ;;
         --dns)
             is_ip "$2" || die "invalid --dns: $2"
             static_dns+=("$2")
@@ -214,8 +222,32 @@ route_down() {
 
 # --- DNS --------------------------------------------------------------------
 
+# Without root (ADR-0028): the entrypoint applies the DNS. Only the servers
+# the gateway sent go in the request (validated here and again there); the
+# static servers, the domains and the flags are the entrypoint's own.
+dns_request() {
+    [[ -p $dns_fifo ]] || { log "warning: failed to set the DNS servers (no DNS FIFO)"; return 0; }
+    printf '%s\n' "$*" >"$dns_fifo" || log "warning: failed to set the DNS servers"
+}
+
 dns_up() {
     local servers=("${static_dns[@]}") i var value
+    local -a received=()
+    if [[ -n $dns_fifo ]]; then
+        for var in PLUTO_DNS4_ PLUTO_DNS6_; do
+            for i in $(seq 1 8); do
+                value=$(printenv "$var$i" || true)
+                [[ -n $value ]] || break
+                if is_ip "$value"; then
+                    received+=("$value")
+                else
+                    log "warning: invalid received DNS ignored"
+                fi
+            done
+        done
+        dns_request up "${received[@]}"
+        return 0
+    fi
     if ((use_received_dns)); then
         for var in PLUTO_DNS4_ PLUTO_DNS6_; do
             for i in $(seq 1 8); do
@@ -251,6 +283,10 @@ dns_up() {
 }
 
 dns_down() {
+    if [[ -n $dns_fifo ]]; then
+        dns_request down
+        return 0
+    fi
     # Com vários TS por conexão, só reverte quando a última rota sair.
     if [[ -z "$(ip -4 route show dev "$iface" proto "$RT_PROTO" 2>/dev/null)$(ip -6 route show dev "$iface" proto "$RT_PROTO" 2>/dev/null)" ]]; then
         resolvectl revert "$iface" 2>/dev/null || true

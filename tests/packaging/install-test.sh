@@ -67,6 +67,8 @@ STUB
     bash /bundle/install-native.sh install --bundle /bundle --origin package >/dev/null
     grep -qx "enable ipsec-client-helper.socket" /tmp/systemctl.log ||
         fail "socket not enabled for the next boot"
+    id -u ipsec-client-engine >/dev/null 2>&1 || fail "system user ipsec-client-engine not created"
+    [[ $(id -u ipsec-client-engine) != 0 ]] || fail "the engine user is root"
     if grep -qE "daemon-reload|--now|^stop" /tmp/systemctl.log; then
         fail "talked to a systemd that is not running: $(tr '\n' ';' </tmp/systemctl.log)"
     fi
