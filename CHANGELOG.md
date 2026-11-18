@@ -9,6 +9,10 @@ and the project uses [Semantic Versioning](https://semver.org/).
 
 ### Added
 
+- Every package carries the license texts of everything it distributes in
+  `/usr/lib/ipsec-client/licenses/` (the crates and npm packages compiled
+  into the programs, and strongSwan, GMP and musl), and each release
+  attaches the corresponding source of the embedded engine.
 - AppStream metadata in the `.rpm` and the `.deb`: GNOME Software, Discover
   and other software centres show the app's name, description and license.
 - The `.rpm` and the `.deb` carry the command line, `ipsec-client-cli`, with

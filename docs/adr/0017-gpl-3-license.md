@@ -29,11 +29,19 @@ protocol. The app's license is therefore a free choice.
 - Contributions come in under the same license (*inbound = outbound*;
   CONTRIBUTING.md).
 - **Compliance of the distributed components** (`THIRD_PARTY_NOTICES.md`):
-  - the engine tarball carries the strongSwan and GMP license texts
+  - the engine tarball carries the strongSwan, GMP and musl license texts
     (`share/licenses/`) and a `BUILDINFO` with versions, hashes and patches;
   - the corresponding source code is identified precisely: the official
-    strongSwan tarball (URL + SHA-256 + signature) plus our patches, the GMP
-    source package of Ubuntu 22.04 and the build scripts in `native-engine/`.
+    strongSwan tarball (URL + SHA-256 + signature) plus our patches, GMP and
+    musl from Alpine (ADR-0020) and the build scripts in `native-engine/`.
+
+**Updated in phase B of the program to 1.0.0 (2026-11-18):** every package
+carries `/usr/lib/ipsec-client/licenses/` (the project's license, the
+notices, the texts of the crates and npm packages compiled into the
+programs, and the engine's texts), and each release attaches the
+corresponding-source archive made by `scripts/release-sources.sh`
+(strongSwan with the patches, GMP and musl with Alpine's packaging at fixed
+aports commits).
 
 ## Consequences
 
