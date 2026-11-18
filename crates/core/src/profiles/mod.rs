@@ -423,8 +423,13 @@ mod tests {
         assert_eq!(fields(&p), ["auth.remote.id", "auth.remote.ca"]);
 
         let mut p = ok.clone();
-        p.auth.remote.ca = vec![include_str!("../../tests/fixtures/ca/ecdsa-ca.pem").to_owned()];
+        p.auth.remote.ca = vec![include_str!("../../tests/fixtures/ca/expired-ca.pem").to_owned()];
         assert_eq!(fields(&p), ["auth.remote.ca[0]"]);
+
+        // An ECDSA CA is fine since the engine has OpenSSL (ADR-0027).
+        let mut p = ok.clone();
+        p.auth.remote.ca = vec![include_str!("../../tests/fixtures/ca/ecdsa-ca.pem").to_owned()];
+        assert!(fields(&p).is_empty(), "{:?}", fields(&p));
 
         // A PSK profile with a gateway certificate is not supported yet.
         let mut p = legacy();

@@ -62,6 +62,11 @@ cleanup() {
         printf '\n--- engine and helper journal ---\n'
         docker exec "$HOST" journalctl -u ipsec-client-engine -u ipsec-client-helper \
             --no-pager -n 80 2>/dev/null
+        local gw_name
+        for gw_name in $(docker ps -a --format '{{.Names}}' --filter "name=^$GW"); do
+            printf '\n--- test gateway %s ---\n' "$gw_name"
+            docker logs --tail 25 "$gw_name" 2>&1
+        done
     fi
     docker rm -f "$HOST" "$GW" >/dev/null 2>&1
     remove_mode_gateways
@@ -80,7 +85,8 @@ remove_mode_gateways() {
 # the gateway; DIR/client/ has the CA certificates a profile may carry and
 # the person's certificate as .p12 files (password P12_PASSWORD): alice.p12
 # (modern), alice-legacy.p12 (3DES/SHA-1, as older Windows exports) and
-# mallory.p12, signed by the unrelated CA. The CA keys are deleted right
+# mallory.p12, signed by the unrelated CA, plus an ECDSA CA, gateway and
+# alice-ec.p12. The CA keys are deleted right
 # away. Fake, short-lived, made at test time: nothing of it is kept.
 make_pki() {
     local dir=$1 ca_ext=(-addext "basicConstraints=critical,CA:TRUE"
@@ -117,7 +123,31 @@ make_pki() {
     client_p12 alice-legacy "Alice Teste" ca \
         -certpbe PBE-SHA1-3DES -keypbe PBE-SHA1-3DES -macalg sha1
     client_p12 mallory "Mallory Teste" other
-    [[ -s $dir/client/alice.p12 && -s $dir/client/alice-legacy.p12 && -s $dir/client/mallory.p12 ]] ||
+
+    # ECDSA (ADR-0027): a P-256 CA, a P-384 gateway certificate and the
+    # person's P-256 certificate (alice-ec.p12), for the ECDSA mode.
+    openssl req -x509 -newkey ec -pkeyopt ec_paramgen_curve:prime256v1 -nodes -days 2 \
+        -keyout "$dir/tmp/ec-ca.key" -subj "/O=Example/CN=IPsec Client ECDSA Test CA" \
+        "${ca_ext[@]}" -out "$dir/gateway/x509ca/ec-ca.pem" 2>/dev/null
+    openssl req -newkey ec -pkeyopt ec_paramgen_curve:secp384r1 -nodes \
+        -keyout "$dir/gateway/private/gateway-ec.key" \
+        -subj "/O=Example/CN=gw.ipsec-client.test" -out "$dir/tmp/gateway-ec.csr" 2>/dev/null
+    openssl x509 -req -in "$dir/tmp/gateway-ec.csr" -CA "$dir/gateway/x509ca/ec-ca.pem" \
+        -CAkey "$dir/tmp/ec-ca.key" -CAcreateserial -days 2 -extfile "$dir/tmp/gateway.ext" \
+        -out "$dir/gateway/x509/gateway-ec.pem" 2>/dev/null
+    cp "$dir/gateway/x509ca/ec-ca.pem" "$dir/client/ec-ca.pem"
+    openssl req -newkey ec -pkeyopt ec_paramgen_curve:prime256v1 -nodes \
+        -keyout "$dir/tmp/alice-ec.key" -subj "/O=Example Org/CN=Alice Teste" \
+        -out "$dir/tmp/alice-ec.csr" 2>/dev/null
+    printf 'subjectAltName=email:alice@example.com\nextendedKeyUsage=clientAuth\n' >"$dir/tmp/alice-ec.ext"
+    openssl x509 -req -in "$dir/tmp/alice-ec.csr" -CA "$dir/gateway/x509ca/ec-ca.pem" \
+        -CAkey "$dir/tmp/ec-ca.key" -CAcreateserial -days 2 -extfile "$dir/tmp/alice-ec.ext" \
+        -out "$dir/tmp/alice-ec.pem" 2>/dev/null
+    openssl pkcs12 -export -inkey "$dir/tmp/alice-ec.key" -in "$dir/tmp/alice-ec.pem" \
+        -passout "pass:$P12_PASSWORD" -out "$dir/client/alice-ec.p12" 2>/dev/null
+
+    [[ -s $dir/client/alice.p12 && -s $dir/client/alice-legacy.p12 && -s $dir/client/mallory.p12 &&
+        -s $dir/client/alice-ec.p12 ]] ||
         fail "could not make the test client certificates"
     rm -f "$dir/ca.pem" "$dir/other.pem"
     rm -rf "$dir/tmp"

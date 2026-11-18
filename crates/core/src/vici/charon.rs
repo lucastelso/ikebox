@@ -50,7 +50,7 @@ impl PrivateKey {
     }
 
     fn to_message(&self) -> Message {
-        // "any": charon finds the type (RSA or Ed25519) in the PKCS#8.
+        // "any": charon finds the type (RSA, ECDSA or Ed25519) in the PKCS#8.
         Message::new()
             .kv("type", "any")
             .kv("data", self.data.as_slice())

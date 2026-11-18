@@ -24,6 +24,7 @@ eap-password=senha-de-teste'
 # CA certificates made by tests/systemd/run.sh for this run (public, fake).
 readonly CA=/test/pki/client/ca.pem
 readonly OTHER_CA=/test/pki/client/other-ca.pem
+readonly EC_CA=/test/pki/client/ec-ca.pem
 # The person's certificate as .p12 files from the same run (FAKE keys), and
 # the password of the files.
 readonly P12=/test/pki/client
@@ -397,6 +398,27 @@ expect_esp native MODP_2048
 traffic
 ok "IKEv1 main mode with RSA certificates then XAuth (mutual RSA + XAuth), legacy .p12 read"
 disconnect
+
+step "IKEv2 with ECDSA certificates (yours P-256, the gateway's P-384) and ECP groups"
+gw=${GW[ikev2-ecdsa]}
+connect_args=(--client-p12 "$P12/alice-ec.p12")
+connect v2-ecdsa "$P12_CREDS" gateway="$gw" version=2 method=cert \
+    remote_id=gw.ipsec-client.test ca="$EC_CA" ike=aes256gcm16-prfsha384-ecp384 \
+    esp=aes256gcm16-ecp384 remote_ts=192.0.2.0/24
+expect_ike 2 ""
+expect_vip yes
+# The first CHILD_SA of IKEv2 comes with IKE_AUTH, without a key exchange of
+# its own (PFS applies from the first rekey, checked in the PSK scenario).
+expect_esp native none
+traffic
+log=$(as alice "$CLI" logs -n 300)
+[[ $log == *"(myself) with ECDSA"*"successful"* ]] ||
+    fail "the log does not show the client signing with its ECDSA key"
+[[ $(grep -c "with ECDSA.*successful" <<<"$log") -ge 2 ]] ||
+    fail "the log does not show the gateway's ECDSA certificate verified"
+[[ $log == *ECP_384* ]] || fail "the IKE SA did not use ECP_384"
+ok "IKEv2: ECDSA on both sides through OpenSSL (P-256 and P-384), IKE SA with ECP_384"
+disconnect
 connect_args=()
 
 # ---------------------------------------------------------------------------
@@ -439,4 +461,4 @@ connect_args=()
 ((wrong_diagnoses == 0)) || fail "$wrong_diagnoses failures without the right diagnosis"
 
 step "Result"
-ok "IPsec modes: IKEv1 main (PSK, PSK + XAuth), IKEv1 aggressive PSK, IKEv2 PSK; NAT-T, PFS, VIP, split and full tunnel; failures diagnosed"
+ok "IPsec modes: IKEv1 main (PSK, PSK + XAuth, certificates), IKEv1 aggressive PSK, IKEv2 PSK, EAP and certificates (RSA, ECDSA); NAT-T, PFS, VIP, split and full tunnel; failures diagnosed"

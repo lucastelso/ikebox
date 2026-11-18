@@ -6,8 +6,8 @@
 //!
 //! Accepted: modern files (PBES2/AES) and old ones (3DES/RC2 with SHA-1, as
 //! older Windows and firewalls export; decided at the start of phase 9), with
-//! one private key, RSA or Ed25519 (the engine has no ECDSA), and its
-//! certificate valid today. The `.p12` password is never stored.
+//! one private key, RSA, ECDSA (through OpenSSL in the engine, ADR-0027) or
+//! Ed25519, and its certificate valid today. The `.p12` password is never stored.
 
 use std::fmt;
 use std::time::{SystemTime, UNIX_EPOCH};
@@ -41,7 +41,7 @@ pub struct ClientCertInfo {
     pub not_after: String,
     /// Seconds since the epoch of the end of validity.
     pub not_after_unix: u64,
-    /// `RSA` or `Ed25519`.
+    /// `RSA`, `ECDSA` or `Ed25519`.
     pub key: &'static str,
     /// Values that identify the person or the organization (subject
     /// attributes, alternative names): masked in the logs.
@@ -244,7 +244,7 @@ fn is_ca(cert: &Certificate) -> bool {
     )
 }
 
-/// `RSA` or `Ed25519`; anything else is refused with the reason.
+/// `RSA`, `ECDSA` or `Ed25519`; anything else is refused with the reason.
 fn key_kind(key_der: &[u8]) -> Result<&'static str, String> {
     let info = PrivateKeyInfoRef::from_der(key_der)
         .map_err(|_| err("invalid private key", "chave privada inválida"))?;
@@ -254,21 +254,19 @@ fn key_kind(key_der: &[u8]) -> Result<&'static str, String> {
     } else if oid == ED25519 {
         Ok("Ed25519")
     } else if oid == EC {
-        Err(err(
-            "ECDSA keys are not supported yet (the engine signs with RSA and Ed25519)",
-            "chaves ECDSA ainda não são suportadas (o motor assina com RSA e Ed25519)",
-        ))
+        Ok("ECDSA")
     } else {
         Err(err(
-            "unsupported key type (the engine signs with RSA and Ed25519)",
-            "tipo de chave não suportado (o motor assina com RSA e Ed25519)",
+            "unsupported key type (the engine signs with RSA, ECDSA and Ed25519)",
+            "tipo de chave não suportado (o motor assina com RSA, ECDSA e Ed25519)",
         ))
     }
 }
 
 /// Does the private key belong to the certificate? RSA: same modulus.
-/// Ed25519: same public key when the PKCS#8 carries it (otherwise charon
-/// says so at connect time).
+/// Ed25519: same public key when the PKCS#8 carries it. ECDSA keeps its
+/// public key inside the SEC1 structure, which is not parsed here: a
+/// mismatch is reported by charon at connect time.
 fn key_matches(key_der: &[u8], cert: &Certificate) -> Result<bool, String> {
     let kind = key_kind(key_der)?;
     let info = PrivateKeyInfoRef::from_der(key_der)
@@ -317,16 +315,11 @@ fn describe(cert: &Certificate) -> Result<ClientCertInfo, String> {
     let key = match tbs.subject_public_key_info().algorithm.oid {
         oid if oid == RSA => "RSA",
         oid if oid == ED25519 => "Ed25519",
-        oid if oid == EC => {
-            return Err(err(
-                "ECDSA certificates are not supported yet (RSA or Ed25519)",
-                "certificados ECDSA ainda não são suportados (RSA ou Ed25519)",
-            ));
-        }
+        oid if oid == EC => "ECDSA",
         _ => {
             return Err(err(
-                "unsupported key type (RSA or Ed25519)",
-                "tipo de chave não suportado (RSA ou Ed25519)",
+                "unsupported key type (RSA, ECDSA or Ed25519)",
+                "tipo de chave não suportado (RSA, ECDSA ou Ed25519)",
             ));
         }
     };
@@ -488,6 +481,7 @@ mod tests {
             ("modern RSA", "rsa:2048", &[][..]),
             ("old 3DES/SHA-1", "rsa:2048", &old_3des[..]),
             ("Ed25519", "ed25519", &[][..]),
+            ("ECDSA P-256", "ec", &[][..]),
         ] {
             let dir = tempfile::tempdir().expect("tempdir");
             let p12 = make_p12(dir.path(), key, extra).expect(name);
@@ -542,11 +536,6 @@ mod tests {
         let wrong = ClientCertificate::from_pkcs12(&p12, "errada").expect_err("password");
         assert!(wrong.contains("wrong password"), "{wrong}");
         assert!(ClientCertificate::from_pkcs12(b"not a p12", PASSWORD).is_err());
-
-        let dir = tempfile::tempdir().expect("tempdir");
-        let p12 = make_p12(dir.path(), "ec", &[]).expect("ec");
-        let ec = ClientCertificate::from_pkcs12(&p12, PASSWORD).expect_err("ecdsa");
-        assert!(ec.contains("ECDSA"), "{ec}");
 
         // A key that is not the certificate's.
         let other = tempfile::tempdir().expect("tempdir");

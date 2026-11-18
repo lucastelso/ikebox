@@ -140,7 +140,7 @@ export type CaSummary = {
 	subject: string,
 	/**  Last day of validity (`YYYY-MM-DD`). */
 	notAfter: string,
-	/**  `RSA` or `Ed25519`. */
+	/**  `RSA`, `ECDSA` or `Ed25519`. */
 	key: string,
 };
 
@@ -163,7 +163,7 @@ export type ClientCertSummary = {
 	notAfter: string,
 	/**  Dias até vencer (negativo: vencido). */
 	daysLeft: number,
-	/**  `RSA` ou `Ed25519`. */
+	/**  `RSA`, `ECDSA` or `Ed25519`. */
 	key: string,
 };
 

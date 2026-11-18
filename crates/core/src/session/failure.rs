@@ -120,10 +120,10 @@ impl fmt::Display for FailureKind {
             Self::GatewayCertificate => crate::tr!(
                 "the gateway's certificate could not be verified: it must be issued by the CA \
                  in the profile and carry the gateway's name (auth.remote.ca, auth.remote.id), \
-                 with an RSA or Ed25519 key",
+                 with an RSA, ECDSA or Ed25519 key",
                 "o certificado do gateway não pôde ser conferido: ele deve ser emitido pela CA \
                  do perfil e trazer o nome do gateway (auth.remote.ca, auth.remote.id), com \
-                 chave RSA ou Ed25519"
+                 chave RSA, ECDSA ou Ed25519"
             ),
             Self::GatewayName => crate::tr!(
                 "the gateway refused the connection before the password: check the gateway's \

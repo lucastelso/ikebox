@@ -4,9 +4,7 @@
 //! They are public data, but they decide whom the client trusts, so they are
 //! checked in Rust before they reach charon (as data, never as a path):
 //! one certificate per entry, a CA, valid today, with a key the embedded
-//! engine can verify. The engine has no OpenSSL: RSA and Ed25519 only, and an
-//! ECDSA CA is refused here with a clear message instead of failing at
-//! connect time (decision of phase 8).
+//! engine can verify: RSA, ECDSA (through OpenSSL, ADR-0027) or Ed25519.
 
 use std::time::{SystemTime, UNIX_EPOCH};
 
@@ -100,15 +98,11 @@ pub fn parse_ca(pem: &str) -> Result<CaInfo, String> {
     } else if algorithm == ED25519 {
         "Ed25519"
     } else if algorithm == EC {
-        return Err(crate::tr!(
-            "ECDSA certificates are not supported yet (the engine verifies RSA and Ed25519)",
-            "certificados ECDSA ainda não são suportados (o motor verifica RSA e Ed25519)"
-        )
-        .to_owned());
+        "ECDSA"
     } else {
         return Err(crate::tr!(
-            "unsupported key type (the engine verifies RSA and Ed25519)",
-            "tipo de chave não suportado (o motor verifica RSA e Ed25519)"
+            "unsupported key type (the engine verifies RSA, ECDSA and Ed25519)",
+            "tipo de chave não suportado (o motor verifica RSA, ECDSA e Ed25519)"
         )
         .to_owned());
     };
@@ -163,7 +157,7 @@ mod tests {
 
     #[test]
     fn what_the_engine_cannot_trust_is_refused_with_the_reason() {
-        assert!(parse_ca(ECDSA_CA).expect_err("ecdsa").contains("ECDSA"));
+        assert_eq!(parse_ca(ECDSA_CA).expect("ecdsa").key, "ECDSA");
         assert!(parse_ca(LEAF).expect_err("leaf").contains("not a CA"));
         assert!(parse_ca(EXPIRED).expect_err("expired").contains("expired"));
         assert!(parse_ca("not a certificate").is_err());

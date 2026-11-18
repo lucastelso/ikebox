@@ -37,9 +37,11 @@ a vulnerability"). Do not open public issues for vulnerabilities.
    is verified by SHA-256 and by the authors' GPG signature (ADR-0016). Both
    patches are small and security-related, and are applied after that check:
    the VICI client cannot choose the `updown` or the `if_id` (ADR-0019), nor
-   make charon open a certificate file or token by path (ADR-0020).
-   Security fixes arrive when the project publishes a new version, not through
-   the distribution's package manager. The daemon is exposed (UDP 500/4500)
+   make charon open a certificate file or token by path (ADR-0020). It links
+   OpenSSL statically for RSA, ECDSA and the Diffie-Hellman groups
+   (ADR-0027). Security fixes of strongSwan and OpenSSL arrive when the
+   project publishes a new version, not through the distribution's package
+   manager ([ADR-0026](docs/adr/0026-strongswan-maintenance-policy.md)). The daemon is exposed (UDP 500/4500)
    **only while the VPN is connected**.
 3. **Legacy cryptography.** IKEv1 aggressive mode with PSK exposes the PSK
    hash to whoever observes the handshake, which is subject to an offline
@@ -79,17 +81,18 @@ a vulnerability"). Do not open public issues for vulnerabilities.
 7. **IKEv1 is being retired upstream.** strongSwan 6.1.0 disables IKEv1 by
    default (the embedded build enables it) and announced its removal in a
    future release. Most of the VPNs this app was made for are IKEv1 (IKEv2
-   with a PSK is supported and tested too); how to keep IKEv1 working with
-   security fixes is an open decision (see the
-   [audit of 0.2.0](docs/audits/v0.2.0.md), P1).
+   with a PSK is supported and tested too). When upstream removes IKEv1,
+   the engine stays on the last release that has it and the project applies
+   upstream's security fixes to it
+   ([ADR-0026](docs/adr/0026-strongswan-maintenance-policy.md)).
 8. **IKEv2 with a username and password (EAP).** The gateway always proves
    itself with its certificate, checked against the CA in the profile and
    the gateway name; there is no way to skip it. Two limits, decided for
    0.7.0: **revocation is not checked** (no CRL or OCSP: that would make root
    charon fetch URLs from the internet), so a revoked gateway certificate
-   still works until it expires; and the engine verifies **RSA and Ed25519**
-   only, so a gateway with an ECDSA certificate cannot be used yet
-   ([ADR-0023](docs/adr/0023-ikev2-eap-mschapv2.md)). MSCHAPv2 is only safe
+   still works until it expires. RSA, ECDSA and Ed25519 certificates are
+   verified ([ADR-0023](docs/adr/0023-ikev2-eap-mschapv2.md),
+   [ADR-0027](docs/adr/0027-openssl-in-the-engine.md)). MSCHAPv2 is only safe
    inside that checked tunnel: the app never sends it to an unverified
    gateway.
 9. **Your certificate (client certificates, 0.8.0).** The private key is the
@@ -99,8 +102,8 @@ a vulnerability"). Do not open public issues for vulnerabilities.
    passwords: unlocked with your session), and sent to charon as data, never
    as a file. The `.p12` password is not stored; the app no longer needs the
    file, and you can delete it. Its names (yours, your e-mail, the
-   organization) are masked in the log. The same RSA/Ed25519 limit as the
-   gateway applies; no smartcards or tokens (PKCS#11) yet
+   organization) are masked in the log. RSA, ECDSA and Ed25519 keys are
+   accepted; no smartcards or tokens (PKCS#11) yet
    ([ADR-0024](docs/adr/0024-client-certificates.md)).
 
 ### Out of scope

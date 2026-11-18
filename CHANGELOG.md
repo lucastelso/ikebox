@@ -9,9 +9,14 @@ and the project uses [Semantic Versioning](https://semver.org/).
 
 ### Added
 
+- **ECDSA certificates and ECP groups** ([ADR-0027](docs/adr/0027-openssl-in-the-engine.md)):
+  the embedded engine links OpenSSL, so gateway CAs and your own `.p12`
+  may be ECDSA, and the ECP Diffie-Hellman groups (ecp256, ecp384, ecp521)
+  work. The "modern" proposals also offer ECP384 and ECP256. OpenSSL
+  replaces GMP in the engine. The network component changes: update it.
 - Every package carries the license texts of everything it distributes in
   `/usr/lib/ipsec-client/licenses/` (the crates and npm packages compiled
-  into the programs, and strongSwan, GMP and musl), and each release
+  into the programs, and strongSwan, OpenSSL and musl), and each release
   attaches the corresponding source of the embedded engine.
 - AppStream metadata in the `.rpm` and the `.deb`: GNOME Software, Discover
   and other software centres show the app's name, description and license.
@@ -34,6 +39,9 @@ and the project uses [Semantic Versioning](https://semver.org/).
 
 ### Changed
 
+- strongSwan maintenance policy recorded ([ADR-0026](docs/adr/0026-strongswan-maintenance-policy.md)):
+  when upstream removes IKEv1, the engine stays on the last release with it
+  and receives upstream's security fixes (audit P1).
 - CI: the Node.js version comes from `.nvmrc` (the release image's), every
   job has a timeout, commit messages pushed to `main` are checked too, and
   `npm audit` runs on the production dependencies. Dependabot follows the

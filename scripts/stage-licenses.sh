@@ -6,7 +6,7 @@
 #   THIRD_PARTY_NOTICES.md      what is distributed, and where its source is
 #   THIRD_PARTY_LICENSES.txt    texts of the crates and npm packages compiled
 #                               into the app, the CLI and the helper
-#   engine/                     strongSwan, GMP and musl texts, taken from
+#   engine/                     strongSwan, OpenSSL and musl texts, taken from
 #                               the staged engine (the one being shipped)
 # Runs after scripts/stage-network-component.sh.
 set -euo pipefail

@@ -1,7 +1,8 @@
 # ADR-0016: strongSwan 6.1.0 in the embedded engine, with 5.8.2 as a fallback
 
 - **Status:** Accepted. Since ADR-0019, the build also applies the IPsec Client
-  security patch, which has not been ported to the 5.x fallbacks.
+  security patch, which has not been ported to the 5.x fallbacks. How new
+  releases and the removal of IKEv1 upstream are handled: ADR-0026.
 - **Date:** 2026-11-16
 
 ## Context

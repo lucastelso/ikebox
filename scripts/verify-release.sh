@@ -7,7 +7,7 @@
 #   linuxdeploy reescreve o RPATH de executáveis dentro do AppImage);
 # - o strongSwan embutido precisa ter os patches de segurança do commit
 #   (native-engine/patches, ADR-0019) e ser um executável totalmente estático
-#   (ADR-0020), com as versões de GMP e musl registradas no BUILDINFO;
+#   (ADR-0020), com as versões de OpenSSL e musl registradas no BUILDINFO;
 # - o AppImage não pode exigir uma glibc mais nova que a do Ubuntu 22.04.
 #
 # Uso: scripts/verify-release.sh <diretório com os pacotes>
@@ -59,11 +59,11 @@ component_ok() {
     tar -xzOf "$net/engine.tar.gz" opt/ipsec-client/engine/libexec/ipsec/charon >"$charon"
     [[ -z $(readelf -d "$charon" 2>/dev/null | grep NEEDED || true) ]] ||
         fail "$name: charon is not fully static"
-    if ! grep -q '^linkage=static$' <<<"$info" || ! grep -q '^gmp=' <<<"$info" ||
+    if ! grep -q '^linkage=static$' <<<"$info" || ! grep -q '^openssl=' <<<"$info" ||
         ! grep -q '^musl=' <<<"$info"; then
-        fail "$name: the engine BUILDINFO does not record the static build (linkage, gmp, musl)"
+        fail "$name: the engine BUILDINFO does not record the static build (linkage, openssl, musl)"
     fi
-    ok "$name: network component intact ($(grep -h '^version=' "$net/VERSION"), strongSwan with the patches, static: GMP $(sed -n 's/^gmp=\([^ ]*\).*/\1/p' <<<"$info"), musl $(sed -n 's/^musl=\([^ ]*\).*/\1/p' <<<"$info"))"
+    ok "$name: network component intact ($(grep -h '^version=' "$net/VERSION"), strongSwan with the patches, static: OpenSSL $(sed -n 's/^openssl=\([^ ]*\).*/\1/p' <<<"$info"), musl $(sed -n 's/^musl=\([^ ]*\).*/\1/p' <<<"$info"))"
 }
 
 # The license folder every package carries (scripts/stage-licenses.sh).
@@ -72,10 +72,10 @@ licenses_ok() {
     for f in LICENSE THIRD_PARTY_NOTICES.md THIRD_PARTY_LICENSES.txt; do
         [[ -s $dir/$f ]] || fail "$name: licenses/$f missing"
     done
-    [[ -s $dir/engine/strongswan/COPYING && -n $(find "$dir/engine/gmp" -type f -print -quit) &&
+    [[ -s $dir/engine/strongswan/COPYING && -s $dir/engine/openssl/LICENSE.txt &&
         -n $(find "$dir/engine/musl" -type f -print -quit) ]] ||
-        fail "$name: the strongSwan, GMP or musl license texts are missing"
-    ok "$name: license texts (project, $(grep -m1 -oE '^[0-9]+ components' "$dir/THIRD_PARTY_LICENSES.txt"), strongSwan, GMP, musl)"
+        fail "$name: the strongSwan, OpenSSL or musl license texts are missing"
+    ok "$name: license texts (project, $(grep -m1 -oE '^[0-9]+ components' "$dir/THIRD_PARTY_LICENSES.txt"), strongSwan, OpenSSL, musl)"
 }
 
 # The command line the .rpm/.deb carry: the binary (same version as the
