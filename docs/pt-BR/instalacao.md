@@ -175,9 +175,11 @@ O AppImage é um arquivo único: não instala nada no sistema.
    navegador ou o que você usa normalmente.
 
 Enquanto o app está aberto, o ícone na **bandeja** (perto do relógio) mostra
-o estado e tem Conectar/Desconectar. **Fechar a janela fecha o app, mas não
-desconecta a VPN.** Ao abrir de novo, ele mostra a conexão ativa. Para
-desconectar, use o botão **Desconectar**.
+o estado e tem Desconectar. **Fechar a janela mantém o app rodando na
+bandeja** (na primeira vez, uma notificação avisa); **Sair do app**, no menu
+da bandeja, encerra. Nenhum dos dois desconecta a VPN: use o botão
+**Desconectar**. Para o botão de fechar encerrar o app: **Sistema →
+Comportamento**.
 
 No GNOME, a bandeja só aparece com a extensão **AppIndicator**: no Fedora,
 `sudo dnf install gnome-shell-extension-appindicator`; depois saia e entre na
