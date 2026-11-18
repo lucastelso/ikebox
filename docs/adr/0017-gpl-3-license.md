@@ -43,6 +43,13 @@ corresponding-source archive made by `scripts/release-sources.sh`
 (strongSwan with the patches, GMP and musl with Alpine's packaging at fixed
 aports commits).
 
+**Updated in phase C (2026-11-18):** OpenSSL (Apache-2.0) replaced GMP in
+the engine (ADR-0027). strongSwan's license carries an OpenSSL exception,
+and its "GPL version 2 or later" lets the combination be distributed under
+GPL version 3, compatible with Apache-2.0; the app itself is GPL-3.0-or-later
+already. The engine carries the OpenSSL license text, and the sources
+archive the OpenSSL release with Alpine's packaging.
+
 ## Consequences
 
 - Any redistributed version, modified or not, must keep the source code

@@ -287,7 +287,7 @@ The details are in [CONTRIBUTING.md](CONTRIBUTING.md).
 
 [GPL-3.0-or-later](LICENSE). Any redistributed version must stay open source,
 which is what you expect from a security tool. The reason for the choice is in
-[ADR-0017](docs/adr/0017-gpl-3-license.md). strongSwan, GMP and musl, embedded
+[ADR-0017](docs/adr/0017-gpl-3-license.md). strongSwan, OpenSSL and musl, embedded
 in the engine, and the libraries compiled into the app have their own
 licenses: see [THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md). The installed
 app carries every text in `/usr/lib/ipsec-client/licenses/`, and each release

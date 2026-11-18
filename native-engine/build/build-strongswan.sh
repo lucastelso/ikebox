@@ -77,7 +77,12 @@ configure_flags=(
     --enable-kernel-netlink --enable-socket-default
     --enable-nonce --enable-random --enable-drbg
     --enable-aes --enable-des --enable-sha1 --enable-sha2 --enable-md5 --enable-hmac
-    --enable-gcm --enable-chapoly --enable-curve25519 --enable-gmp
+    --enable-gcm --enable-chapoly --enable-curve25519
+    # OpenSSL (ADR-0027): RSA, ECDSA, the MODP and ECP DH groups. It replaces
+    # GMP. The symmetric plugins above load first and keep their algorithms;
+    # single DES and MD4 stay in strongSwan's own plugins (OpenSSL 3 has them
+    # only in its legacy provider, which a static build cannot load).
+    --enable-openssl
     --enable-pem --enable-pkcs1 --enable-pkcs8 --enable-x509 --enable-pubkey
     --enable-xauth-generic --enable-updown --enable-unity
     # IKEv2 + EAP-MSCHAPv2 (ADR-0023): the EAP identity exchange, MSCHAPv2
@@ -128,19 +133,19 @@ rmdir "$root/sbin"
 rm -rf "${root:?}/libexec/ipsec/_updown" "${root:?}/libexec/ipsec/xfrmi" \
     "${root:?}/share/strongswan" "${root:?}/etc/swanctl" "${root:?}/etc/strongswan.d/swanctl.conf"
 
-# Conformidade (ADR-0017): textos de licença do strongSwan, do GMP e da musl.
+# Compliance (ADR-0017): license texts of strongSwan, OpenSSL and musl.
 mkdir -p "$root/share/licenses/strongswan"
 cp "$SRC/COPYING" "$SRC/LICENSE" "$root/share/licenses/strongswan/"
-cp -R /licenses/gmp /licenses/musl "$root/share/licenses/"
-gmp_version=$(apk list -I gmp-static 2>/dev/null | awk '{print $1}' | sed 's/^gmp-static-//')
+cp -R /licenses/openssl /licenses/musl "$root/share/licenses/"
+openssl_version=$(apk list -I openssl-libs-static 2>/dev/null | awk '{print $1}' | sed 's/^openssl-libs-static-//')
 musl_version=$(apk list -I musl 2>/dev/null | awk '{print $1}' | sed 's/^musl-//')
-[[ -n $gmp_version && -n $musl_version ]] || { echo "could not read the GMP/musl versions" >&2; exit 1; }
+[[ -n $openssl_version && -n $musl_version ]] || { echo "could not read the OpenSSL/musl versions" >&2; exit 1; }
 
 {
     echo "strongswan=$version"
     echo "sha256=$sha256"
     echo "builder=alpine:$(cat /etc/alpine-release) (musl $musl_version)"
-    echo "gmp=$gmp_version (static; Alpine package gmp-static)"
+    echo "openssl=$openssl_version (static; Alpine package openssl-libs-static)"
     echo "musl=$musl_version (static)"
     echo "linkage=static"
     echo "patches=${patches[*]}"

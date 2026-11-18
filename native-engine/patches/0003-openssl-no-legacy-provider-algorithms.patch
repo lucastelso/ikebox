@@ -1,0 +1,50 @@
+IPsec Client: the openssl plugin does not announce what the static engine
+cannot run (ADR-0027).
+
+OpenSSL 3 keeps RC5, CAST, Blowfish, IDEA, single DES and MD4 in its legacy
+provider, a loadable module. The embedded engine links libcrypto statically
+and cannot load it, but the plugin still announced those algorithms, and
+its implementations would fail at runtime instead of being absent: a
+proposal with Blowfish or CAST, which no other plugin provides, would pick
+a broken implementation. Without the announcements, single DES and MD4
+(EAP-MSCHAPv2) come only from strongSwan's own des and md4 plugins, as
+before OpenSSL was added, and the others do not exist in the engine. 3DES
+stays: it is in OpenSSL's default provider.
+
+--- a/src/libstrongswan/plugins/openssl/openssl_plugin.c
++++ b/src/libstrongswan/plugins/openssl/openssl_plugin.c
+@@ -380,29 +380,17 @@
+ 			PLUGIN_PROVIDE(CRYPTER, ENCR_CAMELLIA_CTR, 24),
+ 			PLUGIN_PROVIDE(CRYPTER, ENCR_CAMELLIA_CTR, 32),
+ #endif
+-#ifndef OPENSSL_NO_RC5
+-			PLUGIN_PROVIDE(CRYPTER, ENCR_RC5, 0),
+-#endif
+-#ifndef OPENSSL_NO_CAST
+-			PLUGIN_PROVIDE(CRYPTER, ENCR_CAST, 0),
+-#endif
+-#ifndef OPENSSL_NO_BLOWFISH
+-			PLUGIN_PROVIDE(CRYPTER, ENCR_BLOWFISH, 0),
+-#endif
+-#ifndef OPENSSL_NO_IDEA
+-			PLUGIN_PROVIDE(CRYPTER, ENCR_IDEA, 16),
+-#endif
++			/* IPsec Client (ADR-0027): RC5, CAST, Blowfish, IDEA, single DES
++			 * and MD4 live only in OpenSSL 3's legacy provider, a loadable
++			 * module that the static engine cannot load. They are not
++			 * announced, so strongSwan's own des and md4 plugins provide
++			 * them instead of an implementation that fails at runtime. */
+ #ifndef OPENSSL_NO_DES
+ 			PLUGIN_PROVIDE(CRYPTER, ENCR_3DES, 24),
+-			PLUGIN_PROVIDE(CRYPTER, ENCR_DES, 8),
+-			PLUGIN_PROVIDE(CRYPTER, ENCR_DES_ECB, 8),
+ #endif
+ 			PLUGIN_PROVIDE(CRYPTER, ENCR_NULL, 0),
+ 		/* hashers */
+ 		PLUGIN_REGISTER(HASHER, openssl_hasher_create),
+-#ifndef OPENSSL_NO_MD4
+-			PLUGIN_PROVIDE(HASHER, HASH_MD4),
+-#endif
+ #ifndef OPENSSL_NO_MD5
+ 			PLUGIN_PROVIDE(HASHER, HASH_MD5),
+ #endif
