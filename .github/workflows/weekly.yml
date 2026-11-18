@@ -1,0 +1,79 @@
+name: Weekly
+
+# What does not run on every push (audit P16, ADR-0026): the upstream watch,
+# a fresh advisory database, the network component's reproducibility and the
+# compatibility matrix on the seven distributions, with real packages updated
+# from the latest release.
+
+on:
+  schedule:
+    - cron: "17 5 * * 1"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  upstream:
+    name: Upstream watch (strongSwan, OpenSSL, musl)
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    permissions:
+      contents: read
+      issues: write
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - name: Compare with what the engine pins and the latest release carries
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: scripts/upstream-watch.sh --issue
+
+  advisories:
+    name: Rust advisories (fresh database)
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: EmbarkStudios/cargo-deny-action@3c6349835b2b7b196a839186cb8b78e02f7b5f25 # v2.1.1
+        with:
+          command: check advisories
+
+  compatibility:
+    name: Reproducibility and the seven distributions
+    runs-on: ubuntu-24.04
+    timeout-minutes: 240
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+      - name: Room for the build and test images
+        run: sudo rm -rf /usr/share/dotnet /usr/local/lib/android /opt/ghc /opt/hostedtoolcache/CodeQL
+      - name: Kernel module and tools
+        run: >-
+          sudo modprobe xfrm_interface &&
+          sudo apt-get update && sudo apt-get install -y --no-install-recommends rpm2cpio cpio binutils
+      - name: The network component is reproducible
+        run: scripts/check-reproducible.sh HEAD
+      - name: Packages from main
+        run: scripts/build-release.sh HEAD
+      - name: The engine with real systemd and polkit on the seven distributions
+        run: npm run test:compat
+      - name: The packages installed, updated from the latest release, and removed
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          new=$(find target/release-artifacts -mindepth 1 -maxdepth 1 -type d | head -n 1)
+          old="$RUNNER_TEMP/previous"
+          mkdir -p "$old"
+          if gh release download --pattern '*.deb' --pattern '*.rpm' --dir "$old"; then
+            tests/compat/packages.sh "$new" --from "$old"
+          else
+            echo "no published release yet: fresh installations only"
+            tests/compat/packages.sh "$new"
+          fi

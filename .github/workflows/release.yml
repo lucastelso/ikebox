@@ -1,0 +1,155 @@
+name: Release
+
+# Builds, signs and attests a release (ADR-0030):
+#   - on a version tag (vX.Y.Z): build → sign (needs the maintainer's approval
+#     in the "release" environment) → provenance attestation → draft release;
+#   - by hand (workflow_dispatch): a rehearsal from any commit; it builds and,
+#     once approved, signs, but publishes nothing (the files stay as workflow
+#     artifacts).
+# The maintainer then downloads the draft, scans it for private data with the
+# patterns that never leave their computer (scripts/check-private.sh
+# --artifacts, ADR-0010), compares it with a local build, and publishes it.
+
+on:
+  push:
+    tags: ["v[0-9]+.[0-9]+.[0-9]+"]
+  workflow_dispatch:
+    inputs:
+      ref:
+        description: Commit or branch to build (rehearsal; nothing is published)
+        required: true
+        default: main
+
+permissions:
+  contents: read
+
+concurrency:
+  group: release-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  build:
+    name: Build, verify and check reproducibility
+    runs-on: ubuntu-24.04
+    timeout-minutes: 120
+    outputs:
+      version: ${{ steps.collect.outputs.version }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: ${{ github.event_name == 'workflow_dispatch' && inputs.ref || github.ref }}
+          fetch-depth: 0
+          persist-credentials: false
+      - name: Room for the build images
+        run: sudo rm -rf /usr/share/dotnet /usr/local/lib/android /opt/ghc /opt/hostedtoolcache/CodeQL
+      - name: Tools for the package checks
+        run: sudo apt-get update && sudo apt-get install -y --no-install-recommends rpm2cpio cpio binutils
+      - name: Build the packages (verify-release.sh and the private data scan run at the end)
+        env:
+          REF: ${{ github.ref_type == 'tag' && github.ref_name || 'HEAD' }}
+        run: scripts/build-release.sh "$REF"
+      - name: The network component is reproducible
+        run: scripts/check-reproducible.sh HEAD
+      - name: Collect the packages and the engine's corresponding source
+        id: collect
+        run: |
+          set -euo pipefail
+          built=$(find target/release-artifacts -mindepth 1 -maxdepth 1 -type d | head -n 1)
+          version=$(sed -n 's/^\[workspace.package\]//;/^version *= *"/{s/.*"\(.*\)"/\1/p;q}' Cargo.toml)
+          scripts/release-sources.sh "$version"
+          mkdir dist
+          cp "$built"/*.AppImage "$built"/*.deb "$built"/*.rpm dist/
+          cp "target/release-sources/$version/ipsec-client-$version-sources.tar" dist/
+          echo "version=$version" >>"$GITHUB_OUTPUT"
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: unsigned
+          path: dist/
+          if-no-files-found: error
+          retention-days: 7
+
+  sign:
+    name: Sign (maintainer approval)
+    needs: build
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    # Required reviewer: the maintainer. The signing subkey and its passphrase
+    # exist only in this environment's secrets.
+    environment: release
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: ${{ github.event_name == 'workflow_dispatch' && inputs.ref || github.ref }}
+          persist-credentials: false
+      - uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
+        with:
+          name: unsigned
+          path: dist/
+      - name: rpmsign and GnuPG
+        run: sudo apt-get update && sudo apt-get install -y --no-install-recommends rpm gnupg
+      - name: Sign the .rpm and SHA256SUMS, and check them with the public key
+        env:
+          RELEASE_GPG_KEY: ${{ secrets.RELEASE_GPG_KEY }}
+          RELEASE_GPG_PASSPHRASE: ${{ secrets.RELEASE_GPG_PASSPHRASE }}
+          RELEASE_GPG_FINGERPRINT: ${{ vars.RELEASE_GPG_FINGERPRINT }}
+        run: |
+          set -euo pipefail
+          export GNUPGHOME="$RUNNER_TEMP/gnupg"
+          install -d -m 0700 "$GNUPGHOME"
+          printf '%s\n' "$RELEASE_GPG_KEY" | gpg --batch --quiet --import
+          export RELEASE_GPG_PASSFILE="$RUNNER_TEMP/passphrase"
+          install -m 0600 /dev/null "$RELEASE_GPG_PASSFILE"
+          printf '%s' "$RELEASE_GPG_PASSPHRASE" >"$RELEASE_GPG_PASSFILE"
+          scripts/sign-release.sh dist
+          rm -rf "$GNUPGHOME" "$RELEASE_GPG_PASSFILE"
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: signed
+          path: dist/
+          if-no-files-found: error
+          retention-days: 30
+
+  publish:
+    name: Attest and draft the release
+    needs: [build, sign]
+    if: github.ref_type == 'tag'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    permissions:
+      contents: write
+      id-token: write
+      attestations: write
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
+        with:
+          name: signed
+          path: dist/
+      # Free for public repositories (a private one needs GitHub Enterprise).
+      - name: Provenance attestation
+        if: ${{ !github.event.repository.private }}
+        uses: actions/attest-build-provenance@4d101475d8b20a2381f78447822ac1eab6504dd8 # v4.2.2
+        with:
+          subject-path: |
+            dist/*.AppImage
+            dist/*.deb
+            dist/*.rpm
+            dist/*-sources.tar
+            dist/SHA256SUMS
+      - name: Draft release (published by the maintainer after the local checks)
+        env:
+          GH_TOKEN: ${{ github.token }}
+          TAG: ${{ github.ref_name }}
+          VERSION: ${{ needs.build.outputs.version }}
+        run: |
+          set -euo pipefail
+          notes="$RUNNER_TEMP/notes.md"
+          cat "docs/releases/$TAG.md" >"$notes"
+          if [[ -f "docs/releases/$TAG.pt-BR.md" ]]; then
+            printf '\n\n---\n\n' >>"$notes"
+            cat "docs/releases/$TAG.pt-BR.md" >>"$notes"
+          fi
+          gh release create "$TAG" dist/* --draft --verify-tag \
+            --title "IPsec Client $VERSION" --notes-file "$notes"
