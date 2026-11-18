@@ -19,5 +19,6 @@ RUN set -eux; \
         'openssl-dev~3.5' 'openssl-libs-static~3.5' 'musl-dev~1.2.6' \
         ca-certificates curl gnupg bzip2 file python3 tar gzip coreutils findutils
 
+COPY musl-capabilities.h /usr/local/include/musl-capabilities.h
 COPY build-strongswan.sh /usr/local/bin/build-strongswan
 ENTRYPOINT ["/usr/local/bin/build-strongswan"]
