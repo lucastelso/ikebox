@@ -14,7 +14,7 @@ updates:
     commit-message:
       prefix: chore
     groups:
-      ferramentas:
+      npm:
         patterns: ["*"]
 
   - package-ecosystem: cargo
@@ -27,8 +27,9 @@ updates:
       rust:
         patterns: ["*"]
 
-  # A base do engine é fixada de propósito no Ubuntu 20.04 (ADR-0001):
-  # aceita só atualizações de digest da mesma tag.
+  # Docker engine and test gateway (development and tests only, ADR-0020):
+  # digest updates of Debian 13; a new Debian release is a decision of its own
+  # (the strongSwan version is pinned in the Dockerfile).
   - package-ecosystem: docker
     directory: /engine
     schedule:
@@ -36,5 +37,37 @@ updates:
     commit-message:
       prefix: build
     ignore:
+      - dependency-name: debian
+        update-types: ["version-update:semver-major"]
+
+  # Release build image: Ubuntu 22.04 is the glibc floor of the AppImage
+  # (glibc 2.35), so only digest updates of the same release are accepted.
+  - package-ecosystem: docker
+    directory: /packaging/release
+    schedule:
+      interval: weekly
+    commit-message:
+      prefix: build
+    ignore:
       - dependency-name: ubuntu
         update-types: ["version-update:semver-major", "version-update:semver-minor"]
+
+  # Engine builder: Alpine patch releases only. A new Alpine release can
+  # change GMP or musl, which are linked into charon and need new license
+  # texts in native-engine/licenses/.
+  - package-ecosystem: docker
+    directory: /native-engine/build
+    schedule:
+      interval: weekly
+    commit-message:
+      prefix: build
+    ignore:
+      - dependency-name: alpine
+        update-types: ["version-update:semver-major", "version-update:semver-minor"]
+
+# Not covered by Dependabot, updated by hand: tests/systemd/Dockerfile and
+# tests/compat/distros.txt (base images chosen per distribution), the images
+# pinned in scripts (shellcheck, gitleaks, the packaging test), the Rust
+# toolchain (rust-toolchain.toml), the Node.js and rustup-init versions and
+# the AppImage tools in packaging/release/Dockerfile, and strongSwan
+# (native-engine/versions.txt). The weekly CI of phase G watches upstream.
