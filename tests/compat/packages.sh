@@ -81,8 +81,33 @@ inside() {
     done
     local resolved=present
     PATH=/usr/sbin:/usr/bin:/sbin:/bin command -v resolvectl >/dev/null 2>&1 || resolved=absent
+
+    # The package installs the network component itself (origin "package"),
+    # also as an update from a version that did not; systemd is not running
+    # here, so the socket is only enabled for the next boot.
+    local p=/opt/ipsec-client units=/etc/systemd/system version
+    version=$(sed -n 's/^version=//p' "$net/VERSION")
+    [[ $(cat "$p/ORIGIN" 2>/dev/null) == package ]] ||
+        { tail -n 15 /tmp/install.log; echo "RESULT component-installed=FAILED"; exit 1; }
+    cmp -s "$net/SHA256SUMS" "$p/SHA256SUMS" ||
+        { echo "RESULT component-version=FAILED"; exit 1; }
+    [[ -L $units/sockets.target.wants/ipsec-client-helper.socket ]] ||
+        { echo "RESULT socket-enabled=FAILED"; exit 1; }
+
+    # Removing the package removes the component: no root helper, unit,
+    # enabled socket or polkit policy may be left behind.
+    case $kind in
+    deb) apt-get remove -y ipsec-client ;;
+    dnf | el) dnf -y remove ipsec-client ;;
+    zypper) zypper -n rm ipsec-client ;;
+    esac >/tmp/remove.log 2>&1 || { tail -n 15 /tmp/remove.log; echo "RESULT remove=FAILED"; exit 1; }
+    local left
+    left=$(ls -d "$p" "$units"/ipsec-client-helper.* "$units"/sockets.target.wants/ipsec-client-helper.socket \
+        /usr/share/polkit-1/actions/io.github.lucastelso.ipsecclient.policy \
+        /etc/polkit-1/actions/io.github.lucastelso.ipsecclient.policy 2>/dev/null || true)
+    [[ -z $left ]] || { echo "left after removal: $left"; echo "RESULT removed-clean=FAILED"; exit 1; }
     # shellcheck source=/dev/null
-    echo "RESULT ok os=\"$(. /etc/os-release && printf '%s' "$PRETTY_NAME")\" version=$(sed -n 's/^version=//p' "$net/VERSION") missing=\"${missing[*]:-}\" resolvectl=$resolved"
+    echo "RESULT ok os=\"$(. /etc/os-release && printf '%s' "$PRETTY_NAME")\" version=$version missing=\"${missing[*]:-}\" resolvectl=$resolved component=package-managed"
 }
 
 if [[ ${1:-} == --inside ]]; then

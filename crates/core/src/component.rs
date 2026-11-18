@@ -648,13 +648,13 @@ fn in_place_dir(bundle: &Bundle) -> Option<PathBuf> {
 /// Pacote inválido, sem `pkexec`, autorização negada ou falha do instalador.
 pub fn install(bundle: &Bundle, origin: Origin) -> Result<Vec<String>, ComponentError> {
     let pkexec = pkexec()?;
-    if installed_at(Path::new(PREFIX)).is_some_and(|i| i.origin == Origin::Package) {
-        return Err(ComponentError::ManagedByPackage);
-    }
+    let in_place = in_place_dir(bundle);
+    let installed = installed_at(Path::new(PREFIX)).map(|i| i.origin);
+    let origin = effective_origin(in_place.is_some(), installed, origin)?;
     // Root-owned bundle: run it where it is. Otherwise (AppImage), a private
     // copy, deleted when `staged` goes out of scope.
     let staged;
-    let dir = if let Some(dir) = in_place_dir(bundle) {
+    let dir = if let Some(dir) = in_place {
         bundle.verify()?;
         dir
     } else {
@@ -673,6 +673,25 @@ pub fn install(bundle: &Bundle, origin: Origin) -> Result<Vec<String>, Component
         ],
     );
     run_privileged(cmd)
+}
+
+/// Origin recorded by an installation through the app. A root-owned bundle
+/// is the one an `.rpm`/`.deb` ships: what it installs belongs to the
+/// package (removing the package removes it), and it may repair or update a
+/// component the package installed. Any other bundle (the AppImage) must
+/// not replace a package's component.
+fn effective_origin(
+    package_bundle: bool,
+    installed: Option<Origin>,
+    requested: Origin,
+) -> Result<Origin, ComponentError> {
+    if package_bundle {
+        return Ok(Origin::Package);
+    }
+    if installed == Some(Origin::Package) {
+        return Err(ComponentError::ManagedByPackage);
+    }
+    Ok(requested)
 }
 
 /// Remove o componente (pede a senha de administrador). Bloqueante.
@@ -1029,5 +1048,29 @@ mod tests {
             "{envs:?}"
         );
         assert!(envs.iter().any(|(k, v)| *k == "PATH" && v.is_some()));
+    }
+    #[test]
+    fn package_bundles_install_as_package_and_others_keep_off() {
+        // The .rpm/.deb bundle installs as the package, and may repair the
+        // package's own component.
+        for installed in [None, Some(Origin::App), Some(Origin::Package)] {
+            assert_eq!(
+                effective_origin(true, installed, Origin::App).ok(),
+                Some(Origin::Package)
+            );
+        }
+        // The AppImage keeps its origin, but never replaces the package's.
+        assert_eq!(
+            effective_origin(false, None, Origin::App).ok(),
+            Some(Origin::App)
+        );
+        assert_eq!(
+            effective_origin(false, Some(Origin::App), Origin::App).ok(),
+            Some(Origin::App)
+        );
+        assert!(matches!(
+            effective_origin(false, Some(Origin::Package), Origin::App),
+            Err(ComponentError::ManagedByPackage)
+        ));
     }
 }

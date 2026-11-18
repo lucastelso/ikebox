@@ -111,3 +111,30 @@ straight from inside the AppImage.
 - **Installing in `/usr/lib/ipsec-client`**, as ADR-0014 planned. Changed to
   `/opt/ipsec-client`, which does not collide with distribution package files
   and is easy to remove entirely.
+
+## Amendment (2026-11-18, program to 1.0.0, phase B)
+
+The `.rpm` and the `.deb` now manage the component themselves:
+
+- **post-install** (`packaging/package/postinst.sh`, deb `configure`, rpm
+  1/2) runs the shipped installer with `--origin package`, on a fresh
+  install and on every upgrade, so updating the package updates the
+  component and the app never asks for the password. A component installed
+  by hand (`--origin manual`) is left alone. The script never fails the
+  package transaction; if the installation fails, the app offers it as
+  before.
+- **pre-removal** (`packaging/package/prerm.sh`, deb `remove`, rpm 0)
+  removes the component when its origin is `package`, with the installer
+  copied into the installation. Before this, removing the package left the
+  root helper installed and its socket listening.
+- The installer works without a running systemd (an image being built, a
+  container): it installs the files and enables the socket for the next
+  boot.
+- When the app installs from a root-owned bundle (the one a package ships),
+  it records the origin `package`, and it may repair or update a component
+  the package installed. The AppImage still cannot replace it
+  (`ManagedByPackage`).
+
+Tests: `test:packaging` (installation without systemd), unit test of the
+origin rule, and `tests/compat/packages.sh` (the package installs the
+component, also as an update from 0.9.0, and removing it leaves nothing).

@@ -156,9 +156,11 @@ O AppImage é um arquivo único: não instala nada no sistema.
 1. Abra o **IPsec Client** pelo menu de aplicativos (procure por "VPN" ou
    "IPsec"). Ele fala o idioma do seu sistema (português ou inglês); para
    trocar, vá em **Sistema → Aparência → Idioma**.
-2. **Instale o componente de rede (só uma vez).** A tela principal mostra
-   *"Falta um passo: instalar o componente de rede"*. Clique em **Instalar
-   agora** e digite a **senha de administrador** quando o sistema pedir.
+2. **O componente de rede.** Com o `.rpm` ou o `.deb`, o próprio pacote já
+   o instalou, e este passo não aparece. Com o AppImage (ou se o pacote não
+   conseguiu instalar), a tela principal mostra *"Falta um passo: instalar o
+   componente de rede"*: clique em **Instalar agora** e digite a **senha de
+   administrador** quando o sistema pedir (só uma vez).
    - É a parte que cria o túnel da VPN no sistema. Depois dela, conectar
      **não pede mais senha**, para nenhum usuário deste computador.
    - O mesmo botão fica em **Sistema → Componente de rede**.
@@ -188,27 +190,32 @@ sessão e ative a extensão no app **Extensões**.
    - Ubuntu: `sudo apt install ./ipsec-client_<nova versão>_amd64.deb`
    - AppImage: substitua o arquivo em `~/Aplicativos` (mantenha o nome
      `ipsec-client.AppImage`).
-2. Abra o app. Se aparecer **"Atualização do componente de rede"**, clique em
-   **Atualizar agora** e digite a senha de administrador. Algumas atualizações
-   (como a 0.2.0) só valem depois deste passo.
+2. Com o `.rpm` ou o `.deb` (a partir da 1.0), o pacote atualiza também o
+   componente de rede. Com o AppImage, ou vindo da 0.9 ou anterior, abra o
+   app: se aparecer **"Atualização do componente de rede"**, clique em
+   **Atualizar agora** e digite a senha de administrador.
 
 Seus perfis e credenciais continuam onde estavam.
 
 ## 5. Desinstalar
 
-1. **No app, com a VPN desconectada:** **Sistema → Componente de rede →
-   Remover** (pede a senha de administrador).
-2. Remova o app:
+1. Remova o app:
    - Fedora: `sudo dnf remove ipsec-client`
    - Ubuntu: `sudo apt remove ipsec-client`
-   - AppImage: apague o arquivo e, se criou à mão, o atalho:
+
+     A partir da 1.0, remover o pacote remove também o componente de rede
+     que ele instalou (a VPN, se estiver conectada, é desconectada).
+   - AppImage: antes, no app, com a VPN desconectada, **Sistema →
+     Componente de rede → Remover** (pede a senha de administrador). Depois
+     apague o arquivo e, se criou à mão, o atalho:
      `rm ~/.local/share/applications/ipsec-client.desktop`
-3. **Opcional, para não deixar rastro:**
+2. **Opcional, para não deixar rastro:**
    - perfis: `rm -r ~/.config/ipsec-client`;
    - credenciais guardadas: antes de remover o app, exclua cada perfil em
      **Perfis** marcando **Apagar também as credenciais guardadas**.
 
-Se você removeu o app antes do componente, remova o componente pelo terminal:
+Se o componente continuar lá (instalado pelo AppImage, ou por um pacote
+anterior à 1.0), remova-o pelo terminal:
 
 ```bash
 sudo /opt/ipsec-client/libexec/install-native.sh uninstall
