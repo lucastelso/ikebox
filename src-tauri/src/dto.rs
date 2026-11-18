@@ -291,6 +291,37 @@ impl From<&ConnectionInfo> for Connection {
     }
 }
 
+/// The connection as the status monitor sees it, sent to the UI on every
+/// tick while the window is visible (one monitor for the tray and the UI).
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize, Type, tauri_specta::Event)]
+#[serde(rename_all = "camelCase")]
+pub struct StatusUpdate {
+    /// The active connection, or `None`.
+    pub connection: Option<Connection>,
+}
+
+/// A newer version was found by the optional update check.
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize, Type, tauri_specta::Event)]
+#[serde(rename_all = "camelCase")]
+pub struct UpdateFound {
+    /// The new version (`X.Y.Z`).
+    pub version: String,
+}
+
+/// The app settings the UI shows.
+#[derive(Debug, Clone, PartialEq, Serialize, Type)]
+#[serde(rename_all = "camelCase")]
+pub struct AppSettingsView {
+    /// Closing the window keeps the app in the tray.
+    pub close_to_tray: bool,
+    /// The optional update check is on.
+    pub update_check: bool,
+    /// The update check is built in (packagers may leave it out).
+    pub update_check_available: bool,
+    /// A newer version found by the check, if any.
+    pub available_update: Option<String>,
+}
+
 /// Atualização da sessão, enviada como evento para a UI.
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize, Type, tauri_specta::Event)]
 #[serde(tag = "kind", rename_all = "camelCase")]

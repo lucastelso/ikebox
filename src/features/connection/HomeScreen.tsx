@@ -23,6 +23,7 @@ import { useT } from '@/i18n';
 import { SetupBanner } from '../component/SetupBanner';
 import { useComponent } from '../component/useComponent';
 import { SecurityBadge } from '../profiles/SecurityBadge';
+import { UpdateBanner } from '../settings/UpdateBanner';
 import { HeroAction } from './ConnectButton';
 import { CredentialsDialog } from './CredentialsDialog';
 import type { Phase } from './connectionReducer';
@@ -272,6 +273,7 @@ export function HomeScreen({ onImport }: { onImport?: () => void }) {
       </section>
 
       <div className="mx-auto flex w-full max-w-md flex-col gap-3 p-5">
+        <UpdateBanner />
         {setupNeeded && component.info && (
           <SetupBanner
             info={component.info}

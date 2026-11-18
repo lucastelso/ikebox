@@ -46,6 +46,8 @@ interface Backend {
   connectError?: UiError;
   list?: ProfileList;
   component?: ComponentInfo;
+  /** A newer version found by the update check. */
+  availableUpdate?: string;
 }
 
 const missingComponent: ComponentInfo = {
@@ -67,9 +69,11 @@ function mockBackend({
   list = profiles,
   component,
   p12Password,
+  availableUpdate,
 }: Backend = {}) {
   const connectCalls: Array<Record<string, unknown>> = [];
   const importCalls: Array<Record<string, unknown>> = [];
+  const releasePages: unknown[] = [];
   let connected = false;
   let componentInfo = component;
   mockIPC((cmd, args) => {
@@ -151,11 +155,21 @@ function mockBackend({
       case 'disconnect':
         connected = false;
         return true;
+      case 'app_settings':
+        return {
+          closeToTray: true,
+          updateCheck: availableUpdate !== undefined,
+          updateCheckAvailable: true,
+          availableUpdate: availableUpdate ?? null,
+        };
+      case 'open_release_page':
+        releasePages.push(args);
+        return null;
       default:
         return null;
     }
   });
-  return { connectCalls, importCalls };
+  return { connectCalls, importCalls, releasePages };
 }
 
 describe('HomeScreen', () => {
@@ -302,6 +316,21 @@ describe('HomeScreen', () => {
     await waitFor(() => expect(connectCalls).toHaveLength(1));
     expect(importCalls.at(-1)).toEqual({ profileId: 'trabalho', moduleToken: null, keyId: '01' });
     expect(connectCalls[0]).toMatchObject({ credentials: { tokenPin: '4321' } });
+  });
+
+  it('shows a newer version found by the update check, with a link to it', async () => {
+    const { releasePages } = mockBackend({ availableUpdate: '1.2.0' });
+    render(<HomeScreen />);
+    expect(await screen.findByText('IPsec Client 1.2.0 is available.')).toBeInTheDocument();
+    await userEvent.click(screen.getByRole('button', { name: 'See what is new' }));
+    expect(releasePages).toHaveLength(1);
+  });
+
+  it('shows no update notice when nothing newer is known', async () => {
+    mockBackend();
+    render(<HomeScreen />);
+    await screen.findByRole('button', { name: 'Connect' });
+    expect(screen.queryByText(/is available/)).not.toBeInTheDocument();
   });
 
   it('warns on the connection screen when the certificate is about to expire', async () => {

@@ -11,7 +11,10 @@ pub mod desktop;
 pub mod dto;
 pub mod editor_cmd;
 pub mod profiles_cmd;
+pub mod settings;
+pub mod settings_cmd;
 pub mod token_cmd;
+pub mod update;
 
 use tauri_specta::{Builder, ErrorHandlingMode, collect_commands, collect_events};
 
@@ -53,8 +56,17 @@ pub fn specta_builder() -> Builder<tauri::Wry> {
             component_cmd::component_status,
             component_cmd::install_component,
             component_cmd::uninstall_component,
+            settings_cmd::app_settings,
+            settings_cmd::set_close_to_tray,
+            settings_cmd::set_update_check,
+            settings_cmd::open_release_page,
         ])
-        .events(collect_events![dto::SessionUpdate, dto::ImportPreview])
+        .events(collect_events![
+            dto::SessionUpdate,
+            dto::ImportPreview,
+            dto::StatusUpdate,
+            dto::UpdateFound
+        ])
 }
 
 /// Sobe o app.
@@ -77,6 +89,7 @@ pub fn run() {
         .manage(profiles_cmd::PendingImports::default())
         .manage(certificate_cmd::PendingP12::default())
         .manage(token_cmd::PendingModules::default())
+        .manage(settings::SettingsState::default())
         .invoke_handler(builder.invoke_handler())
         .setup(move |app| {
             if !desktop::acquire_single_instance(app.handle()) {
@@ -88,7 +101,10 @@ pub fn run() {
             desktop::start(app.handle());
             Ok(())
         })
-        .on_window_event(handle_drop)
+        .on_window_event(|window, event| {
+            desktop::handle_close(window, event);
+            handle_drop(window, event);
+        })
         .run(tauri::generate_context!())
         .expect("failed to start IPsec Client");
 }

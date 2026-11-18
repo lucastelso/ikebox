@@ -67,4 +67,58 @@ describe('SystemScreen', () => {
     expect(localStorage.getItem('ipsec-client:language')).toBeNull();
     expect(await screen.findByText('Diagnostics')).toBeInTheDocument();
   });
+
+  it('closing to the tray and the update notice are settings kept by Rust', async () => {
+    const calls: Array<[string, unknown]> = [];
+    let settings = {
+      closeToTray: true,
+      updateCheck: false,
+      updateCheckAvailable: true,
+      availableUpdate: null as string | null,
+    };
+    mockIPC((cmd, args) => {
+      if (cmd === 'run_diagnostics') return [];
+      if (cmd === 'app_settings') return settings;
+      if (cmd === 'set_close_to_tray' || cmd === 'set_update_check') {
+        const enabled = (args as { enabled: boolean }).enabled;
+        calls.push([cmd, enabled]);
+        settings =
+          cmd === 'set_close_to_tray'
+            ? { ...settings, closeToTray: enabled }
+            : { ...settings, updateCheck: enabled };
+        return settings;
+      }
+      return null;
+    });
+    render(<SystemScreen />);
+    const tray = await screen.findByLabelText('Closing the window keeps the app in the tray');
+    expect(tray).toBeChecked();
+    const update = screen.getByLabelText('Tell me when a new version is out');
+    expect(update).not.toBeChecked();
+    expect(screen.getByText(/Nothing is downloaded or installed/)).toBeInTheDocument();
+    await userEvent.click(update);
+    await userEvent.click(tray);
+    expect(calls).toEqual([
+      ['set_update_check', true],
+      ['set_close_to_tray', false],
+    ]);
+    expect(screen.getByLabelText('Tell me when a new version is out')).toBeChecked();
+  });
+
+  it('hides the update notice option when it is not built in', async () => {
+    mockIPC((cmd) => {
+      if (cmd === 'run_diagnostics') return [];
+      if (cmd === 'app_settings')
+        return {
+          closeToTray: true,
+          updateCheck: false,
+          updateCheckAvailable: false,
+          availableUpdate: null,
+        };
+      return null;
+    });
+    render(<SystemScreen />);
+    expect(await screen.findByText('Behavior')).toBeInTheDocument();
+    expect(screen.queryByLabelText('Tell me when a new version is out')).not.toBeInTheDocument();
+  });
 });

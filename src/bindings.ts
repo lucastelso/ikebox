@@ -135,12 +135,28 @@ export const commands = {
 	installComponent: (options?: InvokeOptions) => typedError<ComponentInfo, UiError>(__TAURI_INVOKE("install_component", undefined, options)),
 	/**  Remove o componente de rede (o sistema pede a senha de administrador). */
 	uninstallComponent: (options?: InvokeOptions) => typedError<ComponentInfo, UiError>(__TAURI_INVOKE("uninstall_component", undefined, options)),
+	/**  The current settings. */
+	appSettings: (options?: InvokeOptions) => __TAURI_INVOKE<AppSettingsView>("app_settings", undefined, options),
+	/**  Closing the window keeps the app in the tray (`true`) or quits it. */
+	setCloseToTray: (enabled: boolean, options?: InvokeOptions) => __TAURI_INVOKE<AppSettingsView>("set_close_to_tray", { enabled }, options),
+	/**  Turns the update check on (checking right away) or off. */
+	setUpdateCheck: (enabled: boolean, options?: InvokeOptions) => __TAURI_INVOKE<AppSettingsView>("set_update_check", { enabled }, options),
+	/**
+	 *  Opens the release page of the newer version found by the check, in the
+	 *  browser. The address is built here from the validated version number.
+	 * 
+	 *  # Errors
+	 *  No newer version known, or no browser could be started.
+	 */
+	openReleasePage: (options?: InvokeOptions) => typedError<null, UiError>(__TAURI_INVOKE("open_release_page", undefined, options)),
 };
 
 /** Events */
 export const events = {
 	importPreview: makeEvent<ImportPreview, ImportPreview>("import-preview"),
 	sessionUpdate: makeEvent<SessionUpdate, SessionUpdate>("session-update"),
+	statusUpdate: makeEvent<StatusUpdate, StatusUpdate>("status-update"),
+	updateFound: makeEvent<UpdateFound, UpdateFound>("update-found"),
 };
 
 /* Types */
@@ -150,6 +166,18 @@ export type AppInfo = {
 	version: string,
 	/**  Imagem do engine usada nesta versão. */
 	engineImage: string,
+};
+
+/**  The app settings the UI shows. */
+export type AppSettingsView = {
+	/**  Closing the window keeps the app in the tray. */
+	closeToTray: boolean,
+	/**  The optional update check is on. */
+	updateCheck: boolean,
+	/**  The update check is built in (packagers may leave it out). */
+	updateCheckAvailable: boolean,
+	/**  A newer version found by the check, if any. */
+	availableUpdate: string | null,
 };
 
 /**  Arquivo de perfil que não pôde ser lido. */
@@ -625,6 +653,15 @@ line: string } |
 /**  O engine parou. */
 { kind: "engineGone" };
 
+/**
+ *  The connection as the status monitor sees it, sent to the UI on every
+ *  tick while the window is visible (one monitor for the tray and the UI).
+ */
+export type StatusUpdate = {
+	/**  The active connection, or `None`. */
+	connection: Connection | null,
+};
+
 /**  What the tokens of one module offer. */
 export type TokenCertList = {
 	/**  File name of the module used. */
@@ -683,6 +720,12 @@ export type UiErrorKind =
 "busy" | 
 /**  Outro erro. */
 "other";
+
+/**  A newer version was found by the optional update check. */
+export type UpdateFound = {
+	/**  The new version (`X.Y.Z`). */
+	version: string,
+};
 
 /* Tauri Specta runtime */
 async function typedError<T, E>(result: Promise<T>): Promise<{ status: "ok"; data: T } | { status: "error"; error: E }> {
