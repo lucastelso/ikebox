@@ -2324,3 +2324,27 @@ distributions), `test:native` and `npm run check` pass.
   AppImage keeps the glibc 2.35 limit with `ring` inside. The `.rpm`/`.deb`
   are about 10.8 MB now (5.7 MB in 0.9.0): the CLI (phase B), the OpenSSL
   engine (phase C) and the license texts.
+
+### Step 57: phase G, the release pipeline in CI (ADR-0030)
+
+- **Reproducibility first:** the engine built twice gave the same tarball,
+  and the network component staged twice in fresh containers of the release
+  image gave the same `SHA256SUMS`, with no change needed.
+  `scripts/check-reproducible.sh` keeps checking it, on every release and
+  weekly.
+- **Signing:** `scripts/sign-release.sh`, tested in an Ubuntu 24.04
+  container (the runner's system) with a throwaway Ed25519 primary key and
+  signing subkey, exporting the subkey alone as CI will hold it. Two fixes
+  on the way: Ubuntu's `rpmsign` looks for GnuPG elsewhere (`%__gpg` set to
+  the real path), and an rpm database is created with `rpm --initdb`, not
+  `rpmkeys`. The signed `.rpm` verifies with the rpm of Fedora 45, openSUSE
+  Tumbleweed and AlmaLinux 10, so Ed25519 is fine for every RPM target.
+- **Workflows:** `release.yml` (build → sign with approval → attest and
+  draft) and `weekly.yml` (upstream watch, advisories, reproducibility, the
+  seven distributions with packages updated from the latest release);
+  actions pinned by commit, `actionlint` clean. The private patterns never
+  reach CI: the maintainer scans the draft locally.
+- **Upstream watch:** strongSwan 6.1.0 is still the newest; Alpine has
+  OpenSSL 3.5.9-r0 and musl 1.2.6-r3, the ones the engine links.
+- **Not run here:** the workflows themselves (they run on GitHub). The
+  signing job needs the maintainer's key and environment first.
