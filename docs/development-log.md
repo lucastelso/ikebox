@@ -2172,3 +2172,57 @@ IKEv1); **ADR-0027** records the engine change.
 **Verification:** `npm run check`, `test:native`, `test:systemd`,
 `test:modes` (every mode, ECDSA included, and every diagnosed failure), a
 release build from `main` and the corresponding-source script.
+
+**Real VPN, phase C build (2026-11-18).** The maintainer installed the
+development build and connected to the work VPN: IKEv1 aggressive mode with
+XAuth, phase 1 with MODP_1024 and phase 2 with MODP_1024 PFS, now computed
+by OpenSSL; virtual IP, route and split DNS applied. The log they shared
+was the anonymized copy, and it showed one false positive: the hint in
+strongSwan's IKEv1 deprecation warning ("configure 'version = 2'") came out
+masked. Fixed (`fix/anonymize-config-hint`).
+
+### Step 53: phase D, charon without root
+
+**The probe that decided the design.** In a container with systemd 262, a
+non-root process with `CAP_NET_ADMIN` as an ambient capability could create
+links (`ip link`) but not set a link's DNS: systemd-resolved sends such a
+caller to polkit, which refuses it. A polkit rule for the engine's user was
+rejected (a compromised charon could then change the DNS of any interface),
+so the DNS stays with root: the entrypoint, which already lives for the
+whole session, reads requests from a FIFO and applies them to the session
+interface only (ADR-0028).
+
+**What it took:**
+
+- charon refused to open its sockets as a non-root user ("socket-default
+  plugin requires CAP_NET_BIND_SERVICE") although it had the capability:
+  built without a capability backend, it assumes none. Built with
+  `--with-capabilities=native`; musl has `capget`/`capset` without
+  declaring them, and the declarations could not go into `configure`'s
+  flags (they clash with its own test of `capset`) nor replace `CFLAGS` at
+  `make` time (that drops strongSwan's `-include config.h`): they go in
+  `CPPFLAGS` at `make` time.
+- With its capabilities visible, charon drops what it no longer needs:
+  after binding its ports it keeps only `NET_ADMIN`, which the updown
+  inherits as an ambient capability. The bounding set (NET_ADMIN,
+  NET_BIND_SERVICE, NET_RAW) keeps anything else out for good.
+- The entrypoint needs `CAP_KILL` now: charon is another user's process,
+  and without it `kill -0` (is it alive?) and the graceful `SIGTERM` fail.
+- The VICI socket directory is opened to charon's group during the session
+  (`1731`); the session user still only traverses it, and the socket is
+  handed over as before, so the helper and the app did not change.
+
+**Tests:** `test:systemd` checks charon's uid and capability sets and
+attacks the DNS FIFO as charon's user (shell syntax, other interfaces,
+junk, an oversized line: nothing ran, only `ipsc0` changed, the engine
+survived); `test:compat` passed on all seven distributions (charon's uid
+differs on each, the capabilities do not); `test:packaging` checks the
+system user. A new `test:modes` gateway renews phase 1 every 40 s and
+phase 2 every 15 s: the client answered one phase 1 reauthentication and
+three phase 2 renewals started by the gateway and kept the tunnel. That is
+lab data for P8, which still needs a long session on the real gateway.
+
+`systemd-analyze security` rates the engine unit 2.7 (was 2.3): the
+entrypoint's unit gained SETUID, SETGID, SETPCAP and KILL, while the
+process exposed to the network went from root to an unprivileged uid with
+`NET_ADMIN`.
