@@ -31,6 +31,28 @@ together with `SHA256SUMS`, which lets you check the download
 private, only people with access to it can download: ask for access, or get
 the files from whoever gave you the profile.
 
+### Check the download
+
+From 1.0 on, every release is signed and attested
+([ADR-0030](adr/0030-release-signing-and-provenance.md)). Download
+`SHA256SUMS` and `SHA256SUMS.asc` next to your file, then:
+
+```bash
+# The project's key (once); compare its fingerprint with the README's.
+curl -fsSLO https://raw.githubusercontent.com/lucastelso/ipsec-client/main/packaging/keys/ipsec-client-release.asc
+gpg --import ipsec-client-release.asc
+gpg --verify SHA256SUMS.asc SHA256SUMS            # "Good signature"
+sha256sum -c SHA256SUMS --ignore-missing          # your file: OK
+```
+
+With the [GitHub CLI](https://cli.github.com/), the attestation says which
+commit and which CI run built the file:
+`gh attestation verify <file> --repo lucastelso/ipsec-client`.
+
+The `.rpm` itself is signed too: after `sudo rpm --import
+ipsec-client-release.asc`, `dnf` and `zypper` check it on their own (and
+`rpm -K <file>` shows it).
+
 > Prefer the **.rpm** or the **.deb** when there is one for your distribution:
 > the app shows up in the menu on its own, updates go through the package
 > manager, and its libraries (such as WebKitGTK) get your distribution's
@@ -80,8 +102,10 @@ Or from the terminal, in the folder where the file is:
 sudo dnf install ./ipsec-client-*.x86_64.rpm
 ```
 
-On **openSUSE**: `sudo zypper install --allow-unsigned-rpm ./ipsec-client-*.x86_64.rpm`
-(the package is not signed yet; check the download with `SHA256SUMS`).
+On **openSUSE**: `sudo rpm --import ipsec-client-release.asc` once (see
+[Check the download](#check-the-download)), then
+`sudo zypper install ./ipsec-client-*.x86_64.rpm`. Packages older than 1.0
+were not signed and need `--allow-unsigned-rpm`.
 
 On **AlmaLinux and Rocky Linux 10**, WebKitGTK and the tray library come from
 EPEL. Enable it once, then install:

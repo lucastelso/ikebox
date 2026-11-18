@@ -1,8 +1,54 @@
 # How to build and publish a release
 
-Maintainer guide to build the packages (AppImage, deb and rpm) and publish
-them on **GitHub Releases**. To install the app, see the
-[installation guide](installation.md).
+Maintainer guide. Releases are built, signed and attested by CI from a
+version tag, and published by the maintainer after checking them on their own
+computer ([ADR-0030](adr/0030-release-signing-and-provenance.md)). To install
+the app, see the [installation guide](installation.md).
+
+## Signing key (once)
+
+An Ed25519 primary key for certification only, kept off-line, and an Ed25519
+signing subkey, the only part GitHub ever gets. Use a name only (no personal
+e-mail):
+
+```bash
+gpg --quick-gen-key "IPsec Client releases" ed25519 cert 5y
+FPR=$(gpg --list-keys --with-colons "IPsec Client releases" | awk -F: '/^fpr/ {print $10; exit}')
+gpg --quick-add-key "$FPR" ed25519 sign 2y
+SUB=$(gpg --list-keys --with-colons "$FPR" | awk -F: '/^fpr/ {n++; if (n == 2) print $10}')
+echo "primary $FPR, signing subkey $SUB"
+
+# The public key goes into the repository (commit it).
+gpg --armor --export "$FPR" >packaging/keys/ipsec-client-release.asc
+
+# The signing subkey alone ("!"), for GitHub; delete the file afterwards.
+gpg --armor --export-secret-subkeys "$SUB!" >"$XDG_RUNTIME_DIR/release-subkey.asc"
+
+# A revocation certificate and a backup of the primary key, off-line (a USB
+# drive in a drawer): with them, a leaked subkey can be revoked and replaced.
+gpg --armor --gen-revoke "$FPR" >revocation.asc
+gpg --armor --export-secret-keys "$FPR" >primary-backup.asc
+```
+
+Put the primary fingerprint (`$FPR`) in the README and in every release's
+notes, so a swapped key would show.
+
+## GitHub setup (once)
+
+1. **Settings → Environments → New environment** `release`:
+   - **Required reviewers:** yourself;
+   - **Deployment branches and tags:** selected: tags `v*`, and `main` (for
+     rehearsals);
+   - **Environment secrets:** `RELEASE_GPG_KEY` (the content of
+     `release-subkey.asc`) and `RELEASE_GPG_PASSPHRASE` (its passphrase);
+   - **Environment variables:** `RELEASE_GPG_FINGERPRINT` = `$SUB`.
+
+   Then `shred -u "$XDG_RUNTIME_DIR/release-subkey.asc"`.
+2. **Settings → Actions → General:** workflow permissions "Read repository
+   contents" (the release job asks for more only where it needs it).
+3. A rehearsal: **Actions → Release → Run workflow** on `main`. It builds,
+   waits for your approval, signs and checks the signatures, and publishes
+   nothing (the files are in the run's artifacts).
 
 ## 1. Prepare the version
 
@@ -16,169 +62,111 @@ them on **GitHub Releases**. To install the app, see the
    cargo update -w
    ```
 
-2. In `CHANGELOG.md`, add the `## [X.Y.Z] - YYYY-MM-DD` section.
-   Add the same version to the AppStream metadata
+   The version also appears in `README.md`, `README.pt-BR.md` and the file
+   names of `docs/installation.md` and `docs/pt-BR/instalacao.md`.
+2. In `CHANGELOG.md`, add the `## [X.Y.Z] - YYYY-MM-DD` section. Add the
+   same version to the AppStream metadata
    (`src-tauri/linux/io.github.lucastelso.ipsecclient.metainfo.xml`, a
    `<release>` at the top of `<releases>`); `verify-release.sh` refuses
    packages without it.
 3. Write the release notes in `docs/releases/vX.Y.Z.md` (English) and
-   `docs/releases/vX.Y.Z.pt-BR.md` (Portuguese): they are the text of the
-   release page. Use the previous ones as a template.
-4. `npm run check` green, `--no-ff` merge into `main`.
+   `docs/releases/vX.Y.Z.pt-BR.md` (Portuguese): they become the release
+   page. Use the previous ones as a template, with the key fingerprint and
+   how to check the download.
+4. `npm run check` green, `--no-ff` merge into `main`, `git push origin main`.
 
-## 2. Create the tag
-
-On `main`, with the merge done:
+## 2. Tag: CI builds, you approve the signature
 
 ```bash
 git tag -a vX.Y.Z -m "IPsec Client X.Y.Z"
+git push origin vX.Y.Z           # by name: never --tags, --all or --mirror
 ```
 
-## 3. Build the packages
+**Actions → Release** then:
+
+1. **build:** the packages in the Ubuntu 22.04 image
+   (`scripts/build-release.sh`: the network component against its own
+   `SHA256SUMS`, the security patches of the engine, the glibc limit, one
+   version everywhere, and a scan for the runner's home path and hostname),
+   the reproducibility check of the network component, and the engine's
+   corresponding source;
+2. **sign:** waits for your approval (**Review deployments**); signs the
+   `.rpm` and `SHA256SUMS` and checks both with the public key;
+3. **publish:** attestations (public repository) and a **draft** release.
+
+## 3. Check the draft on your computer
+
+Your private patterns never go to CI (ADR-0010): the scan for them runs here.
+
+```bash
+dir=target/release-check/X.Y.Z && mkdir -p "$dir"
+gh release download vX.Y.Z --dir "$dir"
+scripts/check-private.sh --artifacts "$dir"
+(cd "$dir" && gpg --verify SHA256SUMS.asc SHA256SUMS && sha256sum -c SHA256SUMS)
+gh attestation verify "$dir"/ipsec-client-X.Y.Z-1.x86_64.rpm --repo lucastelso/ipsec-client
+```
+
+Then compare with a build of yours: `npm run release:build -- vX.Y.Z`. The
+network component must be the same (the `SHA256SUMS` inside
+`/usr/lib/ipsec-client/network` of both `.rpm`); the packages themselves carry
+build dates and may differ.
+
+Finally, install the package for your distribution over the current one,
+open it from the menu and connect.
+
+## 4. Publish
+
+On the draft release page: check the text, then **Publish release** (not a
+pre-release from 1.0 on). Or: `gh release edit vX.Y.Z --draft=false`.
+
+## Building by hand (without CI)
+
+The same build runs on any computer with Docker, which is how the release
+before 1.0 were made and how the draft is compared:
 
 ```bash
 npm run release:build -- vX.Y.Z      # or: scripts/build-release.sh vX.Y.Z
+scripts/release-sources.sh X.Y.Z     # the engine's corresponding source
 ```
 
-- It runs in an **Ubuntu 22.04** container (`packaging/release/Dockerfile`).
-  That way, the AppImage works on distributions with glibc 2.35 or newer, and
-  the `.deb` declares the libraries with their Ubuntu/Debian names.
-- The code comes **from the tag** (`git archive`). Whatever is not committed
-  stays out, and no path from your computer gets into the binaries.
-- If the engine in `native-engine/dist/` does not have the patches of the
-  commit, it is rebuilt first.
-- It needs Docker. The first time takes longer, because it builds the image
-  and compiles everything.
+- It runs in an **Ubuntu 22.04** container (`packaging/release/Dockerfile`,
+  every download pinned by SHA-256), so the AppImage works on distributions
+  with glibc 2.35 or newer and the `.deb` declares Ubuntu/Debian library
+  names.
+- The code comes **from the tag** (`git archive`): what is not committed stays
+  out, and no path of your computer gets into the binaries.
+- If the engine in `native-engine/dist/` lacks the patches of the commit, it
+  is rebuilt first.
+- At the end it runs `scripts/verify-release.sh` and then
+  `scripts/check-private.sh --artifacts`, which extracts the packages
+  (including the compressed strongSwan and helper) and looks for your private
+  patterns (`.git/info/private-patterns`), your home path and the hostname,
+  showing only the file, never the match. In executables only readable
+  strings of 6 characters or more count.
 
-At the end, the build runs `scripts/verify-release.sh`, which **refuses** the
-packages if:
-
-- the network component inside any of them does not match its own
-  `SHA256SUMS`. The app would refuse to install it, and that already happened:
-  linuxdeploy rewrites executables inside the AppImage;
-- the AppImage requires a glibc newer than Ubuntu 22.04's;
-- the embedded strongSwan lacks the security patches of the commit
-  (ADR-0019).
-
-Then, still on your computer, it runs `scripts/check-private.sh --artifacts`.
-It extracts the three packages, including the strongSwan and the helper
-compressed inside them, and looks for:
-
-- your private patterns (`.git/info/private-patterns`);
-- your home path;
-- the computer name.
-
-It shows only the file, never the matched text. In executables, the patterns
-only count in readable text (`strings`), because short patterns match machine
-code by chance. In the Ubuntu libraries the AppImage carries, it only looks
-for the home path and the hostname (the same chance matches exist in the
-original libraries).
-
-The output goes to `target/release-artifacts/X.Y.Z/`:
+Output in `target/release-artifacts/X.Y.Z/` (from a tag) or
+`X.Y.Z-dev-<commit>/` (anything else, so a test build never replaces a
+release):
 
 | File | For |
 |---|---|
 | `ipsec-client_X.Y.Z_amd64.AppImage` | Any distribution |
 | `ipsec-client_X.Y.Z_amd64.deb` | Ubuntu, Debian, Mint |
-| `ipsec-client-X.Y.Z-1.x86_64.rpm` | Fedora, RHEL, openSUSE |
+| `ipsec-client-X.Y.Z-1.x86_64.rpm` | Fedora, openSUSE, RHEL 10 |
 | `SHA256SUMS` | Checking the downloads |
 
-Then build the corresponding source of the embedded engine, attached to the
-release too (GPL/LGPL; see `THIRD_PARTY_NOTICES.md`):
+Signing by hand, with the signing key on this computer:
+`RELEASE_GPG_FINGERPRINT=<subkey> scripts/sign-release.sh <dir>` (the
+sources archive must be in the directory too).
 
-```bash
-scripts/release-sources.sh X.Y.Z      # → target/release-sources/X.Y.Z/
-```
-
-## 4. Check before publishing
-
-The automatic checks already ran in the build. To repeat them, and to look at
-the metadata:
-
-```bash
-npm run release:verify -- target/release-artifacts/X.Y.Z
-scripts/check-private.sh --artifacts target/release-artifacts/X.Y.Z
-cd target/release-artifacts/X.Y.Z
-sha256sum -c SHA256SUMS
-rpm -qip ipsec-client-*.rpm | grep -E '^(Name|Version)'
-```
-
-Then run the **compatibility matrix** on the new packages. It installs the
-`.deb`/`.rpm` with each distribution's package manager in a clean container
-(Ubuntu 22.04 and 24.04, Debian 12 and 13, Fedora, openSUSE Tumbleweed,
-AlmaLinux 10 with EPEL),
-updating from the previous version, and fails if a library or a tool the app
-needs was not brought by the package:
+The compatibility matrix runs weekly in CI (`weekly.yml`); by hand:
 
 ```bash
 tests/compat/packages.sh target/release-artifacts/X.Y.Z --from target/release-artifacts/<previous>
-npm run test:compat      # the engine with real systemd and polkit, on the same seven
+npm run test:compat
 ```
 
-Finally, install the package for your distribution over the current one
-(section 4 of the [installation guide](installation.md#4-update)): open it
-from the menu, update the component if the app asks and connect.
-
-A build from `HEAD` or from a commit (`npm run release:build`, without the
-tag) goes to `target/release-artifacts/X.Y.Z-dev-<commit>/`, so a test build
-never replaces the packages of a published version.
-
-## 5. Publish on GitHub
-
-First, push the code and the tag:
-
-```bash
-git push origin main
-git push origin vX.Y.Z
-```
-
-### On the website
-
-1. On the repository page, click **Releases** (right column) and then **Draft
-   a new release**.
-2. In **Choose a tag**, pick `vX.Y.Z`.
-3. **Release title:** `IPsec Client X.Y.Z`.
-4. **Description:** paste the content of `docs/releases/vX.Y.Z.md`; the
-   Portuguese notes can follow, after a separator.
-5. Drag the four files from `target/release-artifacts/X.Y.Z/` onto **Attach
-   binaries by dropping them here**.
-6. While the project is pre-alpha, check **Set as a pre-release**.
-7. Click **Publish release**. **Save draft** keeps it unpublished, to review
-   first.
-
-### From the terminal (GitHub CLI)
-
-With the [GitHub CLI](https://cli.github.com/) (`sudo dnf install gh` and
-`gh auth login`, once):
-
-```bash
-gh release create vX.Y.Z target/release-artifacts/X.Y.Z/* \
-  --title "IPsec Client X.Y.Z" \
-  --notes-file docs/releases/vX.Y.Z.md \
-  --prerelease
-```
-
-Add `--draft` to review on the website before publishing.
-
-### Who can download
-
-- **Private repository:** only people with access to the repository see the
-  release. For a colleague to download it, add them in **Settings →
-  Collaborators → Add people**, or send them the files directly.
-- **Public repository:** anyone.
-
-### Signing the checksums (optional)
-
-If you have a GPG key, sign `SHA256SUMS` and attach the `.asc` too:
-
-```bash
-gpg --armor --detach-sign target/release-artifacts/X.Y.Z/SHA256SUMS
-```
-
-Downloaders check it with `gpg --verify SHA256SUMS.asc SHA256SUMS`, after
-importing your public key.
-
-## 6. After publishing
+## After publishing
 
 - Update `docs/resume.md`, the roadmap and the development log.
 - If the history is ever rewritten (as for 0.2.0, to replace the commit

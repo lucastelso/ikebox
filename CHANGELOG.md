@@ -9,6 +9,14 @@ and the project uses [Semantic Versioning](https://semver.org/).
 
 ### Added
 
+- **Signed, attested releases built by CI**
+  ([ADR-0030](docs/adr/0030-release-signing-and-provenance.md)): a version
+  tag builds the packages, the maintainer approves the signature (the
+  `.rpm` and `SHA256SUMS.asc`, with the project key in
+  `packaging/keys/`), and GitHub attests which commit and run made each
+  file. The installation guide shows how to check a download. A weekly run
+  watches strongSwan, OpenSSL and musl, and tests the packages on the seven
+  distributions.
 - **Closing the window keeps the app in the tray** (a notification says so
   the first time; **System → Behavior** turns it off). The VPN, the tray and
   a token's key agent keep running.
@@ -59,6 +67,8 @@ and the project uses [Semantic Versioning](https://semver.org/).
 
 ### Changed
 
+- On openSUSE, the `.rpm` installs without `--allow-unsigned-rpm` once the
+  project key is imported (audit P17).
 - One status monitor in Rust feeds the tray and the window: the window no
   longer polls every 2 s, and nothing is sent to it while it is hidden.
 - **charon runs without root** ([ADR-0028](docs/adr/0028-charon-without-root.md)):
