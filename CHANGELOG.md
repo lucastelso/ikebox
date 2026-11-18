@@ -9,6 +9,8 @@ and the project uses [Semantic Versioning](https://semver.org/).
 
 ### Added
 
+- AppStream metadata in the `.rpm` and the `.deb`: GNOME Software, Discover
+  and other software centres show the app's name, description and license.
 - The `.rpm` and the `.deb` carry the command line, `ipsec-client-cli`, with
   a manual page and bash, zsh and fish completions
   (`ipsec-client-cli completions <shell>` prints them).
