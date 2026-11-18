@@ -145,6 +145,10 @@ jobs:
           VERSION: ${{ needs.build.outputs.version }}
         run: |
           set -euo pipefail
+          if grep -l '<FINGERPRINT>' README.md README.pt-BR.md "docs/releases/$TAG.md" "docs/releases/$TAG.pt-BR.md" 2>/dev/null; then
+            echo "::error::<FINGERPRINT> is still there: put the release key's fingerprint in the README and the notes"
+            exit 1
+          fi
           notes="$RUNNER_TEMP/notes.md"
           cat "docs/releases/$TAG.md" >"$notes"
           if [[ -f "docs/releases/$TAG.pt-BR.md" ]]; then

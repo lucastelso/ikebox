@@ -2427,3 +2427,22 @@ distributions), `test:native` and `npm run check` pass.
   polkit action and system user are gone afterwards. The 0.9.0 installer
   needs a running systemd for its last step, so in the container it stops
   there, with its files in place, which is what Ikebox has to remove.
+
+### Step 60: version 1.0.0
+
+- **Validated by the maintainer:** a development build of Ikebox, installed
+  over IPsec Client 0.9 on their computer, moved the profile and the stored
+  credentials and connected to the real VPN (IKEv1 aggressive, group PSK +
+  XAuth, NAT-T), with the route on the session interface.
+- **Portuguese copies** of the contributing guide, the code of conduct and
+  the support page in `docs/pt-BR/` (`contribuindo.md`,
+  `codigo-de-conduta.md`, `suporte.md`), linked both ways; the English code
+  of conduct stays the reference.
+- **1.0.0** in the workspace, the app, `package.json`, the AppStream
+  release list and the installation guides; the CHANGELOG section and the
+  release notes in both languages. The release key's fingerprint does not
+  exist yet: the READMEs and the notes say `<FINGERPRINT>`, and the release
+  workflow refuses to draft a release while that placeholder is there.
+- **The local repository** follows the new name: the folder became
+  `~/Documentos/projetos/ikebox` and `origin` points to the renamed GitHub
+  repository.

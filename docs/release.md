@@ -30,8 +30,10 @@ gpg --armor --gen-revoke "$FPR" >revocation.asc
 gpg --armor --export-secret-keys "$FPR" >primary-backup.asc
 ```
 
-Put the primary fingerprint (`$FPR`) in the README and in every release's
-notes, so a swapped key would show.
+Put the primary fingerprint (`$FPR`) in the README (both languages) and in
+every release's notes, in place of `<FINGERPRINT>`, so a swapped key would
+show. The release workflow refuses to draft a release while `<FINGERPRINT>`
+is still there.
 
 ## GitHub setup (once)
 
