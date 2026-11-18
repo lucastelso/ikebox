@@ -172,5 +172,8 @@ importing your public key.
 - Update `docs/resume.md`, the roadmap and the development log.
 - If the history is ever rewritten (as for 0.2.0, to replace the commit
   email), the hashes change: recreate the tags on the new commits and push
-  them with `git push --force origin --tags`. A release stays bound to the
-  tag **name**, with the same files.
+  each one **by name** (`git push --force origin vX.Y.Z`). Never use
+  `--tags`, `--all` or `--mirror`: they would also push any stale local tag
+  that points to the old history (this happened with `v0.1.1`, which a fetch
+  brought back). A release stays bound to the tag **name**, with the same
+  files.

@@ -1,7 +1,8 @@
 # Roadmap
 
 Each line is a branch, created from `main` and merged with `merge --no-ff`,
-with `npm run check` green. Branches are kept as history.
+with `npm run check` green. The branch is deleted after the merge; the merge
+commit keeps its name.
 
 ## Final goal
 
@@ -305,6 +306,53 @@ modes in `npm run test:modes` (success and diagnosed failures).
 NetworkManager, `ipsec.conf`, FortiClient XML, mapped to schema 2, never
 copying a secret into the profile (an encrypted `.pcf` group password is
 not decrypted: the person types the PSK).
+
+## Program to 1.0.0 (decided on 2026-11-18)
+
+Goal: release **1.0.0** and open the repository, with security, the existing
+features and optimization first. Same rules as the post-0.2.0 program: one
+phase per session, product decisions at the start of each phase, every phase
+closed (local `--no-ff` merges, green tests, resume/log/CHANGELOG updated).
+No 0.10 release: day-to-day testing uses development builds
+(`npm run release:build` without a tag) and wider testing uses
+`v1.0.0-rc.N` tags.
+
+### Maintainer decisions
+
+| Topic | Decision |
+|---|---|
+| Publication | **New repository.** The current GitHub repository becomes a private archive (`ipsec-client-archive`); a new `ipsec-client` receives only `main` and the rewritten tags, so the commits from before the email rewrite never become public |
+| Packages | Built by **CI on the tag**; a GPG signing subkey in a protected environment (maintainer approval) signs the `.rpm` and `SHA256SUMS`; GitHub build provenance attestations; the maintainer builds locally too and compares |
+| Updates | **Optional notice**, off by default: once a day, look at the latest release and show a link. Nothing is downloaded or installed |
+| Extra scope | Close to the tray; charon without root; ECDSA and ECP groups (OpenSSL in the engine); PKCS#11 |
+| PKCS#11 | Starts with a study and an ADR. It goes into 1.0 only if it fits the static engine (ADR-0020) without relevant new root surface; otherwise it moves to 1.1 and does not hold the release |
+
+### Phases
+
+| Phase | Goal | Delivery | Status |
+|---|---|---|---|
+| 0 | Preparation | this program; stale local `v0.1.1` tag removed; history scanned (`check-private.sh --history`, gitleaks); new private repository created and pushed by the maintainer | ⏳ (GitHub steps with the maintainer) |
+| A | Security and supply chain | P2 (store credentials only after connecting, app and CLI), P3 (Tauri update), P4 and every unpinned build input (rustup-init, Node, AppImage tools, Alpine packages), CI hygiene, Dependabot rewritten | ⏳ |
+| B | Complete packages | rpm/deb scripts manage the network component (`--origin package`; removing the package removes it), CLI with man page and completions in the packages, AppStream metainfo, third-party licenses in the packages, corresponding source bundle | ⏳ |
+| C | Engine with OpenSSL | ADR on the strongSwan maintenance policy (audit P1); ADR and build with the `openssl` plugin (ECDSA, ECP groups 19/20/21); E2E in `test:modes` | ⏳ |
+| D | charon without root | ADR, charon as its own user with network capabilities only (follow-up of ADR-0019); rekey scenario in `test:modes`; `test:compat` | ⏳ |
+| E | PKCS#11 (gated) | study and ADR; implementation only if it passes the gate above | ⏳ |
+| F | App | close to the tray, one status monitor in Rust for the tray and the UI, optional update notice | ⏳ |
+| G | Release pipeline in CI (`chore/release`) | `release.yml` (build, signing, attestations, draft release), reproducible network component, weekly compatibility matrix (P16) and upstream watch | ⏳ |
+| H | Opening | English leftovers (comments, presets), SECURITY.md for a public repository, code of conduct, support, issue forms, README for 1.0 with screenshots, Portuguese copies in sync | ⏳ |
+| I | Acceptance and release | 1.0.0 version, clean-VM checklist (P15), real VPN, repository made public, tag, signed release | ⏳ |
+
+Out of 1.0 (kept in [Ideas](#ideas)): P8 `initiator_only` (needs a long
+session on the real VPN), restricting 500/4500 to the gateway, several
+connections, revocation checks, more languages; RHEL 9 stays unsupported
+(P14).
+
+**Release gate:** every `npm run check`/`test:*` suite green,
+`tests/compat/packages.sh <1.0.0> --from <0.9.0>`, CI and the release
+workflow green, the network component reproducible (same hash in two builds
+and in the local build), `check-private.sh --history` and `--artifacts`
+clean, gitleaks clean, the clean-VM checklist and the real VPN approved,
+`gpg --verify` and `gh attestation verify` working from the release page.
 
 ## Ideas
 
