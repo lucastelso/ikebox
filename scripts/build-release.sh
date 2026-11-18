@@ -70,15 +70,15 @@ rm -rf "$out"
 mkdir -p "$out"
 
 step "building AppImage, deb and rpm for version $version (commit ${commit:0:12})"
-# Volumes nomeados guardam só downloads (crates, npm, ferramentas do AppImage);
-# a compilação é sempre do zero.
+# Named volumes keep only downloads (crates, npm); the build always starts
+# from scratch. The AppImage tools come pinned inside the image, so Tauri's
+# cache is not a volume: the check after the bundle sees exactly what it used.
 git archive --format=tar "$commit" |
     docker run --rm -i \
         -v "$repo/$engine:/dist/engine.tar.gz:ro" \
         -v "$out:/out" \
         -v ipsec-client-release-cargo:/root/.cargo/registry \
         -v ipsec-client-release-npm:/root/.npm \
-        -v ipsec-client-release-tauri:/root/.cache/tauri \
         -e "ENGINE_FILE=$(basename "$engine")" \
         -e "HOST_UID=$(id -u)" -e "HOST_GID=$(id -g)" \
         "$image" bash -euo pipefail -c '
@@ -86,6 +86,14 @@ git archive --format=tar "$commit" |
             install -D -m 0644 /dist/engine.tar.gz "native-engine/dist/$ENGINE_FILE"
             npm ci --ignore-scripts --no-audit --no-fund
             npm run bundle
+            echo "==> checking the AppImage tools Tauri used (pinned in the image)"
+            (cd /root/.cache/tauri && sha256sum -c --quiet /etc/ipsec-client-tauri-tools.sha256)
+            extra=$(cd /root/.cache/tauri && find . -type f ! -name "linuxdeploy-plugin-g*.sh" |
+                sed "s#^\./##" | sort | comm -23 - <(sed "s#.*  \./##" /etc/ipsec-client-tauri-tools.sha256 | sort))
+            if [[ -n $extra ]]; then
+                echo "Tauri downloaded tools that are not pinned in the image: $extra" >&2
+                exit 1
+            fi
             cp target/release/bundle/appimage/*.AppImage \
                target/release/bundle/deb/*.deb \
                target/release/bundle/rpm/*.rpm /out/
