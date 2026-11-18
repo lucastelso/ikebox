@@ -74,9 +74,10 @@
   maintainer on the real VPN. **Phase D is done** (step 53): charon runs
   without root (ADR-0028), and `test:modes` has the gateway renew phases 1
   and 2. **Phase E is done** (steps 54–55): smartcards and tokens
-  (ADR-0029) in the engine, the core, the CLI and the app, tested with an
-  emulated token. **Next: phase F** (the app: close to the tray, one status
-  monitor in Rust, the optional update notice).
+  (ADR-0029). **Phase F is done** (step 56): close to the tray, one status
+  monitor, the optional update notice. **Next: phase G** (the release
+  pipeline in CI: build, GPG signing, attestations, reproducible network
+  component, weekly matrix).
 - **Waiting for the maintainer:**
   1. A quick look at the app after the Tauri update (phase A): open it,
      connect, check the tray. A development build is in
