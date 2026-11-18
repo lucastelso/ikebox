@@ -83,6 +83,13 @@ The output goes to `target/release-artifacts/X.Y.Z/`:
 | `ipsec-client-X.Y.Z-1.x86_64.rpm` | Fedora, RHEL, openSUSE |
 | `SHA256SUMS` | Checking the downloads |
 
+Then build the corresponding source of the embedded engine, attached to the
+release too (GPL/LGPL; see `THIRD_PARTY_NOTICES.md`):
+
+```bash
+scripts/release-sources.sh X.Y.Z      # → target/release-sources/X.Y.Z/
+```
+
 ## 4. Check before publishing
 
 The automatic checks already ran in the build. To repeat them, and to look at

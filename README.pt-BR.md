@@ -291,6 +291,8 @@ Em inglês:
 
 [GPL-3.0-or-later](LICENSE). Qualquer versão redistribuída precisa manter o
 código aberto, que é o que se espera de uma ferramenta de segurança. O motivo
-da escolha está no [ADR-0017](docs/adr/0017-gpl-3-license.md). O strongSwan e
-o GMP, embutidos no engine, têm licenças próprias: ver
-[THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md).
+da escolha está no [ADR-0017](docs/adr/0017-gpl-3-license.md). O strongSwan, o
+GMP e o musl, embutidos no engine, e as bibliotecas compiladas no app têm
+licenças próprias: ver [THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md). O app
+instalado traz todos os textos em `/usr/lib/ipsec-client/licenses/`, e cada
+release anexa o código-fonte do engine embutido.

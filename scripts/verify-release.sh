@@ -66,6 +66,18 @@ component_ok() {
     ok "$name: network component intact ($(grep -h '^version=' "$net/VERSION"), strongSwan with the patches, static: GMP $(sed -n 's/^gmp=\([^ ]*\).*/\1/p' <<<"$info"), musl $(sed -n 's/^musl=\([^ ]*\).*/\1/p' <<<"$info"))"
 }
 
+# The license folder every package carries (scripts/stage-licenses.sh).
+licenses_ok() {
+    local dir=$1/usr/lib/ipsec-client/licenses name=$2 f
+    for f in LICENSE THIRD_PARTY_NOTICES.md THIRD_PARTY_LICENSES.txt; do
+        [[ -s $dir/$f ]] || fail "$name: licenses/$f missing"
+    done
+    [[ -s $dir/engine/strongswan/COPYING && -n $(find "$dir/engine/gmp" -type f -print -quit) &&
+        -n $(find "$dir/engine/musl" -type f -print -quit) ]] ||
+        fail "$name: the strongSwan, GMP or musl license texts are missing"
+    ok "$name: license texts (project, $(grep -m1 -oE '^[0-9]+ components' "$dir/THIRD_PARTY_LICENSES.txt"), strongSwan, GMP, musl)"
+}
+
 # The command line the .rpm/.deb carry: the binary (same version as the
 # component), its manual page and the shell completions.
 cli_ok() {
@@ -91,6 +103,7 @@ mkdir "$work/appimage" "$work/deb" "$work/rpm"
 (cd "$work/appimage" && "${appimages[0]}" --appimage-extract >/dev/null) ||
     fail "AppImage: could not extract the package"
 component_ok "$work/appimage/squashfs-root" "AppImage"
+licenses_ok "$work/appimage/squashfs-root" "AppImage"
 # Every ELF file inside it, not only the app: the bundled libraries
 # (WebKitGTK, among others) are what require the newest glibc.
 glibc=$(find "$work/appimage/squashfs-root" -type f -exec sh -c \
@@ -105,6 +118,7 @@ ok "AppImage: requires glibc $glibc, counting the bundled libraries (limit $MAX_
     fail "deb: could not extract the package"
 component_ok "$work/deb" "deb"
 cli_ok "$work/deb" "deb"
+licenses_ok "$work/deb" "deb"
 # The maintainer scripts that install and remove the component (ADR-0018).
 (cd "$work/deb" && tar -xf control.tar.* ./postinst ./prerm 2>/dev/null) ||
     fail "deb: postinst/prerm missing"
@@ -121,3 +135,4 @@ ok "deb: postinst installs and prerm removes the network component"
     fail "rpm: could not extract the package"
 component_ok "$work/rpm" "rpm"
 cli_ok "$work/rpm" "rpm"
+licenses_ok "$work/rpm" "rpm"
