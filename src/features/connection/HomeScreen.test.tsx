@@ -94,6 +94,39 @@ function mockBackend({
         } satisfies CredentialsStatus;
       case 'choose_p12_file':
         return { token: 'p12-0', fileName: 'fulana.p12' };
+      case 'list_token_certificates':
+        return {
+          moduleName: 'p11-kit-proxy.so',
+          certificates: [
+            {
+              keyId: '01',
+              tokenLabel: 'Cartão da Fulana',
+              certificate: {
+                subject: 'CN=Fulana de Teste,O=Example Org',
+                issuer: 'CN=Test CA',
+                notAfter: '2027-11-17',
+                daysLeft: 365,
+                key: 'RSA',
+              },
+              problem: null,
+            },
+            {
+              keyId: '02',
+              tokenLabel: 'Cartão da Fulana',
+              certificate: null,
+              problem: 'the certificate expired on 2025-01-01',
+            },
+          ],
+        };
+      case 'remember_token_certificate':
+        importCalls.push(args as Record<string, unknown>);
+        return {
+          subject: 'CN=Fulana de Teste,O=Example Org',
+          issuer: 'CN=Test CA',
+          notAfter: '2027-11-17',
+          daysLeft: 365,
+          key: 'RSA',
+        };
       case 'import_client_certificate':
         importCalls.push(args as Record<string, unknown>);
         if ((args as { password: string }).password !== p12Password) {
@@ -243,6 +276,32 @@ describe('HomeScreen', () => {
       token: 'p12-0',
       password: 'certa',
     });
+  });
+
+  it('a token profile lists the certificates, asks for the PIN and connects with it', async () => {
+    const { connectCalls, importCalls } = mockBackend({
+      credentials: { required: ['tokenCertificate', 'tokenPin'], stored: [] },
+    });
+    render(<HomeScreen />);
+    await userEvent.click(await screen.findByRole('button', { name: 'Connect' }));
+
+    await screen.findByRole('dialog');
+    expect(await screen.findByText('Module: p11-kit-proxy.so')).toBeInTheDocument();
+    // The only usable certificate is chosen; the expired one cannot be.
+    const usable = screen.getByRole('radio', { name: /CN=Fulana de Teste/ });
+    expect(usable).toBeChecked();
+    expect(screen.getByRole('radio', { name: /expired/ })).toBeDisabled();
+    expect(screen.getByText(/Cannot be used: the certificate expired/)).toBeInTheDocument();
+    expect(screen.getByText(/Keep IPsec Client open while connected/)).toBeInTheDocument();
+
+    const connect = screen.getByRole('button', { name: 'Connect', hidden: false });
+    expect(connect).toBeDisabled();
+    await userEvent.type(screen.getByLabelText('PIN of the smartcard or token'), '4321');
+    await userEvent.click(connect);
+
+    await waitFor(() => expect(connectCalls).toHaveLength(1));
+    expect(importCalls.at(-1)).toEqual({ profileId: 'trabalho', moduleToken: null, keyId: '01' });
+    expect(connectCalls[0]).toMatchObject({ credentials: { tokenPin: '4321' } });
   });
 
   it('warns on the connection screen when the certificate is about to expire', async () => {

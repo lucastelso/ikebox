@@ -1,8 +1,8 @@
 # ADR-0029: Smartcards and tokens through a key agent in the person's process
 
-- **Status:** Accepted. Phase E of the program to 1.0.0 (step 54): study,
-  gate and first part of the implementation (engine, core, CLI, tests). The
-  app's interface follows (E2). Amends ADR-0024 ("no smartcard/PKCS#11").
+- **Status:** Accepted. Phase E of the program to 1.0.0 (steps 54 and 55): study,
+  gate and implementation (engine, core, CLI and tests in E1; the app in
+  E2). Amends ADR-0024 ("no smartcard/PKCS#11").
 - **Date:** 2026-11-18
 
 ## Context

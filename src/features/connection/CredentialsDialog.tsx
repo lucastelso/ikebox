@@ -1,6 +1,13 @@
-import { Eye, EyeOff, FileKey, KeyRound } from 'lucide-react';
-import { type FormEvent, useEffect, useId, useState } from 'react';
-import { type CredentialField, type CredentialsInput, commands, type P12Choice } from '@/bindings';
+import { Eye, EyeOff, FileKey, KeyRound, Search, Usb } from 'lucide-react';
+import { type FormEvent, useCallback, useEffect, useId, useState } from 'react';
+import {
+  type CredentialField,
+  type CredentialsInput,
+  commands,
+  type ModuleChoice,
+  type P12Choice,
+  type TokenCertList,
+} from '@/bindings';
 import { Button } from '@/components/ui/button';
 import { Checkbox } from '@/components/ui/checkbox';
 import {
@@ -16,8 +23,10 @@ import { Label } from '@/components/ui/label';
 import { useT } from '@/i18n';
 import type { Messages } from '@/i18n/messages';
 
-/** Fields typed by the person (the certificate is imported from a file). */
-// The token fields (ADR-0029) get their own controls in the dialog (phase E2).
+/**
+ * Fields typed by the person. The certificate is imported from a file; the
+ * token's certificate and PIN (ADR-0029) have their own section.
+ */
 type TypedField = Exclude<CredentialField, 'clientCertificate' | 'tokenCertificate' | 'tokenPin'>;
 
 function fieldSpecs(
@@ -115,6 +124,28 @@ export function CredentialsDialog({
   const [p12Password, setP12Password] = useState('');
   const [certError, setCertError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
+  // The certificate on a smartcard or token: chosen from what the tokens
+  // offer (through the system's module, or one picked in Rust's dialog);
+  // the PIN goes with the connection and is never stored.
+  const needsTokenCert = fields.includes('tokenCertificate');
+  const needsPin = fields.includes('tokenPin');
+  const [module, setModule] = useState<ModuleChoice | null>(null);
+  const [tokenList, setTokenList] = useState<TokenCertList | null>(null);
+  const [chosenKey, setChosenKey] = useState<string | null>(null);
+  const [tokenError, setTokenError] = useState<string | null>(null);
+
+  const searchTokens = useCallback(async (moduleToken: string | null) => {
+    setTokenError(null);
+    const result = await commands.listTokenCertificates(moduleToken);
+    if (result.status === 'error') {
+      setTokenList(null);
+      setTokenError(result.error.message);
+      return;
+    }
+    setTokenList(result.data);
+    const usable = result.data.certificates.filter((c) => c.certificate !== null);
+    setChosenKey(usable.length === 1 ? (usable[0]?.keyId ?? null) : null);
+  }, []);
 
   // Ao fechar, apaga o que foi digitado.
   useEffect(() => {
@@ -122,14 +153,31 @@ export function CredentialsDialog({
       setValues({});
       setP12Password('');
       setCertError(null);
+      setTokenError(null);
     }
   }, [open]);
+  // Opening with a token certificate to choose: look on the tokens at once.
+  useEffect(() => {
+    if (open && needsTokenCert) void searchTokens(null);
+  }, [open, needsTokenCert, searchTokens]);
   useEffect(() => setRemember(keyringAvailable), [keyringAvailable]);
 
   const ordered = ORDER.filter((f) => fields.includes(f));
   const typedComplete = ordered.every((f) => (values[FIELDS[f].key] ?? '').length > 0);
   const certComplete = !needsCert || (keyringAvailable && p12 !== null && p12Password.length > 0);
-  const complete = typedComplete && certComplete && !busy;
+  const tokenComplete =
+    (!needsTokenCert || (keyringAvailable && chosenKey !== null)) &&
+    (!needsPin || (values.tokenPin ?? '').length > 0);
+  const complete = typedComplete && certComplete && tokenComplete && !busy;
+
+  async function chooseModule() {
+    const result = await commands.chooseTokenModule();
+    if (result.status === 'error') setTokenError(result.error.message);
+    else if (result.data) {
+      setModule(result.data);
+      await searchTokens(result.data.token);
+    }
+  }
 
   async function chooseP12() {
     const result = await commands.chooseP12File();
@@ -150,6 +198,19 @@ export function CredentialsDialog({
       setP12Password('');
       if (result.status === 'error') {
         setCertError(result.error.message);
+        return;
+      }
+    }
+    if (needsTokenCert && chosenKey) {
+      setBusy(true);
+      const result = await commands.rememberTokenCertificate(
+        profileId,
+        module?.token ?? null,
+        chosenKey,
+      );
+      setBusy(false);
+      if (result.status === 'error') {
+        setTokenError(result.error.message);
         return;
       }
     }
@@ -228,6 +289,99 @@ export function CredentialsDialog({
                   </p>
                 )}
               </fieldset>
+            )}
+            {needsTokenCert && (
+              <fieldset className="grid gap-2">
+                <legend className="mb-1 text-sm font-medium">{t.tokenTitle}</legend>
+                {keyringAvailable ? (
+                  <>
+                    <div className="flex flex-wrap gap-2">
+                      <Button
+                        type="button"
+                        variant="secondary"
+                        onClick={() => void searchTokens(module?.token ?? null)}
+                      >
+                        <Search />
+                        {t.tokenSearch}
+                      </Button>
+                      <Button type="button" variant="ghost" onClick={() => void chooseModule()}>
+                        <Usb />
+                        {t.tokenOtherModule}
+                      </Button>
+                    </div>
+                    {tokenList && (
+                      <p className="break-all text-xs text-muted-foreground" data-selectable>
+                        {t.tokenModule(tokenList.moduleName)}
+                      </p>
+                    )}
+                    {tokenList && tokenList.certificates.length === 0 && (
+                      <p className="text-xs text-muted-foreground">{t.tokenNone}</p>
+                    )}
+                    {tokenList && tokenList.certificates.length > 0 && (
+                      <div role="radiogroup" aria-label={t.tokenTitle} className="grid gap-2">
+                        {tokenList.certificates.map((option) => {
+                          const radioId = `${baseId}-token-${option.keyId}`;
+                          return (
+                            <label
+                              key={option.keyId}
+                              htmlFor={radioId}
+                              className="flex gap-2 rounded-lg border p-2 text-sm has-[:disabled]:opacity-60"
+                            >
+                              <input
+                                id={radioId}
+                                type="radio"
+                                name={`${baseId}-token`}
+                                className="mt-1"
+                                value={option.keyId}
+                                disabled={option.certificate === null}
+                                checked={chosenKey === option.keyId}
+                                onChange={() => setChosenKey(option.keyId)}
+                              />
+                              <span className="grid gap-0.5">
+                                <span className="break-all" data-selectable>
+                                  {option.certificate?.subject ?? option.keyId}
+                                </span>
+                                <span className="text-xs text-muted-foreground">
+                                  {t.tokenFrom(option.tokenLabel)}
+                                  {option.certificate &&
+                                    ` · ${option.certificate.key} · ${option.certificate.notAfter}`}
+                                </span>
+                                {option.problem && (
+                                  <span className="text-xs text-destructive">
+                                    {t.tokenUnusable(option.problem)}
+                                  </span>
+                                )}
+                              </span>
+                            </label>
+                          );
+                        })}
+                      </div>
+                    )}
+                  </>
+                ) : (
+                  <p className="text-xs text-destructive">{t.certNeedsKeyring}</p>
+                )}
+                {tokenError && (
+                  <p role="alert" className="text-xs text-destructive">
+                    {tokenError}
+                  </p>
+                )}
+              </fieldset>
+            )}
+            {needsPin && (
+              <div className="grid gap-2">
+                <Label htmlFor={`${baseId}-pin`}>{t.tokenPin}</Label>
+                <SecretInput
+                  id={`${baseId}-pin`}
+                  value={values.tokenPin ?? ''}
+                  autoComplete="off"
+                  spellCheck={false}
+                  autoFocus={ordered.length === 0 && !needsTokenCert}
+                  onChange={(e) => setValues((v) => ({ ...v, tokenPin: e.target.value }))}
+                />
+                <p className="text-xs text-muted-foreground">{t.tokenPinHint}</p>
+                <p className="text-xs text-muted-foreground">{t.tokenKeepOpen}</p>
+              </div>
             )}
           </div>
 

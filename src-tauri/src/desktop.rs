@@ -297,6 +297,11 @@ pub fn start(app: &AppHandle) {
             if let Some((summary, body)) = transition_notice(&previous, &next) {
                 notify(&summary, &body);
             }
+            // The VPN went down without this app (another process, or the
+            // gateway): a token's key agent has nothing left to sign for.
+            if previous.is_active() && next == TrayState::Disconnected {
+                session::stop_token_agent();
+            }
             if let Some(handles) = &tray
                 && lang_changed
             {

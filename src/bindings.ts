@@ -46,6 +46,32 @@ export const commands = {
 	 */
 	importClientCertificate: (profileId: string, token: string, password: string, options?: InvokeOptions) => typedError<ClientCertSummary, UiError>(__TAURI_INVOKE("import_client_certificate", { profileId, token, password }, options)),
 	/**
+	 *  Opens the native dialog to pick a PKCS#11 module (`.so`). `None` when
+	 *  cancelled.
+	 * 
+	 *  # Errors
+	 *  The chosen file is not local.
+	 */
+	chooseTokenModule: (options?: InvokeOptions) => typedError<ModuleChoice | null, UiError>(__TAURI_INVOKE("choose_token_module", undefined, options)),
+	/**
+	 *  The certificates on the connected tokens, through the chosen module or
+	 *  the system's (p11-kit's proxy, or OpenSC). No PIN is needed.
+	 * 
+	 *  # Errors
+	 *  No module, or the module or the token fails.
+	 */
+	listTokenCertificates: (moduleToken: string | null, options?: InvokeOptions) => typedError<TokenCertList, UiError>(__TAURI_INVOKE("list_token_certificates", { moduleToken }, options)),
+	/**
+	 *  Remembers, for the profile, the certificate with `key_id` on the tokens of
+	 *  the chosen (or the system's) module: the certificate and where its key
+	 *  is, in the keyring. Never the PIN.
+	 * 
+	 *  # Errors
+	 *  No keyring, unknown profile or one without a token certificate, or the
+	 *  certificate is gone or unusable.
+	 */
+	rememberTokenCertificate: (profileId: string, moduleToken: string | null, keyId: string, options?: InvokeOptions) => typedError<ClientCertSummary, UiError>(__TAURI_INVOKE("remember_token_certificate", { profileId, moduleToken, keyId }, options)),
+	/**
 	 *  Log ready to copy or attach to a bug report: besides the identities, the
 	 *  gateway, the profile's DNS servers and domains and every IP address become
 	 *  placeholders (`<gateway>`, `<ip-1>`, `<domain-1>`). Text copied in the app
@@ -257,6 +283,11 @@ export type CredentialsInput = {
 	eapIdentity?: string | null,
 	/**  Senha EAP. */
 	eapPassword?: string | null,
+	/**
+	 *  PIN of the smartcard or token (ADR-0029): used for the login on the
+	 *  token and dropped, never stored.
+	 */
+	tokenPin?: string | null,
 };
 
 /**  O que está guardado para um perfil (sem revelar valores). */
@@ -386,6 +417,14 @@ export type ImportPreview = {
 	security: Security | null,
 };
 
+/**  A module picked in the dialog. */
+export type ModuleChoice = {
+	/**  Opaque token for the other commands. */
+	token: string,
+	/**  File name, without the directory. */
+	fileName: string,
+};
+
 /**  A `.p12` picked in the dialog. */
 export type P12Choice = {
 	/**  Opaque token for [`import_client_certificate`]. */
@@ -449,6 +488,8 @@ export type ProfileDraft = {
 	xauth: boolean,
 	/**  The XAuth password is a one-time code. */
 	otp: boolean,
+	/**  With a certificate: its key is on a smartcard or token (ADR-0029). */
+	token?: boolean | null,
 	/**
 	 *  How the person signs in. With EAP or a certificate, the gateway is
 	 *  proven by its certificate.
@@ -583,6 +624,26 @@ line: string } |
 { kind: "tunnelUp" } | 
 /**  O engine parou. */
 { kind: "engineGone" };
+
+/**  What the tokens of one module offer. */
+export type TokenCertList = {
+	/**  File name of the module used. */
+	moduleName: string,
+	/**  Certificates found (empty: no token, or none with a certificate). */
+	certificates: TokenCertOption[],
+};
+
+/**  A certificate a token offers. */
+export type TokenCertOption = {
+	/**  Key id (`CKA_ID`, hexadecimal): what the person chooses. */
+	keyId: string,
+	/**  Label of the token it is on. */
+	tokenLabel: string,
+	/**  The certificate, when it can be used. */
+	certificate: ClientCertSummary | null,
+	/**  Why it cannot be used. */
+	problem: string | null,
+};
 
 /**  Erro para a UI: mensagem em pt-BR e detalhes opcionais (sem segredos). */
 export type UiError = {

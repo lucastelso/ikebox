@@ -252,6 +252,7 @@ fn apply_input(creds: &mut Credentials, input: CredentialsInput) {
         (K::XauthPassword, input.xauth_password),
         (K::EapIdentity, input.eap_identity),
         (K::EapPassword, input.eap_password),
+        (K::TokenPin, input.token_pin),
     ] {
         if let Some(value) = value.filter(|v| !v.is_empty()) {
             creds.set(kind, SecretString::from(value));
@@ -302,12 +303,17 @@ mod tests {
                 xauth_password: None,
                 eap_identity: None,
                 eap_password: None,
+                token_pin: Some("1234".into()),
             },
         );
         let psk = creds.get(CredentialKind::Psk).expect("psk");
         assert_eq!(psk.expose_secret(), "guardada", "vazio não substitui");
         assert_eq!(creds.xauth_user(), Some("usuario"));
         assert!(creds.get(CredentialKind::XauthPassword).is_none());
+        assert!(
+            creds.get(CredentialKind::TokenPin).is_some(),
+            "the token PIN goes through"
+        );
     }
 }
 

@@ -11,6 +11,7 @@ pub mod desktop;
 pub mod dto;
 pub mod editor_cmd;
 pub mod profiles_cmd;
+pub mod token_cmd;
 
 use tauri_specta::{Builder, ErrorHandlingMode, collect_commands, collect_events};
 
@@ -32,6 +33,9 @@ pub fn specta_builder() -> Builder<tauri::Wry> {
             commands::forget_credentials,
             certificate_cmd::choose_p12_file,
             certificate_cmd::import_client_certificate,
+            token_cmd::choose_token_module,
+            token_cmd::list_token_certificates,
+            token_cmd::remember_token_certificate,
             commands::anonymize_log,
             commands::set_language,
             profiles_cmd::choose_import_file,
@@ -72,6 +76,7 @@ pub fn run() {
         .manage(commands::ConnectionLock::default())
         .manage(profiles_cmd::PendingImports::default())
         .manage(certificate_cmd::PendingP12::default())
+        .manage(token_cmd::PendingModules::default())
         .invoke_handler(builder.invoke_handler())
         .setup(move |app| {
             if !desktop::acquire_single_instance(app.handle()) {
