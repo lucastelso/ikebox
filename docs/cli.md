@@ -56,12 +56,15 @@ ipsec-client-cli connect vpn                              # Ctrl+C disconnects
 | `profiles path` | Shows the profiles directory |
 | `secrets set <id> [--credentials-stdin]` | Asks for (passwords without echo) and stores the credentials in the keyring. Enter keeps the current value |
 | `secrets import-p12 <id> <file> [--password-stdin]` | Imports your certificate (`.p12`/`.pfx`, modern or old) into the keyring: the private key and the certificate. The file's password is asked (or read from the first line of standard input) and never stored |
+| `secrets token-list [--module <file>]` | Lists the certificates on the connected smartcards and tokens, with their key ids (no PIN needed). The module defaults to p11-kit's proxy, or OpenSC ([ADR-0029](adr/0029-smartcards-and-tokens.md)) |
+| `secrets token-use <id> [--module <file>] [--id <hex>]` | For a profile whose certificate is on a smartcard or token (`"token": true`): chooses the certificate and stores the choice in the keyring (the certificate and where the key is; never the PIN) |
 | `secrets status <id>` | Shows what is stored, without revealing values; the username is masked, and a client certificate shows its key type and how many days it is still valid |
 | `secrets forget <id>` | Deletes the credentials from the keyring |
 | `connect <id>` | Connects in the foreground. **Ctrl+C disconnects.** Tunnel drops and recoveries show up on screen |
 | `connect <id> --detach` | Connects and returns to the terminal; the tunnel stays up |
 | `connect <id> --remember` | Stores the credentials asked now in the keyring, once the connection is up (a wrong password is not stored) |
 | `connect <id> --client-p12 <file>` | Uses that certificate for this connection only, in memory (with `--remember`, also in the keyring). The file's password is asked, or read from the `p12-password` line of `--credentials-stdin` |
+| `connect <id> --token-module <file> [--token-id <hex>]` | Uses a certificate on a smartcard or token for this connection only. The PIN is asked at every connection (or read from the `token-pin` line of `--credentials-stdin`). The command must stay running while the VPN is up: it signs for it with the token (`--detach` is refused) |
 | `connect <id> --timeout N` | Maximum negotiation time (default 30 s) |
 | `connect <id> --privileged` | Fallback privileged container mode, Docker engine only (avoid it; see SECURITY.md) |
 | `status` | Shows the active connection: gateway, virtual IP, networks, time and traffic. Exits with **3** when disconnected |
