@@ -1,8 +1,7 @@
-//! Comandos expostos à UI. Finos: delegam ao `ipsec-client-core`.
+//! Commands exposed to the UI. Thin: they delegate to `ipsec-client-core`.
 //!
-//! Todos são `async` (comandos síncronos do Tauri rodam na thread da UI), e as
-//! operações bloqueantes (disco, chaveiro via D-Bus) vão para
-//! `spawn_blocking`.
+//! All of them are `async` (synchronous Tauri commands run on the UI thread),
+//! and blocking operations (disk, keyring over D-Bus) go to `spawn_blocking`.
 
 use ipsec_client_core::profiles::{CredentialKind, Profile, ProfileStore};
 use ipsec_client_core::secrets::{ClientCertificate, Credentials, KeyringStore, SecretStore, mask};
@@ -19,11 +18,11 @@ use crate::dto::{
     UiErrorKind,
 };
 
-/// Impede duas operações de conexão ao mesmo tempo (ex.: clique duplo).
+/// Prevents two connection operations at the same time (e.g. a double click).
 #[derive(Debug, Default)]
 pub struct ConnectionLock(pub(crate) Mutex<()>);
 
-/// Roda trabalho bloqueante fora das threads do runtime.
+/// Runs blocking work off the runtime's threads.
 pub(crate) async fn blocking<T, F>(f: F) -> Result<T, UiError>
 where
     T: Send + 'static,
@@ -45,7 +44,7 @@ fn load_profile(id: &str) -> Result<Profile, UiError> {
     Ok(store()?.load(id)?)
 }
 
-/// Versão do app e do engine.
+/// App and engine version.
 #[tauri::command]
 #[specta::specta]
 #[must_use]
@@ -65,7 +64,7 @@ fn engine_label() -> String {
     return tr!("embedded", "embutido").to_owned();
 }
 
-/// Diagnóstico do ambiente (o mesmo do `ipsec-client-cli doctor`).
+/// Environment diagnostics (the same as `ipsec-client-cli doctor`).
 #[tauri::command]
 #[specta::specta]
 pub async fn run_diagnostics() -> Vec<DiagnosticCheck> {
@@ -76,7 +75,7 @@ pub async fn run_diagnostics() -> Vec<DiagnosticCheck> {
         .collect()
 }
 
-/// Perfis disponíveis.
+/// Available profiles.
 #[tauri::command]
 #[specta::specta]
 pub async fn list_profiles() -> Result<ProfileList, UiError> {
@@ -100,7 +99,8 @@ pub async fn list_profiles() -> Result<ProfileList, UiError> {
     .await
 }
 
-/// O que o perfil exige e o que já está guardado (sem revelar valores).
+/// What the profile requires and what is already stored (without revealing
+/// values).
 #[tauri::command]
 #[specta::specta]
 pub async fn credentials_status(profile_id: String) -> Result<CredentialsStatus, UiError> {
@@ -153,9 +153,9 @@ pub async fn credentials_status(profile_id: String) -> Result<CredentialsStatus,
     .await
 }
 
-/// Conecta o perfil. As credenciais digitadas completam (ou substituem) as
-/// guardadas; com `remember`, ficam no chaveiro. O progresso chega pelo
-/// evento [`SessionUpdate`].
+/// Connects the profile. The typed credentials complete (or replace) the
+/// stored ones; with `remember`, they go to the keyring. Progress arrives
+/// through the [`SessionUpdate`] event.
 #[tauri::command]
 #[specta::specta]
 pub async fn connect(
@@ -243,7 +243,7 @@ pub async fn connect(
     Ok(Connection::from(&info))
 }
 
-/// Completa as credenciais com o que foi digitado (campos vazios são ignorados).
+/// Completes the credentials with what was typed (empty fields are ignored).
 fn apply_input(creds: &mut Credentials, input: CredentialsInput) {
     use ipsec_client_core::profiles::CredentialKind as K;
     for (kind, value) in [
@@ -260,21 +260,21 @@ fn apply_input(creds: &mut Credentials, input: CredentialsInput) {
     }
 }
 
-/// Desconecta (avisa o gateway e derruba o engine).
+/// Disconnects (tells the gateway and tears the engine down).
 #[tauri::command]
 #[specta::specta]
 pub async fn disconnect() -> Result<bool, UiError> {
     Ok(session::disconnect().await?)
 }
 
-/// Conexão ativa, se houver (funciona mesmo se ela foi aberta pelo CLI).
+/// Active connection, if any (it works even if the CLI opened it).
 #[tauri::command]
 #[specta::specta]
 pub async fn status() -> Result<Option<Connection>, UiError> {
     Ok(session::status().await?.as_ref().map(Connection::from))
 }
 
-/// Apaga as credenciais guardadas do perfil.
+/// Deletes the profile's stored credentials.
 #[tauri::command]
 #[specta::specta]
 pub async fn forget_credentials(profile_id: String) -> Result<(), UiError> {

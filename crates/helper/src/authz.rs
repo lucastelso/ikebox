@@ -1,11 +1,11 @@
-//! Quem está pedindo e se pode (ADR-0014).
+//! Who is asking, and whether they may (ADR-0014).
 //!
-//! - Identidade: `SO_PEERCRED`, preenchido pelo kernel e impossível de forjar
-//!   pelo cliente.
-//! - Autorização: polkit, ação [`POLKIT_ACTION`] (`allow_active=yes`: o usuário
-//!   da sessão local ativa pode, sem senha; sessões remotas/inativas, não). O
-//!   modo de teste troca o polkit por uma lista de uids, mas só o root inicia
-//!   o helper com essa opção.
+//! - Identity: `SO_PEERCRED`, filled in by the kernel and impossible for the
+//!   client to forge.
+//! - Authorization: polkit, action [`POLKIT_ACTION`] (`allow_active=yes`: the
+//!   user of the active local session may, without a password; remote or
+//!   inactive sessions may not). Test mode replaces polkit with a list of
+//!   uids, but only root starts the helper with that option.
 
 use std::collections::HashMap;
 use std::os::unix::net::UnixStream;
@@ -13,21 +13,21 @@ use std::time::Duration;
 
 use ipsec_client_proto::POLKIT_ACTION;
 
-/// Credenciais do processo cliente.
+/// Credentials of the client process.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub struct Peer {
     /// pid.
     pub pid: u32,
     /// uid.
     pub uid: u32,
-    /// gid efetivo (grupo do socket VICI).
+    /// Effective gid (group of the VICI socket).
     pub gid: u32,
 }
 
-/// Lê as credenciais do outro lado do socket.
+/// Reads the credentials of the other side of the socket.
 ///
 /// # Errors
-/// Falha do `getsockopt`.
+/// `getsockopt` failure.
 pub fn peer_of(stream: &UnixStream) -> std::io::Result<Peer> {
     let cred = rustix::net::sockopt::socket_peercred(stream)?;
     Ok(Peer {
@@ -37,12 +37,12 @@ pub fn peer_of(stream: &UnixStream) -> std::io::Result<Peer> {
     })
 }
 
-/// Campo `starttime` (22º) de `/proc/<pid>/stat`. O nome do processo pode ter
-/// espaços e parênteses, então a contagem começa depois do último `)`.
+/// `starttime` field (the 22nd) of `/proc/<pid>/stat`. The process name may
+/// have spaces and parentheses, so counting starts after the last `)`.
 #[must_use]
 pub fn parse_start_time(stat: &str) -> Option<u64> {
     let after = &stat[stat.rfind(')')? + 1..];
-    // Depois do ")" vem o campo 3 (state); starttime é o campo 22 → índice 19.
+    // After the ")" comes field 3 (state); starttime is field 22 → index 19.
     after.split_whitespace().nth(19)?.parse().ok()
 }
 
@@ -77,20 +77,20 @@ fn same_user_process(pid: u32, uid: u32) -> Option<u64> {
     (before == after && euid == uid).then_some(before)
 }
 
-/// Política de autorização.
+/// Authorization policy.
 #[derive(Debug, Clone)]
 pub enum Authorizer {
-    /// polkit (produção).
+    /// polkit (production).
     Polkit,
-    /// Só estes uids (modo de teste).
+    /// Only these uids (test mode).
     AllowList(Vec<u32>),
 }
 
 impl Authorizer {
-    /// Autoriza (ou não) o cliente.
+    /// Authorizes (or not) the client.
     ///
     /// # Errors
-    /// Mensagem para o usuário quando não autorizado.
+    /// Message for the user when not authorized.
     pub fn authorize(&self, peer: &Peer) -> Result<(), String> {
         match self {
             Self::AllowList(uids) => {
@@ -133,7 +133,8 @@ fn polkit_check(peer: &Peer) -> Result<bool, dbus::Error> {
         "/org/freedesktop/PolicyKit1/Authority",
         Duration::from_secs(10),
     );
-    // flags = 0: sem interação (allow_active dispensa senha; o resto é negado).
+    // flags = 0: no interaction (allow_active needs no password; the rest is
+    // denied).
     let ((authorized, _challenge, _details),): ((bool, bool, HashMap<String, String>),) = proxy
         .method_call(
             "org.freedesktop.PolicyKit1.Authority",
@@ -149,7 +150,7 @@ mod tests {
 
     #[test]
     fn parses_proc_stat_start_time() {
-        // Nome com espaço e parênteses, como permite o kernel.
+        // A name with a space and parentheses, as the kernel allows.
         let stat = "1234 (ipsec (client) x) S 1 1234 1234 0 -1 4194560 100 0 0 0 1 2 0 0 20 0 4 0 987654 123456 789";
         assert_eq!(parse_start_time(stat), Some(987_654));
         assert_eq!(parse_start_time("lixo"), None);

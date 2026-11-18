@@ -1,13 +1,13 @@
 #!/usr/bin/env bash
-# check-rust.sh — verificações do workspace Rust (as mesmas da CI).
-#   fmt → clippy (-D warnings) → testes → cargo-deny (licenças/vulnerabilidades)
+# check-rust.sh — checks of the Rust workspace (the same as CI).
+#   fmt → clippy (-D warnings) → tests → cargo-deny (licenses/vulnerabilities)
 #
-# Uso: scripts/check-rust.sh [--fmt | --docker-tests]
-#   --fmt           só a formatação (pre-commit)
-#   --docker-tests  testes de integração com o Docker real (alteram a rede do
-#                   host temporariamente; ver crates/core/tests/)
-# Carrega ~/.cargo/env (hooks de git, IDEs): o cargo do rustup respeita o
-# rust-toolchain.toml, mesmo com outro cargo (do sistema) no PATH.
+# Usage: scripts/check-rust.sh [--fmt | --docker-tests]
+#   --fmt           formatting only (pre-commit)
+#   --docker-tests  integration tests with the real Docker (they change the
+#                   host's network temporarily; see crates/core/tests/)
+# Loads ~/.cargo/env (git hooks, IDEs): rustup's cargo honors
+# rust-toolchain.toml, even with another (the system's) cargo in PATH.
 set -euo pipefail
 
 cd "$(git rev-parse --show-toplevel)"

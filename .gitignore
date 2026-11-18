@@ -1,10 +1,10 @@
 # ---------------------------------------------------------------------------
-# Dados locais e privados — NUNCA versionar
+# Local and private data — NEVER commit
 # ---------------------------------------------------------------------------
-# Perfis com dados reais da sua organização (gateway, grupo, DNS interno...).
+# Profiles with real data of your organization (gateway, group, internal DNS...).
 /presets.local/
 *.local.json
-# Variáveis de ambiente e segredos
+# Environment variables and secrets
 .env
 .env.*
 !.env.example
@@ -28,7 +28,7 @@ node_modules/
 *.tsbuildinfo
 
 # ---------------------------------------------------------------------------
-# Editores e sistema
+# Editors and system
 # ---------------------------------------------------------------------------
 .vscode/*
 !.vscode/extensions.json
@@ -40,10 +40,10 @@ node_modules/
 .DS_Store
 .claude/settings.local.json
 
-# Logs e artefatos de teste
+# Test logs and artifacts
 *.log
 __pycache__/
 trabalho.json
 
-# Artefatos do engine embutido (gerados por native-engine/build.sh)
+# Embedded engine artifacts (built by native-engine/build.sh)
 /native-engine/dist/

@@ -86,8 +86,8 @@ function SecretInput({ id, ...props }: React.ComponentProps<typeof Input>) {
 }
 
 /**
- * Pede as credenciais que faltam. Os valores vão direto para o Rust no
- * `connect` e não ficam guardados na interface depois do envio.
+ * Asks for the missing credentials. The values go straight to Rust in
+ * `connect` and are not kept in the interface after sending.
  */
 export function CredentialsDialog({
   open,
@@ -147,7 +147,7 @@ export function CredentialsDialog({
     setChosenKey(usable.length === 1 ? (usable[0]?.keyId ?? null) : null);
   }, []);
 
-  // Ao fechar, apaga o que foi digitado.
+  // On close, erases what was typed.
   useEffect(() => {
     if (!open) {
       setValues({});

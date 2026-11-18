@@ -54,7 +54,7 @@ const TONE_ICON: Record<Tone, typeof Shield> = {
   bad: ShieldAlert,
 };
 
-/** Tela principal: o topo colorido pelo estado, a ação principal e os detalhes. */
+/** Main screen: the top colored by the state, the main action and the details. */
 export function HomeScreen({ onImport }: { onImport?: () => void }) {
   const t = useT();
   const { list, error: listError, selected, select } = useProfiles();
@@ -118,7 +118,7 @@ export function HomeScreen({ onImport }: { onImport?: () => void }) {
     if (await component.install()) dismiss();
   }
 
-  /** O log é da conexão ativa (ou do perfil escolhido, se ela já caiu). */
+  /** The log is the active connection's (or the chosen profile's, if it already dropped). */
   async function anonymizeLog(lines: string[]): Promise<string | null> {
     const profileId = activeProfile ?? selected?.id;
     if (!profileId) return null;

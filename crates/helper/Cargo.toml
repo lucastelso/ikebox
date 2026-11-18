@@ -8,9 +8,9 @@ publish.workspace = true
 license.workspace = true
 repository.workspace = true
 
-# Lints próprios: igual ao workspace, mas `unsafe_code = "deny"` (e não
-# "forbid") para permitir UMA exceção justificada: adotar o socket herdado na
-# ativação por socket do systemd (descritor 3).
+# Our own lints: the same as the workspace, but `unsafe_code = "deny"` (not
+# "forbid") to allow ONE justified exception: adopting the socket inherited
+# through systemd's socket activation (descriptor 3).
 [lints.rust]
 unsafe_code = "deny"
 unused_must_use = "deny"

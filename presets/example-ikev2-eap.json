@@ -1,6 +1,6 @@
 {
   "schema_version": 2,
-  "id": "exemplo-ikev2-eap",
+  "id": "example-ikev2-eap",
   "name": "Example: IKEv2 with username and password (EAP)",
   "gateway": "vpn.example.com",
   "ike": {

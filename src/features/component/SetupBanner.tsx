@@ -4,7 +4,7 @@ import { Button } from '@/components/ui/button';
 import { useT } from '@/i18n';
 import { installLabel } from './useComponent';
 
-/** Aviso na tela principal quando o componente de rede precisa de atenção. */
+/** Notice on the main screen when the network component needs attention. */
 export function SetupBanner({
   info,
   busy,

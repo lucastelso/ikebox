@@ -1,12 +1,12 @@
-//! Sessão completa contra o gateway de teste (feature `docker-tests`):
-//! `session::connect` (preflight, imagem, engine, eventos, negociação),
-//! `status`, `disconnect` e o diagnóstico de uma senha XAuth errada.
+//! A complete session against the test gateway (the `docker-tests` feature):
+//! `session::connect` (preflight, image, engine, events, negotiation),
+//! `status`, `disconnect` and the diagnosis of a wrong XAuth password.
 //!
-//! Usa os nomes de produção (container `ipsec-client-engine`, interface
-//! `ipsc0`): o teste se recusa a rodar se já houver uma conexão ativa ou se as
-//! portas do IKE estiverem ocupadas.
+//! It uses the production names (container `ipsec-client-engine`, interface
+//! `ipsc0`): the test refuses to run if there is already an active connection
+//! or if the IKE ports are taken.
 #![cfg(feature = "docker-tests")]
-#![allow(clippy::expect_used, clippy::unwrap_used)] // código de teste
+#![allow(clippy::expect_used, clippy::unwrap_used)] // test code
 
 mod support;
 
@@ -26,7 +26,7 @@ use support::{
 use tokio::sync::mpsc;
 
 fn profile(gateway: &str) -> Profile {
-    let mut p = parse_profile(include_str!("fixtures/perfil-gateway-teste.json")).expect("perfil");
+    let mut p = parse_profile(include_str!("fixtures/test-gateway.json")).expect("perfil");
     p.gateway = gateway.to_owned();
     p
 }
@@ -107,7 +107,7 @@ async fn scenario(gateway_ip: String) {
     assert!(session::status().await.expect("status").is_none());
     assert!(link_details(DEFAULT_IFACE).is_none());
 
-    // 2) Conexão real, com eventos.
+    // 2) A real connection, with events.
     let (tx, mut rx) = mpsc::unbounded_channel();
     let (info, stored) = session::connect_then_remember(
         &profile,
@@ -154,7 +154,7 @@ async fn scenario(gateway_ip: String) {
     let (pinged, _) = host_cmd("ping", &["-c", "2", "-W", "2", "-q", "192.0.2.1"]);
     assert!(pinged, "ping pelo túnel falhou");
 
-    // 3) Uma segunda conexão é recusada enquanto há uma ativa.
+    // 3) A second connection is refused while one is active.
     let again = session::connect(
         &profile,
         &credentials(TEST_XAUTH_PASSWORD),
@@ -164,12 +164,12 @@ async fn scenario(gateway_ip: String) {
     .await;
     assert!(matches!(again, Err(SessionError::AlreadyConnected(ref p)) if p == "gateway-teste"));
 
-    // 4) status() de "outro processo" (sem estado em memória).
+    // 4) status() from "another process" (no state in memory).
     let status = session::status().await.expect("status").expect("conectado");
     assert!(status.is_established());
     assert!(status.bytes_in > 0, "{status:?}");
 
-    // 5) disconnect() avisa o gateway e derruba tudo.
+    // 5) disconnect() tells the gateway and tears everything down.
     assert!(session::disconnect().await.expect("disconnect"));
     tokio::time::sleep(Duration::from_millis(200)).await;
     assert!(session::status().await.expect("status").is_none());

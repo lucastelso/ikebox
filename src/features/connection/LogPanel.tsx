@@ -4,16 +4,16 @@ import { Button } from '@/components/ui/button';
 import { useT } from '@/i18n';
 
 /**
- * Log do charon (identidades já mascaradas pelo Rust), recolhível e copiável.
- * O texto copiado passa por `anonymize` (Rust): gateway, IPs e domínios viram
- * marcadores, para o log poder ir num relatório de bug.
+ * charon's log (identities already masked by Rust), collapsible and copyable.
+ * The copied text goes through `anonymize` (Rust): the gateway, IPs and
+ * domains become placeholders, so the log can go into a bug report.
  */
 export function LogPanel({
   lines,
   anonymize,
 }: {
   lines: string[];
-  /** Devolve o texto anonimizado, ou `null` se não deu (nada é copiado). */
+  /** Returns the anonymized text, or `null` if it failed (nothing is copied). */
   anonymize: (lines: string[]) => Promise<string | null>;
 }) {
   const t = useT().log;
@@ -29,7 +29,7 @@ export function LogPanel({
     setCopyFailed(false);
     const text = await anonymize(lines);
     if (text === null) {
-      // Sem anonimizar, nada vai para a área de transferência.
+      // Without anonymizing, nothing goes to the clipboard.
       setCopyFailed(true);
       return;
     }
@@ -38,7 +38,7 @@ export function LogPanel({
       setCopied(true);
       setTimeout(() => setCopied(false), 1500);
     } catch {
-      // Sem área de transferência: o usuário ainda pode selecionar o texto.
+      // No clipboard: the user can still select the text.
     }
   }
 

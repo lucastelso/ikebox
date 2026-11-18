@@ -3,8 +3,8 @@ import tailwindcss from '@tailwindcss/vite';
 import react from '@vitejs/plugin-react';
 import { defineConfig } from 'vite';
 
-// Configuração para o Tauri: porta fixa, sem limpar a tela (logs do Rust),
-// e o diretório src-tauri fora do watcher.
+// Configuration for Tauri: fixed port, no clearing the screen (Rust logs),
+// and the src-tauri directory out of the watcher.
 export default defineConfig({
   plugins: [react(), tailwindcss()],
   clearScreen: false,
@@ -13,9 +13,9 @@ export default defineConfig({
     strictPort: true,
     host: '127.0.0.1',
     watch: { ignored: ['**/src-tauri/**', '**/target/**'] },
-    // A raiz do servidor de dev é a pasta do projeto: arquivos privados que
-    // alguém deixe nela (perfis exportados, swanctl.conf com PSK) não podem
-    // ser servidos. Os quatro primeiros são o padrão do Vite.
+    // The dev server's root is the project folder: private files someone leaves
+    // in it (exported profiles, a swanctl.conf with a PSK) must not be served.
+    // The first four are Vite's default.
     fs: {
       deny: [
         '.env',

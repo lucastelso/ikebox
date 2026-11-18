@@ -1,5 +1,5 @@
-//! Pedido de credenciais no terminal. Senhas e PSK são lidas sem eco
-//! (`rpassword`, direto do TTY); o usuário XAuth é lido com eco.
+//! Credential prompts in the terminal. Passwords and PSKs are read without echo
+//! (`rpassword`, straight from the TTY); the XAuth username is read with echo.
 
 use std::io::{BufRead, IsTerminal, Write};
 
@@ -8,12 +8,12 @@ use ipsec_client_core::profiles::CredentialKind;
 use ipsec_client_core::secrets::{Credentials, describe};
 use secrecy::SecretString;
 
-/// Lê credenciais da entrada padrão, uma por linha no formato `chave=valor`
-/// (chaves: `psk`, `xauth-user`, `xauth-password`, `eap-identity`,
-/// `eap-password`, `token-pin`, e `p12-password`, a senha do arquivo de `--client-p12`;
-/// `#` comenta). Para automação, como o `docker login --password-stdin`:
-/// nunca passe segredos por argumento ou variável de ambiente (aparecem em
-/// `ps` e no histórico). Devolve a senha do `.p12`, se veio.
+/// Reads credentials from standard input, one per line as `key=value` (keys:
+/// `psk`, `xauth-user`, `xauth-password`, `eap-identity`, `eap-password`,
+/// `token-pin`, and `p12-password`, the password of the `--client-p12` file;
+/// `#` comments). For automation, like `docker login --password-stdin`: never
+/// pass secrets as arguments or environment variables (they show up in `ps`
+/// and in the history). Returns the `.p12` password, if given.
 pub fn read_stdin(credentials: &mut Credentials) -> anyhow::Result<Option<SecretString>> {
     parse_credentials(std::io::stdin().lock(), credentials)
 }
@@ -56,7 +56,7 @@ fn parse_credentials(
     Ok(p12_password)
 }
 
-/// Senha de um arquivo `.p12`, sem eco.
+/// Password of a `.p12` file, without echo.
 pub fn ask_p12_password() -> anyhow::Result<SecretString> {
     if !interactive() {
         bail!("the .p12 password is needed and there is no terminal to ask for it");
@@ -66,7 +66,7 @@ pub fn ask_p12_password() -> anyhow::Result<SecretString> {
     Ok(SecretString::from(value))
 }
 
-/// Há um terminal para perguntar?
+/// Is there a terminal to ask?
 pub fn interactive() -> bool {
     std::io::stdin().is_terminal()
 }
@@ -84,8 +84,8 @@ fn label(kind: CredentialKind) -> &'static str {
     }
 }
 
-/// Pede as credenciais `kinds`. Com `keep_existing`, Enter vazio mantém o
-/// valor atual.
+/// Asks for the credentials `kinds`. With `keep_existing`, an empty Enter keeps
+/// the current value.
 pub fn ask(
     credentials: &mut Credentials,
     kinds: &[CredentialKind],

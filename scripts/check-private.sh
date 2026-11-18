@@ -1,23 +1,23 @@
 #!/usr/bin/env bash
-# check-private.sh — impede que dados privados (do mantenedor ou da organização
-# dele) entrem no repositório.
+# check-private.sh — keeps private data (the maintainer's or their
+# organization's) out of the repository.
 #
-# Os padrões NÃO ficam no repositório: são lidos de um arquivo local, por padrão
-# `.git/info/private-patterns` (uma ERE por linha, `#` para comentários), ou do
-# caminho em $IPSEC_CLIENT_PRIVATE_PATTERNS.
+# The patterns are NOT in the repository: they are read from a local file, by
+# default `.git/info/private-patterns` (one ERE per line, `#` for comments),
+# or from the path in $IPSEC_CLIENT_PRIVATE_PATTERNS.
 #
-# Uso:
-#   scripts/check-private.sh              # verifica o conteúdo staged (o índice)
-#   scripts/check-private.sh --tracked    # verifica a árvore de trabalho rastreada
-#   scripts/check-private.sh --history    # verifica todo o histórico (antes de push)
-#   scripts/check-private.sh --message F  # verifica uma mensagem de commit
-#   scripts/check-private.sh --artifacts D  # varre os pacotes de release em D
-#                                           # (AppImage, deb, rpm), por dentro
+# Usage:
+#   scripts/check-private.sh              # checks the staged content (the index)
+#   scripts/check-private.sh --tracked    # checks the tracked working tree
+#   scripts/check-private.sh --history    # checks the whole history (before a push)
+#   scripts/check-private.sh --message F  # checks a commit message
+#   scripts/check-private.sh --artifacts D  # scans the release packages in D
+#                                           # (AppImage, deb, rpm), inside
 #
-# Saída: 0 = limpo (ou sem padrões configurados), 1 = encontrou dado privado,
-#        2 = erro.
-# Nunca imprime o trecho que casou, só a localização, para não espalhar o dado
-# privado por logs de terminal ou de CI.
+# Exit: 0 = clean (or no patterns configured), 1 = private data found,
+#       2 = error.
+# It never prints the matching text, only where it is, so the private data
+# does not spread through terminal or CI logs.
 
 set -euo pipefail
 
@@ -33,7 +33,7 @@ patterns_file=${IPSEC_CLIENT_PRIVATE_PATTERNS:-$(git rev-parse --git-path info/p
 
 mode=${1:---staged}
 
-# Remove comentários e linhas vazias num arquivo temporário privado.
+# Strips comments and empty lines into a private temporary file.
 umask 077
 clean_patterns=$(mktemp)
 work=""
@@ -43,7 +43,7 @@ if [[ -s "$patterns_file" ]]; then
 fi
 
 if [[ ! -s "$clean_patterns" && $mode != --artifacts ]]; then
-    # A CI não tem (nem deve ter) os padrões privados: sai em silêncio.
+    # CI does not have (and must not have) the private patterns: exit quietly.
     if [[ -z "${CI:-}" ]]; then
         printf 'check-private: warning: no patterns in %s (see CONTRIBUTING.md)\n' \
             "$patterns_file" >&2
@@ -57,8 +57,9 @@ fail() {
     exit 1
 }
 
-# scan <rótulo> <campos-de-localização> <args do git grep...>
-# git grep sai com 0 quando acha, 1 quando não acha e >1 em erro.
+# scan <label> <location fields> <git grep args...>
+# git grep exits with 0 when it finds something, 1 when it does not and >1 on
+# error.
 scan() {
     local label=$1 fields=$2 out rc=0
     shift 2
@@ -73,8 +74,8 @@ scan() {
     esac
 }
 
-# extract_package <pacote> <destino>: o conteúdo inteiro, inclusive o
-# strongSwan (engine.tar.gz) e o helper (.gz) que vão compactados dentro.
+# extract_package <package> <destination>: the whole content, including the
+# strongSwan (engine.tar.gz) and the helper (.gz) that go compressed inside.
 extract_package() {
     local pkg=$1 dest=$2 data nested
     mkdir -p "$dest"
@@ -85,7 +86,7 @@ extract_package() {
         done) || die "could not extract $pkg"
         ;;
     *.rpm)
-        # O rpm2cpio do Ubuntu 22.04 sai com 1 mesmo extraindo tudo.
+        # Ubuntu 22.04's rpm2cpio exits with 1 even after extracting everything.
         (cd "$dest" && { rpm2cpio "$pkg" || true; } | cpio -idm --quiet) ||
             die "could not extract $pkg"
         ;;
@@ -102,13 +103,13 @@ extract_package() {
     done < <(find "$dest" -type f -name '*.gz' ! -name '*.tar.gz' -print0)
 }
 
-# scan_patterns <caminho>...: arquivos em que os padrões privados aparecem.
-# Em executáveis ELF, só o texto legível de 6+ caracteres conta: um padrão
-# curto casa por acaso com bytes que não são texto (aconteceu na 0.1.1: 3
-# bytes isolados na seção .text do app; e na 0.9.0: uma sequência de 4
-# caracteres, uma chave e três letras, em .rodata, que não existia em nenhum
-# fonte, asset ou dependência). Um dado de verdade embutido no binário
-# (gateway, domínio, IP) fica em texto legível e mais longo que isso.
+# scan_patterns <path>...: files in which the private patterns appear.
+# In ELF executables, only readable text of 6+ characters counts: a short
+# pattern matches by chance bytes that are not text (it happened in 0.1.1: 3
+# isolated bytes in the app's .text section; and in 0.9.0: a sequence of 4
+# characters, a brace and three letters, in .rodata, which existed in no
+# source, asset or dependency). Real data embedded in the binary (gateway,
+# domain, IP) is readable text, and longer than that.
 # Compressed files (.gz, .tar.gz) are skipped: their bytes are pseudo-random,
 # so a short pattern matches by chance (it happened in 0.2.0, in the
 # engine.tar.gz bytes), and extract_package already unpacks them next to the
@@ -153,7 +154,7 @@ case "$mode" in
 --message)
     msg_file=${2:-}
     [[ -f "$msg_file" ]] || die "usage: $0 --message <file>"
-    # Ignora as linhas de comentário que o git coloca no editor.
+    # Ignore the comment lines git puts in the editor.
     msg=$(grep -v '^#' "$msg_file" || true)
     if grep -q -i -E -f "$clean_patterns" <<<"$msg"; then
         fail "commit message"
@@ -164,8 +165,8 @@ case "$mode" in
     shopt -s nullglob
     packages=("$dir"/*.AppImage "$dir"/*.deb "$dir"/*.rpm)
     ((${#packages[@]} > 0)) || die "no packages in $dir"
-    # Além dos padrões privados: o caminho da home e o nome desta máquina
-    # (nomes genéricos ficam de fora, para não dar falso positivo).
+    # Besides the private patterns: the home path and this machine's name
+    # (generic names are left out, to avoid false positives).
     fixed=("/home/$(id -un)")
     host=$(hostname 2>/dev/null || true)
     case ${host,,} in
@@ -177,11 +178,11 @@ case "$mode" in
     for pkg in "${packages[@]}"; do
         dest="$work/$(basename "$pkg")"
         extract_package "$pkg" "$dest"
-        # Os padrões privados vão nos arquivos NOSSOS. O AppImage também traz
-        # bibliotecas do Ubuntu 22.04, copiadas pelo linuxdeploy: padrões
-        # curtos casam por acaso dentro delas (conferido: as mesmas
-        # ocorrências existem nas bibliotecas originais), e nelas só se
-        # procura o caminho da home e o hostname.
+        # The private patterns apply to OUR files. The AppImage also carries
+        # Ubuntu 22.04 libraries, copied by linuxdeploy: short patterns match
+        # by chance inside them (checked: the same matches exist in the
+        # original libraries), so in them only the home path and the hostname
+        # are looked for.
         own=("$dest")
         if [[ $pkg == *.AppImage ]]; then
             own=()

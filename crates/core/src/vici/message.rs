@@ -1,19 +1,19 @@
-//! Mensagens do protocolo VICI: modelo, codificação e decodificação.
+//! VICI protocol messages: model, encoding and decoding.
 //!
-//! Formato de uma mensagem (sequência de elementos):
+//! Format of a message (a sequence of elements):
 //!
-//! | Elemento        | Código | Conteúdo                              |
+//! | Element         | Code   | Content                               |
 //! |-----------------|--------|---------------------------------------|
-//! | `SECTION_START` | 1      | nome (u8 + bytes)                     |
+//! | `SECTION_START` | 1      | name (u8 + bytes)                     |
 //! | `SECTION_END`   | 2      | —                                     |
-//! | `KEY_VALUE`     | 3      | chave (u8 + bytes), valor (u16 + bytes)|
-//! | `LIST_START`    | 4      | nome (u8 + bytes)                     |
-//! | `LIST_ITEM`     | 5      | valor (u16 + bytes)                   |
+//! | `KEY_VALUE`     | 3      | key (u8 + bytes), value (u16 + bytes) |
+//! | `LIST_START`    | 4      | name (u8 + bytes)                     |
+//! | `LIST_ITEM`     | 5      | value (u16 + bytes)                   |
 //! | `LIST_END`      | 6      | —                                     |
 //!
-//! Segurança: todo valor fica num buffer zerado no drop ([`Zeroizing`]), e o
-//! `Debug` nunca mostra valores, porque mensagens podem carregar PSK e senha
-//! XAuth (`load-shared`).
+//! Security: every value is kept in a buffer zeroed on drop ([`Zeroizing`]),
+//! and `Debug` never shows values, because messages may carry the PSK and the
+//! XAuth password (`load-shared`).
 
 use std::fmt;
 
@@ -28,17 +28,17 @@ const LIST_START: u8 = 4;
 const LIST_ITEM: u8 = 5;
 const LIST_END: u8 = 6;
 
-/// Profundidade máxima de seções aninhadas aceita na decodificação.
+/// Maximum depth of nested sections accepted when decoding.
 const MAX_DEPTH: usize = 32;
 
-/// Um valor de mensagem VICI.
+/// A VICI message value.
 #[derive(Clone, PartialEq, Eq)]
 pub enum Value {
-    /// Par chave/valor (bytes, normalmente UTF-8).
+    /// Key/value pair (bytes, usually UTF-8).
     Str(Zeroizing<Vec<u8>>),
-    /// Seção aninhada.
+    /// Nested section.
     Section(Message),
-    /// Lista de valores.
+    /// List of values.
     List(Vec<Zeroizing<Vec<u8>>>),
 }
 
@@ -52,7 +52,7 @@ impl fmt::Debug for Value {
     }
 }
 
-/// Mensagem VICI: pares ordenados nome → valor.
+/// VICI message: ordered name → value pairs.
 #[derive(Clone, Default, PartialEq, Eq)]
 pub struct Message {
     entries: Vec<(String, Value)>,
@@ -67,13 +67,13 @@ impl fmt::Debug for Message {
 }
 
 impl Message {
-    /// Mensagem vazia.
+    /// Empty message.
     #[must_use]
     pub fn new() -> Self {
         Self::default()
     }
 
-    /// Acrescenta um par chave/valor.
+    /// Appends a key/value pair.
     #[must_use]
     pub fn kv(mut self, key: &str, value: impl AsRef<[u8]>) -> Self {
         self.entries.push((
@@ -83,7 +83,7 @@ impl Message {
         self
     }
 
-    /// Acrescenta uma lista.
+    /// Appends a list.
     #[must_use]
     pub fn list<I, V>(mut self, key: &str, items: I) -> Self
     where
@@ -98,25 +98,25 @@ impl Message {
         self
     }
 
-    /// Acrescenta uma seção.
+    /// Appends a section.
     #[must_use]
     pub fn section(mut self, key: &str, section: Message) -> Self {
         self.entries.push((key.to_owned(), Value::Section(section)));
         self
     }
 
-    /// Itera sobre as entradas, na ordem.
+    /// Iterates over the entries, in order.
     pub fn iter(&self) -> impl Iterator<Item = (&str, &Value)> {
         self.entries.iter().map(|(k, v)| (k.as_str(), v))
     }
 
-    /// Primeiro valor com essa chave.
+    /// First value with that key.
     #[must_use]
     pub fn get(&self, key: &str) -> Option<&Value> {
         self.entries.iter().find(|(k, _)| k == key).map(|(_, v)| v)
     }
 
-    /// Valor de texto (UTF-8) de uma chave.
+    /// Text value (UTF-8) of a key.
     #[must_use]
     pub fn get_str(&self, key: &str) -> Option<&str> {
         match self.get(key)? {
@@ -125,7 +125,7 @@ impl Message {
         }
     }
 
-    /// Seção de uma chave.
+    /// Section of a key.
     #[must_use]
     pub fn get_section(&self, key: &str) -> Option<&Message> {
         match self.get(key)? {
@@ -134,7 +134,7 @@ impl Message {
         }
     }
 
-    /// Itens de texto de uma lista (itens não UTF-8 são ignorados).
+    /// Text items of a list (non-UTF-8 items are ignored).
     #[must_use]
     pub fn get_list(&self, key: &str) -> Vec<&str> {
         match self.get(key) {
@@ -146,7 +146,7 @@ impl Message {
         }
     }
 
-    /// Seções de primeiro nível (ex.: uma por IKE_SA em `list-sa`).
+    /// Top-level sections (e.g. one per IKE_SA in `list-sa`).
     pub fn sections(&self) -> impl Iterator<Item = (&str, &Message)> {
         self.entries.iter().filter_map(|(k, v)| match v {
             Value::Section(m) => Some((k.as_str(), m)),
@@ -154,11 +154,11 @@ impl Message {
         })
     }
 
-    /// Codifica a mensagem, anexando a `out`.
+    /// Encodes the message, appending to `out`.
     ///
     /// # Errors
-    /// [`ViciError::Protocol`] se um nome passar de 255 bytes ou um valor de
-    /// 65535 bytes (limites do formato).
+    /// [`ViciError::Protocol`] if a name is longer than 255 bytes or a value
+    /// longer than 65535 bytes (the format's limits).
     pub fn encode_into(&self, out: &mut Vec<u8>) -> Result<(), ViciError> {
         for (key, value) in &self.entries {
             match value {
@@ -187,10 +187,10 @@ impl Message {
         Ok(())
     }
 
-    /// Decodifica uma mensagem completa.
+    /// Decodes a complete message.
     ///
     /// # Errors
-    /// [`ViciError::Protocol`] se os bytes não formarem uma mensagem válida.
+    /// [`ViciError::Protocol`] if the bytes do not form a valid message.
     pub fn decode(bytes: &[u8]) -> Result<Self, ViciError> {
         let mut reader = Reader { bytes, pos: 0 };
         let message = reader.message(0)?;
@@ -270,7 +270,7 @@ impl Reader<'_> {
         Ok(Zeroizing::new(self.take(len)?.to_vec()))
     }
 
-    /// Lê elementos até o fim dos bytes (depth 0) ou até `SECTION_END`.
+    /// Reads elements up to the end of the bytes (depth 0) or up to `SECTION_END`.
     fn message(&mut self, depth: usize) -> Result<Message, ViciError> {
         if depth > MAX_DEPTH {
             return Err(protocol(crate::tr!(
@@ -293,7 +293,7 @@ impl Reader<'_> {
                 }
                 SECTION_END => {
                     if depth == 0 {
-                        // Devolve o byte para `decode` detectar o erro.
+                        // Puts the byte back so `decode` detects the error.
                         self.pos -= 1;
                     }
                     return Ok(message);
@@ -394,11 +394,11 @@ mod tests {
         let cases: &[&[u8]] = &[
             &[3, 5, b'a'],          // nome truncado
             &[3, 1, b'a', 0, 9, 1], // valor truncado
-            &[1, 1, b's', 3],       // seção sem fim
-            &[2],                   // fim sem início
-            &[4, 1, b'l', 3],       // elemento estranho na lista
+            &[1, 1, b's', 3],       // section without an end
+            &[2],                   // end without a start
+            &[4, 1, b'l', 3],       // unexpected element in the list
             &[9],                   // tipo desconhecido
-            &[3, 1, 0xff, 0, 0],    // nome não UTF-8
+            &[3, 1, 0xff, 0, 0],    // non-UTF-8 name
         ];
         for (i, case) in cases.iter().enumerate() {
             assert!(Message::decode(case).is_err(), "caso {i} deveria falhar");

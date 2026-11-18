@@ -1,23 +1,23 @@
 #!/usr/bin/env bash
-# Compila o strongSwan para o engine embutido (roda DENTRO do builder).
+# Builds strongSwan for the embedded engine (runs INSIDE the builder).
 #
-# Uso: build-strongswan VERSAO CAMINHO SHA256
-#   /keys      (ro)  chave pública de release do strongSwan
-#   /patches   (ro)  patches do IPsec Client (native-engine/patches/*.patch)
-#   /licenses  (ro)  textos de licença do GMP e da musl (native-engine/licenses)
-#   /out       (rw)  destino dos tarballs
+# Usage: build-strongswan VERSION PATH SHA256
+#   /keys      (ro)  strongSwan's release public key
+#   /patches   (ro)  IPsec Client patches (native-engine/patches/*.patch)
+#   /licenses  (ro)  OpenSSL and musl license texts (native-engine/licenses)
+#   /out       (rw)  where the tarballs go
 #
-# Garantias:
-#   - o tarball é conferido por SHA-256 (fixado em native-engine/versions.txt)
-#     E pela assinatura GPG oficial;
-#   - os patches de segurança do IPsec Client são aplicados DEPOIS da
-#     conferência, e todos precisam aplicar (ADR-0019);
-#   - one fully static executable (musl and GMP inside, ADR-0020): it does
-#     not depend on the glibc of the computer it runs on;
-#   - plugins próprios, sem OpenSSL (políticas de cripto do host não afetam);
+# Guarantees:
+#   - the tarball is checked by SHA-256 (pinned in native-engine/versions.txt)
+#     AND by the official GPG signature;
+#   - the IPsec Client security patches are applied AFTER the check, and all
+#     of them must apply (ADR-0019);
+#   - one fully static executable (musl and OpenSSL inside, ADR-0020,
+#     ADR-0027): it does not depend on the glibc of the computer it runs on;
+#   - OpenSSL linked statically: the host's crypto policies do not affect it;
 #   - two tarballs: the engine (only what production runs) and the test tools
 #     (swanctl), which never go to users;
-#   - tarballs determinísticos (ordem, datas e donos fixos).
+#   - deterministic tarballs (fixed order, dates and owners).
 
 set -euo pipefail
 
@@ -53,8 +53,8 @@ log "GPG signature verified"
 
 tar -xjf "$tarball" -C "$SRC" --strip-components=1
 
-# Patches do IPsec Client (ADR-0019). Um patch que não aplica derruba o build:
-# o engine sem ele seria inseguro.
+# IPsec Client patches (ADR-0019). A patch that does not apply fails the
+# build: the engine without it would be insecure.
 patches=()
 for patch_file in /patches/*.patch; do
     [[ -f $patch_file ]] || continue
@@ -97,12 +97,12 @@ configure_flags=(
     --enable-agent --enable-sshkey
     --disable-pki --disable-scepclient
 )
-# 6.x: PRF+ para o IKEv2 sem OpenSSL fica no plugin kdf.
+# 6.x: PRF+ for IKEv2 without OpenSSL lives in the kdf plugin.
 [[ $version == 6.* ]] && configure_flags+=(--enable-kdf)
 
 cd "$SRC"
 log "configure (${#configure_flags[@]} options)"
-# 5.8.x é anterior ao -fno-common, padrão do gcc >= 10 (definições duplicadas).
+# 5.8.x predates -fno-common, gcc >= 10's default (duplicate definitions).
 # Hardening stated, not left to the compiler's defaults: stack protector and
 # FORTIFY (Alpine's fortify-headers, part of build-base). PIE, full RELRO and a
 # non-executable stack come from the static-pie link.
@@ -122,7 +122,7 @@ make install DESTDIR="$STAGE" >/build/install.log 2>&1 || { tail -n 30 /build/in
 
 root="$STAGE$PREFIX"
 find "$root" -type f -perm -u+x -exec sh -c 'file -b "$1" | grep -q ELF && strip "$1"' _ {} \;
-# Build estático: as bibliotecas .a e os headers não servem em tempo de execução.
+# Static build: the .a libraries and the headers are of no use at run time.
 rm -rf "${root:?}/share/man" "${root:?}/lib" "${root:?}/include"
 
 charon="$root/libexec/ipsec/charon"

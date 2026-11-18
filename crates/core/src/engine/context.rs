@@ -1,26 +1,26 @@
-//! Contexto de build da imagem do engine, embutido no binário (ADR-0006).
+//! Build context of the engine image, embedded in the binary (ADR-0006).
 //!
-//! Os arquivos de `engine/` entram no binário com `include_bytes!`. O hash do
-//! conteúdo identifica a imagem (`ipsec-client-engine:6.0.1-<hash8>`), então
-//! binário e engine sempre andam juntos.
+//! The files of `engine/` go into the binary with `include_bytes!`. The hash
+//! of the content identifies the image (`ipsec-client-engine:6.0.1-<hash8>`),
+//! so the binary and the engine always go together.
 
 use sha2::{Digest, Sha256};
 
-/// Repositório (nome) da imagem do engine.
+/// Repository (name) of the engine image.
 pub const IMAGE_REPO: &str = "ipsec-client-engine";
-/// Versão do strongSwan fixada no Dockerfile.
+/// strongSwan version pinned in the Dockerfile.
 pub const STRONGSWAN_VERSION: &str = "6.0.1";
-/// Label com o hash completo do contexto, gravada na imagem.
+/// Label with the full hash of the context, written into the image.
 pub const HASH_LABEL: &str = "io.github.ipsec-client.engine.hash";
 
-/// Um arquivo do contexto de build.
+/// A file of the build context.
 #[derive(Debug, Clone, Copy)]
 pub struct ContextFile {
-    /// Caminho relativo dentro do contexto (e de `engine/`).
+    /// Relative path inside the context (and inside `engine/`).
     pub path: &'static str,
-    /// Permissão no tar.
+    /// Mode in the tar.
     pub mode: u32,
-    /// Conteúdo.
+    /// Content.
     pub contents: &'static [u8],
 }
 
@@ -34,8 +34,8 @@ macro_rules! engine_file {
     };
 }
 
-/// Todos os arquivos do contexto, em ordem de caminho (o hash depende disso).
-/// Um teste garante que esta lista bate com o conteúdo de `engine/`.
+/// Every file of the context, in path order (the hash depends on it). A test
+/// makes sure this list matches the content of `engine/`.
 pub const FILES: &[ContextFile] = &[
     engine_file!("Dockerfile", 0o644),
     engine_file!("entrypoint.sh", 0o755),
@@ -43,7 +43,7 @@ pub const FILES: &[ContextFile] = &[
     engine_file!("updown.sh", 0o755),
 ];
 
-/// SHA-256 (hex) do contexto: caminho, tamanho e conteúdo de cada arquivo.
+/// SHA-256 (hex) of the context: path, size and content of each file.
 #[must_use]
 pub fn content_hash() -> String {
     let mut hasher = Sha256::new();
@@ -56,18 +56,18 @@ pub fn content_hash() -> String {
     hex::encode(hasher.finalize())
 }
 
-/// Nome completo da imagem: `ipsec-client-engine:6.0.1-<8 primeiros do hash>`.
+/// Full image name: `ipsec-client-engine:6.0.1-<first 8 of the hash>`.
 #[must_use]
 pub fn image_tag() -> String {
     let hash = content_hash();
     format!("{IMAGE_REPO}:{STRONGSWAN_VERSION}-{}", &hash[..8])
 }
 
-/// Tar do contexto, determinístico (mtime 0, dono root), pronto para a API
-/// `/build` do Docker.
+/// Tar of the context, deterministic (mtime 0, owner root), ready for Docker's
+/// `/build` API.
 ///
 /// # Errors
-/// Só falha se a escrita em memória falhar (na prática, nunca).
+/// Only fails if writing to memory fails (in practice, never).
 pub fn tar_archive() -> std::io::Result<Vec<u8>> {
     let mut builder = tar::Builder::new(Vec::new());
     builder.mode(tar::HeaderMode::Deterministic);

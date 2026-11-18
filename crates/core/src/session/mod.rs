@@ -5,9 +5,9 @@
 //! `initiate` → *Connected* state. On any failure after the engine is up, it
 //! is torn down (the host is left clean).
 //!
-//! O engine é um container independente do processo do app: depois de
-//! conectado, [`status`] e [`disconnect`] funcionam a partir de qualquer
-//! processo (por exemplo, outro terminal ou a GUI).
+//! The engine runs apart from the app's process: once connected, [`status`]
+//! and [`disconnect`] work from any process (for example, another terminal or
+//! the GUI).
 
 pub mod agent;
 mod establish;
@@ -33,58 +33,59 @@ use crate::secrets::{
 };
 use crate::vici::{Charon, CharonEvent, IkeSa, ViciClient, ViciError, ViciEvents};
 
-/// Linhas de log guardadas para diagnóstico de falhas.
+/// Log lines kept to diagnose failures.
 const LOG_BUFFER: usize = 500;
 
-/// Estado da sessão (para a UI/CLI).
+/// Session state (for the UI/CLI).
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum SessionState {
-    /// Preparando: preflight, imagem, engine.
+    /// Preparing: preflight, image, engine.
     Preparing(String),
-    /// Negociando com o gateway.
+    /// Negotiating with the gateway.
     Negotiating,
-    /// Túnel ativo.
+    /// Tunnel up.
     Connected(ConnectionInfo),
 }
 
-/// Evento da sessão.
+/// Session event.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum SessionEvent {
-    /// Mudança de estado.
+    /// State change.
     State(SessionState),
-    /// Linha de log do charon, com identidades mascaradas.
+    /// A charon log line, with identities masked.
     Log(String),
-    /// Progresso do build da imagem.
+    /// Progress of the image build.
     Build(String),
-    /// O túnel caiu (o charon pode reconectar sozinho, conforme o perfil).
+    /// The tunnel went down (charon may reconnect by itself, depending on the
+    /// profile).
     TunnelDown,
-    /// O túnel (re)subiu.
+    /// The tunnel came (back) up.
     TunnelUp,
-    /// A conexão com o engine terminou (engine parado ou morto).
+    /// The connection to the engine ended (engine stopped or dead).
     EngineGone,
 }
 
-/// Canal de eventos da sessão.
+/// Session event channel.
 pub type EventSink = UnboundedSender<SessionEvent>;
 
-/// Resumo de uma conexão ativa (sem identidades).
+/// Summary of an active connection (without identities).
 #[derive(Debug, Clone, Default, PartialEq, Eq)]
 pub struct ConnectionInfo {
-    /// Perfil conectado (label do engine).
+    /// Connected profile (the engine's label).
     pub profile_id: Option<String>,
-    /// Estado do IKE_SA (`ESTABLISHED`...), ou vazio se não houver.
+    /// IKE_SA state (`ESTABLISHED`...), or empty if there is none.
     pub state: String,
     /// Gateway.
     pub gateway: String,
     /// IP virtual.
     pub vip: Option<String>,
-    /// Redes remotas acessíveis.
+    /// Reachable remote networks.
     pub remote_ts: Vec<String>,
-    /// Segundos desde o estabelecimento.
+    /// Seconds since it was established.
     pub established_secs: Option<u64>,
-    /// Bytes recebidos (todos os CHILD_SAs).
+    /// Bytes received (all CHILD_SAs).
     pub bytes_in: u64,
-    /// Bytes enviados.
+    /// Bytes sent.
     pub bytes_out: u64,
 }
 
@@ -106,19 +107,19 @@ impl ConnectionInfo {
         }
     }
 
-    /// Há um túnel estabelecido?
+    /// Is a tunnel established?
     #[must_use]
     pub fn is_established(&self) -> bool {
         self.state == "ESTABLISHED"
     }
 }
 
-/// Opções de conexão.
+/// Connection options.
 #[derive(Debug, Clone)]
 pub struct ConnectOptions {
-    /// Modo privilegiado de reserva (ADR-0005).
+    /// Fallback privileged mode (ADR-0005).
     pub privileged: bool,
-    /// Tempo máximo da negociação.
+    /// Maximum negotiation time.
     pub initiate_timeout: Duration,
 }
 
@@ -148,12 +149,12 @@ pub enum SessionError {
         describe_failures(.0)
     ))]
     Preflight(Vec<Check>),
-    /// A negociação falhou.
+    /// The negotiation failed.
     #[error("{kind} (charon: {detail})")]
     Negotiation {
-        /// Causa provável.
+        /// Likely cause.
         kind: FailureKind,
-        /// Mensagem do charon (identidades mascaradas).
+        /// charon's message (identities masked).
         detail: String,
     },
     /// The tunnel did not show up after a successful negotiation.
@@ -162,16 +163,16 @@ pub enum SessionError {
         "a negociação terminou, mas o túnel não está ativo"
     ))]
     NotEstablished,
-    /// Erro do engine.
+    /// Engine error.
     #[error(transparent)]
     Engine(#[from] EngineError),
-    /// Erro do VICI.
+    /// VICI error.
     #[error(transparent)]
     Vici(#[from] ViciError),
-    /// Erro do perfil.
+    /// Profile error.
     #[error(transparent)]
     Profile(#[from] ProfileError),
-    /// Erro de credenciais.
+    /// Credentials error.
     #[error(transparent)]
     Secrets(#[from] SecretsError),
     /// Smartcard or token (ADR-0029).
@@ -218,7 +219,7 @@ fn send(events: Option<&EventSink>, event: SessionEvent) {
     }
 }
 
-/// Identidades a mascarar nos logs desta sessão.
+/// Identities to mask in this session's logs.
 #[must_use]
 pub fn redactor_for(profile: &Profile, credentials: &Credentials) -> Redactor {
     // The client certificate's subject values and alternative names (the
@@ -237,8 +238,8 @@ pub fn redactor_for(profile: &Profile, credentials: &Credentials) -> Redactor {
     Redactor::new(identities)
 }
 
-/// Anonimizador para o log que sai do app (copiar, relatório de bug): além
-/// das identidades, o gateway, os DNS e os domínios do perfil e todo IP.
+/// Anonymizer for the log that leaves the app (copy, bug report): besides the
+/// identities, the profile's gateway, DNS servers and domains, and every IP.
 #[must_use]
 pub fn anonymizer_for(profile: &Profile, user: Option<&str>) -> Anonymizer {
     let mut identities: Vec<&str> = Vec::new();
@@ -268,20 +269,20 @@ pub async fn connect_then_remember(
     Ok((info, stored))
 }
 
-/// Conecta o perfil. Devolve quando o túnel está ativo; os eventos seguintes
-/// (quedas, reconexões, logs) continuam chegando em `events` enquanto o
-/// runtime estiver vivo.
+/// Connects the profile. Returns when the tunnel is up; the following events
+/// (drops, reconnections, logs) keep arriving on `events` while the runtime is
+/// alive.
 ///
 /// # Errors
-/// Conexão já ativa, preflight, imagem, engine ou negociação (com a causa
-/// provável em [`SessionError::Negotiation`]).
+/// Connection already active, preflight, image, engine or negotiation (with the
+/// likely cause in [`SessionError::Negotiation`]).
 pub async fn connect(
     profile: &Profile,
     credentials: &Credentials,
     options: &ConnectOptions,
     events: Option<EventSink>,
 ) -> Result<ConnectionInfo, SessionError> {
-    // Falhas de credencial/perfil antes de mexer em qualquer coisa.
+    // Credential or profile failures before touching anything.
     credentials.shared_secrets(profile)?;
 
     let backend = Backend::detect()?;
@@ -376,8 +377,8 @@ async fn negotiate(
     )
     .await;
     if let Err(SessionError::Negotiation { detail, .. }) = outcome {
-        // Os eventos de log chegam por outra conexão: dá um instante para os
-        // últimos chegarem antes do diagnóstico.
+        // Log events arrive over another connection: give the last ones a moment to
+        // arrive before the diagnosis.
         tokio::time::sleep(Duration::from_millis(300)).await;
         let lines: Vec<String> = logs
             .lock()
@@ -492,10 +493,10 @@ async fn start_token_agent(
     Ok(())
 }
 
-/// Estado da conexão ativa, de qualquer processo (`None` = desconectado).
+/// State of the active connection, from any process (`None` = disconnected).
 ///
 /// # Errors
-/// Engine (helper/Docker) ou VICI inacessíveis.
+/// Engine (helper/Docker) or VICI unreachable.
 pub async fn status() -> Result<Option<ConnectionInfo>, SessionError> {
     let backend = Backend::detect()?;
     let Some(profile_id) = backend.running_profile().await? else {
@@ -506,7 +507,7 @@ pub async fn status() -> Result<Option<ConnectionInfo>, SessionError> {
     let sas = charon.list_sas().await?;
     Ok(Some(match sas.first() {
         Some(sa) => ConnectionInfo::from_sa(profile_id, sa),
-        // Engine de pé, mas sem túnel (negociando ou reconectando).
+        // Engine up, but no tunnel (negotiating or reconnecting).
         None => ConnectionInfo {
             profile_id,
             ..Default::default()
@@ -514,11 +515,11 @@ pub async fn status() -> Result<Option<ConnectionInfo>, SessionError> {
     }))
 }
 
-/// Encerra a conexão ativa: `terminate` (avisa o gateway) e derruba o engine.
-/// Devolve `false` se não havia conexão.
+/// Ends the active connection: `terminate` (tells the gateway) and tears the
+/// engine down. Returns `false` if there was no connection.
 ///
 /// # Errors
-/// Engine (helper/Docker) inacessível.
+/// Engine (helper/Docker) unreachable.
 pub async fn disconnect() -> Result<bool, SessionError> {
     let backend = Backend::detect()?;
     if backend.running_profile().await?.is_some()
@@ -533,14 +534,14 @@ pub async fn disconnect() -> Result<bool, SessionError> {
         }
     }
     set_token_agent(None);
-    // Também remove um container parado que tenha sobrado (Docker).
+    // Also removes a stopped container left behind (Docker).
     Ok(backend.stop().await?)
 }
 
-/// Últimas linhas do log do engine em uso (identidades ainda não mascaradas).
+/// Last lines of the running engine's log (identities not masked yet).
 ///
 /// # Errors
-/// Engine inacessível.
+/// Engine unreachable.
 pub async fn engine_logs(tail: usize) -> Result<Vec<String>, SessionError> {
     let lines = Backend::detect()?.logs(tail).await?;
     // The log has text chosen by the gateway: nothing in it may reach a
@@ -548,10 +549,10 @@ pub async fn engine_logs(tail: usize) -> Result<Vec<String>, SessionError> {
     Ok(lines.iter().map(|line| printable(line)).collect())
 }
 
-/// Perfil do engine em execução, se houver.
+/// Profile of the running engine, if any.
 ///
 /// # Errors
-/// Engine inacessível.
+/// Engine unreachable.
 pub async fn active_profile() -> Result<Option<String>, SessionError> {
     Ok(Backend::detect()?.running_profile().await?)
 }
@@ -598,9 +599,9 @@ mod tests {
             &establish::tests::profile(),
             &establish::tests::credentials(),
         );
-        let line = r.redact("XAuth authentication of 'usuario.exemplo' ok, [nome-do-grupo]");
+        let line = r.redact("XAuth authentication of 'usuario.exemplo' ok, [group-name]");
         assert!(
-            !line.contains("usuario.exemplo") && !line.contains("nome-do-grupo"),
+            !line.contains("usuario.exemplo") && !line.contains("group-name"),
             "{line}"
         );
     }

@@ -1,20 +1,21 @@
-//! Componente de rede: o engine embutido e o helper com privilégio (ADRs
-//! 0013, 0014 e 0018). Este módulo:
+//! Network component: the embedded engine and the privileged helper (ADRs
+//! 0013, 0014 and 0018). This module:
 //!
-//! - lê o **pacote** que vem dentro do app: um diretório com `SHA256SUMS`,
-//!   `VERSION` e os arquivos, montado por `scripts/stage-network-component.sh`;
-//! - diz o **estado** da instalação: ausente, pronta, desatualizada ou com
-//!   problema;
-//! - **instala** e **remove** com a senha de administrador, via `pkexec`.
+//! - reads the **bundle** that comes inside the app: a directory with
+//!   `SHA256SUMS`, `VERSION` and the files, put together by
+//!   `scripts/stage-network-component.sh`;
+//! - tells the **state** of the installation: missing, ready, outdated or
+//!   broken;
+//! - **installs** and **removes** it with the administrator password, through
+//!   `pkexec`.
 //!
-//! Para instalar, o instalador roda **no lugar** quando o pacote já está num
-//! diretório que só o root altera (o app instalado por `.rpm`/`.deb`): nada
-//! do que o root executa passa por um arquivo do usuário. No AppImage, o
-//! root não lê a montagem FUSE, então o pacote é copiado para um diretório
-//! privado e conferido. Nos dois casos o instalador, como root, confere de
-//! novo numa cópia só dele antes de instalar. A remoção usa a cópia do
-//! instalador que ficou em `/opt/ipsec-client` (do root), nunca um arquivo do
-//! usuário.
+//! To install, the installer runs **in place** when the bundle is already in a
+//! directory only root can change (the app installed by `.rpm`/`.deb`): nothing
+//! root runs goes through a file of the user's. In the AppImage, root cannot
+//! read the FUSE mount, so the bundle is copied to a private directory and
+//! checked. Either way the installer, as root, checks it again in a copy of its
+//! own before installing. Removing uses the installer copy left in
+//! `/opt/ipsec-client` (root's), never a file of the user's.
 
 use std::ffi::OsStr;
 use std::fs;
@@ -27,9 +28,9 @@ use sha2::{Digest, Sha256};
 
 use crate::engine::NativeEngine;
 
-/// Onde o componente é instalado.
+/// Where the component is installed.
 pub const PREFIX: &str = "/opt/ipsec-client";
-/// Nome do diretório do pacote entre os recursos do app.
+/// Name of the bundle directory among the app's resources.
 pub const BUNDLE_RESOURCE: &str = "network";
 
 const SUMS: &str = "SHA256SUMS";
@@ -37,11 +38,11 @@ const VERSION_FILE: &str = "VERSION";
 const ORIGIN_FILE: &str = "ORIGIN";
 const INSTALLER: &str = "install-native.sh";
 const HELPER: &str = "ipsec-client-helper";
-/// O helper vai compactado no pacote: o linuxdeploy (AppImage) reescreve o
-/// RPATH de todo ELF solto dentro do app, e o hash deixaria de bater.
+/// The helper goes compressed in the bundle: linuxdeploy (AppImage) rewrites the
+/// RPATH of every loose ELF inside the app, and the hash would no longer match.
 const HELPER_GZ: &str = "ipsec-client-helper.gz";
 
-/// Arquivos obrigatórios do pacote (a mesma lista do `install-native.sh`).
+/// Files the bundle must have (the same list as `install-native.sh`).
 pub const REQUIRED_FILES: [&str; 10] = [
     VERSION_FILE,
     INSTALLER,
@@ -55,15 +56,15 @@ pub const REQUIRED_FILES: [&str; 10] = [
     "packaging/polkit/io.github.lucastelso.ipsecclient.policy",
 ];
 
-/// Arquivos que ficam executáveis na cópia.
+/// Files that are made executable in the copy.
 const EXECUTABLES: [&str; 3] = [INSTALLER, "engine/entrypoint.sh", "engine/updown.sh"];
 
 const PKEXEC_PATHS: [&str; 2] = ["/usr/bin/pkexec", "/bin/pkexec"];
 
-/// Prefixo das linhas do instalador: distingue a falha dele da do `pkexec`.
+/// Prefix of the installer's lines: tells its failures from `pkexec`'s.
 const INSTALLER_TAG: &str = "[network component]";
 
-/// Linhas de log guardadas de uma instalação que falhou.
+/// Log lines kept from an installation that failed.
 const MAX_LOG_LINES: usize = 40;
 
 /// Network component errors (messages for the end user, see [`crate::i18n`]).
@@ -105,7 +106,7 @@ pub enum ComponentError {
     /// The installer ran and failed.
     #[error("{}", crate::tr!("the network component installer failed", "o instalador do componente de rede falhou"))]
     Failed {
-        /// Últimas linhas da saída do instalador.
+        /// Last lines of the installer's output.
         log: Vec<String>,
     },
 
@@ -130,7 +131,7 @@ pub enum ComponentError {
     ))]
     Untrusted(String),
 
-    /// Erro de E/S local.
+    /// Local I/O error.
     #[error(transparent)]
     Io(#[from] io::Error),
 }
@@ -139,17 +140,17 @@ fn invalid(msg: impl Into<String>) -> ComponentError {
     ComponentError::InvalidBundle(msg.into())
 }
 
-/// Versões registradas em `VERSION` (`version=` e `strongswan=`).
+/// Versions recorded in `VERSION` (`version=` and `strongswan=`).
 #[derive(Debug, Clone, Default, PartialEq, Eq)]
 pub struct Version {
-    /// Versão do IPsec Client que montou o pacote.
+    /// Version of IPsec Client that put the bundle together.
     pub app: Option<String>,
-    /// Versão do strongSwan embutido.
+    /// Version of the embedded strongSwan.
     pub strongswan: Option<String>,
 }
 
 impl Version {
-    /// Lê o conteúdo de um `VERSION` (chaves desconhecidas são ignoradas).
+    /// Reads the content of a `VERSION` (unknown keys are ignored).
     #[must_use]
     pub fn parse(content: &str) -> Self {
         let mut version = Self::default();
@@ -168,19 +169,19 @@ impl Version {
     }
 }
 
-/// Quem instalou o componente.
+/// Who installed the component.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum Origin {
-    /// O próprio app (AppImage), com a senha de administrador.
+    /// The app itself (AppImage), with the administrator password.
     App,
-    /// Um pacote do sistema (.rpm/.deb).
+    /// A system package (.rpm/.deb).
     Package,
-    /// À mão (`scripts/test-native.sh`) ou por uma versão sem registro.
+    /// By hand (`scripts/test-native.sh`) or by a version that kept no record.
     Manual,
 }
 
 impl Origin {
-    /// Valor no arquivo `ORIGIN` e no argumento do instalador.
+    /// Value in the `ORIGIN` file and in the installer's argument.
     #[must_use]
     pub fn as_str(self) -> &'static str {
         match self {
@@ -199,23 +200,23 @@ impl Origin {
     }
 }
 
-/// Pacote do componente: o diretório que vem dentro do app.
+/// Component bundle: the directory that comes inside the app.
 #[derive(Debug, Clone)]
 pub struct Bundle {
     dir: PathBuf,
     sums: String,
-    /// (hash SHA-256 em hexadecimal, caminho relativo)
+    /// (SHA-256 hash in hexadecimal, relative path)
     entries: Vec<(String, String)>,
     digest: String,
     version: Version,
 }
 
 impl Bundle {
-    /// Lê o pacote: `SHA256SUMS` (formato do `sha256sum`) e `VERSION`. Não
-    /// confere os hashes (ver [`Bundle::verify`]).
+    /// Reads the bundle: `SHA256SUMS` (`sha256sum` format) and `VERSION`. Does not
+    /// check the hashes (see [`Bundle::verify`]).
     ///
     /// # Errors
-    /// Pacote ausente ou malformado.
+    /// Bundle missing or malformed.
     pub fn open(dir: &Path) -> Result<Self, ComponentError> {
         let sums = fs::read_to_string(dir.join(SUMS)).map_err(|e| {
             let dir = dir.display();
@@ -242,29 +243,29 @@ impl Bundle {
         })
     }
 
-    /// Diretório do pacote.
+    /// Bundle directory.
     #[must_use]
     pub fn dir(&self) -> &Path {
         &self.dir
     }
 
-    /// Versões do pacote.
+    /// Bundle versions.
     #[must_use]
     pub fn version(&self) -> &Version {
         &self.version
     }
 
-    /// Identidade do pacote: SHA-256 do `SHA256SUMS`. Igual ao instalado =
-    /// mesma versão do componente.
+    /// Bundle identity: SHA-256 of `SHA256SUMS`. Equal to the installed one =
+    /// same component version.
     #[must_use]
     pub fn digest(&self) -> &str {
         &self.digest
     }
 
-    /// Confere cada arquivo listado: arquivo comum (sem links) e hash igual.
+    /// Checks every listed file: a regular file (no links) with a matching hash.
     ///
     /// # Errors
-    /// [`ComponentError::Corrupted`] ou arquivo ausente.
+    /// [`ComponentError::Corrupted`] or a missing file.
     pub fn verify(&self) -> Result<(), ComponentError> {
         for (hash, rel) in &self.entries {
             let path = self.dir.join(rel);
@@ -282,12 +283,12 @@ impl Bundle {
         Ok(())
     }
 
-    /// Copia o pacote para um diretório novo e privado (0700) dentro de
-    /// `parent`, com as permissões certas, e confere a cópia. O diretório é
-    /// apagado quando o [`StagedBundle`] sai de escopo.
+    /// Copies the bundle to a new private directory (0700) inside `parent`, with
+    /// the right permissions, and checks the copy. The directory is deleted when
+    /// the [`StagedBundle`] goes out of scope.
     ///
     /// # Errors
-    /// E/S ou cópia que não confere.
+    /// I/O, or a copy that does not match.
     pub fn stage_in(&self, parent: &Path) -> Result<StagedBundle, ComponentError> {
         let dir = tempfile::Builder::new()
             .prefix("ipsec-client-setup-")
@@ -313,7 +314,7 @@ impl Bundle {
     }
 }
 
-/// Cópia privada do pacote (apagada ao sair de escopo).
+/// Private copy of the bundle (deleted when it goes out of scope).
 #[derive(Debug)]
 pub struct StagedBundle {
     dir: tempfile::TempDir,
@@ -321,21 +322,21 @@ pub struct StagedBundle {
 }
 
 impl StagedBundle {
-    /// Diretório da cópia.
+    /// Directory of the copy.
     #[must_use]
     pub fn path(&self) -> &Path {
         self.dir.path()
     }
 
-    /// Pacote copiado (já conferido).
+    /// Copied bundle (already checked).
     #[must_use]
     pub fn bundle(&self) -> &Bundle {
         &self.bundle
     }
 }
 
-/// Lê um `SHA256SUMS`: caminhos relativos simples, sem repetição, com todos
-/// os [`REQUIRED_FILES`].
+/// Reads a `SHA256SUMS`: simple relative paths, no repeats, with every one of
+/// the [`REQUIRED_FILES`].
 fn parse_sums(content: &str) -> Result<Vec<(String, String)>, ComponentError> {
     let mut entries: Vec<(String, String)> = Vec::new();
     for line in content.lines().filter(|l| !l.trim().is_empty()) {
@@ -346,7 +347,7 @@ fn parse_sums(content: &str) -> Result<Vec<(String, String)>, ComponentError> {
             ))
         };
         let (hash, rest) = line.split_once(' ').ok_or_else(bad)?;
-        // `sha256sum`: "<hash>  <caminho>" (texto) ou "<hash> *<caminho>" (binário).
+        // `sha256sum`: "<hash>  <path>" (text) or "<hash> *<path>" (binary).
         let path = rest
             .strip_prefix(' ')
             .or_else(|| rest.strip_prefix('*'))
@@ -380,7 +381,7 @@ fn parse_sums(content: &str) -> Result<Vec<(String, String)>, ComponentError> {
     Ok(entries)
 }
 
-/// Só componentes normais: nada absoluto, `.`, `..` ou vazio.
+/// Normal components only: nothing absolute, `.`, `..` or empty.
 fn is_plain_relative(path: &str) -> bool {
     !path.is_empty()
         && !path.ends_with('/')
@@ -407,18 +408,19 @@ fn sha256_file(path: &Path) -> io::Result<String> {
     Ok(hex::encode(hasher.finalize()))
 }
 
-/// O que está instalado em [`PREFIX`].
+/// What is installed in [`PREFIX`].
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct Installed {
-    /// Versões registradas (vazias em instalações antigas, sem registro).
+    /// Recorded versions (empty in old installations, which kept no record).
     pub version: Version,
-    /// Identidade do pacote instalado (ver [`Bundle::digest`]).
+    /// Identity of the installed bundle (see [`Bundle::digest`]).
     pub digest: Option<String>,
-    /// Quem instalou.
+    /// Who installed it.
     pub origin: Origin,
 }
 
-/// Instalação em `prefix`, se houver (o helper é o que define "instalado").
+/// Installation in `prefix`, if there is one (the helper is what defines
+/// "installed").
 #[must_use]
 pub fn installed_at(prefix: &Path) -> Option<Installed> {
     if !prefix.join("bin").join(HELPER).exists() {
@@ -435,40 +437,40 @@ pub fn installed_at(prefix: &Path) -> Option<Installed> {
     })
 }
 
-/// Situação do componente.
+/// State of the component.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum State {
-    /// Nada instalado.
+    /// Nothing installed.
     NotInstalled,
-    /// Instalado, respondendo e igual ao pacote do app (ou sem pacote para comparar).
+    /// Installed, answering and equal to the app's bundle (or no bundle to compare).
     Ready,
-    /// Instalado e respondendo, mas diferente do pacote do app.
+    /// Installed and answering, but different from the app's bundle.
     Outdated,
-    /// Instalação incompleta ou helper que não responde.
+    /// Incomplete installation, or a helper that does not answer.
     Broken,
 }
 
-/// Estado do componente.
+/// State of the component.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct Status {
-    /// Situação.
+    /// State.
     pub state: State,
-    /// O que está instalado.
+    /// What is installed.
     pub installed: Option<Installed>,
-    /// Versão informada pelo helper (quando ele responde).
+    /// Version reported by the helper (when it answers).
     pub helper_version: Option<String>,
-    /// Motivo, quando [`State::Broken`].
+    /// Reason, when [`State::Broken`].
     pub problem: Option<String>,
 }
 
-/// Estado do componente instalado neste computador, comparado com o pacote
-/// do app (se houver). Bloqueante: pergunta ao helper.
+/// State of the component installed on this computer, compared with the app's
+/// bundle (if any). Blocking: it asks the helper.
 #[must_use]
 pub fn status(bundle: Option<&Bundle>) -> Status {
     status_with(Path::new(PREFIX), &NativeEngine::default(), bundle)
 }
 
-/// [`status`] com instalação e helper indicados (testes).
+/// [`status`] with the installation and helper given (tests).
 #[must_use]
 pub fn status_with(prefix: &Path, helper: &NativeEngine, bundle: Option<&Bundle>) -> Status {
     let installed = installed_at(prefix);
@@ -517,14 +519,14 @@ fn pkexec() -> Result<&'static Path, ComponentError> {
         .ok_or(ComponentError::NoPkexec)
 }
 
-/// Dá para pedir a senha de administrador daqui (`pkexec` presente)?
+/// Can the administrator password be asked from here (`pkexec` present)?
 #[must_use]
 pub fn pkexec_available() -> bool {
     pkexec().is_ok()
 }
 
-/// `pkexec <programa> <args>` com o ambiente limpo (o AppImage define
-/// variáveis como `LD_LIBRARY_PATH` que não devem chegar ao root).
+/// `pkexec <program> <args>` with a clean environment (the AppImage sets
+/// variables such as `LD_LIBRARY_PATH` that must not reach root).
 fn privileged(pkexec: &Path, program: &Path, args: &[&OsStr]) -> Command {
     let mut cmd = Command::new(pkexec);
     cmd.arg(program)
@@ -549,9 +551,9 @@ fn run_privileged(mut cmd: Command) -> Result<Vec<String>, ComponentError> {
     )
 }
 
-/// Interpreta o fim do `pkexec` + instalador. O `pkexec` sai com 126 quando
-/// o pedido é fechado e com 127 quando não autoriza; o instalador marca as
-/// próprias linhas com [`INSTALLER_TAG`].
+/// Interprets how `pkexec` + installer ended. `pkexec` exits with 126 when the
+/// prompt is closed and with 127 when it does not authorize; the installer tags
+/// its own lines with [`INSTALLER_TAG`].
 fn classify(code: Option<i32>, stdout: &str, stderr: &str) -> Result<Vec<String>, ComponentError> {
     let mut log: Vec<String> = stdout
         .lines()
@@ -583,8 +585,8 @@ fn classify(code: Option<i32>, stdout: &str, stderr: &str) -> Result<Vec<String>
     }
 }
 
-/// Onde a cópia privada do pacote é feita: `$XDG_RUNTIME_DIR` (tmpfs, só do
-/// usuário) ou o diretório temporário.
+/// Where the private copy of the bundle is made: `$XDG_RUNTIME_DIR` (tmpfs, the
+/// user's only) or the temporary directory.
 fn staging_parent() -> PathBuf {
     std::env::var_os("XDG_RUNTIME_DIR")
         .map(PathBuf::from)
@@ -641,11 +643,11 @@ fn in_place_dir(bundle: &Bundle) -> Option<PathBuf> {
     (installer.mode() & 0o100 != 0).then_some(dir)
 }
 
-/// Instala ou atualiza o componente a partir do pacote. Pede a senha de
-/// administrador (`pkexec`). Bloqueante. Devolve a saída do instalador.
+/// Installs or updates the component from the bundle. Asks for the
+/// administrator password (`pkexec`). Blocking. Returns the installer's output.
 ///
 /// # Errors
-/// Pacote inválido, sem `pkexec`, autorização negada ou falha do instalador.
+/// Invalid bundle, no `pkexec`, authorization denied or installer failure.
 pub fn install(bundle: &Bundle, origin: Origin) -> Result<Vec<String>, ComponentError> {
     let pkexec = pkexec()?;
     let in_place = in_place_dir(bundle);
@@ -694,19 +696,19 @@ fn effective_origin(
     Ok(requested)
 }
 
-/// Remove o componente (pede a senha de administrador). Bloqueante.
+/// Removes the component (asks for the administrator password). Blocking.
 ///
 /// # Errors
-/// Nada instalado, instalado por pacote, instalador ausente/não confiável,
-/// autorização negada ou falha.
+/// Nothing installed, installed by a package, installer missing or untrusted,
+/// authorization denied, or failure.
 pub fn uninstall() -> Result<Vec<String>, ComponentError> {
     let pkexec = pkexec()?;
     let installer = uninstaller(Path::new(PREFIX))?;
     run_privileged(privileged(pkexec, &installer, &[OsStr::new("uninstall")]))
 }
 
-/// Instalador que ficou na instalação, desde que seja do root e ninguém mais
-/// possa alterá-lo (nem os diretórios acima dele).
+/// Installer left in the installation, provided it belongs to root and nobody
+/// else can change it (nor the directories above it).
 fn uninstaller(prefix: &Path) -> Result<PathBuf, ComponentError> {
     let installed = installed_at(prefix).ok_or(ComponentError::NotInstalled)?;
     if installed.origin == Origin::Package {
@@ -749,7 +751,7 @@ mod tests {
     use std::io::{BufRead, BufReader, Write};
     use std::os::unix::net::UnixListener;
 
-    /// Monta um pacote completo em `dir` (conteúdo falso).
+    /// Builds a complete bundle in `dir` (fake content).
     fn make_bundle(dir: &Path) {
         for rel in REQUIRED_FILES {
             let path = dir.join(rel);
@@ -807,7 +809,7 @@ mod tests {
             parse_sums(&full).expect("válido").len(),
             REQUIRED_FILES.len()
         );
-        // Modo binário do sha256sum também vale.
+        // sha256sum's binary mode is valid too.
         assert!(parse_sums(&full.replace("  ", " *")).is_ok());
 
         for bad in [
@@ -931,12 +933,12 @@ mod tests {
         assert!(err.to_string().contains("is missing"), "{err}");
         fs::create_dir_all(prefix.path().join("libexec")).expect("mkdir");
         fs::write(prefix.path().join("libexec").join(INSTALLER), "").expect("inst");
-        // Os testes não rodam como root: os arquivos são do usuário.
+        // The tests do not run as root: the files belong to the user.
         let err = uninstaller(prefix.path()).expect_err("não é do root");
         assert!(err.to_string().contains("root"), "{err}");
     }
 
-    /// Helper de mentira que responde `Pong`.
+    /// Fake helper that answers `Pong`.
     fn fake_helper(dir: &Path) -> NativeEngine {
         let path = dir.join("helper.sock");
         let listener = UnixListener::bind(&path).expect("bind");
@@ -967,7 +969,7 @@ mod tests {
             State::NotInstalled
         );
 
-        // Arquivos instalados, mas helper fora do ar.
+        // Files installed, but the helper is down.
         fs::create_dir_all(prefix.join("bin")).expect("mkdir");
         fs::write(prefix.join("bin").join(HELPER), "").expect("helper");
         let broken = status_with(&prefix, &nobody, None);
@@ -978,7 +980,7 @@ mod tests {
         let src = base.path().join("bundle");
         make_bundle(&src);
         let bundle = Bundle::open(&src).expect("abre");
-        // Instalação antiga, sem registro: desatualizada se o app traz pacote.
+        // Old installation, with no record: outdated if the app carries a bundle.
         let s = status_with(&prefix, &helper, Some(&bundle));
         assert_eq!(s.state, State::Outdated);
         assert_eq!(s.helper_version.as_deref(), Some("9.9.9"));
@@ -1013,7 +1015,7 @@ mod tests {
             Err(ComponentError::NotAuthorized(why)) => assert!(why.contains("Not authorized")),
             other => panic!("{other:?}"),
         }
-        // 127 vindo do instalador (comando ausente) é falha dele, não do pkexec.
+        // 127 coming from the installer (missing command) is its failure, not pkexec's.
         match classify(
             Some(127),
             "[network component] installing\nfoo: not found\n",

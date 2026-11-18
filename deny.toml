@@ -11,10 +11,10 @@ yanked = "deny"
 # vulnerability and no alternative in the Tauri 2 ecosystem.
 # Review on every Tauri/specta update.
 ignore = [
-    # paste: proc-macro usada pelo specta (IPC tipado, ADR-0009).
-    { id = "RUSTSEC-2024-0436", reason = "proc-macro de compilação via specta; sem código em tempo de execução" },
+    # paste: a proc-macro used by specta (typed IPC, ADR-0009).
+    { id = "RUSTSEC-2024-0436", reason = "build-time proc-macro through specta; no run-time code" },
     # proc-macro-error: via glib-macros 0.18 (GTK3 of Tauri 2 on Linux).
-    { id = "RUSTSEC-2024-0370", reason = "proc-macro de compilação via glib-macros (GTK3 do Tauri 2); sem alternativa até o GTK4" },
+    { id = "RUSTSEC-2024-0370", reason = "build-time proc-macro through glib-macros (Tauri 2's GTK3); no alternative until GTK4" },
 ]
 
 [licenses]

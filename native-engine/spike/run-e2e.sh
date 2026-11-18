@@ -1,8 +1,8 @@
 #!/usr/bin/env bash
-# SPIKE: roda o E2E do engine (tests/engine/e2e.sh) usando o strongSwan
-# compilado por native-engine/build.sh, num "host" Fedora 45 simulado.
+# SPIKE: runs the engine's E2E (tests/engine/e2e.sh) with the strongSwan
+# built by native-engine/build.sh, on a simulated Fedora 45 "host".
 #
-# Uso: native-engine/spike/run-e2e.sh VERSAO     (ex.: 6.1.0)
+# Usage: native-engine/spike/run-e2e.sh VERSION     (e.g. 6.1.0)
 
 set -euo pipefail
 
@@ -24,7 +24,7 @@ image="ipsec-client-native-spike:$version"
 docker build -q -t "$image" "$ctx" >/dev/null
 echo "test image: $image"
 
-# O engine embutido tem o patch do IPsec Client: updown e if_id forçados
-# (cenário 5 do E2E).
+# The embedded engine has the IPsec Client patch: forced updown and if_id
+# (scenario 5 of the E2E).
 IPSEC_CLIENT_E2E_ENGINE_IMAGE="$image" IPSEC_CLIENT_E2E_EXPECT_VERSION="$version" \
     IPSEC_CLIENT_E2E_FORCED=1 "$repo_root/tests/engine/e2e.sh"

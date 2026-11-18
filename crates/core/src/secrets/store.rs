@@ -1,11 +1,11 @@
-//! Onde as credenciais podem ficar guardadas ("lembrar credenciais").
+//! Where credentials can be stored ("remember credentials").
 //!
-//! - [`KeyringStore`]: chaveiro do sistema via Secret Service (GNOME
-//!   Keyring/KWallet), pela libdbus. Serviço `ipsec-client`, chave
-//!   `<perfil>:<campo>`.
-//! - [`MemoryStore`]: só em memória (testes e sessões sem "lembrar").
+//! - [`KeyringStore`]: the system keyring through the Secret Service (GNOME
+//!   Keyring/KWallet), over libdbus. Service `ipsec-client`, key
+//!   `<profile>:<field>`.
+//! - [`MemoryStore`]: in memory only (tests and sessions without "remember").
 //!
-//! As chamadas ao chaveiro são bloqueantes (D-Bus): em código async, use
+//! Keyring calls are blocking (D-Bus): in async code, use
 //! `tokio::task::spawn_blocking`.
 
 use std::collections::HashMap;
@@ -17,25 +17,25 @@ use secrecy::{ExposeSecret, SecretString};
 use super::SecretsError;
 use crate::profiles::CredentialKind;
 
-/// Nome do serviço no chaveiro.
+/// Service name in the keyring.
 pub const KEYRING_SERVICE: &str = "ipsec-client";
 
-/// Armazenamento de credenciais por perfil.
+/// Per-profile credential storage.
 pub trait SecretStore: Send + Sync {
-    /// Lê uma credencial (`None` se não houver).
+    /// Reads a credential (`None` if there is none).
     ///
     /// # Errors
-    /// Chaveiro indisponível ou bloqueado.
+    /// Keyring unavailable or locked.
     fn get(
         &self,
         profile: &str,
         kind: CredentialKind,
     ) -> Result<Option<SecretString>, SecretsError>;
 
-    /// Grava (ou substitui) uma credencial.
+    /// Saves (or replaces) a credential.
     ///
     /// # Errors
-    /// Chaveiro indisponível ou bloqueado.
+    /// Keyring unavailable or locked.
     fn set(
         &self,
         profile: &str,
@@ -43,10 +43,10 @@ pub trait SecretStore: Send + Sync {
         value: &SecretString,
     ) -> Result<(), SecretsError>;
 
-    /// Apaga uma credencial (não é erro se ela não existir).
+    /// Deletes a credential (not an error if it does not exist).
     ///
     /// # Errors
-    /// Chaveiro indisponível ou bloqueado.
+    /// Keyring unavailable or locked.
     fn delete(&self, profile: &str, kind: CredentialKind) -> Result<(), SecretsError>;
 }
 
@@ -58,13 +58,13 @@ fn check_profile_id(profile: &str) -> Result<(), SecretsError> {
     }
 }
 
-/// Chave no chaveiro: `<perfil>:<campo>`.
+/// Key in the keyring: `<profile>:<field>`.
 #[must_use]
 pub fn keyring_key(profile: &str, kind: CredentialKind) -> String {
     format!("{profile}:{}", kind.key())
 }
 
-/// Chaveiro do sistema (Secret Service).
+/// System keyring (Secret Service).
 pub struct KeyringStore {
     store: Arc<CredentialStore>,
 }
@@ -76,11 +76,11 @@ impl std::fmt::Debug for KeyringStore {
 }
 
 impl KeyringStore {
-    /// Conecta ao Secret Service da sessão.
+    /// Connects to the session's Secret Service.
     ///
     /// # Errors
-    /// [`SecretsError::Unavailable`] sem sessão D-Bus ou sem serviço de
-    /// chaveiro (ex.: sessão SSH sem GNOME Keyring).
+    /// [`SecretsError::Unavailable`] without a D-Bus session or a keyring service
+    /// (e.g. an SSH session without GNOME Keyring).
     pub fn new() -> Result<Self, SecretsError> {
         let store = dbus_secret_service_keyring_store::Store::new()
             .map_err(|e| SecretsError::Unavailable(e.to_string()))?;
@@ -140,7 +140,7 @@ impl SecretStore for KeyringStore {
     }
 }
 
-/// Armazenamento só em memória (zerado no drop).
+/// In-memory store only (zeroed on drop).
 #[derive(Default)]
 pub struct MemoryStore {
     map: Mutex<HashMap<String, SecretString>>,
@@ -154,7 +154,7 @@ impl std::fmt::Debug for MemoryStore {
 }
 
 impl MemoryStore {
-    /// Armazenamento vazio.
+    /// Empty store.
     #[must_use]
     pub fn new() -> Self {
         Self::default()
@@ -254,8 +254,8 @@ mod tests {
         );
     }
 
-    /// Usa o chaveiro REAL da sessão (cria e apaga um item de teste).
-    /// Rodar com: cargo test -p ipsec-client-core keyring_real -- --ignored
+    /// Uses the session's REAL keyring (creates and deletes a test item).
+    /// Run with: cargo test -p ipsec-client-core keyring_real -- --ignored
     #[test]
     #[ignore = "usa o chaveiro real da sessão"]
     fn keyring_real_roundtrip() {

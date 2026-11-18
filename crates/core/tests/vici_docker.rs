@@ -1,13 +1,13 @@
-//! Conexão IPsec completa feita só pelo Rust (sem swanctl), contra o gateway
-//! de teste local (feature `docker-tests`).
+//! A complete IPsec connection made by Rust alone (no swanctl), against the
+//! local test gateway (the `docker-tests` feature).
 //!
-//! Cadeia testada: perfil JSON (`tests/fixtures`) → validação → `load-conn`
-//! gerado pelo perfil → charon real → túnel.
-//! Cobre: `version`, `load-shared` (PSK + XAuth), `load-conn`, `list-conns`,
-//! `initiate`, `list-sas`, eventos (`child-updown`, `log`), ping pelo túnel,
-//! `terminate` e `unload-conn`.
+//! Chain tested: JSON profile (`tests/fixtures`) → validation → `load-conn`
+//! built from the profile → real charon → tunnel.
+//! Covers: `version`, `load-shared` (PSK + XAuth), `load-conn`, `list-conns`,
+//! `initiate`, `list-sas`, events (`child-updown`, `log`), ping through the
+//! tunnel, `terminate` and `unload-conn`.
 #![cfg(feature = "docker-tests")]
-#![allow(clippy::expect_used, clippy::unwrap_used)] // código de teste
+#![allow(clippy::expect_used, clippy::unwrap_used)] // test code
 
 mod support;
 
@@ -29,8 +29,8 @@ const IFACE: &str = "ipsct2";
 const IF_ID: u32 = 7343;
 
 fn test_profile(gateway: &str) -> Profile {
-    let mut profile = parse_profile(include_str!("fixtures/perfil-gateway-teste.json"))
-        .expect("perfil de teste válido");
+    let mut profile =
+        parse_profile(include_str!("fixtures/test-gateway.json")).expect("perfil de teste válido");
     profile.gateway = gateway.to_owned();
     profile
 }
@@ -79,7 +79,7 @@ async fn full_tunnel_through_rust_vici_client() {
     spec.container_name = format!("{PREFIX}-engine");
     spec.iface = IFACE.to_owned();
 
-    // O corpo roda num bloco separado para a limpeza acontecer sempre.
+    // The body runs in a separate block so the cleanup always happens.
     let result = tokio::spawn(scenario(spec.clone(), gateway.ip.clone())).await;
 
     engine.stop(&spec.container_name).await.expect("stop");
@@ -110,7 +110,7 @@ async fn scenario(spec: EngineSpec, gateway_ip: String) {
         .expect("load-conn gerado pelo perfil");
     let redactor = Redactor::new([TEST_XAUTH_USER, TEST_GROUP_ID]);
 
-    // Conexão de eventos (separada da de comandos).
+    // Event connection (separate from the command one).
     let mut events = ViciEvents::subscribe(&socket, &["ike-updown", "child-updown", "log"])
         .await
         .expect("assinatura de eventos");
@@ -189,7 +189,7 @@ async fn scenario(spec: EngineSpec, gateway_ip: String) {
     let child = &sas[0].children[0];
     assert!(child.bytes_in > 0 && child.bytes_out > 0, "{child:?}");
 
-    // Os logs chegam e não trazem PSK nem senha.
+    // The logs arrive and carry neither the PSK nor the password.
     let mut logs = Vec::new();
     while let Ok(line) = log_rx.try_recv() {
         logs.push(line);
@@ -200,7 +200,7 @@ async fn scenario(spec: EngineSpec, gateway_ip: String) {
             .all(|l| !l.contains(TEST_PSK) && !l.contains(TEST_XAUTH_PASSWORD)),
         "segredo apareceu no log"
     );
-    // O charon registra as identidades; o Redactor as mascara para exibição.
+    // charon logs the identities; the Redactor masks them for display.
     assert!(logs.iter().any(|l| l.contains(TEST_XAUTH_USER)));
     let shown: Vec<String> = logs.iter().map(|l| redactor.redact(l)).collect();
     assert!(

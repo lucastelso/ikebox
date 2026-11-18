@@ -15,11 +15,12 @@ function writeSelected(id: string): void {
   try {
     localStorage.setItem(SELECTED_KEY, id);
   } catch {
-    // Conveniência apenas: sem armazenamento, o app só não lembra a escolha.
+    // Convenience only: without storage, the app just does not remember the
+    // choice.
   }
 }
 
-/** Perfis disponíveis e o selecionado (lembrado entre execuções). */
+/** Available profiles and the selected one (remembered between runs). */
 export function useProfiles() {
   const [list, setList] = useState<ProfileList | null>(null);
   const [error, setError] = useState<UiError | null>(null);

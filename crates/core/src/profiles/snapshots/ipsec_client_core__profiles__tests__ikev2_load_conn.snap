@@ -10,7 +10,7 @@ proposals = [aes256gcm16-prfsha256-curve25519, aes256-sha256-modp2048]
 vips = [0.0.0.0]
 local-1 {
     auth = psk
-    id = cliente@example.com
+    id = client@example.com
 }
 remote {
     auth = psk

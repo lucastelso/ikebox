@@ -1,9 +1,8 @@
-//! Componente de rede: estado, instalação e remoção pela UI (ADR-0018).
+//! Network component: state, installation and removal from the UI (ADR-0018).
 //!
-//! O pacote do componente vem entre os recursos do app
-//! (`<recursos>/network`, só nos builds de release:
-//! `tauri.release.conf.json`). Em builds de desenvolvimento, dá para apontar
-//! um pacote com `IPSEC_CLIENT_COMPONENT_BUNDLE`.
+//! The component bundle comes among the app's resources (`<resources>/network`,
+//! only in release builds: `tauri.release.conf.json`). In development builds, a
+//! bundle can be pointed to with `IPSEC_CLIENT_COMPONENT_BUNDLE`.
 
 use std::path::PathBuf;
 
@@ -15,7 +14,7 @@ use tauri::{AppHandle, Manager};
 use crate::commands::{ConnectionLock, blocking};
 use crate::dto::{ComponentInfo, UiError, UiErrorKind};
 
-/// Diretório do pacote que vem com o app, se houver.
+/// Directory of the bundle that comes with the app, if any.
 fn bundle_dir(app: &AppHandle) -> Option<PathBuf> {
     #[cfg(debug_assertions)]
     if let Some(dir) = std::env::var_os("IPSEC_CLIENT_COMPONENT_BUNDLE") {
@@ -43,7 +42,8 @@ fn current(bundle: Option<&Bundle>) -> ComponentInfo {
     )
 }
 
-/// Instalar ou remover derruba o engine: só sem conexão ativa.
+/// Installing or removing tears the engine down: only without an active
+/// connection.
 async fn ensure_disconnected() -> Result<(), UiError> {
     if let Ok(Some(profile)) = session::active_profile().await {
         return Err(UiError::new(
@@ -57,15 +57,15 @@ async fn ensure_disconnected() -> Result<(), UiError> {
     Ok(())
 }
 
-/// Estado do componente de rede.
+/// State of the network component.
 #[tauri::command]
 #[specta::specta]
 pub async fn component_status(app: AppHandle) -> Result<ComponentInfo, UiError> {
     blocking(move || Ok(current(bundle(&app).as_ref()))).await
 }
 
-/// Instala ou atualiza o componente de rede (o sistema pede a senha de
-/// administrador). Devolve o novo estado.
+/// Installs or updates the network component (the system asks for the
+/// administrator password). Returns the new state.
 #[tauri::command]
 #[specta::specta]
 pub async fn install_component(
@@ -99,7 +99,8 @@ pub async fn install_component(
     .await
 }
 
-/// Remove o componente de rede (o sistema pede a senha de administrador).
+/// Removes the network component (the system asks for the administrator
+/// password).
 #[tauri::command]
 #[specta::specta]
 pub async fn uninstall_component(

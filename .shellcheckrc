@@ -1,4 +1,4 @@
-# Configuração do shellcheck (https://www.shellcheck.net/wiki/).
+# shellcheck configuration (https://www.shellcheck.net/wiki/).
 external-sources=true
 enable=avoid-nullary-conditions
 enable=deprecate-which

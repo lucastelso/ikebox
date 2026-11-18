@@ -1,10 +1,11 @@
-//! Integração com o desktop: bandeja, notificações e instância única.
+//! Desktop integration: tray, notifications and single instance.
 //!
-//! Tudo sem zbus (barrado pelo cargo-deny, ver passo 11 do diário):
-//! - notificações: `org.freedesktop.Notifications` via libdbus (crate `dbus`);
-//! - instância única: socket Unix em `$XDG_RUNTIME_DIR/ipsec-client/app.sock`;
-//! - bandeja: `tray-icon` do Tauri (libappindicator). Num GNOME sem a extensão
-//!   AppIndicator, ela não aparece, e nada quebra.
+//! All without zbus (banned by cargo-deny, see step 11 of the development log):
+//! - notifications: `org.freedesktop.Notifications` through libdbus (the `dbus`
+//!   crate);
+//! - single instance: a Unix socket at `$XDG_RUNTIME_DIR/ipsec-client/app.sock`;
+//! - tray: Tauri's `tray-icon` (libappindicator). On a GNOME without the
+//!   AppIndicator extension, it does not show up, and nothing breaks.
 
 use std::io::{BufRead as _, BufReader, Write as _};
 use std::os::unix::net::{UnixListener, UnixStream};
@@ -66,29 +67,29 @@ pub fn handle_close(window: &tauri::Window, event: &tauri::WindowEvent) {
     }
 }
 
-/// Estado da VPN visto pela bandeja.
+/// VPN state as the tray sees it.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum TrayState {
-    /// Ainda não consultado, ou Docker/engine inacessível.
+    /// Not queried yet, or Docker/engine unreachable.
     Unknown,
-    /// Sem conexão.
+    /// No connection.
     Disconnected,
-    /// Túnel ativo.
+    /// Tunnel up.
     Connected {
-        /// Perfil.
+        /// Profile.
         profile: String,
         /// IP virtual.
         vip: Option<String>,
     },
-    /// Engine de pé, sem túnel (reconectando).
+    /// Engine up, no tunnel (reconnecting).
     Reconnecting {
-        /// Perfil.
+        /// Profile.
         profile: String,
     },
 }
 
 impl TrayState {
-    /// Converte o resultado de `session::status`.
+    /// Converts the result of `session::status`.
     #[must_use]
     pub fn from_status(status: Option<&ConnectionInfo>) -> Self {
         match status {
@@ -107,7 +108,7 @@ impl TrayState {
         }
     }
 
-    /// Texto curto (dica da bandeja e item de status do menu).
+    /// Short text (tray tooltip and the menu's status item).
     #[must_use]
     pub fn label(&self) -> String {
         match self {
@@ -131,12 +132,12 @@ impl TrayState {
     }
 }
 
-/// Notificação a mostrar numa transição de estado (`None` = nada a avisar).
+/// Notification to show on a state transition (`None` = nothing to tell).
 #[must_use]
 pub fn transition_notice(previous: &TrayState, next: &TrayState) -> Option<(String, String)> {
     use TrayState as S;
     match (previous, next) {
-        // Primeira leitura: só sincroniza, sem avisar.
+        // First reading: only sync, without notifying.
         (S::Unknown, _) | (_, S::Unknown) => None,
         (a, b) if a == b => None,
         (S::Disconnected, S::Connected { profile, vip }) => Some((
@@ -165,8 +166,8 @@ pub fn transition_notice(previous: &TrayState, next: &TrayState) -> Option<(Stri
     }
 }
 
-/// Mostra uma notificação do sistema (best effort: sem servidor de
-/// notificações, não faz nada).
+/// Shows a system notification (best effort: without a notification server, it
+/// does nothing).
 pub fn notify(summary: &str, body: &str) {
     let (summary, body) = (summary.to_owned(), body.to_owned());
     tauri::async_runtime::spawn_blocking(move || {
@@ -207,8 +208,8 @@ fn instance_socket() -> Option<PathBuf> {
     Some(dir.join("app.sock"))
 }
 
-/// Garante uma única janela do app. Devolve `false` se já havia outra
-/// instância (que foi trazida para a frente); aí esta deve encerrar.
+/// Ensures a single app window. Returns `false` if there was already another
+/// instance (which was brought to the front); then this one must exit.
 pub fn acquire_single_instance(app: &AppHandle) -> bool {
     let Some(path) = instance_socket() else {
         return true;
@@ -233,7 +234,7 @@ pub fn acquire_single_instance(app: &AppHandle) -> bool {
     true
 }
 
-/// Mostra e foca a janela principal.
+/// Shows and focuses the main window.
 pub fn show_main_window(app: &AppHandle) {
     if let Some(window) = app.get_webview_window("main") {
         let _ = window.unminimize();
@@ -317,12 +318,12 @@ fn build_tray(app: &AppHandle) -> tauri::Result<TrayHandles> {
     Ok(handles)
 }
 
-/// Cria a bandeja (se o ambiente suportar) e inicia o monitor de estado, que
-/// atualiza a bandeja e notifica as transições (inclusive de conexões abertas
-/// pelo CLI).
+/// Creates the tray (if the environment supports it) and starts the state
+/// monitor, which updates the tray and notifies the transitions (including
+/// those of connections opened by the CLI).
 pub fn start(app: &AppHandle) {
-    // A libappindicator é carregada em tempo de execução; se faltar, segue sem
-    // bandeja (as notificações continuam).
+    // libappindicator is loaded at run time; if it is missing, the app goes on
+    // without a tray (the notifications still work).
     let tray = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| build_tray(app)))
         .ok()
         .and_then(Result::ok);

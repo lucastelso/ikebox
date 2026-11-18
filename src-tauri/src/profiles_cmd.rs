@@ -1,9 +1,8 @@
-//! Gerenciador de perfis: importar (JSON ou swanctl.conf), exportar, ver e
-//! excluir.
+//! Profile manager: import (JSON or swanctl.conf), export, view and delete.
 //!
-//! Os caminhos de arquivo ficam **só no Rust**. O diálogo nativo e o
-//! arrastar-e-soltar são tratados aqui, e a UI recebe uma prévia com um token
-//! opaco ([`ImportPreview`]).
+//! File paths stay **in Rust only**. The native dialog and drag and drop are
+//! handled here, and the UI gets a preview with an opaque token
+//! ([`ImportPreview`]).
 
 use std::collections::HashMap;
 use std::io::Write as _;
@@ -26,7 +25,7 @@ use crate::dto::{
     ImportKind, ImportOptions, ImportPreview, ProfileDetails, ProfileSummary, UiError, UiErrorKind,
 };
 
-/// Arquivos escolhidos para importar, por token.
+/// Files chosen for import, by token.
 #[derive(Debug, Default)]
 pub struct PendingImports {
     next: AtomicU64,
@@ -108,7 +107,7 @@ fn import_other(
     }
 }
 
-/// Monta a prévia de um arquivo (sem salvar nada).
+/// Builds the preview of a file (saving nothing).
 pub fn preview_path(pending: &PendingImports, path: PathBuf) -> Result<ImportPreview, UiError> {
     let text = read_limited(&path)?;
     let kind = detect_kind(&path, &text);
@@ -152,7 +151,7 @@ pub fn preview_path(pending: &PendingImports, path: PathBuf) -> Result<ImportPre
     })
 }
 
-/// Abre o diálogo nativo para escolher um perfil (.json) ou swanctl.conf.
+/// Opens the native dialog to choose a profile (.json) or a swanctl.conf.
 #[tauri::command]
 #[specta::specta]
 pub async fn choose_import_file(app: AppHandle) -> Result<Option<ImportPreview>, UiError> {
@@ -226,7 +225,7 @@ fn non_empty(value: Option<&String>) -> Option<String> {
     value.map(|v| v.trim().to_owned()).filter(|v| !v.is_empty())
 }
 
-/// Confirma a importação de uma prévia.
+/// Confirms the import of a preview.
 #[tauri::command]
 #[specta::specta]
 pub async fn confirm_import(
@@ -283,15 +282,15 @@ pub async fn confirm_import(
     .await
 }
 
-/// Detalhes de um perfil.
+/// Details of a profile.
 #[tauri::command]
 #[specta::specta]
 pub async fn profile_details(profile_id: String) -> Result<ProfileDetails, UiError> {
     blocking(move || Ok(ProfileDetails::from(&store()?.load(&profile_id)?))).await
 }
 
-/// Exporta o perfil (sem credenciais) para um arquivo escolhido no diálogo
-/// nativo. Devolve o nome do arquivo gravado, ou `None` se cancelado.
+/// Exports the profile (without credentials) to a file chosen in the native
+/// dialog. Returns the name of the saved file, or `None` if cancelled.
 #[tauri::command]
 #[specta::specta]
 pub async fn export_profile(app: AppHandle, profile_id: String) -> Result<Option<String>, UiError> {
@@ -345,7 +344,7 @@ pub async fn export_profile(app: AppHandle, profile_id: String) -> Result<Option
     .await
 }
 
-/// Exclui o perfil e, se pedido, as credenciais guardadas dele.
+/// Deletes the profile and, if asked, its stored credentials.
 #[tauri::command]
 #[specta::specta]
 pub async fn delete_profile(profile_id: String, forget_credentials: bool) -> Result<(), UiError> {

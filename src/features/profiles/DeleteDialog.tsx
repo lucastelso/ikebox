@@ -13,7 +13,7 @@ import {
 import { Label } from '@/components/ui/label';
 import { useT } from '@/i18n';
 
-/** Confirma a exclusão de um perfil (e, opcionalmente, das credenciais). */
+/** Confirms deleting a profile (and, optionally, its credentials). */
 export function DeleteDialog({
   profile,
   onCancel,

@@ -23,7 +23,7 @@
 
 use std::net::IpAddr;
 
-/// Mascara um valor: `usuario.exemplo` → `us***lo`. Valores curtos viram `***`.
+/// Masks a value: `user.example` → `us***le`. Short values become `***`.
 #[must_use]
 pub fn mask(value: &str) -> String {
     let chars: Vec<char> = value.chars().collect();
@@ -61,21 +61,21 @@ pub fn printable(text: &str) -> String {
         .collect()
 }
 
-/// Troca identidades conhecidas por versões mascaradas.
+/// Replaces known identities with masked versions.
 #[derive(Debug, Clone, Default)]
 pub struct Redactor {
-    /// (original, mascarado), do mais longo para o mais curto.
+    /// (original, masked), longest first.
     needles: Vec<(String, String)>,
 }
 
-/// Identidades com menos caracteres que isto não são mascaradas, para não
-/// destruir o texto do log trocando sílabas comuns.
+/// Identities shorter than this are not masked, so the log text is not
+/// destroyed by replacing common syllables.
 const MIN_NEEDLE: usize = 3;
 
 impl Redactor {
-    /// Cria um mascarador para as identidades dadas. Para identidades com
-    /// prefixo de tipo (`keyid:grupo`, `fqdn:host`), mascara também o valor sem
-    /// o prefixo, que é como o charon costuma registrar.
+    /// Creates a masker for the given identities. For identities with a type
+    /// prefix (`keyid:group`, `fqdn:host`), it also masks the value without the
+    /// prefix, which is how charon usually logs it.
     pub fn new<'a>(identities: impl IntoIterator<Item = &'a str>) -> Self {
         let mut needles: Vec<(String, String)> = Vec::new();
         for identity in identities {
@@ -94,7 +94,7 @@ impl Redactor {
                 }
             }
         }
-        // Os mais longos primeiro: `keyid:grupo` antes de `grupo`.
+        // Longest first: `keyid:group` before `group`.
         needles.sort_by_key(|(n, _)| std::cmp::Reverse(n.len()));
         Self { needles }
     }
@@ -312,21 +312,21 @@ fn bracket_identity(line: &str, open: usize) -> Option<(usize, String)> {
     Some((open + 1 + len, mask_unless_kept(content)))
 }
 
-/// Anonimiza um log para compartilhar: identidades mascaradas, gateway,
-/// domínios do perfil e **todo** endereço IP trocados por marcadores. O mesmo
-/// endereço recebe sempre o mesmo marcador no texto, para o log continuar
-/// legível.
+/// Anonymizes a log for sharing: identities masked, and the gateway, the
+/// profile's domains and **every** IP address replaced with placeholders. The
+/// same address always gets the same placeholder in the text, so the log stays
+/// readable.
 #[derive(Debug, Clone, Default)]
 pub struct Anonymizer {
     redactor: Redactor,
-    /// (nome em minúsculas, marcador), do mais longo para o mais curto.
+    /// (lower-case name, placeholder), longest first.
     names: Vec<(String, String)>,
-    /// Endereços com marcador fixo (gateway, DNS do perfil).
+    /// Addresses with a fixed placeholder (gateway, the profile's DNS).
     known_ips: Vec<(IpAddr, String)>,
 }
 
 impl Anonymizer {
-    /// Cria o anonimizador a partir do que o perfil e as credenciais sabem.
+    /// Creates the anonymizer from what the profile and the credentials know.
     pub fn new<'a>(
         identities: impl IntoIterator<Item = &'a str>,
         gateway: &str,
@@ -368,7 +368,7 @@ impl Anonymizer {
         }
     }
 
-    /// Texto anonimizado.
+    /// Anonymized text.
     #[must_use]
     pub fn anonymize(&self, text: &str) -> String {
         // Known values first (identities, gateway and domains), then every
@@ -408,8 +408,8 @@ fn mask_certificate_names(text: &str) -> String {
     out
 }
 
-/// Troca `needle` (ASCII, em minúsculas) por `with`, sem diferenciar
-/// maiúsculas. `to_ascii_lowercase` mantém as posições dos bytes.
+/// Replaces `needle` (ASCII, lower case) with `with`, ignoring case.
+/// `to_ascii_lowercase` keeps the byte positions.
 fn replace_ascii_ci(haystack: &str, needle: &str, with: &str) -> String {
     let lower = haystack.to_ascii_lowercase();
     let mut out = String::with_capacity(haystack.len());
@@ -423,7 +423,7 @@ fn replace_ascii_ci(haystack: &str, needle: &str, with: &str) -> String {
     out
 }
 
-/// Endereços que não identificam nada e ajudam a ler o log (rota padrão,
+/// Addresses that identify nothing and help reading the log (default route,
 /// loopback, broadcast).
 fn keep_ip(ip: &IpAddr) -> bool {
     ip.is_unspecified() || ip.is_loopback() || matches!(ip, IpAddr::V4(v4) if v4.is_broadcast())
@@ -437,9 +437,9 @@ fn is_word_char(c: char) -> bool {
     c.is_alphanumeric() || c == '_'
 }
 
-/// Troca cada IPv4/IPv6 do texto por um marcador (`<ip-N>`, ou o fixo de
-/// `known`). Um candidato é uma sequência máxima de `[0-9A-Fa-f.:]` que não
-/// encosta em letras ou dígitos de uma palavra maior.
+/// Replaces each IPv4/IPv6 in the text with a placeholder (`<ip-N>`, or the
+/// fixed one from `known`). A candidate is a maximal run of `[0-9A-Fa-f.:]`
+/// that does not touch letters or digits of a longer word.
 fn replace_ips(text: &str, known: &[(IpAddr, String)]) -> String {
     let mut markers: Vec<(IpAddr, String)> = known.to_vec();
     let mut next = 1;
@@ -462,8 +462,8 @@ fn replace_ips(text: &str, known: &[(IpAddr, String)]) -> String {
         }
         let token = &text[start..end];
         let after = chars.peek().map(|&(_, d)| d);
-        // Ponto final de frase não faz parte do endereço, nem as reticências
-        // ou os dois-pontos antes dele (`...198.51.100.7`, `dns::192.0.2.1`).
+        // A sentence's final period is not part of the address, nor the ellipsis or
+        // the colons before it (`...198.51.100.7`, `dns::192.0.2.1`).
         let core = token.trim_end_matches('.');
         let candidate = if core.parse::<IpAddr>().is_ok() {
             core
@@ -575,7 +575,8 @@ rota 0.0.0.0/1 via ipsc0; fe80::1 e 2001:db8::7 vistos; versão 6.1.0; hora 15:3
         ] {
             assert!(!out.contains(leaked), "vazou {leaked}:\n{out}");
         }
-        // O mesmo endereço recebe o mesmo marcador; o resto do log fica legível.
+        // The same address gets the same placeholder; the rest of the log stays
+        // readable.
         assert!(out.contains("to <ip-1>"), "{out}");
         assert!(out.contains("<ip-2>[gr***te]...<ip-1>[<gateway>]"), "{out}");
         assert!(out.contains("virtual IP <ip-3>"), "{out}");
@@ -743,7 +744,7 @@ rota 0.0.0.0/1 via ipsc0; fe80::1 e 2001:db8::7 vistos; versão 6.1.0; hora 15:3
     #[test]
     fn ignores_short_identities() {
         let r = Redactor::new(["ab", "keyid:x"]);
-        // "ab" e "x" são curtos demais; "keyid:x" (7 caracteres) vira "k***".
+        // "ab" and "x" are too short; "keyid:x" (7 characters) becomes "k***".
         assert_eq!(r.redact("ab x keyid:x"), "ab x k***");
     }
 }

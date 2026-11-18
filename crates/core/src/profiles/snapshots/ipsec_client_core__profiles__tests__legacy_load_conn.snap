@@ -12,7 +12,7 @@ dpd_delay = 30s
 vips = [0.0.0.0]
 local-1 {
     auth = psk
-    id = keyid:nome-do-grupo
+    id = keyid:group-name
 }
 local-2 {
     auth = xauth
@@ -22,14 +22,14 @@ remote {
     auth = psk
 }
 children {
-    rede-interna {
+    internal-network {
         remote_ts = [192.0.2.0/24]
         esp_proposals = [aes256-sha1-modp1024, aes256-sha1-modp768, aes128-sha1-modp1024]
         start_action = none
         dpd_action = restart
         close_action = restart
-        if_id_in = 635490843
-        if_id_out = 635490843
+        if_id_in = 1486177937
+        if_id_out = 1486177937
         updown = /usr/local/libexec/ipsec-client/updown --iface 'ipsc0' --dns '192.0.2.53' --domain '~corp.example.com'
         rekey_time = 43200s
     }

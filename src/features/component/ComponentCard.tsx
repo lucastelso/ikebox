@@ -34,7 +34,7 @@ function versions(app: string | null, strongswan: string | null): string {
   return `IPsec Client ${app ?? '?'} · strongSwan ${strongswan ?? '?'}`;
 }
 
-/** Componente de rede na tela Sistema: estado, versões, instalar e remover. */
+/** Network component on the System screen: state, versions, install and remove. */
 export function ComponentCard({
   info,
   busy,

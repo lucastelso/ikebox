@@ -1,8 +1,8 @@
-//! Leitura, gravação, importação e exportação de perfis.
+//! Reading, saving, importing and exporting profiles.
 //!
-//! Perfis ficam em `$XDG_CONFIG_HOME/ipsec-client/profiles/<id>.json`
-//! (diretório 0700, arquivos 0600: contêm gateway e id do grupo da
-//! organização). A gravação é atômica (arquivo temporário + rename).
+//! Profiles live in `$XDG_CONFIG_HOME/ipsec-client/profiles/<id>.json`
+//! (directory 0700, files 0600: they contain the organization's gateway and
+//! group id). Saving is atomic (temporary file + rename).
 
 use std::fs;
 use std::io::{Read, Write};
@@ -14,15 +14,15 @@ use super::model::Profile;
 use super::schema::{from_json, to_json, v1_field};
 use super::validate::{is_slug, validate};
 
-/// Tamanho máximo de um arquivo de perfil importado.
+/// Maximum size of an imported profile file.
 pub const MAX_PROFILE_BYTES: u64 = 1024 * 1024;
 
-/// Lê um perfil de JSON (formato 1 ou 2): confere a versão do formato antes
-/// do resto, converte e valida. Num arquivo do formato 1, os problemas citam
-/// os campos dele (`auth.local_id`, não `auth.local[0].id`).
+/// Reads a profile from JSON (format 1 or 2): checks the format version before
+/// the rest, converts and validates. In a format 1 file, the problems name its
+/// fields (`auth.local_id`, not `auth.local[0].id`).
 ///
 /// # Errors
-/// JSON inválido, versão não suportada ou perfil inválido.
+/// Invalid JSON, unsupported version or invalid profile.
 pub fn parse_profile(json: &str) -> Result<Profile, ProfileError> {
     let (profile, version) = from_json(json)?;
     let mut issues = validate(&profile);
@@ -37,27 +37,27 @@ pub fn parse_profile(json: &str) -> Result<Profile, ProfileError> {
     Err(ProfileError::Invalid(issues))
 }
 
-/// Diretório de perfis no disco.
+/// Profile directory on disk.
 #[derive(Debug, Clone)]
 pub struct ProfileStore {
     dir: PathBuf,
 }
 
-/// Resultado da listagem: perfis válidos e arquivos com problema.
+/// Listing result: valid profiles and broken files.
 #[derive(Debug, Default)]
 pub struct ProfileList {
-    /// Perfis válidos, ordenados por nome.
+    /// Valid profiles, sorted by name.
     pub profiles: Vec<Profile>,
-    /// Arquivos ignorados e o motivo.
+    /// Ignored files and the reason.
     pub broken: Vec<(PathBuf, String)>,
 }
 
 impl ProfileStore {
-    /// Diretório padrão: `$XDG_CONFIG_HOME/ipsec-client/profiles` ou
+    /// Default directory: `$XDG_CONFIG_HOME/ipsec-client/profiles` or
     /// `~/.config/ipsec-client/profiles`.
     ///
     /// # Errors
-    /// [`ProfileError::NoConfigDir`] sem `XDG_CONFIG_HOME` nem `HOME`.
+    /// [`ProfileError::NoConfigDir`] with neither `XDG_CONFIG_HOME` nor `HOME`.
     pub fn default_dir() -> Result<PathBuf, ProfileError> {
         let base = std::env::var_os("XDG_CONFIG_HOME")
             .map(PathBuf::from)
@@ -72,13 +72,13 @@ impl ProfileStore {
         Ok(base.join("ipsec-client").join("profiles"))
     }
 
-    /// Store num diretório específico.
+    /// Store in a specific directory.
     #[must_use]
     pub fn new(dir: PathBuf) -> Self {
         Self { dir }
     }
 
-    /// Diretório do store.
+    /// Store directory.
     #[must_use]
     pub fn dir(&self) -> &Path {
         &self.dir
@@ -91,10 +91,10 @@ impl ProfileStore {
         Ok(self.dir.join(format!("{id}.json")))
     }
 
-    /// Lista os perfis (arquivos com problema vão para `broken`).
+    /// Lists the profiles (broken files go to `broken`).
     ///
     /// # Errors
-    /// Erro de E/S ao ler o diretório (diretório inexistente = lista vazia).
+    /// I/O error reading the directory (a missing directory = empty list).
     pub fn list(&self) -> Result<ProfileList, ProfileError> {
         let mut list = ProfileList::default();
         let entries = match fs::read_dir(&self.dir) {
@@ -116,10 +116,10 @@ impl ProfileStore {
         Ok(list)
     }
 
-    /// Carrega um perfil pelo id.
+    /// Loads a profile by id.
     ///
     /// # Errors
-    /// [`ProfileError::NotFound`] ou erro de leitura/validação.
+    /// [`ProfileError::NotFound`] or a read or validation error.
     pub fn load(&self, id: &str) -> Result<Profile, ProfileError> {
         let path = self.path_for(id)?;
         match read_limited(&path) {
@@ -131,10 +131,10 @@ impl ProfileStore {
         }
     }
 
-    /// Grava (cria ou substitui) um perfil, de forma atômica.
+    /// Saves (creates or replaces) a profile, atomically.
     ///
     /// # Errors
-    /// Perfil inválido ou erro de E/S.
+    /// Invalid profile or I/O error.
     pub fn save(&self, profile: &Profile) -> Result<(), ProfileError> {
         let issues = validate(profile);
         if !issues.is_empty() {
@@ -157,10 +157,10 @@ impl ProfileStore {
         Ok(())
     }
 
-    /// Remove um perfil.
+    /// Removes a profile.
     ///
     /// # Errors
-    /// [`ProfileError::NotFound`] ou erro de E/S.
+    /// [`ProfileError::NotFound`] or I/O error.
     pub fn delete(&self, id: &str) -> Result<(), ProfileError> {
         match fs::remove_file(self.path_for(id)?) {
             Ok(()) => Ok(()),
@@ -171,11 +171,11 @@ impl ProfileStore {
         }
     }
 
-    /// Importa um arquivo de perfil. Recusa substituir um perfil existente,
-    /// salvo com `overwrite`.
+    /// Imports a profile file. Refuses to replace an existing profile, unless
+    /// `overwrite` is set.
     ///
     /// # Errors
-    /// Arquivo grande demais, inválido, ou id já existente.
+    /// File too large, invalid, or an id that already exists.
     pub fn import(&self, file: &Path, overwrite: bool) -> Result<Profile, ProfileError> {
         let profile = parse_profile(&read_limited(file)?)?;
         if !overwrite && self.path_for(&profile.id)?.exists() {
@@ -185,10 +185,10 @@ impl ProfileStore {
         Ok(profile)
     }
 
-    /// Exporta um perfil para um arquivo (sem credenciais: o perfil não as tem).
+    /// Exports a profile to a file (no credentials: the profile has none).
     ///
     /// # Errors
-    /// Perfil inexistente ou erro de E/S.
+    /// Missing profile or I/O error.
     pub fn export(&self, id: &str, file: &Path) -> Result<(), ProfileError> {
         let profile = self.load(id)?;
         fs::write(file, to_json(&profile)?)?;

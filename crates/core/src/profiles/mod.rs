@@ -1,11 +1,11 @@
-//! Perfis de conexão genéricos (ADR-0008).
+//! Generic connection profiles (ADR-0008).
 //!
-//! - [`Profile`]: modelo em JSON com `schema_version`, sem credenciais;
-//! - [`validate`]: regras (o Rust é a fonte da verdade);
-//! - [`Profile::to_load_conn`] e [`Profile::updown_command`]: geração da
-//!   configuração do charon;
-//! - [`ProfileStore`]: disco, importação e exportação;
-//! - [`Profile::security`]: nível de segurança (só avisa, nunca bloqueia).
+//! - [`Profile`]: JSON model with `schema_version`, without credentials;
+//! - [`validate`]: rules (Rust is the source of truth);
+//! - [`Profile::to_load_conn`] and [`Profile::updown_command`]: generating
+//!   charon's configuration;
+//! - [`ProfileStore`]: disk, import and export;
+//! - [`Profile::security`]: security level (it only warns, never blocks).
 
 mod ca;
 mod legacy;
@@ -32,8 +32,7 @@ pub use swanctl::{SwanctlImport, SwanctlImportOptions, import_swanctl};
 pub use templates::{ProposalPreset, Template};
 pub use validate::{ValidationIssue, validate};
 
-/// O id é válido (`[a-z0-9][a-z0-9-]{0,62}`)? Usado também nas chaves do
-/// chaveiro.
+/// Is the id valid (`[a-z0-9][a-z0-9-]{0,62}`)? Also used in the keyring keys.
 #[must_use]
 pub fn is_valid_id(id: &str) -> bool {
     validate::is_slug(id)
@@ -93,7 +92,7 @@ pub enum ProfileError {
         "não foi possível achar o diretório de configuração (XDG_CONFIG_HOME/HOME)"
     ))]
     NoConfigDir,
-    /// Erro de E/S.
+    /// I/O error.
     #[error(transparent)]
     Io(#[from] std::io::Error),
 }
@@ -107,7 +106,7 @@ mod tests {
     use super::*;
     use crate::vici::{Message, Value};
 
-    const LEGACY: &str = include_str!("../../../../presets/exemplo-ikev1-agressivo-xauth.json");
+    const LEGACY: &str = include_str!("../../../../presets/example-ikev1-aggressive-xauth.json");
 
     fn legacy() -> Profile {
         parse_profile(LEGACY).expect("preset legado válido")
@@ -140,8 +139,8 @@ mod tests {
         assert!(read_profile_file(&dir.path().join("missing")).is_err());
     }
 
-    /// Renderiza uma mensagem VICI como texto (só em testes: aqui não há
-    /// segredos, e o snapshot precisa dos valores).
+    /// Renders a VICI message as text (tests only: there are no secrets here, and
+    /// the snapshot needs the values).
     fn render(msg: &Message, indent: usize, out: &mut String) {
         let pad = "    ".repeat(indent);
         for (key, value) in msg.iter() {
@@ -181,7 +180,7 @@ mod tests {
 
     #[test]
     fn native_engine_load_conn_has_no_updown() {
-        // No engine embutido, o comando do updown é do root (ADR-0019).
+        // In the embedded engine, the updown command belongs to root (ADR-0019).
         let profile = legacy();
         let params = ConnParams {
             iface: "ipsc0",
@@ -200,7 +199,7 @@ mod tests {
 
     #[test]
     fn ikev2_preset_renders_expected_load_conn() {
-        let profile = parse_profile(include_str!("../../../../presets/exemplo-ikev2-psk.json"))
+        let profile = parse_profile(include_str!("../../../../presets/example-ikev2-psk.json"))
             .expect("preset IKEv2 válido");
         let params = ConnParams {
             iface: "ipsc0",
@@ -369,7 +368,7 @@ mod tests {
         assert_eq!(issues[0].field, "auth.local_id");
     }
 
-    const EAP: &str = include_str!("../../../../presets/exemplo-ikev2-eap.json");
+    const EAP: &str = include_str!("../../../../presets/example-ikev2-eap.json");
 
     #[test]
     fn eap_profile_renders_rounds_and_the_gateway_ca_as_data() {
@@ -483,7 +482,7 @@ mod tests {
         let mut p = legacy();
         p.id = "Com Espaço".into();
         p.gateway = "vpn..example".into();
-        p.ike.version = 2; // agressivo + XAuth ficam inválidos
+        p.ike.version = 2; // aggressive + XAuth become invalid
         p.child.remote_ts = vec!["192.0.2.0/99".into()];
         p.network.dns.domains = vec!["~corp'; reboot".into()];
         p.network.mtu = 10;
@@ -506,8 +505,8 @@ mod tests {
 
     #[test]
     fn parse_rejects_unknown_fields_versions_and_secrets() {
-        // Um campo "psk" (ou qualquer desconhecido) é recusado: perfis não
-        // carregam credenciais.
+        // A "psk" field (or any unknown one) is refused: profiles do not carry
+        // credentials.
         let with_psk = LEGACY.replacen(
             "\"schema_version\": 1,",
             "\"schema_version\": 1, \"psk\": \"x\",",
@@ -549,7 +548,7 @@ mod tests {
             .mode()
             & 0o777;
         assert_eq!(dir_mode, 0o700);
-        let file = store.dir().join("exemplo-legado.json");
+        let file = store.dir().join("example-legacy.json");
         let file_mode = std::fs::metadata(&file)
             .expect("arquivo")
             .permissions()
@@ -557,26 +556,26 @@ mod tests {
             & 0o777;
         assert_eq!(file_mode, 0o600);
 
-        assert_eq!(store.load("exemplo-legado").expect("load"), profile);
+        assert_eq!(store.load("example-legacy").expect("load"), profile);
         std::fs::write(store.dir().join("quebrado.json"), "{").expect("arquivo quebrado");
         let list = store.list().expect("list");
         assert_eq!(list.profiles.len(), 1);
         assert_eq!(list.broken.len(), 1);
 
         let exported = tmp.path().join("export.json");
-        store.export("exemplo-legado", &exported).expect("export");
+        store.export("example-legacy", &exported).expect("export");
         assert!(matches!(
             store.import(&exported, false),
             Err(ProfileError::AlreadyExists(_))
         ));
         store.import(&exported, true).expect("import com overwrite");
 
-        store.delete("exemplo-legado").expect("delete");
+        store.delete("example-legacy").expect("delete");
         assert!(matches!(
-            store.load("exemplo-legado"),
+            store.load("example-legacy"),
             Err(ProfileError::NotFound(_))
         ));
-        // Ids com caminho não escapam do diretório.
+        // Ids with a path do not escape the directory.
         assert!(store.load("../etc/passwd").is_err());
     }
 }

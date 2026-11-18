@@ -339,10 +339,10 @@ No 0.10 release: day-to-day testing uses development builds
 | E | PKCS#11 (gated) | study passed the gate; [ADR-0029](adr/0029-smartcards-and-tokens.md): the token stays in the person's process, charon signs through a key agent (patch `0004`). E1: engine, core, CLI, `test:modes` with SoftHSM (RSA and ECDSA, IKEv2 and IKEv1 + XAuth). E2: the app (editor option, certificate list and PIN in the connection dialog) and the user docs | ✅ (steps 54–55) |
 | F | App | close to the tray (on by default, a notification the first time; System → Behavior), one status monitor in Rust feeding the tray and the window (no UI polling, nothing sent to a hidden window), optional update notice (off by default, once a day, `ureq` + rustls, version-only answer, packagers can build without it) | ✅ (step 56) |
 | G | Release pipeline in CI (`chore/release`) | [ADR-0030](adr/0030-release-signing-and-provenance.md): `release.yml` (build, reproducibility, signing in the protected `release` environment, attestations, draft release), `weekly.yml` (upstream watch, advisories, reproducibility, the seven distributions with packages updated from the latest release), `scripts/sign-release.sh`, `check-reproducible.sh`, `upstream-watch.sh`; the signing key is the maintainer's step | ✅ (step 57; key and environment with the maintainer) |
-| H | Opening | English leftovers (comments, presets), SECURITY.md for a public repository, code of conduct, support, issue forms, README for 1.0 with screenshots, Portuguese copies in sync | ⏳ |
+| H | Opening | SECURITY.md for a public repository (private reporting, response times, supported versions), code of conduct, SUPPORT.md, issue forms with the privacy warning and the anonymized log, README for 1.0 with screenshots, Portuguese copies in sync; every code comment in English, presets and the test fixture renamed (fake values inside the tests stay as they are) | ✅ (step 58) |
 | I | Acceptance and release | 1.0.0 version, clean-VM checklist (P15), real VPN, repository made public, tag, signed release | ⏳ |
 
-Out of 1.0 (kept in [Ideas](#ideas)): P8 `initiator_only` (needs a long
+Out of 1.0 (kept in [After 1.0](#after-10)): P8 `initiator_only` (needs a long
 session on the real VPN), restricting 500/4500 to the gateway, several
 connections, revocation checks, more languages; RHEL 9 stays unsupported
 (P14).
@@ -354,9 +354,18 @@ and in the local build), `check-private.sh --history` and `--artifacts`
 clean, gitleaks clean, the clean-VM checklist and the real VPN approved,
 `gpg --verify` and `gh attestation verify` working from the release page.
 
-## Ideas
+## After 1.0
 
-- Several simultaneous connections. The per-profile `if_id` already allows it.
+Not promised, in no particular order:
+
+- P8 `initiator_only`: needs a session on a real gateway longer than its
+  phase 1 lifetime (the [audit report](audits/v0.2.0.md) has the steps).
 - Restrict ports 500/4500 to the gateway IP during the session.
+- Several simultaneous connections. The per-profile `if_id` already allows it.
+- Certificate revocation checks (CRL/OCSP).
 - More languages, now that the i18n infrastructure exists.
 - Long-duration test (rekey after about 11 h).
+- English fake values inside the tests (`grupo-teste`, `usuario.exemplo`...):
+  they cross the gateway configs and the E2E scenarios, so they change with
+  the full suites.
+- RHEL 9 and its rebuilds stay unsupported (P14: no WebKitGTK 4.1, glibc 2.34).

@@ -3,13 +3,13 @@ import { clearMocks } from '@tauri-apps/api/mocks';
 import { cleanup } from '@testing-library/react';
 import { afterEach } from 'vitest';
 
-// Cada teste começa com DOM e IPC limpos.
+// Each test starts with a clean DOM and IPC.
 afterEach(() => {
   cleanup();
   clearMocks();
 });
 
-// O jsdom não implementa ResizeObserver (usado por componentes Radix).
+// jsdom does not implement ResizeObserver (used by Radix components).
 class ResizeObserverStub {
   observe(): void {}
   unobserve(): void {}
@@ -17,8 +17,8 @@ class ResizeObserverStub {
 }
 globalThis.ResizeObserver ??= ResizeObserverStub as unknown as typeof ResizeObserver;
 
-// O Select do Radix usa captura de ponteiro e scrollIntoView, que o jsdom não
-// implementa.
+// Radix's Select uses pointer capture and scrollIntoView, which jsdom does not
+// implement.
 if (!Element.prototype.hasPointerCapture) {
   Element.prototype.hasPointerCapture = () => false;
   Element.prototype.releasePointerCapture = () => {};

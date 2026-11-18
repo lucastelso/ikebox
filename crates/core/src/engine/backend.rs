@@ -1,5 +1,5 @@
-//! Escolha do engine: embutido (helper, padrão) ou, só em builds com a
-//! feature `docker`, o Docker (desenvolvimento e testes). ADR-0013.
+//! Engine choice: embedded (helper, the default) or, only in builds with the
+//! `docker` feature, Docker (development and tests). ADR-0013.
 
 use std::path::PathBuf;
 
@@ -12,49 +12,49 @@ use crate::profiles::Profile;
 #[cfg(feature = "docker")]
 use crate::profiles::UPDOWN_PATH;
 
-/// Progresso do preparo do engine (build da imagem, no Docker), para mostrar
-/// ao usuário.
+/// Progress of getting the engine ready (image build, in Docker), to show the
+/// user.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum BuildProgress {
-    /// A imagem já existia; nada a construir.
+    /// The image already existed; nothing to build.
     UpToDate,
-    /// Uma linha de saída do build.
+    /// A line of build output.
     Step(String),
 }
 
-/// Engine em execução: o que a sessão precisa para negociar.
+/// Running engine: what the session needs to negotiate.
 #[derive(Debug, Clone)]
 pub struct RunningEngine {
-    /// Socket VICI.
+    /// VICI socket.
     pub socket: PathBuf,
-    /// Interface XFRM.
+    /// XFRM interface.
     pub iface: String,
-    /// `if_id` das SAs/políticas.
+    /// `if_id` of the SAs and policies.
     pub if_id: u32,
-    /// `updown` a mandar no `load-conn`: o do engine Docker, ou `None` no
-    /// embutido, onde o root fixa o comando (ADR-0019).
+    /// `updown` to send in `load-conn`: the Docker engine's, or `None` in the
+    /// embedded one, where root fixes the command (ADR-0019).
     pub updown: Option<&'static str>,
 }
 
-/// Engine disponível neste computador.
+/// Engine available on this computer.
 #[derive(Debug, Clone)]
 pub enum Backend {
-    /// Engine embutido, via `ipsec-client-helper`.
+    /// Embedded engine, through `ipsec-client-helper`.
     Native(NativeEngine),
-    /// Engine em container Docker (feature `docker`).
+    /// Engine in a Docker container (the `docker` feature).
     #[cfg(feature = "docker")]
     Docker(DockerEngine),
 }
 
 impl Backend {
-    /// Escolhe o engine: `IPSEC_CLIENT_BACKEND=native|docker` força; senão, o
-    /// embutido. Só builds com a feature `docker` caem no Docker quando o
-    /// componente de rede não está instalado; os de release dizem para
-    /// instalá-lo (diagnóstico).
+    /// Chooses the engine: `IPSEC_CLIENT_BACKEND=native|docker` forces one;
+    /// otherwise, the embedded one. Only builds with the `docker` feature fall back
+    /// to Docker when the network component is not installed; release builds say
+    /// to install it (diagnostics).
     ///
     /// # Errors
-    /// Docker indisponível quando ele é a única opção, ou pedido num build
-    /// sem ele.
+    /// Docker unavailable when it is the only option, or asked for in a build
+    /// without it.
     pub fn detect() -> Result<Self, EngineError> {
         let native = NativeEngine::default();
         match std::env::var("IPSEC_CLIENT_BACKEND").as_deref() {
@@ -72,7 +72,7 @@ impl Backend {
         Ok(Self::Native(native))
     }
 
-    /// É o engine em Docker?
+    /// Is it the Docker engine?
     #[must_use]
     pub fn is_docker(&self) -> bool {
         match self {
@@ -82,7 +82,7 @@ impl Backend {
         }
     }
 
-    /// Nome para diagnóstico.
+    /// Name for diagnostics.
     #[must_use]
     pub fn kind(&self) -> &'static str {
         match self {
@@ -92,10 +92,10 @@ impl Backend {
         }
     }
 
-    /// Deixa o engine pronto para subir: imagem (Docker) ou helper respondendo.
+    /// Gets the engine ready to start: image (Docker) or helper answering.
     ///
     /// # Errors
-    /// Build da imagem ou helper indisponível.
+    /// Image build failed or helper unavailable.
     pub async fn prepare(&self, progress: impl FnMut(BuildProgress)) -> Result<(), EngineError> {
         #[cfg(not(feature = "docker"))]
         let _ = progress;
@@ -109,10 +109,10 @@ impl Backend {
         }
     }
 
-    /// Sobe o engine para o perfil.
+    /// Starts the engine for the profile.
     ///
     /// # Errors
-    /// Falha ao subir ou ficar pronto.
+    /// Failed to start or to become ready.
     pub async fn start(
         &self,
         profile: &Profile,
@@ -157,10 +157,10 @@ impl Backend {
         }
     }
 
-    /// Para o engine. Devolve se havia um rodando.
+    /// Stops the engine. Returns whether one was running.
     ///
     /// # Errors
-    /// Docker/helper indisponível.
+    /// Docker or helper unavailable.
     pub async fn stop(&self) -> Result<bool, EngineError> {
         match self {
             #[cfg(feature = "docker")]
@@ -176,10 +176,10 @@ impl Backend {
         }
     }
 
-    /// Perfil do engine em execução (`None` = parado).
+    /// Profile of the running engine (`None` = stopped).
     ///
     /// # Errors
-    /// Docker/helper indisponível.
+    /// Docker or helper unavailable.
     pub async fn running_profile(&self) -> Result<Option<String>, EngineError> {
         match self {
             #[cfg(feature = "docker")]
@@ -206,10 +206,10 @@ impl Backend {
         }
     }
 
-    /// Socket VICI do engine deste usuário.
+    /// VICI socket of this user's engine.
     ///
     /// # Errors
-    /// Sem `XDG_RUNTIME_DIR` (Docker).
+    /// No `XDG_RUNTIME_DIR` (Docker).
     pub fn socket_path(&self) -> Result<PathBuf, EngineError> {
         match self {
             #[cfg(feature = "docker")]
@@ -220,10 +220,10 @@ impl Backend {
         }
     }
 
-    /// Últimas linhas do log do engine (identidades ainda não mascaradas).
+    /// Last lines of the engine's log (identities not masked yet).
     ///
     /// # Errors
-    /// Docker/helper indisponível.
+    /// Docker or helper unavailable.
     pub async fn logs(&self, tail: usize) -> Result<Vec<String>, EngineError> {
         match self {
             #[cfg(feature = "docker")]
@@ -253,7 +253,8 @@ async fn blocking<T: Send + 'static>(
     })?
 }
 
-/// DNS do perfil para o helper (o `updown` do engine embutido o aplica).
+/// The profile's DNS for the helper (the embedded engine's `updown` applies
+/// it).
 fn dns_params(profile: &Profile) -> DnsParams {
     let dns = &profile.network.dns;
     DnsParams {

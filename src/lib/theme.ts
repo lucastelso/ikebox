@@ -1,4 +1,4 @@
-/** Tema da interface: segue o sistema por padrão. */
+/** Interface theme: follows the system by default. */
 export type Theme = 'system' | 'light' | 'dark';
 
 const KEY = 'ipsec-client:tema';
@@ -12,7 +12,7 @@ export function readTheme(): Theme {
   }
 }
 
-/** Aplica o tema no <html> (data-theme) e lembra a escolha. */
+/** Applies the theme to <html> (data-theme) and remembers the choice. */
 export function applyTheme(theme: Theme): void {
   const root = document.documentElement;
   if (theme === 'system') root.removeAttribute('data-theme');
@@ -20,6 +20,6 @@ export function applyTheme(theme: Theme): void {
   try {
     localStorage.setItem(KEY, theme);
   } catch {
-    // Sem armazenamento: o tema vale só nesta execução.
+    // No storage: the theme applies to this run only.
   }
 }

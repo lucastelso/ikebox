@@ -46,33 +46,33 @@
 
 use std::fmt;
 
-/// Causa provável de uma falha de conexão.
+/// Likely cause of a connection failure.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum FailureKind {
-    /// PSK errada ou id do grupo (identidade local) errado.
+    /// Wrong PSK or wrong group id (local identity).
     PskOrGroupId,
-    /// Usuário ou senha XAuth errados.
+    /// Wrong XAuth username or password.
     XauthCredentials,
-    /// Nenhuma proposta IKE (fase 1) aceita pelo gateway.
+    /// No IKE proposal (phase 1) accepted by the gateway.
     IkeProposals,
-    /// Nenhuma proposta ESP (fase 2) aceita: algoritmos ou grupo DH (PFS).
+    /// No ESP proposal (phase 2) accepted: algorithms or DH group (PFS).
     EspProposals,
-    /// Redes (traffic selectors) recusadas pelo gateway.
+    /// Networks (traffic selectors) refused by the gateway.
     TrafficSelectors,
-    /// O gateway exige que o cliente peça um IP virtual (IKEv2).
+    /// The gateway requires the client to ask for a virtual IP (IKEv2).
     VirtualIpRequired,
-    /// Usuário ou senha EAP errados.
+    /// Wrong EAP username or password.
     EapCredentials,
-    /// O certificado do gateway não pôde ser conferido (CA, nome ou chave).
+    /// The gateway's certificate could not be checked (CA, name or key).
     GatewayCertificate,
-    /// Num perfil EAP, o gateway recusou antes da senha: o nome pedido a ele
-    /// (`auth.remote.id`) não é o dele.
+    /// In an EAP profile, the gateway refused before the password: the name asked
+    /// of it (`auth.remote.id`) is not its own.
     GatewayName,
-    /// Num perfil com certificado do cliente, o gateway não o aceitou.
+    /// In a profile with a client certificate, the gateway did not accept it.
     ClientCertificateRejected,
-    /// O gateway não respondeu.
+    /// The gateway did not answer.
     Unreachable,
-    /// Causa não identificada (ver o log).
+    /// Unidentified cause (see the log).
     Unknown,
 }
 
@@ -153,20 +153,20 @@ impl fmt::Display for FailureKind {
     }
 }
 
-/// Como o perfil autentica a pessoa: muda o sentido de um
-/// AUTHENTICATION_FAILED antes do IKE_SA.
+/// How the profile authenticates the person: changes the meaning of an
+/// AUTHENTICATION_FAILED before the IKE_SA.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum ProfileAuth {
-    /// PSK (com ou sem XAuth): a PSK ou o id do grupo.
+    /// PSK (with or without XAuth): the PSK or the group id.
     Psk,
-    /// EAP: o nome do gateway.
+    /// EAP: the gateway's name.
     Eap,
-    /// Certificado do cliente: o gateway não o aceitou.
+    /// Client certificate: the gateway did not accept it.
     Certificate,
 }
 
 impl ProfileAuth {
-    /// O método do perfil.
+    /// The profile's method.
     #[must_use]
     pub fn of(profile: &crate::profiles::Profile) -> Self {
         if profile.auth.uses_eap() {
@@ -179,7 +179,7 @@ impl ProfileAuth {
     }
 }
 
-/// Deduz a causa provável a partir das linhas de log da tentativa.
+/// Infers the likely cause from the log lines of the attempt.
 #[must_use]
 pub fn diagnose<S: AsRef<str>>(lines: &[S], auth: ProfileAuth) -> FailureKind {
     let mut ike_established = false;
@@ -248,7 +248,7 @@ pub fn diagnose<S: AsRef<str>>(lines: &[S], auth: ProfileAuth) -> FailureKind {
 mod tests {
     use super::*;
 
-    // Linhas reais do charon 5.8.2 (gateway de teste, identidades de teste).
+    // Real lines from charon 5.8.2 (test gateway, test identities).
     const PSK_ERRADA: &[&str] = &[
         "initiating Aggressive Mode IKE_SA teste[1] to 172.19.0.2",
         "selected proposal: IKE:AES_CBC_256/HMAC_SHA1_96/PRF_HMAC_SHA1/MODP_1024",
@@ -280,7 +280,7 @@ mod tests {
         "establishing CHILD_SA 'rede-teste' not established after 25000ms",
     ];
 
-    // Linhas reais do charon 6.1.0 em IKEv2 (gateways de teste dos modos).
+    // Real lines from charon 6.1.0 in IKEv2 (the modes' test gateways).
     const V2_PSK_ERRADA: &[&str] = &[
         "initiating IKE_SA v2-bad-psk[1] to 172.19.0.5",
         "selected proposal: IKE:AES_GCM_16_256/PRF_HMAC_SHA2_256/CURVE_25519",
@@ -309,7 +309,7 @@ mod tests {
         "received TS_UNACCEPTABLE notify, no CHILD_SA built",
     ];
 
-    // IKEv1 modo principal com PSK errada (6.1.0): as respostas não decifram.
+    // IKEv1 main mode with a wrong PSK (6.1.0): the responses do not decrypt.
     const V1_PRINCIPAL_PSK_ERRADA: &[&str] = &[
         "initiating Main Mode IKE_SA v1-main-bad-psk[1] to 172.19.0.3",
         "generating ID_PROT request 0 [ ID HASH ]",
@@ -320,7 +320,7 @@ mod tests {
         "giving up after 5 retransmits",
     ];
 
-    // IKEv2 + EAP-MSCHAPv2, 6.1.0 (identidades mascaradas como no log).
+    // IKEv2 + EAP-MSCHAPv2, 6.1.0 (identities masked as in the log).
     const EAP_SENHA_ERRADA: &[&str] = &[
         "authentication of 'gw***st' with RSA_EMSA_PKCS1_SHA2_256 successful",
         "server requested EAP_IDENTITY (id 0x00), sending 'us***te'",
@@ -342,7 +342,7 @@ mod tests {
         "received AUTHENTICATION_FAILED notify error",
     ];
 
-    // Certificado do cliente de outra CA, 6.1.0 (nomes mascarados).
+    // Client certificate from another CA, 6.1.0 (names masked).
     const CERT_RECUSADO: &[&str] = &[
         "authentication of 'O=Ex***rg, CN=Ma***te' (myself) with RSA_EMSA_PKCS1_SHA2_256 successful",
         "sending end entity cert \"O=Ex***rg, CN=Ma***te\"",

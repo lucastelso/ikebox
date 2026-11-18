@@ -1,8 +1,8 @@
-//! Validação do perfil: o Rust é a fonte da verdade (ADR-0008).
+//! Profile validation: Rust is the source of truth (ADR-0008).
 //!
-//! As regras protegem duas fronteiras: o charon (`load-conn`) e o `updown`,
-//! que roda via `/bin/sh -c` e por isso recebe só valores validados (sem aspas
-//! simples nem caracteres de controle).
+//! The rules protect two boundaries: charon (`load-conn`) and `updown`, which
+//! runs through `/bin/sh -c` and so only gets validated values (no single
+//! quotes or control characters).
 
 use std::fmt;
 use std::net::IpAddr;
@@ -10,12 +10,12 @@ use std::net::IpAddr;
 use super::ca::{MAX_CAS, parse_ca};
 use super::model::{LocalMethod, Profile, RemoteMethod};
 
-/// Um problema encontrado num campo.
+/// A problem found in a field.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct ValidationIssue {
-    /// Caminho do campo (ex.: `child.remote_ts[1]`).
+    /// Path of the field (e.g. `child.remote_ts[1]`).
     pub field: String,
-    /// Descrição para o usuário.
+    /// Description for the user.
     pub message: String,
 }
 
@@ -43,7 +43,7 @@ impl Issues {
     }
 }
 
-/// Valida o perfil inteiro e devolve todos os problemas (vazio = válido).
+/// Validates the whole profile and returns every problem (empty = valid).
 #[must_use]
 pub fn validate(p: &Profile) -> Vec<ValidationIssue> {
     let mut v = Issues::default();
@@ -70,7 +70,7 @@ pub fn validate(p: &Profile) -> Vec<ValidationIssue> {
         ),
     );
 
-    // Fase 1.
+    // Phase 1.
     let ike = &p.ike;
     v.check(
         matches!(ike.version, 1 | 2),
@@ -99,10 +99,10 @@ pub fn validate(p: &Profile) -> Vec<ValidationIssue> {
         );
     }
 
-    // Autenticação.
+    // Authentication.
     check_auth(&mut v, p);
 
-    // Fase 2.
+    // Phase 2.
     let child = &p.child;
     v.check(
         is_slug(&child.name),
@@ -144,7 +144,7 @@ pub fn validate(p: &Profile) -> Vec<ValidationIssue> {
         }
     }
 
-    // Rede e DNS.
+    // Network and DNS.
     let net = &p.network;
     v.check(
         (576..=9000).contains(&net.mtu),
@@ -430,7 +430,7 @@ fn is_label(label: &str) -> bool {
         && label.chars().all(|c| c.is_ascii_alphanumeric() || c == '-')
 }
 
-/// Nome DNS (sem ponto final opcional) ou IP.
+/// DNS name (without the optional final dot) or IP.
 pub(crate) fn is_host(s: &str) -> bool {
     if s.parse::<IpAddr>().is_ok() {
         return true;
@@ -439,13 +439,13 @@ pub(crate) fn is_host(s: &str) -> bool {
     !name.is_empty() && name.len() <= 253 && name.split('.').all(is_label)
 }
 
-/// Domínio para o systemd-resolved: `~.`, `dominio` ou `~dominio`. A regra
-/// fica no `ipsec-client-proto`, porque o helper valida o mesmo dado.
+/// Domain for systemd-resolved: `~.`, `domain` or `~domain`. The rule lives in
+/// `ipsec-client-proto`, because the helper validates the same data.
 pub(crate) fn is_dns_domain(s: &str) -> bool {
     ipsec_client_proto::valid_dns_domain(s)
 }
 
-/// CIDR (`192.0.2.0/24`, `2001:db8::/32`) ou IP único.
+/// CIDR (`192.0.2.0/24`, `2001:db8::/32`) or a single IP.
 pub(crate) fn is_subnet(s: &str) -> bool {
     let (addr, prefix) = match s.split_once('/') {
         Some((addr, prefix)) => (addr, Some(prefix)),
@@ -465,7 +465,7 @@ pub(crate) fn is_subnet(s: &str) -> bool {
     }
 }
 
-/// Identidade do strongSwan (ex.: `keyid:grupo`, `vpn.example.com`, IP, e-mail).
+/// strongSwan identity (e.g. `keyid:group`, `vpn.example.com`, IP, e-mail).
 pub(crate) fn is_identity(s: &str) -> bool {
     !s.is_empty()
         && s.len() <= 255
@@ -475,7 +475,7 @@ pub(crate) fn is_identity(s: &str) -> bool {
         && !s.contains('"')
 }
 
-/// Proposta: `default` ou algoritmos separados por hífen.
+/// Proposal: `default`, or algorithms separated by hyphens.
 pub(crate) fn is_proposal(s: &str) -> bool {
     !s.is_empty()
         && s.len() <= 128

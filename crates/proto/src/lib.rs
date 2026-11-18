@@ -1,107 +1,106 @@
-//! Protocolo entre o app (usuário) e o `ipsec-client-helper` (root), ADR-0014.
+//! Protocol between the app (user) and `ipsec-client-helper` (root), ADR-0014.
 //!
-//! Uma requisição e uma resposta por conexão, cada uma numa linha JSON.
+//! One request and one response per connection, each on a JSON line.
 //!
-//! **Princípio de segurança:** o cliente nunca manda caminhos, comandos nem
-//! segredos. Ele só manda números validados e o id do perfil (um rótulo). O
-//! helper decide sozinho o que executar, onde e com qual sandbox. As mesmas
-//! regras de validação valem dos dois lados (este crate).
+//! **Security principle:** the client never sends paths, commands or secrets.
+//! It only sends validated numbers and the profile id (a label). The helper
+//! alone decides what to run, where and with which sandbox. The same
+//! validation rules apply on both sides (this crate).
 
 use std::net::IpAddr;
 
 use serde::{Deserialize, Serialize};
 
-/// Socket do helper (criado pelo systemd, ativação por socket).
+/// Helper socket (created by systemd, socket activation).
 pub const HELPER_SOCKET: &str = "/run/ipsec-client-helper.sock";
-/// Ação do polkit autorizada para conectar/desconectar.
+/// polkit action authorized to connect and disconnect.
 pub const POLKIT_ACTION: &str = "io.github.lucastelso.ipsecclient.connect";
-/// Unidade transitória do systemd que roda o engine.
+/// Transient systemd unit that runs the engine.
 pub const ENGINE_UNIT: &str = "ipsec-client-engine";
-/// Raiz dos diretórios de socket VICI por usuário (`<raiz>/<uid>/charon.vici`).
+/// Root of the per-user VICI socket directories (`<root>/<uid>/charon.vici`).
 pub const SOCKET_ROOT: &str = "/run/ipsec-client";
-/// Nome do arquivo do socket VICI.
+/// File name of the VICI socket.
 pub const VICI_SOCKET_FILE: &str = "charon.vici";
-/// Tamanho máximo de uma linha do protocolo.
+/// Maximum length of a protocol line.
 pub const MAX_LINE: usize = 64 * 1024;
-/// Máximo de linhas de log devolvidas.
+/// Maximum log lines returned.
 pub const MAX_LOG_LINES: u32 = 2000;
-/// Máximo de servidores DNS fixos (o mesmo limite do perfil).
+/// Maximum fixed DNS servers (the same limit as the profile).
 pub const MAX_DNS_SERVERS: usize = 8;
-/// Máximo de domínios DNS (o mesmo limite do perfil).
+/// Maximum DNS domains (the same limit as the profile).
 pub const MAX_DNS_DOMAINS: usize = 16;
 
-/// Diretório do socket VICI de um usuário.
+/// A user's VICI socket directory.
 #[must_use]
 pub fn socket_dir(uid: u32) -> String {
     format!("{SOCKET_ROOT}/{uid}")
 }
 
-/// Caminho do socket VICI de um usuário.
+/// Path of a user's VICI socket.
 #[must_use]
 pub fn vici_socket(uid: u32) -> String {
     format!("{}/{VICI_SOCKET_FILE}", socket_dir(uid))
 }
 
-/// Requisição ao helper.
+/// Request to the helper.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(tag = "op", rename_all = "kebab-case", deny_unknown_fields)]
 pub enum Request {
-    /// O helper está vivo? Devolve a versão.
+    /// Is the helper alive? Returns the version.
     Ping,
-    /// Sobe o engine (para um anterior do mesmo usuário, se houver).
+    /// Starts the engine (stopping a previous one of the same user, if any).
     Start(StartParams),
-    /// Para o engine.
+    /// Stops the engine.
     Stop,
-    /// Estado do engine.
+    /// Engine state.
     Status,
-    /// Últimas linhas do log do engine.
+    /// Last lines of the engine's log.
     Logs {
-        /// Quantas linhas (limitado a [`MAX_LOG_LINES`]).
+        /// How many lines (limited to [`MAX_LOG_LINES`]).
         tail: u32,
     },
 }
 
-/// Parâmetros não sensíveis do engine.
+/// Non-sensitive engine parameters.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct StartParams {
-    /// Interface XFRM.
+    /// XFRM interface.
     pub iface: String,
-    /// `if_id` das SAs/políticas (≠ 0). Kept on the wire for compatibility:
+    /// `if_id` of the SAs and policies (≠ 0). Kept on the wire for compatibility:
     /// since 0.3.0 the helper ignores it and uses its own value (audit P10).
     pub if_id: u32,
-    /// MTU da interface.
+    /// Interface MTU.
     pub mtu: u16,
-    /// Nível de log do charon (0..=2).
+    /// charon log level (0..=2).
     pub log_level: u8,
-    /// Id do perfil (rótulo da sessão).
+    /// Profile id (the session's label).
     pub profile_id: String,
-    /// DNS da sessão, aplicado pelo `updown` na interface da VPN. Vai pelo
-    /// helper, e não pelo VICI, porque o comando do `updown` é fixado pelo
-    /// root (ADR-0019).
+    /// Session DNS, applied by `updown` to the VPN interface. It goes through the
+    /// helper, not VICI, because the `updown` command is fixed by root (ADR-0019).
     #[serde(default)]
     pub dns: DnsParams,
 }
 
-/// DNS da sessão (dados validados; nunca viram texto de shell).
+/// Session DNS (validated data; it never becomes shell text).
 #[derive(Debug, Clone, Default, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct DnsParams {
-    /// Servidores fixos.
+    /// Fixed servers.
     pub servers: Vec<IpAddr>,
-    /// Domínios (`dominio`, `~dominio` ou `~.`).
+    /// Domains (`domain`, `~domain` or `~.`).
     pub domains: Vec<String>,
-    /// Usar também os DNS enviados pelo gateway.
+    /// Also use the DNS servers sent by the gateway.
     pub use_received: bool,
-    /// Usar estes DNS também fora dos domínios.
+    /// Use these DNS servers outside the domains too.
     pub default_route: bool,
 }
 
 impl DnsParams {
-    /// Valida com as mesmas regras do perfil e do `updown`.
+    /// Validates with the same rules as the profile and `updown`.
     ///
     /// # Errors
-    /// Descrição do primeiro problema.
+    /// Description of the first problem.
     pub fn validate(&self) -> Result<(), String> {
         if self.servers.len() > MAX_DNS_SERVERS {
             return Err(format!("at most {MAX_DNS_SERVERS} DNS servers"));
@@ -117,10 +116,10 @@ impl DnsParams {
 }
 
 impl StartParams {
-    /// Valida com as mesmas regras do `entrypoint.sh`.
+    /// Validates with the same rules as `entrypoint.sh`.
     ///
     /// # Errors
-    /// Descrição do primeiro campo inválido.
+    /// Description of the first invalid field.
     pub fn validate(&self) -> Result<(), String> {
         if !valid_iface(&self.iface) {
             return Err("invalid interface name".to_owned());
@@ -141,51 +140,51 @@ impl StartParams {
     }
 }
 
-/// Estado do engine.
+/// Engine state.
 #[derive(Debug, Clone, Default, PartialEq, Eq, Serialize, Deserialize)]
 pub struct EngineStatus {
-    /// A unidade está ativa?
+    /// Is the unit active?
     pub running: bool,
-    /// Perfil da sessão.
+    /// Session profile.
     pub profile_id: Option<String>,
-    /// uid de quem iniciou.
+    /// uid of whoever started it.
     pub owner_uid: Option<u32>,
 }
 
-/// Resposta do helper.
+/// Helper response.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(tag = "result", rename_all = "kebab-case", deny_unknown_fields)]
 pub enum Response {
-    /// Resposta ao `Ping`.
+    /// Response to `Ping`.
     Pong {
-        /// Versão do helper.
+        /// Helper version.
         version: String,
     },
-    /// Engine pronto; o socket VICI aceita conexão.
+    /// Engine ready; the VICI socket accepts connections.
     Started {
-        /// Caminho do socket VICI.
+        /// Path of the VICI socket.
         socket: String,
     },
-    /// Engine parado.
+    /// Engine stopped.
     Stopped {
-        /// Havia um engine rodando?
+        /// Was an engine running?
         was_running: bool,
     },
-    /// Estado.
+    /// State.
     Status(EngineStatus),
     /// Log.
     Logs {
-        /// Linhas.
+        /// Lines.
         lines: Vec<String>,
     },
-    /// Falha (mensagem para o usuário, pt-BR).
+    /// Failure (a message for the user).
     Error {
-        /// Mensagem.
+        /// Message.
         message: String,
     },
 }
 
-/// Erro de (de)codificação.
+/// (De)coding error.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct DecodeError(pub String);
 
@@ -197,20 +196,20 @@ impl std::fmt::Display for DecodeError {
 
 impl std::error::Error for DecodeError {}
 
-/// Serializa uma mensagem numa linha (com `\n`).
+/// Serializes a message into one line (with `\n`).
 ///
 /// # Errors
-/// Só em casos patológicos do serde.
+/// Only in pathological serde cases.
 pub fn encode<T: Serialize>(message: &T) -> Result<String, DecodeError> {
     let mut line = serde_json::to_string(message).map_err(|e| DecodeError(e.to_string()))?;
     line.push('\n');
     Ok(line)
 }
 
-/// Lê uma mensagem de uma linha (limite [`MAX_LINE`]).
+/// Reads a one-line message (limit [`MAX_LINE`]).
 ///
 /// # Errors
-/// Linha grande demais ou JSON inválido/desconhecido.
+/// Line too long, or invalid or unknown JSON.
 pub fn decode<T: for<'de> Deserialize<'de>>(line: &str) -> Result<T, DecodeError> {
     if line.len() > MAX_LINE {
         return Err(DecodeError("message too large".to_owned()));
@@ -240,8 +239,8 @@ pub fn valid_profile_id(id: &str) -> bool {
         && chars.all(|c| matches!(c, 'a'..='z' | '0'..='9' | '-'))
 }
 
-/// Domínio para o systemd-resolved: `~.`, `dominio` ou `~dominio` (rótulos
-/// `[A-Za-z0-9-]`, sem hífen nas pontas, até 253 caracteres).
+/// Domain for systemd-resolved: `~.`, `domain` or `~domain` (labels
+/// `[A-Za-z0-9-]`, no hyphen at either end, up to 253 characters).
 #[must_use]
 pub fn valid_dns_domain(s: &str) -> bool {
     if s == "~." {
@@ -304,14 +303,14 @@ mod tests {
 
     #[test]
     fn dns_is_optional_on_the_wire() {
-        // Cliente sem o campo `dns` (anterior à 0.1.1): DNS vazio.
+        // Client without the `dns` field (before 0.1.1): empty DNS.
         let old =
             r#"{"op":"start","iface":"ipsc0","if_id":1,"mtu":1400,"log_level":1,"profile_id":"x"}"#;
         let Ok(Request::Start(p)) = decode::<Request>(old) else {
             panic!("start sem dns deveria decodificar");
         };
         assert_eq!(p.dns, DnsParams::default());
-        // Servidor que não é IP é recusado já na decodificação.
+        // A server that is not an IP is refused while decoding.
         let bad = r#"{"op":"start","iface":"ipsc0","if_id":1,"mtu":1400,"log_level":1,"profile_id":"x","dns":{"servers":["a;b"],"domains":[],"use_received":false,"default_route":false}}"#;
         assert!(decode::<Request>(bad).is_err());
     }
@@ -343,7 +342,7 @@ mod tests {
 
     #[test]
     fn rejects_unknown_fields_and_ops() {
-        // Um campo a mais (ex.: tentar passar um caminho ou comando) é recusado.
+        // An extra field (e.g. trying to pass a path or command) is refused.
         let sneaky = r#"{"op":"start","iface":"ipsc0","if_id":1,"mtu":1400,"log_level":1,"profile_id":"x","charon":"/tmp/x"}"#;
         assert!(decode::<Request>(sneaky).is_err());
         assert!(decode::<Request>(r#"{"op":"exec","cmd":"id"}"#).is_err());

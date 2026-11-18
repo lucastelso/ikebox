@@ -1,5 +1,5 @@
-//! Geração da configuração do charon a partir do perfil: a mensagem
-//! `load-conn` (VICI) e o comando do `updown` (ADR-0004, ADR-0008).
+//! Generates charon's configuration from the profile: the `load-conn` message
+//! (VICI) and the `updown` command (ADR-0004, ADR-0008).
 
 use sha2::{Digest, Sha256};
 
@@ -8,39 +8,39 @@ use super::model::{ChildAction, LocalMethod, Profile, RemoteMethod};
 use super::validate::{is_identity, validate};
 use crate::vici::Message;
 
-/// Caminho do `updown` na imagem Docker do engine. No engine embutido, o
-/// comando do `updown` é fixado pelo root e o que vier pelo VICI é ignorado
-/// (ADR-0019): lá, o `load-conn` vai sem `updown`.
+/// Path of `updown` in the engine's Docker image. In the embedded engine, the
+/// `updown` command is fixed by root and whatever comes over VICI is ignored
+/// (ADR-0019): there, `load-conn` goes without `updown`.
 pub const UPDOWN_PATH: &str = "/usr/local/libexec/ipsec-client/updown";
 
-/// Dados da sessão necessários para gerar a conexão.
+/// Session data needed to build the connection.
 #[derive(Debug, Clone, Copy)]
 pub struct ConnParams<'a> {
-    /// Interface XFRM do engine.
+    /// The engine's XFRM interface.
     pub iface: &'a str,
-    /// Caminho do `updown` a mandar no `load-conn` ([`UPDOWN_PATH`] no
-    /// engine Docker; `None` no embutido, onde o root o define).
+    /// Path of `updown` to send in `load-conn` ([`UPDOWN_PATH`] in the Docker
+    /// engine; `None` in the embedded one, where root sets it).
     pub updown: Option<&'a str>,
-    /// `if_id` das SAs/políticas.
+    /// `if_id` of the SAs and policies.
     pub if_id: u32,
-    /// Usuário XAuth (obrigatório em `psk-xauth`). Não é segredo, mas é
-    /// identificador pessoal: vem das credenciais, nunca do perfil.
+    /// XAuth username (required with `psk-xauth`). Not a secret, but a personal
+    /// identifier: it comes from the credentials, never from the profile.
     pub xauth_user: Option<&'a str>,
-    /// Identidade EAP (obrigatória com EAP): também vem das credenciais.
+    /// EAP identity (required with EAP): it also comes from the credentials.
     pub eap_identity: Option<&'a str>,
-    /// Certificado do cliente em PEM (obrigatório com certificado): vem do
-    /// chaveiro; a chave privada vai por `load-key`, não aqui.
+    /// Client certificate in PEM (required with a certificate): it comes from the
+    /// keyring; the private key goes through `load-key`, not here.
     pub client_cert: Option<&'a str>,
 }
 
 impl Profile {
-    /// Nome da conexão no charon.
+    /// Connection name in charon.
     #[must_use]
     pub fn conn_name(&self) -> &str {
         &self.id
     }
 
-    /// `if_id` estável derivado do id do perfil (1..=2³¹-1, nunca 0).
+    /// Stable `if_id` derived from the profile id (1..=2³¹-1, never 0).
     #[must_use]
     pub fn if_id(&self) -> u32 {
         let digest = Sha256::digest(self.id.as_bytes());
@@ -48,12 +48,12 @@ impl Profile {
         raw.max(1)
     }
 
-    /// Comando do `updown` (executado pelo charon via `/bin/sh -c`): cada
-    /// argumento vai entre aspas simples, e os valores já foram validados.
+    /// `updown` command (run by charon through `/bin/sh -c`): each argument goes
+    /// in single quotes, and the values were already validated.
     ///
     /// # Errors
-    /// [`ProfileError::Unsafe`] se algum valor não puder ir entre aspas simples
-    /// (defesa extra; a validação já recusa esses valores).
+    /// [`ProfileError::Unsafe`] if some value cannot go in single quotes (extra
+    /// defense; validation already refuses such values).
     pub fn updown_command(&self, updown: &str, iface: &str) -> Result<String, ProfileError> {
         let dns = &self.network.dns;
         if !updown.starts_with('/') || updown.chars().any(|c| c.is_whitespace() || c == '\'') {
@@ -77,11 +77,11 @@ impl Profile {
         Ok(cmd)
     }
 
-    /// Mensagem `load-conn` (o conteúdo da seção `<conn_name>`).
+    /// `load-conn` message (the content of the `<conn_name>` section).
     ///
     /// # Errors
-    /// Perfil inválido ([`ProfileError::Invalid`]), usuário XAuth ausente ou
-    /// inválido ([`ProfileError::MissingCredential`]).
+    /// Invalid profile ([`ProfileError::Invalid`]), XAuth username missing or
+    /// invalid ([`ProfileError::MissingCredential`]).
     pub fn to_load_conn(&self, params: &ConnParams<'_>) -> Result<Message, ProfileError> {
         let issues = validate(self);
         if !issues.is_empty() {
@@ -104,7 +104,7 @@ impl Profile {
             conn = conn.list("vips", ["0.0.0.0"]);
         }
 
-        // Uma seção por rodada, na ordem do perfil (local-1, local-2).
+        // One section per round, in the profile's order (local-1, local-2).
         for (i, round) in self.auth.local.iter().enumerate() {
             let mut section = match round.method {
                 LocalMethod::Psk => Message::new().kv("auth", "psk"),
@@ -139,8 +139,8 @@ impl Profile {
             }
             conn = conn.section(&format!("local-{}", i + 1), section);
         }
-        // O gateway: a mesma PSK, ou um certificado conferido contra as CAs
-        // do perfil, enviadas como dados (o patch 0002 recusa caminhos).
+        // The gateway: the same PSK, or a certificate checked against the profile's
+        // CAs, sent as data (patch 0002 refuses paths).
         let mut remote = match self.auth.remote.method {
             RemoteMethod::Psk => Message::new().kv("auth", "psk"),
             RemoteMethod::Certificate => Message::new()
@@ -194,8 +194,8 @@ fn close_action(a: ChildAction) -> &'static str {
     }
 }
 
-/// Aspas simples para `/bin/sh`. Recusa aspas simples e caracteres de controle
-/// em vez de escapar: valores assim nunca deveriam chegar aqui.
+/// Single quotes for `/bin/sh`. Refuses single quotes and control characters
+/// instead of escaping: such values should never get here.
 fn shell_quote(value: &str) -> Result<String, ProfileError> {
     if value.is_empty() || value.contains('\'') || value.chars().any(char::is_control) {
         return Err(ProfileError::Unsafe(

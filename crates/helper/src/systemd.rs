@@ -1,5 +1,5 @@
-//! Comandos do systemd usados pelo helper. A montagem do `systemd-run` é pura
-//! (testada): é aqui que fica o sandbox do engine (ADR-0014).
+//! systemd commands used by the helper. Building the `systemd-run` command is
+//! pure (tested): this is where the engine's sandbox lives (ADR-0014).
 
 use std::path::Path;
 use std::process::Command;
@@ -7,7 +7,7 @@ use std::time::SystemTime;
 
 use ipsec_client_proto::{ENGINE_UNIT, EngineStatus, StartParams, socket_dir};
 
-/// Diretório de runtime do engine (gravável; `RuntimeDirectory` do systemd).
+/// Runtime directory of the engine (writable; systemd's `RuntimeDirectory`).
 pub const ENGINE_RUNTIME_DIR: &str = "/run/ipsec-client-engine";
 
 /// XFRM interface ID of every session, chosen here and never by the client
@@ -35,20 +35,21 @@ pub const ENGINE_USER: &str = "ipsec-client-engine";
 const CAPABILITIES: &str = "CAP_NET_ADMIN CAP_NET_BIND_SERVICE CAP_NET_RAW CAP_CHOWN \
                             CAP_SETUID CAP_SETGID CAP_SETPCAP CAP_KILL";
 
-/// Quem pede e onde estão os arquivos do engine.
+/// Who is asking and where the engine's files are.
 #[derive(Debug, Clone)]
 pub struct Launch<'a> {
-    /// Parâmetros validados.
+    /// Validated parameters.
     pub params: &'a StartParams,
-    /// uid do usuário (dono da sessão e do socket VICI).
+    /// The user's uid (owner of the session and of the VICI socket).
     pub uid: u32,
-    /// Diretório do strongSwan embutido (`.../engine`).
+    /// Directory of the embedded strongSwan (`.../engine`).
     pub engine_dir: &'a Path,
-    /// Diretório com `entrypoint.sh` e `updown`.
+    /// Directory with `entrypoint.sh` and `updown`.
     pub libexec_dir: &'a Path,
 }
 
-/// Junta valores já validados com vírgula (o entrypoint separa de volta).
+/// Joins already validated values with commas (the entrypoint splits them
+/// back).
 fn join<T: ToString>(items: &[T]) -> String {
     items
         .iter()
@@ -57,8 +58,9 @@ fn join<T: ToString>(items: &[T]) -> String {
         .join(",")
 }
 
-/// Argumentos do `systemd-run` que sobe o engine numa unidade transitória com
-/// sandbox. Nada aqui vem do cliente além dos números/rótulo já validados.
+/// Arguments of the `systemd-run` that starts the engine in a sandboxed
+/// transient unit. Nothing here comes from the client besides the numbers and
+/// label already validated.
 #[must_use]
 pub fn engine_run_args(launch: &Launch<'_>) -> Vec<String> {
     let p = launch.params;
@@ -93,9 +95,9 @@ pub fn engine_run_args(launch: &Launch<'_>) -> Vec<String> {
         "MemoryDenyWriteExecute=yes".to_owned(),
         "SystemCallArchitectures=native".to_owned(),
         "RestrictAddressFamilies=AF_UNIX AF_INET AF_INET6 AF_NETLINK".to_owned(),
-        // The entrypoint runs as root: sem /dev de verdade (discos), sem gravar
-        // em /proc/sys e /sys (core_pattern, modprobe), sem ver outros
-        // processos nem o log do kernel (ADR-0019).
+        // The entrypoint runs as root: no real /dev (disks), no writing to /proc/sys
+        // and /sys (core_pattern, modprobe), no seeing other processes or the kernel
+        // log (ADR-0019).
         "PrivateDevices=yes".to_owned(),
         "ProtectKernelTunables=yes".to_owned(),
         "ProtectKernelLogs=yes".to_owned(),
@@ -130,7 +132,7 @@ pub fn engine_run_args(launch: &Launch<'_>) -> Vec<String> {
             "IPSEC_CLIENT_STRONGSWAN_CONF",
             format!("{engine}/etc/strongswan.conf"),
         ),
-        // updown forçado: o charon ignora o que o cliente VICI mandar.
+        // Forced updown: charon ignores whatever the VICI client sends.
         (
             "IPSEC_CLIENT_UPDOWN",
             launch.libexec_dir.join("updown").display().to_string(),
@@ -213,7 +215,7 @@ fn is_invocation_id(id: &str) -> bool {
     id.len() == 32 && id.bytes().all(|b| matches!(b, b'0'..=b'9' | b'a'..=b'f'))
 }
 
-/// Roda um comando e devolve (sucesso, stdout, stderr).
+/// Runs a command and returns (success, stdout, stderr).
 pub fn run(program: &str, args: &[String]) -> (bool, String, String) {
     match Command::new(program).args(args).output() {
         Ok(out) => (
@@ -245,7 +247,7 @@ pub fn engine_status() -> EngineStatus {
     engine_unit().status
 }
 
-/// Para a unidade do engine (espera o fim: o entrypoint limpa o host).
+/// Stops the engine unit (waits for the end: the entrypoint cleans the host).
 pub fn stop_engine() -> Result<(), String> {
     let (ok, _, err) = run("systemctl", &["stop".into(), ENGINE_UNIT.into()]);
     if ok || err.contains("not loaded") {
@@ -378,7 +380,7 @@ mod tests {
             args[args.len() - 2..],
             ["/bin/bash", "/opt/ipsec-client/libexec/entrypoint.sh"]
         );
-        // Nada de capabilities perigosas.
+        // No dangerous capabilities.
         assert!(
             !args
                 .iter()

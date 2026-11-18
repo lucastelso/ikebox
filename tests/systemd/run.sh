@@ -216,7 +216,7 @@ main() {
     chmod 0755 "$work/swanctl"
     install -m 0644 "$here/lib.sh" "$here/helper_client.py" "$here/dns_responder.py" \
         "$repo/tests/engine/initiator.conf.in" \
-        "$repo/crates/core/tests/fixtures/perfil-gateway-teste.json" "$work/"
+        "$repo/crates/core/tests/fixtures/test-gateway.json" "$work/"
     install -m 0755 "$here/inside.sh" "$work/"
     install -d -m 0755 "$work/modes"
     install -m 0644 "$repo/tests/modes/make_profile.py" "$work/modes/"

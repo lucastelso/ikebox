@@ -28,12 +28,12 @@ function Page({ title, children }: { title?: string; children: React.ReactNode }
   );
 }
 
-/** Janela principal: navegação, telas e importação (botão ou arrastar arquivo). */
+/** Main window: navigation, screens and import (button or dropped file). */
 export function App() {
   const t = useT();
   const [view, setView] = useState<View>('connection');
   const [preview, setPreview] = useState<ImportPreview | null>(null);
-  // Muda a cada importação para as telas recarregarem a lista.
+  // Changes on every import so the screens reload the list.
   const [revision, setRevision] = useState(0);
 
   useEffect(() => {

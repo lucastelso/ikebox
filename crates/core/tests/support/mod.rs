@@ -1,11 +1,11 @@
-//! Apoio aos testes de integração com Docker (feature `docker-tests`).
+//! Support for the Docker integration tests (the `docker-tests` feature).
 //!
-//! [`TestGateway`] sobe o mesmo gateway IPsec de teste usado pelo
-//! `tests/engine/e2e.sh` (IKEv1 agressivo, PSK de grupo + XAuth, modp1024/768,
-//! rede 192.0.2.0/24, VIPs 198.51.100.10-20, DNS 192.0.2.53), numa rede Docker
-//! isolada. Só valores das RFCs 5737/2606 e credenciais falsas.
-#![allow(dead_code)] // cada arquivo de teste usa uma parte
-#![allow(clippy::expect_used, clippy::unwrap_used)] // código de teste
+//! [`TestGateway`] starts the same IPsec test gateway used by
+//! `tests/engine/e2e.sh` (IKEv1 aggressive, group PSK + XAuth, modp1024/768,
+//! network 192.0.2.0/24, VIPs 198.51.100.10-20, DNS 192.0.2.53), on an isolated
+//! Docker network. Only RFC 5737/2606 values and fake credentials.
+#![allow(dead_code)] // each test file uses a part
+#![allow(clippy::expect_used, clippy::unwrap_used)] // test code
 
 use std::path::PathBuf;
 use std::process::Command;
@@ -20,16 +20,16 @@ use bollard::query_parameters::{
 use futures_util::StreamExt;
 use ipsec_client_core::engine::HostSecurity;
 
-/// PSK falsa do gateway de teste.
+/// Fake PSK of the test gateway.
 pub const TEST_PSK: &str = "ipsec-client-test-psk";
-/// Id (keyid) do grupo de teste.
+/// Id (keyid) of the test group.
 pub const TEST_GROUP_ID: &str = "keyid:grupo-teste";
-/// Usuário XAuth de teste.
+/// Test XAuth username.
 pub const TEST_XAUTH_USER: &str = "usuario.teste";
-/// Senha XAuth falsa.
+/// Fake XAuth password.
 pub const TEST_XAUTH_PASSWORD: &str = "senha-de-teste";
 
-/// UDP 500/4500 em uso no host (outra VPN IPsec conectada)?
+/// UDP 500/4500 in use on the host (another IPsec VPN connected)?
 pub fn ike_ports_busy() -> bool {
     Command::new("ss")
         .args(["-Hlun", "( sport = :500 or sport = :4500 )"])
@@ -38,7 +38,7 @@ pub fn ike_ports_busy() -> bool {
         .unwrap_or(false)
 }
 
-/// Detalhes de uma interface (`ip -d link show`), se existir.
+/// Details of an interface (`ip -d link show`), if it exists.
 pub fn link_details(iface: &str) -> Option<String> {
     let out = Command::new("ip")
         .args(["-d", "link", "show", iface])
@@ -49,7 +49,7 @@ pub fn link_details(iface: &str) -> Option<String> {
         .then(|| String::from_utf8_lossy(&out.stdout).into_owned())
 }
 
-/// Saída de um comando do host.
+/// Output of a host command.
 pub fn host_cmd(program: &str, args: &[&str]) -> (bool, String) {
     match Command::new(program).args(args).output() {
         Ok(out) => (
@@ -60,17 +60,17 @@ pub fn host_cmd(program: &str, args: &[&str]) -> (bool, String) {
     }
 }
 
-/// Gateway IPsec de teste numa rede Docker isolada.
+/// Test IPsec gateway on an isolated Docker network.
 pub struct TestGateway {
     docker: Docker,
     name: String,
     network: String,
-    /// IP do gateway na rede de teste.
+    /// Gateway IP on the test network.
     pub ip: String,
 }
 
 impl TestGateway {
-    /// Sobe o gateway (com a imagem `image`) e espera ficar pronto.
+    /// Starts the gateway (with the image `image`) and waits for it to be ready.
     pub async fn start(image: &str, prefix: &str) -> Self {
         let docker = Docker::connect_with_unix_defaults().expect("Docker");
         let name = format!("{prefix}-gw");
@@ -165,7 +165,7 @@ impl TestGateway {
             .expect("IP do gateway")
     }
 
-    /// Força o fim das SAs do lado do gateway (simula timeout de DPD).
+    /// Forces the end of the SAs on the gateway's side (simulates a DPD timeout).
     pub async fn forget_sessions(&self) {
         let _ = Command::new("docker")
             .args([
@@ -182,7 +182,7 @@ impl TestGateway {
             .output();
     }
 
-    /// Remove o gateway e a rede.
+    /// Removes the gateway and the network.
     pub async fn stop(self) {
         let _ = remove_container(&self.docker, &self.name).await;
         let _ = self.docker.remove_network(&self.network).await;

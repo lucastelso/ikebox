@@ -1,11 +1,13 @@
-//! Integração do `core::engine` com o Docker real (feature `docker-tests`).
+//! Integration of `core::engine` with the real Docker (the `docker-tests`
+//! feature).
 //!
-//! Sobe o engine como o app sobe (rede do host, só NET_ADMIN) usando uma
-//! interface e um if_id próprios do teste (`ipsct1`), sem conectar a nenhuma
-//! VPN, e confere o contrato: interface XFRM com MTU 1400, socket VICI 0660
-//! do gid do usuário, recriação graciosa e limpeza completa no stop.
+//! Starts the engine the way the app does (host network, NET_ADMIN only) using
+//! an interface and an if_id of the test's own (`ipsct1`), without connecting
+//! to any VPN, and checks the contract: XFRM interface with MTU 1400, VICI
+//! socket 0660 for the user's gid, graceful re-creation and full cleanup on
+//! stop.
 #![cfg(feature = "docker-tests")]
-#![allow(clippy::expect_used, clippy::unwrap_used)] // código de teste
+#![allow(clippy::expect_used, clippy::unwrap_used)] // test code
 
 use std::os::unix::fs::{MetadataExt, PermissionsExt};
 use std::process::Command;
@@ -74,7 +76,8 @@ async fn engine_lifecycle_on_host_network() {
     assert_eq!(meta.permissions().mode() & 0o777, 0o660);
     assert_eq!(meta.gid(), current_gid());
 
-    // ADR-0002: iniciar de novo para o engine anterior (gracioso) e recria.
+    // ADR-0002: starting again stops the previous engine (gracefully) and
+    // re-creates it.
     engine.start(&spec).await.expect("recriação");
     assert!(link_details(IFACE).is_some());
 
@@ -82,6 +85,6 @@ async fn engine_lifecycle_on_host_network() {
     assert!(!engine.is_running(CONTAINER).await.expect("inspect"));
     assert!(link_details(IFACE).is_none(), "a interface sobrou");
     assert!(!spec.socket_path().exists(), "o socket sobrou");
-    // Idempotente.
+    // Idempotent.
     engine.stop(CONTAINER).await.expect("stop idempotente");
 }

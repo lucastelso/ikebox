@@ -6,96 +6,34 @@
 
 ## Where we are
 
-- **Version 0.1.0 (2026-11-16): first working version, validated by the
-  maintainer on the real VPN** (FortiGate, IKEv1 aggressive + group PSK +
-  XAuth), reaching the work machine through Remmina. Validated path, the same
-  as an end user's:
-  1. app installed from the `.rpm`, opened from the applications menu;
-  2. network component installed by the app itself, with the administrator
-     password (`pkexec`, origin `app`);
-  3. connection through the embedded strongSwan 6.1.0, **without Docker**.
-- **Version 0.2.0 (2026-11-16), published and installed on the maintainer's
-  computer:**
-  - **security audit** (steps 32–35): no work data in the code, the history
-    or the packages; a **local escalation to root** through VICI fixed
-    (ADR-0019); "Copy anonymized"; private data scan inside release packages;
-  - **commit email** rewritten to the GitHub noreply address in the whole
-    history (the maintainer pushes with `--force`);
-  - **internationalization** (step 36): bilingual app (follows the system
-    language, setting in System → Appearance → Language), English CLI,
-    helper and scripts, technical docs in English, user docs in English with
-    Portuguese copies in `docs/pt-BR/`;
-  - users of 0.1.0 must update the app **and** click "Update" on the network
-    component.
-- **Done:**
-  - Rust core and `ipsec-client-cli`;
-  - desktop app: connection, profiles (import/export), System tab, tray,
-    notifications and single instance, in English and Portuguese;
-  - embedded engine (helper with polkit and systemd sandbox, strongSwan with
-    the ADR-0019 patch);
-  - component installation by the app (ADR-0018);
-  - `.rpm`/`.deb`/AppImage packages, with the
-    [installation guide](installation.md).
-- **Now: the post-0.2.0 program**, one phase per session
-  ([roadmap](roadmap.md#post-020-program-decided-on-2026-11-16)): audit I
-  (credentials, private data, supply chain) → audit II (privilege boundaries)
-  → compatibility → optimization and base images → interface → IPsec modes.
-  **Phases 1 to 10 are done: the post-0.2.0 program is complete** (steps 37
-  to 48, [audit report](audits/v0.2.0.md),
-  [ADR-0020](adr/0020-static-engine-and-lighter-builds.md) to
-  [ADR-0025](adr/0025-deferred-xauth-otp-l2tp.md)). 0.3.0 carries phases 1–4
-  (audit fixes, static engine, no Docker in release); 0.4.0 phase 5, the
-  interface colored by the connection state; 0.5.0 phase 6, the IPsec modes
-  certified by `npm run test:modes`, the security level and IKEv2
-  diagnosis; 0.6.0 phase 7, profile schema 2 and the profile editor; 0.7.0
-  phase 8, IKEv2 + EAP-MSCHAPv2; 0.8.0 phase 9, client certificates;
-  **0.9.0** phase 10, importers for other clients (Cisco `.pcf`, vpnc,
-  NetworkManager, `ipsec.conf`, FortiClient). After the 0.5.0 push, CI
-  failed in three jobs (shellcheck version, AppArmor in the engine E2E):
-  fixed in step 44, to be confirmed by the next CI run.
-  **Now: the [program to 1.0.0](roadmap.md#program-to-100-decided-on-2026-11-18)**,
-  one phase per session: 0 preparation → A security and supply chain → B
-  complete packages → C engine with OpenSSL → D charon without root → E
-  PKCS#11 (gated) → F app (tray, status monitor, update notice) → G release
-  pipeline in CI → H opening → I acceptance and release. **Phase 0 is done
-  locally** (step 49): the stale `v0.1.1` tag is gone, the history is clean.
-  **The new repository exists** (private, `main` and the tags pushed by
-  name on 2026-11-18) and its first CI run passed, which also confirms the
-  CI fixes of step 44. The release pages of 0.1.0–0.9.0 are recreated from
-  `docs/releases/` and the local packages (checked against their
-  `SHA256SUMS` and with `check-private.sh --artifacts`, all clean).
-  **Phase A is done** (step 50): P2, P3 and P4 closed, every download of
-  the release build pinned, CI hygiene. **Phase B is done** (step 51): the
-  `.rpm`/`.deb` install, update and remove the network component, carry the
-  CLI (man page, completions), AppStream metadata and every license text;
-  the engine's corresponding source has its own script. **Phase C is
-  done** (step 52): the engine links OpenSSL instead of GMP (ECDSA, ECP
-  groups), ADR-0026 is the strongSwan maintenance policy; validated by the
-  maintainer on the real VPN. **Phase D is done** (step 53): charon runs
-  without root (ADR-0028), and `test:modes` has the gateway renew phases 1
-  and 2. **Phase E is done** (steps 54–55): smartcards and tokens
-  (ADR-0029). **Phase F is done** (step 56): close to the tray, one status
-  monitor, the optional update notice. **Phase G is done** (step 57): the
-  release pipeline in CI (ADR-0030); the signing key and the GitHub
-  environment are the maintainer's steps (below). **Next: phase H** (the
-  opening: English leftovers, SECURITY.md for a public repository, community
-  files, README for 1.0).
+- **Released:** 0.1.0 to 0.9.0 (the [CHANGELOG](../CHANGELOG.md) and
+  `docs/releases/` have each one). 0.1.0 was the first version validated on
+  a real VPN (FortiGate, IKEv1 aggressive + group PSK + XAuth), through the
+  same path as an end user: the `.rpm` from the menu, the network component
+  installed by the app, the embedded strongSwan without Docker.
+- **Programs behind us:** the post-0.2.0 program (phases 1 to 10, steps 37
+  to 48: audits, static engine, interface, IPsec modes, schema 2, EAP,
+  client certificates, importers), and the
+  [program to 1.0.0](roadmap.md#program-to-100-decided-on-2026-11-18) up to
+  phase H (steps 49 to 58): security and supply chain, complete packages,
+  OpenSSL in the engine (ECDSA, ECP), charon without root, smartcards and
+  tokens, close to the tray, the optional update notice, signed releases
+  built by CI, and the opening (community files, English leftovers).
+- **Next: phase I**, acceptance and the 1.0.0 release (version, clean-VM
+  checklist, real VPN, repository made public, tag, signed release).
 - **Waiting for the maintainer:**
   0. **The release signing key and the `release` environment** (phase G):
      the steps are in [release.md](release.md#signing-key-once) ("Signing
      key" and "GitHub setup"); commit `packaging/keys/ipsec-client-release.asc`
      and run a rehearsal (**Actions → Release → Run workflow** on `main`).
      Until then the signing job of a tag fails, by design.
-  1. A quick look at the app after the Tauri update (phase A): open it,
-     connect, check the tray. A development build is in
-     `target/release-artifacts/0.9.0-dev-1871e2428f69/`; `npm run
-     release:build` from `main` makes a newer one.
-  2. charon runs without root now (phase D): with a development build
-     installed, connect to the real VPN once and check the DNS of the work
-     domains still resolves (it is applied by the engine's root part now).
-  3. After the switch, `git config --unset remote.origin.tagOpt` (it kept a
-     fetch from the old repository from bringing `v0.1.1` back).
-  4. P8 (`initiator_only`) is not concluded: it needs a session longer than
+  1. A development build on the real VPN (phases A, D, F): connect, check
+     that the DNS of the VPN's domains resolves (it is applied by the
+     engine's root part now), the tray and closing to the tray.
+     `npm run release:build` from `main` makes one.
+  2. `git config --unset remote.origin.tagOpt` (it kept a fetch from the
+     old repository from bringing `v0.1.1` back).
+  3. P8 (`initiator_only`) is not concluded: it needs a session longer than
      the gateway's phase 1 lifetime (the [audit report](audits/v0.2.0.md)
      has the steps). It is outside 1.0.
 

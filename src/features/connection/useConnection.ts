@@ -2,7 +2,7 @@ import { useCallback, useEffect, useReducer, useRef } from 'react';
 import { type CredentialsInput, commands, events } from '@/bindings';
 import { connectionReducer, initialState, isBusy } from './connectionReducer';
 
-/** Estado da conexão + ações, ligados aos comandos e eventos do Rust. */
+/** Connection state + actions, wired to the Rust commands and events. */
 export function useConnection() {
   const [state, dispatch] = useReducer(connectionReducer, initialState);
   const phaseRef = useRef(state.phase);
@@ -18,7 +18,8 @@ export function useConnection() {
         else unlisten = fn;
       })
       .catch(() => {
-        // Sem eventos (ex.: testes): o status periódico mantém a tela atualizada.
+        // No events (e.g. tests): reading the status when the window opens or shows
+        // again keeps it up to date.
       });
     return () => {
       disposed = true;

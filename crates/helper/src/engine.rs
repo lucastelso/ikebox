@@ -1,4 +1,4 @@
-//! Operações do helper sobre o engine: iniciar, parar, estado e log.
+//! The helper's operations on the engine: start, stop, state and log.
 
 use std::os::unix::fs::{DirBuilderExt, FileTypeExt, MetadataExt, PermissionsExt};
 use std::path::{Path, PathBuf};
@@ -15,23 +15,24 @@ use crate::systemd::{
     Launch, LogScope, engine_logs, engine_run_args, engine_status, engine_unit, run, stop_engine,
 };
 
-/// Tempo máximo para o engine abrir o socket VICI.
+/// Maximum time for the engine to open the VICI socket.
 const READY_TIMEOUT: Duration = Duration::from_secs(25);
 
-/// `Start` e `Stop` mexem na mesma unidade do systemd: um de cada vez (o
-/// helper atende conexões em paralelo).
+/// `Start` and `Stop` touch the same systemd unit: one at a time (the helper
+/// serves connections in parallel).
 static ENGINE_LOCK: Mutex<()> = Mutex::new(());
 
-/// Onde estão os arquivos do engine (fixos na instalação; o cliente não muda).
+/// Where the engine's files are (fixed at installation; the client does not
+/// change them).
 #[derive(Debug, Clone)]
 pub struct Paths {
-    /// strongSwan embutido.
+    /// Embedded strongSwan.
     pub engine_dir: PathBuf,
     /// `entrypoint.sh` e `updown`.
     pub libexec_dir: PathBuf,
 }
 
-/// Atende uma requisição já autorizada.
+/// Serves an already authorized request.
 pub fn handle(request: Request, peer: &Peer, paths: &Paths) -> Response {
     let result = match request {
         Request::Ping => Ok(Response::Pong {
@@ -51,15 +52,15 @@ pub fn handle(request: Request, peer: &Peer, paths: &Paths) -> Response {
     result.unwrap_or_else(|message| Response::Error { message })
 }
 
-/// Só o dono da sessão (ou o root) mexe nela ou lê o log dela: o log tem o
-/// gateway, o id do grupo e o login da VPN de quem conectou.
+/// Only the session's owner (or root) touches it or reads its log: the log has
+/// the gateway, the group id and the VPN login of whoever connected.
 fn owns(status: &EngineStatus, peer: &Peer) -> bool {
     peer.uid == 0 || status.owner_uid == Some(peer.uid)
 }
 
 const NOT_OWNER: &str = "the VPN in use belongs to another user of this computer";
 
-/// Para outro usuário, só "há uma VPN rodando", sem o perfil.
+/// For another user, only "a VPN is running", without the profile.
 fn status_for(status: EngineStatus, peer: &Peer) -> EngineStatus {
     if !status.running || owns(&status, peer) {
         status
@@ -109,7 +110,7 @@ fn start(params: &StartParams, peer: &Peer, paths: &Paths) -> Result<Response, S
         if current.owner_uid != Some(peer.uid) {
             return Err(NOT_OWNER.to_owned());
         }
-        // Mesmo usuário: substitui pelo caminho gracioso (ADR-0002).
+        // Same user: replace it the graceful way (ADR-0002).
         stop_engine()?;
     }
     let charon = paths.engine_dir.join("libexec/ipsec/charon");
@@ -133,10 +134,10 @@ fn start(params: &StartParams, peer: &Peer, paths: &Paths) -> Result<Response, S
     wait_ready(peer.uid, launched)
 }
 
-/// `/run/ipsec-client` (0755 root) e `/run/ipsec-client/<uid>` (0711
-/// root:root), sem symlinks, e sem o socket velho de uma sessão anterior.
-/// Quem decide o acesso é o socket (0600, dono = uid): o usuário não grava no
-/// diretório, então não consegue trocar o socket por um link.
+/// `/run/ipsec-client` (0755 root) and `/run/ipsec-client/<uid>` (0711
+/// root:root), without symlinks, and without the old socket of a previous
+/// session. The socket decides the access (0600, owner = uid): the user cannot
+/// write to the directory, so they cannot swap the socket for a link.
 fn prepare_socket_dir(uid: u32) -> Result<(), String> {
     let io = |e: std::io::Error| format!("socket directory: {e}");
     ensure_dir(Path::new(SOCKET_ROOT), 0o755).map_err(io)?;
@@ -171,11 +172,11 @@ fn ensure_dir(dir: &Path, mode: u32) -> std::io::Result<()> {
     std::fs::set_permissions(dir, std::fs::Permissions::from_mode(mode))
 }
 
-/// O socket só está pronto para o usuário depois que o entrypoint o entrega
-/// a ele (dono = uid, 0600), o que só acontece depois que o charon o abriu.
-/// "O root conectou" não serve como sinal: antes da entrega o app levaria
-/// EACCES (bug do passo 26), e depois dela o root do helper, sem
-/// CAP_DAC_OVERRIDE, nem consegue conectar num socket 0600 de outro uid.
+/// The socket is only ready for the user after the entrypoint hands it over
+/// (owner = uid, 0600), which only happens after charon opened it. "Root
+/// connected" is no signal: before the handover the app would get EACCES (the
+/// bug of step 26), and after it the helper's root, without
+/// CAP_DAC_OVERRIDE, cannot even connect to a 0600 socket of another uid.
 fn socket_handed_over(socket: &str, uid: u32) -> bool {
     std::fs::symlink_metadata(socket).is_ok_and(|m| {
         m.file_type().is_socket() && m.uid() == uid && m.permissions().mode() & 0o777 == 0o600
@@ -222,7 +223,7 @@ mod tests {
         assert!(socket_handed_over(&socket, uid));
         assert!(!socket_handed_over(&socket, uid + 1), "outro uid");
         assert!(!socket_handed_over("/nao/existe", uid));
-        // Um arquivo comum com o mesmo nome não é o socket.
+        // A regular file with the same name is not the socket.
         let file = dir.path().join("arquivo");
         std::fs::write(&file, "").expect("write");
         std::fs::set_permissions(&file, std::fs::Permissions::from_mode(0o600)).expect("chmod");

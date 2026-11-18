@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# lint-sh.sh — roda o shellcheck nos scripts shell do repositório.
+# lint-sh.sh — runs shellcheck on the repository's shell scripts.
 #
 # The shellcheck version is pinned (SHELLCHECK_VERSION): codes and checks
 # change between versions (the "unreachable function" warning is SC2317 in
@@ -8,7 +8,7 @@
 # version; otherwise the official Docker image of it, pinned by digest, with
 # no network and the repository read-only.
 #
-# Uso: scripts/lint-sh.sh [arquivo...]   (sem argumentos: todos os *.sh do repo)
+# Usage: scripts/lint-sh.sh [file...]   (no arguments: every *.sh in the repo)
 
 set -euo pipefail
 
@@ -21,7 +21,7 @@ cd "$repo_root"
 if (($# > 0)); then
     files=("$@")
 else
-    # Rastreados + novos (não ignorados).
+    # Tracked + new (not ignored).
     mapfile -t files < <(git ls-files --cached --others --exclude-standard -- '*.sh')
 fi
 ((${#files[@]} > 0)) || exit 0

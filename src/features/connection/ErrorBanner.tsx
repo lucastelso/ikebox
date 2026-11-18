@@ -3,14 +3,14 @@ import type { UiError } from '@/bindings';
 import { Button } from '@/components/ui/button';
 import { useT } from '@/i18n';
 
-/** Erros que se resolvem informando as credenciais de novo. */
+/** Errors solved by entering the credentials again. */
 export function isCredentialError(error: UiError): boolean {
   if (error.kind === 'missingCredentials') return true;
   if (error.kind !== 'negotiation') return false;
   return /XAuth|PSK|fase 1|phase 1/i.test(error.message);
 }
 
-/** Erros que se resolvem instalando ou atualizando o componente de rede. */
+/** Errors solved by installing or updating the network component. */
 export function isComponentError(error: UiError): boolean {
   return error.kind === 'componentMissing' || error.kind === 'componentOutdated';
 }

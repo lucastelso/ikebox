@@ -13,7 +13,7 @@ import socket
 import struct
 import sys
 
-# Tipos de pacote e de elemento do protocolo VICI.
+# VICI protocol packet and element types.
 CMD_REQUEST, CMD_RESPONSE, CMD_UNKNOWN = 0, 1, 2
 SECTION_START, SECTION_END, KEY_VALUE = 1, 2, 3
 LIST_START, LIST_ITEM, LIST_END = 4, 5, 6
