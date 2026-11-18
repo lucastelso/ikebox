@@ -30,7 +30,8 @@ ponta a ponta, e o motor, em sete distribuições.
 
 Downloads: [Releases](https://github.com/lucastelso/ikebox/releases)
 (AppImage, `.deb`, `.rpm`, assinados). O que mudou:
-[CHANGELOG](CHANGELOG.md) (em inglês).
+[CHANGELOG](CHANGELOG.md) (em inglês). Chave das versões
+([packaging/keys](packaging/keys/)): `<FINGERPRINT>`.
 
 ---
 
@@ -290,7 +291,7 @@ presets/         exemplos genéricos de perfis (os seus vão em presets.local/, 
   em inglês (os commits anteriores à 0.2.0 estão em português).
 - Merge `--no-ff` em `main` com o `npm run check` verde.
 
-Os detalhes estão em [CONTRIBUTING.md](CONTRIBUTING.md).
+Os detalhes estão no [guia de contribuição](docs/pt-BR/contribuindo.md).
 
 ## Documentação
 
@@ -304,9 +305,9 @@ Em inglês:
 
 - [Perfis de conexão (formato, importação, compartilhar com colegas)](docs/profiles.md)
 - [Linha de comando (ikebox-cli)](docs/cli.md)
-- [Suporte](SUPPORT.md) · [Changelog](CHANGELOG.md)
+- [Suporte](docs/pt-BR/suporte.md) · [Changelog](CHANGELOG.md)
 - [Arquitetura](docs/architecture.md) e as [decisões de arquitetura (ADRs)](docs/adr/README.md)
-- [Contribuindo](CONTRIBUTING.md) · [Código de conduta](CODE_OF_CONDUCT.md)
+- [Contribuindo](docs/pt-BR/contribuindo.md) · [Código de conduta](docs/pt-BR/codigo-de-conduta.md)
 - [Como as versões são geradas, assinadas e publicadas](docs/release.md)
 
 Registros do desenvolvimento, públicos por transparência: o

@@ -1,5 +1,7 @@
 # Code of conduct
 
+**[Português](docs/pt-BR/codigo-de-conduta.md)** · English
+
 Ikebox is a small project made in the open. Everyone who takes part,
 in issues, pull requests, discussions or anywhere else in its name, is
 expected to make it a welcoming, harassment-free place, whatever their

@@ -20,16 +20,17 @@
   tokens, close to the tray, the optional update notice, signed releases
   built by CI, and the opening (community files, English leftovers).
 - **Now: phase I.** Done: the project is **Ikebox** (step 59,
-  [ADR-0031](adr/0031-renamed-to-ikebox.md)), and updating from IPsec Client
-  0.9.0 is tested on the seven distributions. Next: the 1.0.0 version and
-  release notes, the clean-VM checklist, the real VPN, the repository made
-  public, the tag and the signed release.
+  [ADR-0031](adr/0031-renamed-to-ikebox.md)); updating from IPsec Client
+  0.9.0 is tested on the seven distributions and on the real VPN (the
+  maintainer's computer moved its profile and credentials and connected);
+  the version is **1.0.0**, with its notes in `docs/releases/v1.0.0*.md`
+  (step 60). Left for the maintainer: the release key, the repository made
+  public, the tag and the publication (below).
 - **Waiting for the maintainer:**
-  - **Rename the GitHub repository** to `ikebox` (Settings → General →
-    Repository name), then `git remote set-url origin
-    https://github.com/lucastelso/ikebox.git`. GitHub redirects the old
-    address.
-  0. **The release signing key and the `release` environment** (phase G):
+  0. **The release signing key and the `release` environment** (phase G),
+     then the key's fingerprint in place of `<FINGERPRINT>` in both READMEs
+     and in `docs/releases/v1.0.0*.md` (the release workflow refuses
+     otherwise):
      the steps are in [release.md](release.md#signing-key-once) ("Signing
      key" and "GitHub setup"); commit `packaging/keys/ikebox-release.asc`
      and run a rehearsal (**Actions → Release → Run workflow** on `main`).

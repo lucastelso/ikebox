@@ -1,6 +1,7 @@
 # Getting help
 
-**Português:** as issues podem ser escritas em português.
+**[Português](docs/pt-BR/suporte.md)** · English. Issues may be written in
+Portuguese.
 
 1. **Read first:** the [installation guide](docs/installation.md) (its last
    section, "Common problems"), the [quick start](docs/quick-start.md) and

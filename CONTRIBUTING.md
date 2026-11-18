@@ -1,5 +1,7 @@
 # Contributing
 
+**[Português](docs/pt-BR/contribuindo.md)** · English
+
 Thanks for helping. Issues and pull requests may be written in English or
 Portuguese. Everyone here follows the [code of conduct](CODE_OF_CONDUCT.md);
 for questions, see [SUPPORT.md](SUPPORT.md), and report security problems
@@ -99,8 +101,8 @@ the Rust side.
   `grep -q pattern < <(command)`.
 - **Rust:** `cargo fmt`, `clippy -D warnings`, errors with `thiserror` in
   `core`. Never derive `Debug` on types with secrets without redaction.
-- **Language:** documentation, identifiers and code comments in English. User-facing messages are
-  bilingual: in Rust, `tr!("English", "Português")` / `trf!(...)` from
+- **Language:** documentation, identifiers and code comments in English.
+  User-facing messages are bilingual: in Rust, `tr!("English", "Português")` / `trf!(...)` from
   `ikebox_core::i18n`; in the UI, the dictionaries in `src/i18n`
   (`pt` must have the same shape as `en`). The CLI, the helper and the scripts
   speak English. User documentation has a Portuguese copy in `docs/pt-BR/`.

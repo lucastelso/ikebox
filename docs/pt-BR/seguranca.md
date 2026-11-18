@@ -174,7 +174,7 @@ nem instalado. Quem empacota o app pode compilá-lo sem essa consulta.
 ## Boas práticas no desenvolvimento
 
 - Nada de dados reais de VPN no repositório. Use as RFCs 5737/2606 nos
-  exemplos e configure `.git/info/private-patterns` (ver [CONTRIBUTING.md](../../CONTRIBUTING.md), em inglês).
+  exemplos e configure `.git/info/private-patterns` (ver o [guia de contribuição](contribuindo.md)).
 - Dependências fixadas: Rust via `Cargo.lock` + `cargo deny`, npm via
   `package-lock.json`, imagens base por digest, código-fonte do strongSwan
   embutido por SHA-256 + GPG, pacotes do strongSwan do engine Docker por

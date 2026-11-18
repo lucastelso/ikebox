@@ -7,6 +7,8 @@ and the project uses [Semantic Versioning](https://semver.org/).
 
 ## [Unreleased]
 
+## [1.0.0] - 2026-11-18
+
 ### Changed (the name)
 
 - **IPsec Client is now Ikebox** ([ADR-0031](docs/adr/0031-renamed-to-ikebox.md)):
@@ -58,14 +60,14 @@ and the project uses [Semantic Versioning](https://semver.org/).
   work. The "modern" proposals also offer ECP384 and ECP256. OpenSSL
   replaces GMP in the engine. The network component changes: update it.
 - Every package carries the license texts of everything it distributes in
-  `/usr/lib/ipsec-client/licenses/` (the crates and npm packages compiled
+  `/usr/lib/ikebox/licenses/` (the crates and npm packages compiled
   into the programs, and strongSwan, OpenSSL and musl), and each release
   attaches the corresponding source of the embedded engine.
 - AppStream metadata in the `.rpm` and the `.deb`: GNOME Software, Discover
   and other software centres show the app's name, description and license.
-- The `.rpm` and the `.deb` carry the command line, `ipsec-client-cli`, with
+- The `.rpm` and the `.deb` carry the command line, `ikebox-cli`, with
   a manual page and bash, zsh and fish completions
-  (`ipsec-client-cli completions <shell>` prints them).
+  (`ikebox-cli completions <shell>` prints them).
 - The `.rpm` and the `.deb` install and update the network component
   themselves, and removing the package removes it: no administrator
   password in the app, no root helper left behind after uninstalling
@@ -92,7 +94,7 @@ and the project uses [Semantic Versioning](https://semver.org/).
 - One status monitor in Rust feeds the tray and the window: the window no
   longer polls every 2 s, and nothing is sent to it while it is hidden.
 - **charon runs without root** ([ADR-0028](docs/adr/0028-charon-without-root.md)):
-  as the new `ipsec-client-engine` system user, with only `NET_ADMIN`; the
+  as the new `ikebox-engine` system user, with only `NET_ADMIN`; the
   VPN DNS is applied by the engine's root part, on the session's interface
   only. The packages now require `setpriv` (util-linux). The network
   component changes: update it.
