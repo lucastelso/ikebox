@@ -2039,3 +2039,41 @@ in `docs/releases/` (English, then Portuguese) and the packages kept in
 `target/release-artifacts/`, after checking every set against its
 `SHA256SUMS` and with `check-private.sh --artifacts` (all nine clean). From
 1.0 on, the release workflow of phase G creates them.
+
+### Step 50: phase A, security and supply chain
+
+**P2** (`fix/remember-after-connect`): `session::connect_then_remember`
+connects and only then stores the credentials; the app and the CLI use it.
+A keyring failure after the tunnel is up becomes a notice (app) or a
+warning line (CLI) instead of an error, since the VPN is connected. No test
+environment has a Secret Service, so the regression test is in the core:
+the Docker session test connects with a wrong password and an in-memory
+store (nothing stored), then with the right one (stored).
+
+**P3** (`chore/tauri-update`): tauri 2.12.6 and the npm packages 2.12.5.
+A plain `cargo update` did not pick 2.12.6 although it is compatible and
+not yanked; `--precise` did.
+
+**P4 and the other unpinned inputs** (`build/pin-release-inputs`):
+rustup-init comes from a fixed release (1.29.3) and Node.js from a pinned
+hash, taken from a `SHASUMS256.txt` whose GPG signature was checked
+(Richard Lau's release key). The review for the program had found that
+Tauri downloads the AppImage tools on the first bundle, without any pin,
+the AppImage plugin from linuxdeploy's moving `continuous` tag, and the
+cached copies proved it: the cached linuxdeploy differed from the download
+in three bytes, the AppImage magic Tauri zeroes after downloading. The three
+tools are now fetched by hash into Tauri's cache inside the release image
+(linuxdeploy with those bytes zeroed and checked again), the cache stopped
+being a volume, and the build fails if Tauri used anything that is not
+pinned. In the engine builder, GMP and musl are pinned with Alpine's `~`
+(their version; Alpine keeps only the newest revision, so exact revisions
+would break on every security fix). A full development release build
+passed every check with the new image.
+
+**CI** (`ci/hygiene`): Node from `.nvmrc`, timeouts, commitlint on pushes
+to `main`, `npm audit` of the production dependencies, and a Dependabot
+configuration that follows the real images.
+
+**Verification:** `npm run check`, `test:docker`, `test:cli`, a release
+build from the branch (`verify-release.sh` and `check-private.sh
+--artifacts` clean).
