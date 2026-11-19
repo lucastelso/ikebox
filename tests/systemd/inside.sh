@@ -99,8 +99,8 @@ ok "VICI socket 0600 owned by alice, directory owned by root (charon's group may
 
 route=$(ip -4 route show dev "$IFACE" proto "$RT_PROTO")
 [[ $route == *"192.0.2.0/24"* ]] || fail "route missing: '$route'"
-[[ $(resolvectl domain "$IFACE") == *"~ikebox.test"* ]] || fail "profile domain missing"
-[[ $(resolvectl dns "$IFACE") == *192.0.2.53* ]] || fail "DNS received from the gateway missing"
+eventually 10 domain_has "$IFACE" "~ikebox.test" || fail "profile domain missing"
+eventually 10 dns_has "$IFACE" 192.0.2.53 || fail "DNS received from the gateway missing"
 ping -c 2 -W 2 -q 192.0.2.1 >/dev/null || fail "ping through the tunnel failed"
 ok "route 192.0.2.0/24, DNS ~ikebox.test + 192.0.2.53 (through the helper) and ping through the tunnel"
 
@@ -313,7 +313,7 @@ grep -q "ignoring updown command supplied by client" <<<"$journal" ||
 ok "the client's command did not run (charon ignored its updown)"
 route=$(ip -4 route show dev "$IFACE" proto "$RT_PROTO")
 [[ $route == *"192.0.2.0/24"* ]] || fail "the forced updown did not run: '$route'"
-[[ $(resolvectl dns "$IFACE") == *192.0.2.54* ]] || fail "the helper DNS was not applied"
+eventually 10 dns_has "$IFACE" 192.0.2.54 || fail "the helper DNS was not applied"
 # The helper's own if_id (0x49504331, P10): neither the one in the VICI
 # load-conn (999 = 0x3e7) nor the one in the request to the helper
 # (4242 = 0x1092).
