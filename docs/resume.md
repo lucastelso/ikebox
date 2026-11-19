@@ -6,37 +6,23 @@
 
 ## Where we are
 
-- **Released:** 0.1.0 to 0.9.0 (the [CHANGELOG](../CHANGELOG.md) and
-  `docs/releases/` have each one). 0.1.0 was the first version validated on
-  a real VPN (FortiGate, IKEv1 aggressive + group PSK + XAuth), through the
-  same path as an end user: the `.rpm` from the menu, the network component
-  installed by the app, the embedded strongSwan without Docker.
-- **Programs behind us:** the post-0.2.0 program (phases 1 to 10, steps 37
-  to 48: audits, static engine, interface, IPsec modes, schema 2, EAP,
-  client certificates, importers), and the
-  [program to 1.0.0](roadmap.md#program-to-100-decided-on-2026-11-18) up to
-  phase H (steps 49 to 58): security and supply chain, complete packages,
-  OpenSSL in the engine (ECDSA, ECP), charon without root, smartcards and
-  tokens, close to the tray, the optional update notice, signed releases
-  built by CI, and the opening (community files, English leftovers).
-- **Now: phase I.** Done: the project is **Ikebox** (step 59,
-  [ADR-0031](adr/0031-renamed-to-ikebox.md)); updating from IPsec Client
-  0.9.0 is tested on the seven distributions and on the real VPN (the
-  maintainer's computer moved its profile and credentials and connected);
-  the version is **1.0.0**, with its notes in `docs/releases/v1.0.0*.md`
-  (step 60); the release key exists. Left for the maintainer: the GitHub
-  environment, the repository made public, the tag and the publication
-  (below).
-- **Waiting for the maintainer:**
-  0. **The `release` environment on GitHub** (the key exists since
-     2026-11-18, fingerprint `6F3F 99EA 25FA F76F CF98  655C B357 4751 2185
-     8FC5`, public key in `packaging/keys/`): the secrets and the variable
-     from [release.md](release.md#github-setup-once), then a rehearsal
-     (**Actions → Release → Run workflow** on `main`). Then: the repository
-     made public, the tag `v1.0.0`, the approval and the publication.
-  1. P8 (`initiator_only`) is not concluded: it needs a session longer than
-     the gateway's phase 1 lifetime (the [audit report](audits/v0.2.0.md)
-     has the steps). It is outside 1.0.
+- **Ikebox 1.0.0 is out** (2026-11-18): the first stable release, built,
+  signed and attested by CI, published at
+  [github.com/lucastelso/ikebox/releases](https://github.com/lucastelso/ikebox/releases).
+  The repository is public. Up to 0.9 the project was called IPsec Client
+  ([ADR-0031](adr/0031-renamed-to-ikebox.md)); 0.1.0 to 0.9.0 keep their
+  release pages.
+- **Programs behind us:** the post-0.2.0 program (phases 1 to 10) and the
+  [program to 1.0.0](roadmap.md#program-to-100-decided-on-2026-11-18)
+  (phases 0, A–I, steps 49 to 62).
+- **Next:** nothing is planned yet. Candidates are in
+  [roadmap → After 1.0](roadmap.md#after-10); a new program starts with the
+  maintainer's choice. A patch release follows [release.md](release.md):
+  `scripts/set-version.sh`, CHANGELOG, notes, tag, approval, local checks,
+  publish.
+- **Waiting for the maintainer:** P8 (`initiator_only`) is not concluded: it
+  needs a session longer than the gateway's phase 1 lifetime (the
+  [audit report](audits/v0.2.0.md) has the steps).
 
 ## Set up the environment (once)
 

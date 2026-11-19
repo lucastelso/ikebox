@@ -2470,3 +2470,15 @@ distributions), `test:native` and `npm run check` pass.
   in `engine.tar.gz`: Alpine had published OpenSSL 3.5.9-r1 after the local
   builder image was cached with r0. With the builder rebuilt without cache,
   the engine came out identical to the release's, byte for byte.
+
+### Step 62: 1.0.0 published
+
+- CI on `main` was green again after one fix to a test: three DNS checks
+  of `test:systemd` read `resolvectl` right after connecting, while the
+  engine applies the DNS a moment later (ADR-0028); a slower runner lost
+  that race once. They now retry for up to 10 s.
+- The draft was published as the latest stable release. Without
+  authentication, the packages, the signature and the public key download,
+  and the "latest release" API answers `v1.0.0`, so the optional update
+  notice (phase F) finally has a real answer to read.
+- The program to 1.0.0 is complete.
