@@ -109,6 +109,17 @@ network component must be the same (the `SHA256SUMS` inside
 `/usr/lib/ikebox/network` of both `.rpm`); the packages themselves carry
 build dates and may differ.
 
+If only `engine.tar.gz` differs, compare the `openssl=` and `musl=` lines of
+the two engines' `BUILDINFO`: the builder follows Alpine's security
+revisions (`openssl-libs-static~3.5`), and a builder image cached here may
+still have an older one. Rebuild it without the cache and compare again:
+
+```bash
+docker build -q --no-cache -t ikebox-engine-builder:local native-engine/build
+native-engine/build.sh 6.1.0
+sha256sum native-engine/dist/ikebox-engine-6.1.0-x86_64.tar.gz   # = the release's engine.tar.gz
+```
+
 Finally, install the package for your distribution over the current one,
 open it from the menu and connect.
 
