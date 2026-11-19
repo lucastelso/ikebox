@@ -29,6 +29,20 @@ as() {
         IKEBOX_BACKEND=native "$@"
 }
 # The output of `ip xfrm state` has keys: it is only counted, never printed.
+# eventually <seconds> <command...>: retries the command until it succeeds or
+# the time is up. The engine applies the VPN DNS asynchronously: the updown,
+# without root, asks for it through a FIFO and returns (ADR-0028).
+eventually() {
+    local deadline=$((SECONDS + $1))
+    shift
+    until "$@"; do
+        ((SECONDS < deadline)) || return 1
+        sleep 0.25
+    done
+}
+dns_has() { [[ $(resolvectl dns "$1" 2>/dev/null) == *"$2"* ]]; }
+domain_has() { [[ $(resolvectl domain "$1" 2>/dev/null) == *"$2"* ]]; }
+
 count_xfrm_state() { ip -o xfrm state 2>/dev/null | grep -c "if_id $1" || true; }
 
 host_is_clean() {
