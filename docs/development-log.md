@@ -2446,3 +2446,27 @@ distributions), `test:native` and `npm run check` pass.
 - **The local repository** follows the new name: the folder became
   `~/Documentos/projetos/ikebox` and `origin` points to the renamed GitHub
   repository.
+
+### Step 61: the 1.0.0 release, built and signed in CI
+
+- **Settings of the public repository** (through the GitHub CLI): the
+  `release` environment with the maintainer as required reviewer, limited
+  to `main` and `v*` tags, and the signing subkey's fingerprint as a
+  variable; private vulnerability reporting, secret scanning with push
+  protection, Dependabot alerts and security fixes; rulesets that keep
+  `main` from being deleted or force-pushed and `v*` tags from being
+  deleted or moved (no required pull requests: the maintainer merges
+  locally); a new description and topics. The maintainer put the two
+  signing secrets in the environment themselves.
+- **Rehearsal** on `main`: build, approval, signature; checked here with a
+  throwaway keyring (good signature, `SHA256SUMS`, `rpm -K`). Scanning it
+  for private data showed that `check-private.sh --artifacts` could not
+  extract a downloaded AppImage (not executable): fixed, and the three
+  packages were clean.
+- **v1.0.0:** tag on `2c7475a`, approved, signed, attested and drafted by
+  CI. The draft checked here: good signature from the release key,
+  `SHA256SUMS`, the signed `.rpm`, attestations for the five files, no
+  private data. Its network component differed from the local build only
+  in `engine.tar.gz`: Alpine had published OpenSSL 3.5.9-r1 after the local
+  builder image was cached with r0. With the builder rebuilt without cache,
+  the engine came out identical to the release's, byte for byte.
