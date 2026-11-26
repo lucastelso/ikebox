@@ -298,6 +298,15 @@ test a change. Release packages are built another way: see
 > different distributions). A package built on your own computer contains
 > paths from your home directory: do not distribute it.
 
+### Only the command line
+
+On a server, under WSL or without a desktop, you can build just
+`ikebox-cli` and the network component, with no Node, WebKitGTK or Docker:
+see [CLI only](cli.md#cli-only-without-the-desktop-app). By default only the
+user at the computer's own screen may connect; for SSH sessions, see
+[servers and remote sessions](cli.md#servers-and-remote-sessions).
+Distribution packagers: [packaging.md](packaging.md).
+
 ## Common problems
 
 | Symptom | What to do |

@@ -42,6 +42,7 @@ English in 0.2.0.
 | [0030](0030-release-signing-and-provenance.md) | Releases built in CI, signed with GPG, attested by GitHub | Accepted |
 | [0031](0031-renamed-to-ikebox.md) | The project is renamed Ikebox for 1.0 | Accepted |
 | [0032](0032-engine-build-without-docker.md) | The engine builds without Docker too (static musl only) | Accepted |
+| [0033](0033-cli-only-and-servers.md) | A CLI-only build, and an opt-in polkit rule for servers | Accepted |
 
 Template for new ADRs: copy an existing one and keep the sections
 **Context · Decision · Consequences · Alternatives considered**.

@@ -92,7 +92,11 @@ WebKitGTK or Docker. The release profile leaves out the Docker engine, which
 only development builds use.
 
 For the command line's manual page and completions, see
-`scripts/stage-cli.sh`.
+`scripts/stage-cli.sh`. A package with only these two and the engine (no
+desktop app) is a supported target: see
+[CLI only](cli.md#cli-only-without-the-desktop-app). Do not install the
+example polkit rule of `packaging/polkit/examples/`: it is the
+administrator's choice ([ADR-0033](adr/0033-cli-only-and-servers.md)).
 
 ## 3. The network component bundle
 

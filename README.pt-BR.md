@@ -228,6 +228,13 @@ O perfil é um JSON sem credenciais: ver [docs/profiles.md](docs/profiles.md) (e
 que inclui a correspondência com um `swanctl.conf`. O guia completo do CLI
 está em [docs/cli.md](docs/cli.md) (em inglês).
 
+**Sem o app de desktop** (servidores, WSL, instalações mínimas): a linha de
+comando e o componente de rede compilam sozinhos, sem Node, WebKitGTK nem
+Docker ([só o CLI](docs/cli.md#cli-only-without-the-desktop-app), em inglês).
+Por padrão, só quem está na tela do próprio computador pode conectar; num
+servidor, um administrador pode liberar um grupo com uma regra opcional do
+polkit ([servidores e sessões remotas](docs/cli.md#servers-and-remote-sessions)).
+
 ## Desenvolvimento
 
 ### Pré-requisitos
