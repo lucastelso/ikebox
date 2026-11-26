@@ -89,6 +89,11 @@
   <content_rating type="oars-1.1"/>
 
   <releases>
+    <release version="1.1.0" date="2026-11-26">
+      <description>
+        <p>Clearer for FortiGate users moving from SSL-VPN to IPsec, with how to type a FortiToken code; the engine and the command line now build without Docker or the desktop app, and an optional rule lets servers connect over SSH.</p>
+      </description>
+    </release>
     <release version="1.0.0" date="2026-11-18">
       <description>
         <p>First stable release, under the new name Ikebox (IPsec Client up to 0.9): signed packages, strongSwan without root, smartcards and tokens, ECDSA, and the app kept in the tray.</p>

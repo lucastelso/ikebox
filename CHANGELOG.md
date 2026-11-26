@@ -7,6 +7,8 @@ and the project uses [Semantic Versioning](https://semver.org/).
 
 ## [Unreleased]
 
+## [1.1.0] - 2026-11-26
+
 ### Added
 
 - **The engine builds without Docker** ([ADR-0032](docs/adr/0032-engine-build-without-docker.md)):
@@ -27,23 +29,6 @@ and the project uses [Semantic Versioning](https://semver.org/).
   session (SSH, WSL, servers). When polkit refuses, the message now says
   so, in your language, and where to look.
 
-### Fixed
-
-- `npm ci` failed in an unpacked source tarball (no git repository), as
-  distribution packagers build: the git hooks are now installed only inside
-  a git work tree.
-
-### Security
-
-- Two Rust advisories in libraries that reach the app only through Tauri
-  and its webview: `cookie` 0.18.3 fixes RUSTSEC-2026-0594 (private cookie
-  nonces repeated after a `fork`) and `url` 2.5.9 fixes RUSTSEC-2026-0592
-  (stack overflow in `Url::origin()` on nested `blob:` URLs). Ikebox is not
-  affected in practice: it uses no private cookies, and the webview loads
-  only the app itself, under a strict CSP. Neither is in the released CLI or
-  network component (`url` also comes with the Docker engine, which only
-  development builds carry).
-
 ### Changed
 
 - **README for FortiGate users moved to IPsec.** FortiOS 7.6.3 removed
@@ -63,6 +48,23 @@ and the project uses [Semantic Versioning](https://semver.org/).
 - Dependencies: Tauri 2.12.7, keyring-core 1.1.0, clap 4.6.9, x509-cert
   0.3.1; frontend tools (vitest 5.1.1, Tauri CLI 2.12.6, jest-dom 8);
   cargo-deny-action 2.1.3.
+
+### Fixed
+
+- `npm ci` failed in an unpacked source tarball (no git repository), as
+  distribution packagers build: the git hooks are now installed only inside
+  a git work tree.
+
+### Security
+
+- Two Rust advisories in libraries that reach the app only through Tauri
+  and its webview: `cookie` 0.18.3 fixes RUSTSEC-2026-0594 (private cookie
+  nonces repeated after a `fork`) and `url` 2.5.9 fixes RUSTSEC-2026-0592
+  (stack overflow in `Url::origin()` on nested `blob:` URLs). Ikebox is not
+  affected in practice: it uses no private cookies, and the webview loads
+  only the app itself, under a strict CSP. Neither is in the released CLI or
+  network component (`url` also comes with the Docker engine, which only
+  development builds carry).
 
 ## [1.0.0] - 2026-11-18
 

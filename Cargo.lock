@@ -2122,7 +2122,7 @@ dependencies = [
 
 [[package]]
 name = "ikebox-app"
-version = "1.0.0"
+version = "1.1.0"
 dependencies = [
  "dbus",
  "ikebox-core",
@@ -2144,7 +2144,7 @@ dependencies = [
 
 [[package]]
 name = "ikebox-cli"
-version = "1.0.0"
+version = "1.1.0"
 dependencies = [
  "anyhow",
  "clap",
@@ -2160,7 +2160,7 @@ dependencies = [
 
 [[package]]
 name = "ikebox-core"
-version = "1.0.0"
+version = "1.1.0"
 dependencies = [
  "bollard",
  "cryptoki",
@@ -2191,7 +2191,7 @@ dependencies = [
 
 [[package]]
 name = "ikebox-helper"
-version = "1.0.0"
+version = "1.1.0"
 dependencies = [
  "dbus",
  "ikebox-proto",
@@ -2202,7 +2202,7 @@ dependencies = [
 
 [[package]]
 name = "ikebox-proto"
-version = "1.0.0"
+version = "1.1.0"
 dependencies = [
  "serde",
  "serde_json",

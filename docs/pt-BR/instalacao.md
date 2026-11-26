@@ -20,9 +20,9 @@ precisa de Docker, Rust, Node nem terminal para usar.
 
 | Sua distribuição | Arquivo | Exemplo |
 |---|---|---|
-| Fedora, openSUSE, RHEL/Rocky/AlmaLinux 10 | **.rpm** | `ikebox-1.0.0-1.x86_64.rpm` |
-| Ubuntu, Debian, Linux Mint, Pop!_OS | **.deb** | `ikebox_1.0.0_amd64.deb` |
-| Outras (Arch, etc.) | **.AppImage** | `ikebox_1.0.0_amd64.AppImage` |
+| Fedora, openSUSE, RHEL/Rocky/AlmaLinux 10 | **.rpm** | `ikebox-1.1.0-1.x86_64.rpm` |
+| Ubuntu, Debian, Linux Mint, Pop!_OS | **.deb** | `ikebox_1.1.0_amd64.deb` |
+| Outras (Arch, etc.) | **.AppImage** | `ikebox_1.1.0_amd64.AppImage` |
 
 Os arquivos ficam na página [Releases](https://github.com/lucastelso/ikebox/releases) do repositório no GitHub,
 junto com o `SHA256SUMS`, que serve para conferir o download
