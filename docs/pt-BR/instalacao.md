@@ -20,9 +20,9 @@ precisa de Docker, Rust, Node nem terminal para usar.
 
 | Sua distribuição | Arquivo | Exemplo |
 |---|---|---|
-| Fedora, openSUSE, RHEL/Rocky/AlmaLinux 10 | **.rpm** | `ikebox-1.0.0-1.x86_64.rpm` |
-| Ubuntu, Debian, Linux Mint, Pop!_OS | **.deb** | `ikebox_1.0.0_amd64.deb` |
-| Outras (Arch, etc.) | **.AppImage** | `ikebox_1.0.0_amd64.AppImage` |
+| Fedora, openSUSE, RHEL/Rocky/AlmaLinux 10 | **.rpm** | `ikebox-1.1.0-1.x86_64.rpm` |
+| Ubuntu, Debian, Linux Mint, Pop!_OS | **.deb** | `ikebox_1.1.0_amd64.deb` |
+| Outras (Arch, etc.) | **.AppImage** | `ikebox_1.1.0_amd64.AppImage` |
 
 Os arquivos ficam na página [Releases](https://github.com/lucastelso/ikebox/releases) do repositório no GitHub,
 junto com o `SHA256SUMS`, que serve para conferir o download
@@ -271,7 +271,9 @@ veja [como gerar e publicar uma versão](../release.md) (em inglês).
 1. Instale os pré-requisitos "Para compilar" do
    [README](../../README.pt-BR.md#pré-requisitos), uma vez; as ferramentas de
    quem contribui não são necessárias. O Docker compila o strongSwan
-   embutido, na primeira vez.
+   embutido, na primeira vez (ou, sem Docker, o
+   `native-engine/build.sh --host` com um toolchain musl:
+   [packaging.md](../packaging.md), em inglês).
 2. Na pasta do repositório:
 
    ```bash
@@ -294,6 +296,16 @@ veja [como gerar e publicar uma versão](../release.md) (em inglês).
 > distribuição onde foi gerado (a da bandeja muda de nome entre as
 > distribuições). Um pacote gerado no seu computador contém caminhos da sua
 > home: não o distribua.
+
+### Só a linha de comando
+
+Num servidor, no WSL ou sem desktop, dá para compilar só o `ikebox-cli` e o
+componente de rede, sem Node, WebKitGTK nem Docker: veja
+[CLI only](../cli.md#cli-only-without-the-desktop-app) (em inglês). Por
+padrão, só quem está na tela do próprio computador pode conectar; para
+sessões SSH, veja
+[servers and remote sessions](../cli.md#servers-and-remote-sessions).
+Para quem empacota distribuições: [packaging.md](../packaging.md).
 
 ## Problemas comuns
 

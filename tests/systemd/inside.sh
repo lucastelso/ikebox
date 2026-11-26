@@ -415,5 +415,36 @@ reply=$(python3 -I /test/helper_client.py '{"op":"status"}')
 [[ $reply == *'"result":"status"'* && $reply == *'"running":false'* ]] || fail "polkit should have authorized root: $reply"
 ok "polkit $(pkaction --version | awk '{ print $NF }'): policy registered, a user without an active session is refused, root is authorized"
 
+step "The optional rule for servers and remote sessions (ADR-0033)"
+# The example an administrator may copy (packaging/polkit/examples): members
+# of the ikebox group control the VPN from any session. JavaScript rules for
+# polkit 0.106 and newer, a .pkla file for 0.105 (Ubuntu 22.04).
+polkit_version=$(pkaction --version | awk '{ print $NF }')
+if [[ $(printf '%s\n0.106\n' "$polkit_version" | sort -V | head -n 1) == 0.106 ]]; then
+    rule_file=/etc/polkit-1/rules.d/50-ikebox-group.rules
+    install -d -m 0755 /etc/polkit-1/rules.d
+    install -m 0644 /test/50-ikebox-group.rules "$rule_file"
+else
+    rule_file=/etc/polkit-1/localauthority/50-local.d/50-ikebox-group.pkla
+    install -d -m 0755 /etc/polkit-1/localauthority/50-local.d
+    install -m 0644 /test/50-ikebox-group.pkla "$rule_file"
+fi
+groupadd --system ikebox
+usermod -aG ikebox alice
+alice_allowed() { [[ $(helper alice '{"op":"status"}') == *'"result":"status"'* ]]; }
+# polkit notices a new rule file by itself; give it a moment.
+eventually 10 alice_allowed || fail "alice (group ikebox) still refused with $rule_file: $(helper alice '{"op":"status"}')"
+reply=$(helper bob '{"op":"status"}')
+[[ $reply == *"only the user of the active local session"* ]] ||
+    fail "bob (not in the group) was authorized by the rule: $reply"
+# The rule only lets alice ask; the session she does not own stays out of
+# her reach, as for the active local user (the helper checks the owner).
+ok "with the rule, alice (group ikebox) connects without a local session; bob, outside the group, is still refused"
+rm -f "$rule_file"
+gpasswd -d alice ikebox >/dev/null
+alice_refused() { [[ $(helper alice '{"op":"status"}') == *"only the user of the active local session"* ]]; }
+eventually 10 alice_refused || fail "alice still authorized after the rule was removed"
+ok "without the rule (the default), alice is refused again"
+
 step "Result"
 ok "embedded engine with systemd: tunnel, sandbox, user isolation and attack blocked"

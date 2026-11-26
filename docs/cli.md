@@ -17,6 +17,30 @@ install -Dm755 target/release/ikebox-cli ~/.local/bin/ikebox-cli
 ikebox-cli completions bash > ~/.local/share/bash-completion/completions/ikebox-cli
 ```
 
+### CLI only, without the desktop app
+
+For servers, WSL or minimal setups: the command line and the network
+component, with no Node, no WebKitGTK and no Docker
+([ADR-0033](adr/0033-cli-only-and-servers.md)). It needs Rust (rustup reads
+`rust-toolchain.toml`), `pkg-config`, the D-Bus headers and, for the
+engine, a musl toolchain (the packages per distribution are in
+[packaging.md](packaging.md#the-build)):
+
+```bash
+native-engine/build.sh --host        # the engine (or without --host, in Docker)
+cargo build --release --locked -p ikebox-cli -p ikebox-helper
+scripts/stage-network-component.sh \
+    --engine native-engine/dist/ikebox-engine-6.1.0-x86_64.tar.gz \
+    --helper target/release/ikebox-helper
+install -Dm755 target/release/ikebox-cli ~/.local/bin/ikebox-cli
+ikebox-cli component install --bundle target/network-component   # asks the administrator password once
+ikebox-cli doctor
+```
+
+The engine version is the first line of `native-engine/versions.txt`.
+Without a desktop, connecting from an SSH session needs the step in
+[Servers and remote sessions](#servers-and-remote-sessions).
+
 Usage prerequisites: the network component installed (by the app or with
 `component install`), a kernel with `xfrm_interface`, systemd-resolved and,
 optionally, the system keyring. Without the network component, the CLI falls
@@ -92,6 +116,38 @@ redirection:
 ikebox-cli connect vpn --detach --credentials-stdin < ~/.config/my-vpn.cred
 ```
 
+## Servers and remote sessions
+
+By default only the user of the **active local session** (the person at
+the computer's own screen) may connect and disconnect: an SSH session, a
+WSL shell or a server without a desktop is refused with "not authorized:
+only the user of the active local session can control the VPN". That
+protects desktops from other users and remote logins.
+
+On a server, an administrator can allow a group instead, with the
+example rule that comes with Ikebox but is never installed
+([ADR-0033](adr/0033-cli-only-and-servers.md)):
+
+```bash
+sudo groupadd --system ikebox
+sudo usermod -aG ikebox <user>
+# polkit 0.106 or newer (pkaction --version):
+sudo install -m 0644 packaging/polkit/examples/50-ikebox-group.rules /etc/polkit-1/rules.d/
+# polkit 0.105 (Ubuntu 22.04):
+sudo install -m 0644 packaging/polkit/examples/50-ikebox-group.pkla /etc/polkit-1/localauthority/50-local.d/
+```
+
+Members of the group then control the VPN from any session, the same way
+the local user does: each one starts their own VPN, and only the owner of
+a session can stop it or read its log. Remove the file to go back to the
+default.
+
+Without a desktop there is usually no keyring: the CLI asks for the
+credentials at every connection, or reads them with `--credentials-stdin`
+(see [Credentials](#credentials)). WSL is not tested: it needs systemd
+enabled and a kernel with `xfrm_interface`; `ikebox-cli doctor` says what is
+missing.
+
 ## Common errors
 
 `connect` reads the charon log and explains the likely cause:
@@ -106,6 +162,7 @@ ikebox-cli connect vpn --detach --credentials-stdin < ~/.config/my-vpn.cred
 | "the gateway did not answer" | address, network, firewall or NAT (UDP 500/4500) |
 | "UDP ports 500/4500 in use" | another IPsec VPN connected (e.g. an old container) |
 | "the installed network component is from an older version" | update the component (`component install --bundle ...` or the app) |
+| "not authorized: only the user of the active local session…" | an SSH, WSL or server session: see [Servers and remote sessions](#servers-and-remote-sessions) |
 
 ## Behavior
 

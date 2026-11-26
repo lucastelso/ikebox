@@ -20,9 +20,9 @@ applications menu, with an icon, and opens like any other program. You do
 
 | Your distribution | File | Example |
 |---|---|---|
-| Fedora, openSUSE, RHEL/Rocky/AlmaLinux 10 | **.rpm** | `ikebox-1.0.0-1.x86_64.rpm` |
-| Ubuntu, Debian, Linux Mint, Pop!_OS | **.deb** | `ikebox_1.0.0_amd64.deb` |
-| Others (Arch, etc.) | **.AppImage** | `ikebox_1.0.0_amd64.AppImage` |
+| Fedora, openSUSE, RHEL/Rocky/AlmaLinux 10 | **.rpm** | `ikebox-1.1.0-1.x86_64.rpm` |
+| Ubuntu, Debian, Linux Mint, Pop!_OS | **.deb** | `ikebox_1.1.0_amd64.deb` |
+| Others (Arch, etc.) | **.AppImage** | `ikebox_1.1.0_amd64.AppImage` |
 
 The files are on the repository's
 [Releases](https://github.com/lucastelso/ikebox/releases) page on GitHub,
@@ -272,7 +272,9 @@ test a change. Release packages are built another way: see
 
 1. Install the "To build" prerequisites from the
    [README](../README.md#prerequisites), once; the contributor tools are not
-   needed. Docker compiles the embedded strongSwan, the first time.
+   needed. Docker compiles the embedded strongSwan, the first time (or,
+   without Docker, `native-engine/build.sh --host` with a musl toolchain:
+   [packaging.md](packaging.md)).
 2. In the repository folder:
 
    ```bash
@@ -295,6 +297,15 @@ test a change. Release packages are built another way: see
 > the distribution it was built on (the tray library has different names on
 > different distributions). A package built on your own computer contains
 > paths from your home directory: do not distribute it.
+
+### Only the command line
+
+On a server, under WSL or without a desktop, you can build just
+`ikebox-cli` and the network component, with no Node, WebKitGTK or Docker:
+see [CLI only](cli.md#cli-only-without-the-desktop-app). By default only the
+user at the computer's own screen may connect; for SSH sessions, see
+[servers and remote sessions](cli.md#servers-and-remote-sessions).
+Distribution packagers: [packaging.md](packaging.md).
 
 ## Common problems
 

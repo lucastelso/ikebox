@@ -7,16 +7,27 @@ and the project uses [Semantic Versioning](https://semver.org/).
 
 ## [Unreleased]
 
-### Security
+## [1.1.0] - 2026-11-26
 
-- Two Rust advisories in libraries that reach the app only through Tauri
-  and its webview: `cookie` 0.18.3 fixes RUSTSEC-2026-0594 (private cookie
-  nonces repeated after a `fork`) and `url` 2.5.9 fixes RUSTSEC-2026-0592
-  (stack overflow in `Url::origin()` on nested `blob:` URLs). Ikebox is not
-  affected in practice: it uses no private cookies, and the webview loads
-  only the app itself, under a strict CSP. Neither is in the released CLI or
-  network component (`url` also comes with the Docker engine, which only
-  development builds carry).
+### Added
+
+- **The engine builds without Docker** ([ADR-0032](docs/adr/0032-engine-build-without-docker.md)):
+  `native-engine/build.sh --host` compiles it with the computer's musl
+  toolchain (Fedora, Debian/Ubuntu, Arch, Alpine and Nix packages), and
+  `--fetch`/`--sources` let it build offline from sources checked by
+  SHA-256 and GPG. It stays one static executable with the same hardening
+  (static-pie, full RELRO, BIND_NOW), which the build now checks; OpenSSL
+  comes from the toolchain or from a pinned, signed release. The Docker
+  builder stays the release path, with byte-identical output.
+  [docs/packaging.md](docs/packaging.md) is the guide for distribution
+  packagers.
+- **Command line only, and servers** ([ADR-0033](docs/adr/0033-cli-only-and-servers.md)):
+  `ikebox-cli` and the network component build without the desktop app (no
+  Node, WebKitGTK or Docker), checked in CI. By default only the user at the
+  computer's own screen may connect; an optional polkit rule, never
+  installed by the packages, lets an administrator allow a group from any
+  session (SSH, WSL, servers). When polkit refuses, the message now says
+  so, in your language, and where to look.
 
 ### Changed
 
@@ -37,6 +48,23 @@ and the project uses [Semantic Versioning](https://semver.org/).
 - Dependencies: Tauri 2.12.7, keyring-core 1.1.0, clap 4.6.9, x509-cert
   0.3.1; frontend tools (vitest 5.1.1, Tauri CLI 2.12.6, jest-dom 8);
   cargo-deny-action 2.1.3.
+
+### Fixed
+
+- `npm ci` failed in an unpacked source tarball (no git repository), as
+  distribution packagers build: the git hooks are now installed only inside
+  a git work tree.
+
+### Security
+
+- Two Rust advisories in libraries that reach the app only through Tauri
+  and its webview: `cookie` 0.18.3 fixes RUSTSEC-2026-0594 (private cookie
+  nonces repeated after a `fork`) and `url` 2.5.9 fixes RUSTSEC-2026-0592
+  (stack overflow in `Url::origin()` on nested `blob:` URLs). Ikebox is not
+  affected in practice: it uses no private cookies, and the webview loads
+  only the app itself, under a strict CSP. Neither is in the released CLI or
+  network component (`url` also comes with the Docker engine, which only
+  development builds carry).
 
 ## [1.0.0] - 2026-11-18
 

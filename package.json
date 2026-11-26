@@ -1,6 +1,6 @@
 {
   "name": "ikebox",
-  "version": "1.0.0",
+  "version": "1.1.0",
   "private": true,
   "description": "IPsec VPN client for Linux, focused on legacy VPNs (IKEv1, group PSK + XAuth)",
   "license": "GPL-3.0-or-later",
@@ -9,7 +9,7 @@
     "node": ">=22"
   },
   "scripts": {
-    "prepare": "lefthook install",
+    "prepare": "if git rev-parse --is-inside-work-tree >/dev/null 2>&1; then lefthook install; fi",
     "check": "npm run check:private && npm run lint:sh && npm run test:updown && npm run lint:web && npm run typecheck && npm run test:web && npm run check:rust",
     "check:private": "scripts/check-private.sh --tracked",
     "lint:sh": "scripts/lint-sh.sh",
@@ -24,6 +24,8 @@
     "test:systemd": "tests/systemd/run.sh",
     "test:modes": "tests/modes/run.sh",
     "test:compat": "tests/compat/run.sh",
+    "test:cli-only": "tests/cli-only/run.sh",
+    "test:engine-host": "tests/engine-host/run.sh",
     "test:native": "native-engine/build.sh && native-engine/spike/run-e2e.sh \"$(grep -vE '^\\s*(#|$)' native-engine/versions.txt | head -n 1 | cut -d' ' -f1)\"",
     "dev": "vite",
     "build": "tsc && vite build",

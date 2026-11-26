@@ -2533,3 +2533,84 @@ distributions), `test:native` and `npm run check` pass.
 - **Pull requests first.** Every branch went to GitHub with a pull request
   and was merged into `main` only with its CI green (#4 to #9), Dependabot's
   #1 to #3 included. Phases 2 and 3 will meet in a `next` branch.
+
+### Step 64: phase 2, the engine builds without Docker (ADR-0032)
+
+- **One script, two places.** `build-strongswan.sh` takes its paths as
+  options (the builder's are the defaults) and runs either in the Alpine
+  builder or on the computer (`native-engine/build.sh --host`). The
+  builder's output did not move: built before and after the change, the
+  engine and tools tarballs have the same SHA-256 (`c245c23a…`,
+  `8a4b531c…`).
+- **Offline sources.** `--fetch DIR` downloads strongSwan and OpenSSL with
+  their signatures; `--sources DIR` builds from that folder without
+  network. Each tarball is checked against its pinned SHA-256 and a keyring
+  holding only its own project's key, reading gpg's status lines: the old
+  `grep "Good signature"` would have failed on a computer in Portuguese.
+- **What the distributions' musl-gcc does** (probed before writing the
+  script): on Fedora 45 and Ubuntu 24.04 it does not search the kernel
+  headers (`linux/xfrm.h`), so the build links them in; on Arch it finds
+  them, but its specs file cannot link static-pie: `-static` gives a
+  non-PIE binary and `-static-pie` a dynamically linked one. The build now
+  requires a static-pie charon with RELRO, BIND_NOW and a non-executable
+  stack, asks for it explicitly outside the builder, and on Arch uses a
+  copy of the specs with musl's `rcrt1.o` and the static-pie link line.
+- **OpenSSL from a pin** when the toolchain has none for musl: 3.5.9, the
+  builder's upstream release, whose SHA-256 was already recorded with the
+  license text; checked against the signing subkey of OpenSSL's release key
+  `B146 647E 45A7 B339 47AB 226B 2A2C 87D1 6169 2D40` (the fingerprint
+  openssl-library.org/source gives). Built static, without modules or the
+  legacy provider, with `/etc/ssl` as its directory, like the builder's.
+- **Two tools the builder had hidden:** strongSwan's `configure` needs
+  `pkg-config`, and Python to resolve the plugin constructors of a static
+  monolithic build. The Alpine image installs both; the minimal Ubuntu
+  container did not have them. Both are now checked at the start.
+- **Tests:** `tests/engine-host/run.sh` builds on plain Fedora 45, Ubuntu
+  24.04 and Arch containers (only their packages, an unprivileged user, no
+  network) and runs the engine's E2E with each result: all green. With the
+  Fedora-built engine in place of the builder's, `test:modes` and
+  `test:systemd` pass too. CI builds on its Ubuntu runner and runs the E2E.
+  The weekly upstream watch flags an `openssl.txt` behind the builder's
+  OpenSSL.
+- **Docs:** [packaging.md](packaging.md) for distribution packagers,
+  `native-engine/README.md` rewritten (it still described the GMP engine),
+  build prerequisites with Docker or a musl toolchain, a note in
+  THIRD_PARTY_NOTICES.
+- The work went through pull requests into `next` (#11, #13); the draft
+  pull request #12 brings `next` to `main` with 1.1.0.
+
+### Step 65: phase 3, the CLI-only build and servers (ADR-0033)
+
+- **What stopped servers was polkit, not the build.** The policy lets only
+  the user of the active local session control the VPN (ADR-0014): an SSH
+  session, a WSL shell or a server without a desktop is never that, and the
+  CLI answered with the helper's English sentence. The default stays. For
+  servers there is now an example rule, never installed by the packages:
+  the members of an `ikebox` group control the VPN from any session, each
+  still only their own. It comes in two forms, JavaScript for polkit 0.106
+  and newer and a `.pkla` file for 0.105 (Ubuntu 22.04), which does not
+  read JavaScript rules.
+- **The refusal says what to do:** polkit's refusal is now its own error,
+  in the person's language, pointing to "Servers and remote sessions" in
+  docs/cli.md. Every helper since 0.2.0 words the refusal the same way, so
+  an older component gets the new message too.
+- **Tested with the real polkit** in `test:systemd`: with the rule, a group
+  member without a session is authorized and a non-member is not; without
+  it, the member is refused again. Green on the seven distributions, which
+  cover polkit 0.105 (the `.pkla` file) and 122 to 128 (the JavaScript rule).
+- **The CLI-only build** (docs/cli.md): the engine, `cargo build -p
+  ikebox-cli -p ikebox-helper`, the component bundle and `component
+  install`, with no Node, WebKitGTK or Docker. `tests/cli-only/run.sh`
+  builds and tests the two crates (and the core) on a clean Debian 13 with
+  only Rust, gcc, pkg-config and the D-Bus headers, checks that nothing of
+  the app is installed or in the dependency tree (216 crates, none of them
+  Tauri, wry, WebKitGTK or GTK), and runs in CI.
+- **Two things a packager would have hit:**
+  - `npm ci` failed in an unpacked release tarball: the `prepare` script
+    ran `lefthook install`, which needs a git work tree. It now installs the
+    hooks only inside one.
+  - A core unit test assumed it never runs as root (it checks that the
+    uninstaller must belong to root); run as root, as some build systems
+    do, it failed. It now skips itself there, and the CLI-only test builds
+    and tests as an unprivileged user.
+- The work went through pull requests into `next` (#15 to #18).

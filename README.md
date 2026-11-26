@@ -224,6 +224,13 @@ A profile is a JSON file without credentials: see
 [docs/profiles.md](docs/profiles.md), which includes the mapping from a
 `swanctl.conf`. The full CLI guide is in [docs/cli.md](docs/cli.md).
 
+**Without the desktop app** (servers, WSL, minimal setups): the command line
+and the network component build on their own, with no Node, WebKitGTK or
+Docker ([CLI only](docs/cli.md#cli-only-without-the-desktop-app)). By
+default only the user at the computer's own screen may connect; on a server,
+an administrator can allow a group with an optional polkit rule
+([servers and remote sessions](docs/cli.md#servers-and-remote-sessions)).
+
 ## Development
 
 ### Prerequisites
@@ -250,8 +257,10 @@ curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh
 - Node.js ≥ 22. Some distributions package an older one (Ubuntu and Debian,
   for example); [nvm](https://github.com/nvm-sh/nvm) reads the version CI
   uses from `.nvmrc`.
-- Docker, which compiles the embedded strongSwan the first time
-  (`native-engine/build.sh`).
+- For the embedded strongSwan, compiled the first time: Docker (the pinned
+  builder that releases use), or a musl toolchain for
+  `native-engine/build.sh --host` (see the
+  [packaging guide](docs/packaging.md)).
 
 **To contribute** (what `npm run check` and the tests need, on top of the
 above):

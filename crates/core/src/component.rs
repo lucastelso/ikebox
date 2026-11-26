@@ -926,6 +926,11 @@ mod tests {
 
     #[test]
     fn uninstaller_must_belong_to_root() {
+        // As root (some distribution build systems), the files below would
+        // belong to root and there is nothing to check.
+        if rustix::process::geteuid().is_root() {
+            return;
+        }
         let prefix = tempfile::tempdir().expect("tempdir");
         fs::create_dir_all(prefix.path().join("bin")).expect("mkdir");
         fs::write(prefix.path().join("bin").join(HELPER), "").expect("helper");

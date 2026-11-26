@@ -2,15 +2,26 @@
 # SPIKE: runs the engine's E2E (tests/engine/e2e.sh) with the strongSwan
 # built by native-engine/build.sh, on a simulated Fedora 45 "host".
 #
-# Usage: native-engine/spike/run-e2e.sh VERSION     (e.g. 6.1.0)
+# Usage: native-engine/spike/run-e2e.sh [--engine FILE --tools FILE] VERSION   (e.g. 6.1.0)
+#   --engine, --tools  other tarballs than native-engine/dist's (a host build)
 
 set -euo pipefail
 
-version=${1:?versão (ex.: 6.1.0)}
 repo_root=$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)
-tarball="$repo_root/native-engine/dist/ikebox-engine-$version-x86_64.tar.gz"
-tools="$repo_root/native-engine/dist/ikebox-engine-tools-$version-x86_64.tar.gz"
-[[ -f $tarball && -f $tools ]] || { echo "rode antes: native-engine/build.sh $version" >&2; exit 1; }
+tarball=""
+tools=""
+while (($# > 0)); do
+    case $1 in
+    --engine) tarball=${2:?}; shift 2 ;;
+    --tools) tools=${2:?}; shift 2 ;;
+    -*) echo "unknown option: $1" >&2; exit 2 ;;
+    *) break ;;
+    esac
+done
+version=${1:?version (e.g. 6.1.0)}
+[[ -n $tarball ]] || tarball="$repo_root/native-engine/dist/ikebox-engine-$version-x86_64.tar.gz"
+[[ -n $tools ]] || tools="$repo_root/native-engine/dist/ikebox-engine-tools-$version-x86_64.tar.gz"
+[[ -f $tarball && -f $tools ]] || { echo "build it first: native-engine/build.sh $version" >&2; exit 1; }
 
 ctx=$(mktemp -d "${XDG_RUNTIME_DIR:-/tmp}/ikebox-spike.XXXXXX")
 trap 'rm -rf "$ctx"' EXIT
