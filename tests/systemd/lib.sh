@@ -42,6 +42,9 @@ eventually() {
 }
 dns_has() { [[ $(resolvectl dns "$1" 2>/dev/null) == *"$2"* ]]; }
 domain_has() { [[ $(resolvectl domain "$1" 2>/dev/null) == *"$2"* ]]; }
+# The routes come from the forced updown. Like the DNS, they may land a
+# moment after `swanctl --initiate` returns (seen once on openSUSE Tumbleweed).
+route_has() { [[ $(ip -4 route show dev "$IFACE" proto "$RT_PROTO" 2>/dev/null) == *"$1"* ]]; }
 
 count_xfrm_state() { ip -o xfrm state 2>/dev/null | grep -c "if_id $1" || true; }
 
