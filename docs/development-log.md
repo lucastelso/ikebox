@@ -2533,3 +2533,48 @@ distributions), `test:native` and `npm run check` pass.
 - **Pull requests first.** Every branch went to GitHub with a pull request
   and was merged into `main` only with its CI green (#4 to #9), Dependabot's
   #1 to #3 included. Phases 2 and 3 will meet in a `next` branch.
+
+### Step 64: phase 2, the engine builds without Docker (ADR-0032)
+
+- **One script, two places.** `build-strongswan.sh` takes its paths as
+  options (the builder's are the defaults) and runs either in the Alpine
+  builder or on the computer (`native-engine/build.sh --host`). The
+  builder's output did not move: built before and after the change, the
+  engine and tools tarballs have the same SHA-256 (`c245c23a…`,
+  `8a4b531c…`).
+- **Offline sources.** `--fetch DIR` downloads strongSwan and OpenSSL with
+  their signatures; `--sources DIR` builds from that folder without
+  network. Each tarball is checked against its pinned SHA-256 and a keyring
+  holding only its own project's key, reading gpg's status lines: the old
+  `grep "Good signature"` would have failed on a computer in Portuguese.
+- **What the distributions' musl-gcc does** (probed before writing the
+  script): on Fedora 45 and Ubuntu 24.04 it does not search the kernel
+  headers (`linux/xfrm.h`), so the build links them in; on Arch it finds
+  them, but its specs file cannot link static-pie: `-static` gives a
+  non-PIE binary and `-static-pie` a dynamically linked one. The build now
+  requires a static-pie charon with RELRO, BIND_NOW and a non-executable
+  stack, asks for it explicitly outside the builder, and on Arch uses a
+  copy of the specs with musl's `rcrt1.o` and the static-pie link line.
+- **OpenSSL from a pin** when the toolchain has none for musl: 3.5.9, the
+  builder's upstream release, whose SHA-256 was already recorded with the
+  license text; checked against the signing subkey of OpenSSL's release key
+  `B146 647E 45A7 B339 47AB 226B 2A2C 87D1 6169 2D40` (the fingerprint
+  openssl-library.org/source gives). Built static, without modules or the
+  legacy provider, with `/etc/ssl` as its directory, like the builder's.
+- **Two tools the builder had hidden:** strongSwan's `configure` needs
+  `pkg-config`, and Python to resolve the plugin constructors of a static
+  monolithic build. The Alpine image installs both; the minimal Ubuntu
+  container did not have them. Both are now checked at the start.
+- **Tests:** `tests/engine-host/run.sh` builds on plain Fedora 45, Ubuntu
+  24.04 and Arch containers (only their packages, an unprivileged user, no
+  network) and runs the engine's E2E with each result: all green. With the
+  Fedora-built engine in place of the builder's, `test:modes` and
+  `test:systemd` pass too. CI builds on its Ubuntu runner and runs the E2E.
+  The weekly upstream watch flags an `openssl.txt` behind the builder's
+  OpenSSL.
+- **Docs:** [packaging.md](packaging.md) for distribution packagers,
+  `native-engine/README.md` rewritten (it still described the GMP engine),
+  build prerequisites with Docker or a musl toolchain, a note in
+  THIRD_PARTY_NOTICES.
+- The work went through pull requests into `next` (#11, #13); the draft
+  pull request #12 brings `next` to `main` with 1.1.0.
