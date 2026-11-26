@@ -162,6 +162,7 @@ describe('ProfileEditor', () => {
     await userEvent.type(screen.getByLabelText('Gateway'), 'vpn.example.com');
     await userEvent.type(screen.getByLabelText('Networks through the VPN'), '192.0.2.0/24');
     await userEvent.click(screen.getByLabelText('The password is a one-time code'));
+    expect(screen.getByText(/password is typed followed by the code/)).toBeInTheDocument();
     expect(await screen.findByText(/format 2/)).toBeInTheDocument();
     await waitFor(() => expect(screen.queryByText('enter a gateway')).not.toBeInTheDocument());
 

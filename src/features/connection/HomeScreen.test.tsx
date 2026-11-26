@@ -256,6 +256,7 @@ describe('HomeScreen', () => {
 
     await screen.findByRole('dialog');
     expect(screen.getByText(/never stored/)).toBeInTheDocument();
+    expect(screen.getByText(/password followed by the code/)).toBeInTheDocument();
     expect(screen.queryByLabelText('Username')).not.toBeInTheDocument();
     await userEvent.type(screen.getByLabelText('One-time code'), '123456');
     await userEvent.click(screen.getByRole('button', { name: 'Connect', hidden: false }));
