@@ -18,6 +18,26 @@ and the project uses [Semantic Versioning](https://semver.org/).
   network component (`url` also comes with the Docker engine, which only
   development builds carry).
 
+### Changed
+
+- **README for FortiGate users moved to IPsec.** FortiOS 7.6.3 removed
+  SSL-VPN tunnel mode on every FortiGate model, and FortiClient for Linux
+  has no IPsec without EMS (and IKEv2 only). The README now says up front
+  that Ikebox is for that case, with each fact linked to Fortinet.
+- **One-time codes said plainly.** A FortiToken code is typed after the
+  password (`password123456`); with "The password is a one-time code" in the
+  profile, it is asked at every connection and never stored. The README,
+  the quick start, profiles.md, the credentials dialog and the profile
+  editor say so. A code sent by email or SMS in a second XAuth step is still
+  not supported: the README asks for an anonymized log
+  ([ADR-0025](docs/adr/0025-deferred-xauth-otp-l2tp.md)).
+- **Building and contributing need different tools:** the README,
+  CONTRIBUTING and the installation guide list them apart; shellcheck,
+  cargo-deny and the tests' Docker are for contributors.
+- Dependencies: Tauri 2.12.7, keyring-core 1.1.0, clap 4.6.9, x509-cert
+  0.3.1; frontend tools (vitest 5.1.1, Tauri CLI 2.12.6, jest-dom 8);
+  cargo-deny-action 2.1.3.
+
 ## [1.0.0] - 2026-11-18
 
 ### Changed (the name)
