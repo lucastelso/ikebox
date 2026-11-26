@@ -6,30 +6,19 @@
 
 ## Where we are
 
-- **Ikebox 1.0.0 is out** (2026-11-18): the first stable release, built,
-  signed and attested by CI, published at
-  [github.com/lucastelso/ikebox/releases](https://github.com/lucastelso/ikebox/releases).
-  The repository is public. Up to 0.9 the project was called IPsec Client
-  ([ADR-0031](adr/0031-renamed-to-ikebox.md)); 0.1.0 to 0.9.0 keep their
-  release pages.
-- **Programs behind us:** the post-0.2.0 program (phases 1 to 10) and the
-  [program to 1.0.0](roadmap.md#program-to-100-decided-on-2026-11-18)
-  (phases 0, A–I, steps 49 to 62).
-- **Program to 1.1.0** ([roadmap](roadmap.md#program-to-110-decided-on-2026-11-25),
-  decided on 2026-11-25): phases 0 (second computer, CI green again) and 1
-  (README for FortiGate users moved off SSL-VPN, one-time codes, build and
-  contributor prerequisites apart) are done (step 63).
-- **Phase 2 is done in `next`** (step 64): the engine also builds on the
-  host with a musl toolchain, offline and without Docker
-  ([ADR-0032](adr/0032-engine-build-without-docker.md),
-  [packaging.md](packaging.md)); the builder's output is unchanged.
-- **Phase 3 is done in `next`** (step 65): a documented CLI-only build,
-  checked in CI without WebKitGTK or Node, and an opt-in polkit rule for
-  servers and remote sessions
-  ([ADR-0033](adr/0033-cli-only-and-servers.md)).
-- **Next: phase 4, the 1.1.0 release**, in a new session: bring `next` to
-  `main` (draft pull request #12) after every suite and the seven
-  distributions pass, then [release.md](release.md).
+- **Ikebox 1.1.0 is out** (2026-11-26), built, signed and attested by CI,
+  at [github.com/lucastelso/ikebox/releases](https://github.com/lucastelso/ikebox/releases):
+  the README for FortiGate users moved off SSL-VPN and FortiToken codes, the
+  engine built without Docker ([ADR-0032](adr/0032-engine-build-without-docker.md)),
+  the command line without the desktop app and an opt-in polkit rule for
+  servers ([ADR-0033](adr/0033-cli-only-and-servers.md)).
+- **Programs behind us:** the post-0.2.0 program, the program to 1.0.0 and
+  the [program to 1.1.0](roadmap.md#program-to-110-decided-on-2026-11-25)
+  (phases 0 to 4, steps 63 to 66).
+- **Next:** nothing is planned yet. Candidates are in
+  [roadmap → After 1.0](roadmap.md#after-10), among them the XAuth second
+  round (a code by email or SMS), which waits for an anonymized gateway log.
+  A patch release follows [release.md](release.md).
 - **Waiting for the maintainer:** P8 (`initiator_only`) is not concluded: it
   needs a session longer than the gateway's phase 1 lifetime (the
   [audit report](audits/v0.2.0.md) has the steps).

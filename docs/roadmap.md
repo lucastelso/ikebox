@@ -390,7 +390,7 @@ and does IKEv2 only. FortiOS 7.4 has engineering support until 11 May 2027
 | 1 | Positioning and docs | README (FortiGate migration, one-time codes), the app's one-time code hint, build and contributor prerequisites apart, Portuguese copies | ✅ (step 63) |
 | 2 | Engine without Docker | ADR-0032: one build script for the host and the container (`native-engine/build.sh --host`), offline sources checked by SHA-256 + GPG, OpenSSL from a pinned source when the host has no static OpenSSL for musl, the container output unchanged bit for bit; host builds tested on Fedora, Ubuntu and Arch and in CI; `docs/packaging.md` for distribution packagers | ✅ (step 64) |
 | 3 | CLI-only and servers | ADR-0033: the CLI-only build documented and checked in CI without WebKit or Node; the example polkit rule for a group, tested with the real polkit; the CLI's refusal message points to it | ✅ (step 65) |
-| 4 | Release 1.1.0 | [release.md](release.md), every suite and the seven distributions, packages updated from 1.0.0 | ⏳ |
+| 4 | Release 1.1.0 | [release.md](release.md), every suite and the seven distributions, packages updated from 1.0.0; **1.1.0 built, signed and attested by CI and published on 2026-11-26** | ✅ (step 66) |
 
 ## After 1.0
 
