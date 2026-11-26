@@ -23,10 +23,13 @@
   host with a musl toolchain, offline and without Docker
   ([ADR-0032](adr/0032-engine-build-without-docker.md),
   [packaging.md](packaging.md)); the builder's output is unchanged.
-- **Next: phase 3**, the CLI-only target and servers (ADR-0033), in a new
-  session. Branches are made from `next` and merge into it through pull
-  requests with green CI; the draft pull request #12 brings `next` to
-  `main` only with the 1.1.0 release.
+- **Phase 3 is done in `next`** (step 65): a documented CLI-only build,
+  checked in CI without WebKitGTK or Node, and an opt-in polkit rule for
+  servers and remote sessions
+  ([ADR-0033](adr/0033-cli-only-and-servers.md)).
+- **Next: phase 4, the 1.1.0 release**, in a new session: bring `next` to
+  `main` (draft pull request #12) after every suite and the seven
+  distributions pass, then [release.md](release.md).
 - **Waiting for the maintainer:** P8 (`initiator_only`) is not concluded: it
   needs a session longer than the gateway's phase 1 lifetime (the
   [audit report](audits/v0.2.0.md) has the steps).

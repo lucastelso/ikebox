@@ -19,6 +19,19 @@ and the project uses [Semantic Versioning](https://semver.org/).
   builder stays the release path, with byte-identical output.
   [docs/packaging.md](docs/packaging.md) is the guide for distribution
   packagers.
+- **Command line only, and servers** ([ADR-0033](docs/adr/0033-cli-only-and-servers.md)):
+  `ikebox-cli` and the network component build without the desktop app (no
+  Node, WebKitGTK or Docker), checked in CI. By default only the user at the
+  computer's own screen may connect; an optional polkit rule, never
+  installed by the packages, lets an administrator allow a group from any
+  session (SSH, WSL, servers). When polkit refuses, the message now says
+  so, in your language, and where to look.
+
+### Fixed
+
+- `npm ci` failed in an unpacked source tarball (no git repository), as
+  distribution packagers build: the git hooks are now installed only inside
+  a git work tree.
 
 ### Security
 
