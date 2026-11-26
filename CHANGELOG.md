@@ -7,6 +7,19 @@ and the project uses [Semantic Versioning](https://semver.org/).
 
 ## [Unreleased]
 
+### Added
+
+- **The engine builds without Docker** ([ADR-0032](docs/adr/0032-engine-build-without-docker.md)):
+  `native-engine/build.sh --host` compiles it with the computer's musl
+  toolchain (Fedora, Debian/Ubuntu, Arch, Alpine and Nix packages), and
+  `--fetch`/`--sources` let it build offline from sources checked by
+  SHA-256 and GPG. It stays one static executable with the same hardening
+  (static-pie, full RELRO, BIND_NOW), which the build now checks; OpenSSL
+  comes from the toolchain or from a pinned, signed release. The Docker
+  builder stays the release path, with byte-identical output.
+  [docs/packaging.md](docs/packaging.md) is the guide for distribution
+  packagers.
+
 ### Security
 
 - Two Rust advisories in libraries that reach the app only through Tauri

@@ -19,10 +19,14 @@
   decided on 2026-11-25): phases 0 (second computer, CI green again) and 1
   (README for FortiGate users moved off SSL-VPN, one-time codes, build and
   contributor prerequisites apart) are done (step 63).
-- **Next: phase 2**, the engine built without Docker (ADR-0032), in a new
-  session. Its branches merge into a `next` branch, with a draft pull request
-  `next` → `main`; `main` gets them only with the 1.1.0 release. Every branch
-  goes through a pull request with green CI.
+- **Phase 2 is done in `next`** (step 64): the engine also builds on the
+  host with a musl toolchain, offline and without Docker
+  ([ADR-0032](adr/0032-engine-build-without-docker.md),
+  [packaging.md](packaging.md)); the builder's output is unchanged.
+- **Next: phase 3**, the CLI-only target and servers (ADR-0033), in a new
+  session. Branches are made from `next` and merge into it through pull
+  requests with green CI; the draft pull request #12 brings `next` to
+  `main` only with the 1.1.0 release.
 - **Waiting for the maintainer:** P8 (`initiator_only`) is not concluded: it
   needs a session longer than the gateway's phase 1 lifetime (the
   [audit report](audits/v0.2.0.md) has the steps).
