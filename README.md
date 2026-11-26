@@ -224,6 +224,13 @@ A profile is a JSON file without credentials: see
 [docs/profiles.md](docs/profiles.md), which includes the mapping from a
 `swanctl.conf`. The full CLI guide is in [docs/cli.md](docs/cli.md).
 
+**Without the desktop app** (servers, WSL, minimal setups): the command line
+and the network component build on their own, with no Node, WebKitGTK or
+Docker ([CLI only](docs/cli.md#cli-only-without-the-desktop-app)). By
+default only the user at the computer's own screen may connect; on a server,
+an administrator can allow a group with an optional polkit rule
+([servers and remote sessions](docs/cli.md#servers-and-remote-sessions)).
+
 ## Development
 
 ### Prerequisites

@@ -297,6 +297,16 @@ veja [como gerar e publicar uma versão](../release.md) (em inglês).
 > distribuições). Um pacote gerado no seu computador contém caminhos da sua
 > home: não o distribua.
 
+### Só a linha de comando
+
+Num servidor, no WSL ou sem desktop, dá para compilar só o `ikebox-cli` e o
+componente de rede, sem Node, WebKitGTK nem Docker: veja
+[CLI only](../cli.md#cli-only-without-the-desktop-app) (em inglês). Por
+padrão, só quem está na tela do próprio computador pode conectar; para
+sessões SSH, veja
+[servers and remote sessions](../cli.md#servers-and-remote-sessions).
+Para quem empacota distribuições: [packaging.md](../packaging.md).
+
 ## Problemas comuns
 
 | Sintoma | O que fazer |
