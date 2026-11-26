@@ -1,0 +1,19 @@
+// Ikebox: an OPTIONAL rule for servers and remote sessions (ADR-0033).
+// Never installed by the packages. An administrator who copies it to
+// /etc/polkit-1/rules.d/ lets the members of the "ikebox" group connect and
+// disconnect the VPN from any session (SSH, WSL, a server without a desktop),
+// not only from the active local one. Each user still controls only their
+// own VPN: the helper checks who owns a session before stopping it or showing
+// its log.
+//
+//   sudo groupadd --system ikebox
+//   sudo usermod -aG ikebox <user>
+//   sudo install -m 0644 50-ikebox-group.rules /etc/polkit-1/rules.d/
+//
+// polkit 0.106 or newer. For polkit 0.105 (Ubuntu 22.04), use
+// 50-ikebox-group.pkla instead.
+polkit.addRule(function (action, subject) {
+    if (action.id === "io.github.lucastelso.ikebox.connect" && subject.isInGroup("ikebox")) {
+        return polkit.Result.YES;
+    }
+});

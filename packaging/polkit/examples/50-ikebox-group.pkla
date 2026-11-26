@@ -1,0 +1,14 @@
+# Ikebox: the OPTIONAL rule of 50-ikebox-group.rules (ADR-0033) for polkit
+# 0.105 (Ubuntu 22.04), which does not read JavaScript rules. Never installed
+# by the packages. Members of the "ikebox" group may connect and disconnect
+# the VPN from any session; each still controls only their own.
+#
+#   sudo groupadd --system ikebox
+#   sudo usermod -aG ikebox <user>
+#   sudo install -m 0644 50-ikebox-group.pkla /etc/polkit-1/localauthority/50-local.d/
+[Ikebox: the ikebox group controls the VPN from any session]
+Identity=unix-group:ikebox
+Action=io.github.lucastelso.ikebox.connect
+ResultAny=yes
+ResultInactive=yes
+ResultActive=yes
