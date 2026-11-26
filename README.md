@@ -250,8 +250,10 @@ curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh
 - Node.js ≥ 22. Some distributions package an older one (Ubuntu and Debian,
   for example); [nvm](https://github.com/nvm-sh/nvm) reads the version CI
   uses from `.nvmrc`.
-- Docker, which compiles the embedded strongSwan the first time
-  (`native-engine/build.sh`).
+- For the embedded strongSwan, compiled the first time: Docker (the pinned
+  builder that releases use), or a musl toolchain for
+  `native-engine/build.sh --host` (see the
+  [packaging guide](docs/packaging.md)).
 
 **To contribute** (what `npm run check` and the tests need, on top of the
 above):

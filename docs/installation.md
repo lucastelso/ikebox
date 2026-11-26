@@ -272,7 +272,9 @@ test a change. Release packages are built another way: see
 
 1. Install the "To build" prerequisites from the
    [README](../README.md#prerequisites), once; the contributor tools are not
-   needed. Docker compiles the embedded strongSwan, the first time.
+   needed. Docker compiles the embedded strongSwan, the first time (or,
+   without Docker, `native-engine/build.sh --host` with a musl toolchain:
+   [packaging.md](packaging.md)).
 2. In the repository folder:
 
    ```bash
