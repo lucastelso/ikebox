@@ -270,9 +270,9 @@ For people who have the source code and want to build the `.rpm`/`.deb` to
 test a change. Release packages are built another way: see
 [how to build and publish a release](release.md).
 
-1. Install the development prerequisites from the
-   [README](../README.md#prerequisites), once. Docker is only used to compile
-   the embedded strongSwan, the first time.
+1. Install the "To build" prerequisites from the
+   [README](../README.md#prerequisites), once; the contributor tools are not
+   needed. Docker compiles the embedded strongSwan, the first time.
 2. In the repository folder:
 
    ```bash

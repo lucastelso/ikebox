@@ -79,6 +79,19 @@ confere isso do lado do Rust.
    as branches ainda em andamento.
 5. As versões seguem o [SemVer](https://semver.org/lang/pt-BR/).
 
+## Ferramentas das verificações
+
+Para compilar, basta a lista "Para compilar" do README. As verificações e os
+testes precisam também de:
+
+- **cargo-deny** (`cargo install --locked cargo-deny`): licenças e alertas de
+  segurança das dependências Rust. O `npm run check` para sem ele.
+- **shellcheck 0.11.0**, opcional: sem ele, ou com outra versão, o
+  `npm run lint:sh` roda a imagem Docker oficial dessa versão (os códigos
+  mudam entre versões).
+- **Docker**, para os testes de ponta a ponta: eles sobem um gateway IPsec de
+  teste e o motor em contêineres.
+
 ## Verificações
 
 | Comando | O que faz |

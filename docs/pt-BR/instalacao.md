@@ -268,9 +268,10 @@ Para quem tem o código e quer gerar o `.rpm`/`.deb` para testar uma
 mudança. Os pacotes de uma versão, para publicar, são gerados de outro jeito:
 veja [como gerar e publicar uma versão](../release.md) (em inglês).
 
-1. Instale os pré-requisitos de desenvolvimento do
-   [README](../../README.pt-BR.md#pré-requisitos), uma vez. O Docker é usado só para
-   compilar o strongSwan embutido, na primeira vez.
+1. Instale os pré-requisitos "Para compilar" do
+   [README](../../README.pt-BR.md#pré-requisitos), uma vez; as ferramentas de
+   quem contribui não são necessárias. O Docker compila o strongSwan
+   embutido, na primeira vez.
 2. Na pasta do repositório:
 
    ```bash

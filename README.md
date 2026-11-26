@@ -206,11 +206,13 @@ A profile is a JSON file without credentials: see
 
 ### Prerequisites
 
+End users need none of this. **To build** the app and its packages:
+
 Fedora:
 
 ```bash
-sudo dnf install -y rustup webkit2gtk4.1-devel openssl-devel curl wget file \
-  libappindicator-gtk3-devel librsvg2-devel libxdo-devel dbus-devel shellcheck
+sudo dnf install -y rustup nodejs webkit2gtk4.1-devel openssl-devel curl wget file \
+  libappindicator-gtk3-devel librsvg2-devel libxdo-devel dbus-devel
 sudo dnf group install -y c-development
 rustup-init -y --component rustfmt,clippy
 ```
@@ -219,13 +221,24 @@ Debian/Ubuntu:
 
 ```bash
 sudo apt install -y libwebkit2gtk-4.1-dev build-essential curl wget file \
-  libxdo-dev libssl-dev libayatana-appindicator3-dev librsvg2-dev libdbus-1-dev shellcheck
+  libxdo-dev libssl-dev libayatana-appindicator3-dev librsvg2-dev libdbus-1-dev
 curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh
 ```
 
-You also need Node.js ≥ 22, cargo-deny (`cargo install --locked cargo-deny`)
-and Docker. Docker is only used to compile the embedded strongSwan and for the
-tests with a local IPsec gateway; end users do not need it.
+- Node.js ≥ 22. Some distributions package an older one (Ubuntu and Debian,
+  for example); [nvm](https://github.com/nvm-sh/nvm) reads the version CI
+  uses from `.nvmrc`.
+- Docker, which compiles the embedded strongSwan the first time
+  (`native-engine/build.sh`).
+
+**To contribute** (what `npm run check` and the tests need, on top of the
+above):
+
+- cargo-deny (`cargo install --locked cargo-deny`): licenses and security
+  advisories of the Rust dependencies; `npm run check` stops without it.
+- shellcheck 0.11.0, optional: without it, or with another version,
+  `npm run lint:sh` runs the official Docker image of that version.
+- Docker, for the end-to-end tests with a local IPsec gateway (`test:*`).
 
 ### Commands
 
