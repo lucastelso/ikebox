@@ -357,9 +357,53 @@ and in the local build), `check-private.sh --history` and `--artifacts`
 clean, gitleaks clean, the clean-VM checklist and the real VPN approved,
 `gpg --verify` and `gh attestation verify` working from the release page.
 
+## Program to 1.1.0 (decided on 2026-11-25)
+
+Goal: say plainly who Ikebox is for now that FortiGate users are being moved
+to IPsec, and make it easier to build and package without the developer
+setup. Same rules as before: one phase per session, product decisions at the
+start, every phase closed (green tests, resume/log/CHANGELOG updated).
+
+Why now: FortiOS 7.6.3 (April 2025) removed SSL-VPN tunnel mode on every
+FortiGate model, so people who reached the VPN from Linux through
+openfortivpn or openconnect are being moved to IPsec dial-up. FortiClient for
+Linux has no IPsec in its free VPN-only client; the full client needs EMS
+and does IKEv2 only. FortiOS 7.4 has engineering support until 11 May 2027
+(Fortinet moved it from 11 May 2026 in March 2026).
+
+### Maintainer decisions
+
+| Topic | Decision |
+|---|---|
+| README | A line at the top for people whose organization leaves FortiGate SSL-VPN for IPsec, and a dated paragraph in "Why this project exists" |
+| One-time codes | Already supported: the password followed by the code (Fortinet's own method for FortiToken in IKEv1), asked at every connection with `"otp": true` and never stored. Said in bold in the README and in the app. A code sent in a second XAuth round (email/SMS) stays in [After 1.0](#after-10) |
+| Engine build | A host build without Docker, **static musl only**: the same guarantees as the release engine ([ADR-0020](adr/0020-static-engine-and-lighter-builds.md), [ADR-0027](adr/0027-openssl-in-the-engine.md)). Docker stays the official, reproducible path |
+| CLI-only | A documented build of `ikebox-cli` + `ikebox-helper` + the engine, with no Node, WebKit or Docker. Servers and remote sessions get an **opt-in example polkit rule**, never installed by default |
+| Prerequisites | Building and contributing listed apart: shellcheck, cargo-deny and the E2E tests' Docker are for contributors |
+| Branches | Every branch goes through a pull request with green CI before it reaches `main`. Phases 2 and 3 meet in a `next` branch that reaches `main` only with the 1.1.0 release |
+
+### Phases
+
+| Phase | Goal | Delivery | Status |
+|---|---|---|---|
+| 0 | Preparation and CI | the maintainer's second computer set up; RUSTSEC-2026-0594 and -0592 (`cookie`, `url`, through Tauri only) fixed; Dependabot pull requests merged; the openSUSE Tumbleweed failure of the weekly run looked into | ⏳ |
+| 1 | Positioning and docs | README (FortiGate migration, one-time codes), the app's one-time code hint, build and contributor prerequisites apart, Portuguese copies | ⏳ |
+| 2 | Engine without Docker | ADR-0032: one build script for the host and the container (`native-engine/build.sh --host`), offline sources checked by SHA-256 + GPG, OpenSSL from a pinned source when the host has no static OpenSSL for musl, the container output unchanged bit for bit; host builds tested on Fedora, Ubuntu and Arch and in CI; `docs/packaging.md` for distribution packagers | ⏳ |
+| 3 | CLI-only and servers | ADR-0033: the CLI-only build documented and checked in CI without WebKit or Node; the example polkit rule for a group, tested with the real polkit; the CLI's refusal message points to it | ⏳ |
+| 4 | Release 1.1.0 | [release.md](release.md), every suite and the seven distributions, packages updated from 1.0.0 | ⏳ |
+
 ## After 1.0
 
 Not promised, in no particular order:
+
+- XAuth second round: a code sent by email or SMS after the password
+  (FortiGate's `XAUTH_PASSCODE` request). strongSwan's `xauth-generic`
+  answers it with the stored password, so it needs charon to ask the person's
+  process during the negotiation, like the key agent of ADR-0029. It waits
+  for an anonymized log of a gateway that sends it
+  ([ADR-0025](adr/0025-deferred-xauth-otp-l2tp.md); a file-based approach is
+  discussed in strongSwan's
+  [discussion #3049](https://github.com/strongswan/strongswan/discussions/3049)).
 
 - P8 `initiator_only`: needs a session on a real gateway longer than its
   phase 1 lifetime (the [audit report](audits/v0.2.0.md) has the steps).
