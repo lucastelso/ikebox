@@ -2578,3 +2578,39 @@ distributions), `test:native` and `npm run check` pass.
   THIRD_PARTY_NOTICES.
 - The work went through pull requests into `next` (#11, #13); the draft
   pull request #12 brings `next` to `main` with 1.1.0.
+
+### Step 65: phase 3, the CLI-only build and servers (ADR-0033)
+
+- **What stopped servers was polkit, not the build.** The policy lets only
+  the user of the active local session control the VPN (ADR-0014): an SSH
+  session, a WSL shell or a server without a desktop is never that, and the
+  CLI answered with the helper's English sentence. The default stays. For
+  servers there is now an example rule, never installed by the packages:
+  the members of an `ikebox` group control the VPN from any session, each
+  still only their own. It comes in two forms, JavaScript for polkit 0.106
+  and newer and a `.pkla` file for 0.105 (Ubuntu 22.04), which does not
+  read JavaScript rules.
+- **The refusal says what to do:** polkit's refusal is now its own error,
+  in the person's language, pointing to "Servers and remote sessions" in
+  docs/cli.md. Every helper since 0.2.0 words the refusal the same way, so
+  an older component gets the new message too.
+- **Tested with the real polkit** in `test:systemd`: with the rule, a group
+  member without a session is authorized and a non-member is not; without
+  it, the member is refused again. Green on the seven distributions, which
+  cover polkit 0.105 (the `.pkla` file) and 122 to 128 (the JavaScript rule).
+- **The CLI-only build** (docs/cli.md): the engine, `cargo build -p
+  ikebox-cli -p ikebox-helper`, the component bundle and `component
+  install`, with no Node, WebKitGTK or Docker. `tests/cli-only/run.sh`
+  builds and tests the two crates (and the core) on a clean Debian 13 with
+  only Rust, gcc, pkg-config and the D-Bus headers, checks that nothing of
+  the app is installed or in the dependency tree (216 crates, none of them
+  Tauri, wry, WebKitGTK or GTK), and runs in CI.
+- **Two things a packager would have hit:**
+  - `npm ci` failed in an unpacked release tarball: the `prepare` script
+    ran `lefthook install`, which needs a git work tree. It now installs the
+    hooks only inside one.
+  - A core unit test assumed it never runs as root (it checks that the
+    uninstaller must belong to root); run as root, as some build systems
+    do, it failed. It now skips itself there, and the CLI-only test builds
+    and tests as an unprivileged user.
+- The work went through pull requests into `next` (#15 to #18).
