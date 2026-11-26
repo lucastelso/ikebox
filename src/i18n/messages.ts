@@ -103,7 +103,8 @@ export const en = {
     tokenPinHint: 'Used to unlock the token for this connection; never stored.',
     tokenKeepOpen:
       'Keep Ikebox open while connected: it signs for the VPN with your token when the keys are renewed.',
-    otpHint: 'This VPN uses a one-time code: it is asked at every connection and never stored.',
+    otpHint:
+      'This VPN uses a one-time code: it is asked at every connection and never stored. If it also wants your password (FortiToken, for example), type the password followed by the code.',
     noKeyring: 'Keyring unavailable: the credentials will be asked on every connection.',
     cancel: 'Cancel',
     connect: 'Connect',
@@ -209,7 +210,8 @@ export const en = {
     xauth: 'Username and password (XAuth)',
     xauthHint: 'A second step after the PSK; asked when connecting.',
     otp: 'The password is a one-time code',
-    otpHint: 'A token or phone app code: asked at every connection, never stored.',
+    otpHint:
+      'A token or phone app code: asked at every connection, never stored. With FortiToken, the password is typed followed by the code.',
     authMethod: 'How you sign in',
     authPsk: 'Pre-shared key (PSK)',
     authEap: 'Username and password (EAP)',
@@ -506,7 +508,8 @@ export const pt: Messages = {
     tokenPinHint: 'Usado para destravar o token nesta conexão; nunca é guardado.',
     tokenKeepOpen:
       'Mantenha o Ikebox aberto enquanto estiver conectado: ele assina pela VPN com o seu token quando as chaves são renovadas.',
-    otpHint: 'Esta VPN usa um código de uso único: ele é pedido a cada conexão e nunca é guardado.',
+    otpHint:
+      'Esta VPN usa um código de uso único: ele é pedido a cada conexão e nunca é guardado. Se ela também pede a sua senha (FortiToken, por exemplo), digite a senha seguida do código.',
     noKeyring: 'Chaveiro indisponível: as credenciais serão pedidas a cada conexão.',
     cancel: 'Cancelar',
     connect: 'Conectar',
@@ -610,7 +613,8 @@ export const pt: Messages = {
     xauth: 'Usuário e senha (XAuth)',
     xauthHint: 'Uma segunda etapa depois da PSK; pedida ao conectar.',
     otp: 'A senha é um código de uso único',
-    otpHint: 'Código de token ou de app no celular: pedido a cada conexão, nunca guardado.',
+    otpHint:
+      'Código de token ou de app no celular: pedido a cada conexão, nunca guardado. No FortiToken, digita-se a senha seguida do código.',
     authMethod: 'Como você entra',
     authPsk: 'Chave compartilhada (PSK)',
     authEap: 'Usuário e senha (EAP)',
