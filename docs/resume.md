@@ -26,10 +26,10 @@
 
 ## Set up the environment (once)
 
-1. Install the prerequisites from the README, "Prerequisites" section.
-2. Install cargo-deny: `cargo install --locked cargo-deny`.
-3. Run `npm install`, which installs the git hooks.
-4. Create `.git/info/private-patterns` with your private patterns (see
+1. Install the prerequisites from the README, "Prerequisites" section: both
+   lists, "To build" and "To contribute" (cargo-deny included).
+2. Run `npm ci`, which also installs the git hooks.
+3. Create `.git/info/private-patterns` with your private patterns (see
    CONTRIBUTING.md).
 
 ## Check that everything is green

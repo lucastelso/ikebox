@@ -232,11 +232,14 @@ está em [docs/cli.md](docs/cli.md) (em inglês).
 
 ### Pré-requisitos
 
+O usuário final não precisa de nada disto. **Para compilar** o app e os
+pacotes:
+
 Fedora:
 
 ```bash
-sudo dnf install -y rustup webkit2gtk4.1-devel openssl-devel curl wget file \
-  libappindicator-gtk3-devel librsvg2-devel libxdo-devel dbus-devel shellcheck
+sudo dnf install -y rustup nodejs webkit2gtk4.1-devel openssl-devel curl wget file \
+  libappindicator-gtk3-devel librsvg2-devel libxdo-devel dbus-devel
 sudo dnf group install -y c-development
 rustup-init -y --component rustfmt,clippy
 ```
@@ -245,14 +248,25 @@ Debian/Ubuntu:
 
 ```bash
 sudo apt install -y libwebkit2gtk-4.1-dev build-essential curl wget file \
-  libxdo-dev libssl-dev libayatana-appindicator3-dev librsvg2-dev libdbus-1-dev shellcheck
+  libxdo-dev libssl-dev libayatana-appindicator3-dev librsvg2-dev libdbus-1-dev
 curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh
 ```
 
-Também é preciso Node.js ≥ 22, o cargo-deny (`cargo install --locked
-cargo-deny`) e o Docker. O Docker serve só para compilar o strongSwan
-embutido e para os testes com um gateway IPsec local; o usuário final não
-precisa dele.
+- Node.js ≥ 22. Algumas distribuições empacotam uma versão mais antiga
+  (Ubuntu e Debian, por exemplo); o [nvm](https://github.com/nvm-sh/nvm) lê
+  do `.nvmrc` a versão que a CI usa.
+- Docker, que compila o strongSwan embutido na primeira vez
+  (`native-engine/build.sh`).
+
+**Para contribuir** (o que o `npm run check` e os testes precisam, além do
+que está acima):
+
+- cargo-deny (`cargo install --locked cargo-deny`): licenças e alertas de
+  segurança das dependências Rust; o `npm run check` para sem ele.
+- shellcheck 0.11.0, opcional: sem ele, ou com outra versão, o
+  `npm run lint:sh` roda a imagem Docker oficial dessa versão.
+- Docker, para os testes de ponta a ponta com um gateway IPsec local
+  (`test:*`).
 
 ### Comandos
 

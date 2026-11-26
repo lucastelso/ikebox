@@ -79,6 +79,19 @@ the Rust side.
    being worked on live in the repository.
 5. Versions follow [SemVer](https://semver.org/).
 
+## Tools for the checks
+
+Building needs only the README's "To build" list. The checks and the tests
+also need:
+
+- **cargo-deny** (`cargo install --locked cargo-deny`): licenses and security
+  advisories of the Rust dependencies. `npm run check` stops without it.
+- **shellcheck 0.11.0**, optional: without it, or with another version,
+  `npm run lint:sh` runs the official Docker image of that version (the codes
+  change between versions).
+- **Docker**, for the end-to-end tests: they start a fake IPsec gateway and
+  the engine in containers.
+
 ## Checks
 
 | Command | What it does |
