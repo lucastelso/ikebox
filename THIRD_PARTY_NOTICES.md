@@ -54,6 +54,11 @@ corresponding source of the embedded engine (`scripts/release-sources.sh`).
   [`29b9ec24`](https://gitlab.alpinelinux.org/alpine/aports/-/tree/29b9ec24b1b5b39aeef51fa2a044210e2ec5258e/main/openssl),
   both in the release's sources archive. To rebuild, use
   `native-engine/build.sh`.
+- **Engines built on a host** (`native-engine/build.sh --host`, ADR-0032),
+  not the project's packages: they record their own OpenSSL and musl in
+  `BUILDINFO`. When the toolchain has no static OpenSSL, it is the upstream
+  release pinned in `native-engine/openssl.txt` (3.5.9, the same as the
+  builder's), compiled unchanged.
 
 ### musl libc
 

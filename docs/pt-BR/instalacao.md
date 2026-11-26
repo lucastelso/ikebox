@@ -271,7 +271,9 @@ veja [como gerar e publicar uma versão](../release.md) (em inglês).
 1. Instale os pré-requisitos "Para compilar" do
    [README](../../README.pt-BR.md#pré-requisitos), uma vez; as ferramentas de
    quem contribui não são necessárias. O Docker compila o strongSwan
-   embutido, na primeira vez.
+   embutido, na primeira vez (ou, sem Docker, o
+   `native-engine/build.sh --host` com um toolchain musl:
+   [packaging.md](../packaging.md), em inglês).
 2. Na pasta do repositório:
 
    ```bash
