@@ -7,6 +7,17 @@ and the project uses [Semantic Versioning](https://semver.org/).
 
 ## [Unreleased]
 
+### Security
+
+- Two Rust advisories in libraries that reach the app only through Tauri
+  and its webview: `cookie` 0.18.3 fixes RUSTSEC-2026-0594 (private cookie
+  nonces repeated after a `fork`) and `url` 2.5.9 fixes RUSTSEC-2026-0592
+  (stack overflow in `Url::origin()` on nested `blob:` URLs). Ikebox is not
+  affected in practice: it uses no private cookies, and the webview loads
+  only the app itself, under a strict CSP. Neither is in the released CLI or
+  network component (`url` also comes with the Docker engine, which only
+  development builds carry).
+
 ## [1.0.0] - 2026-11-18
 
 ### Changed (the name)
