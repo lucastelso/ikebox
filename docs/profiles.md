@@ -97,7 +97,10 @@ the client and how the gateway authenticates:
 
 - `"otp": true` says the XAuth password is a **one-time code** (a token or an
   app on the phone): the app asks for it at every connection and never
-  stores it in the keyring.
+  stores it in the keyring. With a FortiToken, the person types the password
+  followed by the code (`password123456`), which is how FortiGate takes it
+  in IKEv1. A code the gateway asks for in a second XAuth request (email or
+  SMS) is not supported yet ([ADR-0025](adr/0025-deferred-xauth-otp-l2tp.md)).
 - Schema 1 `"method": "psk"` is `local: [psk]`; `"psk-xauth"` is
   `local: [psk, xauth]`; `local_id` is the `id` of the PSK round and
   `remote_id` the `id` of `remote`.
