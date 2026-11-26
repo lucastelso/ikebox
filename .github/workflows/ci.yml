@@ -160,6 +160,17 @@ jobs:
           --engine "target/engine-host/ikebox-engine-$version-x86_64.tar.gz"
           --tools "target/engine-host/ikebox-engine-tools-$version-x86_64.tar.gz" "$version"
 
+  cli-only:
+    name: CLI only (no WebKitGTK, Node or Docker in the build)
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - name: ikebox-cli and ikebox-helper on a clean Debian 13, built and tested unprivileged (ADR-0033)
+        run: tests/cli-only/run.sh
+
   packaging:
     name: Network component installer (container)
     runs-on: ubuntu-24.04
