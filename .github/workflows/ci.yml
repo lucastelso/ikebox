@@ -137,6 +137,29 @@ jobs:
       - name: IPsec modes (IKEv1 main/aggressive, PSK, XAuth, IKEv2; NAT-T, PFS, VIP, full tunnel)
         run: npm run test:modes
 
+  engine-host:
+    name: Engine built on the host (musl toolchain, no builder image)
+    runs-on: ubuntu-24.04
+    timeout-minutes: 40
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - name: xfrm_interface module
+        run: sudo modprobe xfrm_interface
+      - name: musl toolchain (Ubuntu's own packages)
+        run: sudo apt-get update && sudo apt-get install -y --no-install-recommends musl-tools linux-libc-dev pkg-config python3
+      - name: Sources checked by SHA-256 + GPG, then the build from them (ADR-0032)
+        run: >-
+          native-engine/build.sh --fetch target/engine-sources &&
+          native-engine/build.sh --host --sources target/engine-sources --out target/engine-host
+      - name: E2E with the host-built engine (includes the ADR-0019 attack)
+        run: >-
+          version=$(grep -vE '^\s*(#|$)' native-engine/versions.txt | head -n 1 | awk '{print $1}') &&
+          native-engine/spike/run-e2e.sh
+          --engine "target/engine-host/ikebox-engine-$version-x86_64.tar.gz"
+          --tools "target/engine-host/ikebox-engine-tools-$version-x86_64.tar.gz" "$version"
+
   packaging:
     name: Network component installer (container)
     runs-on: ubuntu-24.04

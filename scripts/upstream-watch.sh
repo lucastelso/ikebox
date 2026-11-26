@@ -5,7 +5,9 @@
 #   - a strongSwan release newer than the one pinned in native-engine/versions.txt;
 #   - a new revision of OpenSSL or musl in the engine builder's Alpine (they are
 #     linked statically: a security fix there means rebuilding the engine),
-#     compared with the ones inside the latest published release.
+#     compared with the ones inside the latest published release;
+#   - an OpenSSL release in that Alpine other than the one host builds compile
+#     (native-engine/openssl.txt, ADR-0032): the two should move together.
 #
 # Prints what it finds. With --issue (CI, with GH_TOKEN), opens one issue per
 # finding, unless an open issue with the same title exists.
@@ -43,6 +45,14 @@ available=$(docker run --rm "$builder" sh -c \
 alpine_openssl=$(sed -n 's/^openssl-libs-static-\([^ ]*\) .*/\1/p' <<<"$available" | head -n 1)
 alpine_musl=$(sed -n 's/^musl-dev-\([^ ]*\) .*/\1/p' <<<"$available" | head -n 1)
 note "Alpine now: OpenSSL ${alpine_openssl:-?}, musl ${alpine_musl:-?}"
+
+# The OpenSSL that host builds compile follows the builder's upstream release.
+host_openssl=$(grep -vE '^\s*(#|$)' "$repo/native-engine/openssl.txt" | head -n 1 | awk '{print $1}')
+alpine_upstream=${alpine_openssl%-r*}
+if [[ -n $alpine_upstream && $alpine_upstream != "$host_openssl" ]]; then
+    note "host builds compile OpenSSL $host_openssl; the builder has $alpine_upstream"
+    findings+=("OpenSSL $alpine_upstream for host builds|The builder's Alpine moved to OpenSSL $alpine_upstream, while host builds (native-engine/build.sh --host) compile $host_openssl from native-engine/openssl.txt. Pin $alpine_upstream there with its SHA-256, checked together with the official signature (keys/openssl-release.asc), update native-engine/licenses/ if the license text changed, and run tests/engine-host/run.sh (ADR-0032).")
+fi
 
 # What the latest release carries (its engine's BUILDINFO), when there is one.
 shipped=""
