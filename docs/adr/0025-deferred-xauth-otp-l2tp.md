@@ -55,3 +55,18 @@ IPsec. Both show up in old VPNs, and both cost more than they give today.
   gateway to test against. Rejected for now.
 - **L2TP through NetworkManager from the app:** another backend with
   different guarantees (no forced `updown`, no if_id). Rejected.
+
+## Update, 2026-11-25 (program to 1.1.0)
+
+- **FortiToken works with the first case.** For IKEv1 dial-up, Fortinet's
+  own advice is to type the password followed by the FortiToken code
+  (FortiClient on Windows joins them by itself). That is a profile with
+  `"otp": true`: the code is asked at every connection and never stored. The
+  README and the app now say so.
+- **The second exchange is FortiGate's email or SMS code:** after the
+  password, the gateway sends another XAuth request (`XAUTH_PASSCODE`, with a
+  prompt such as "Email Code"). It is still deferred, for the same reason as
+  above: it waits for a real gateway's anonymized log, and the design would
+  have charon ask the person's process during the negotiation, as the key
+  agent of [ADR-0029](0029-smartcards-and-tokens.md) does for signatures.
+  The README asks for that log.
