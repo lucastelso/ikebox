@@ -1,0 +1,10 @@
+# OpenSSL compiled by the host build (native-engine/build.sh --host) when the
+# host has no static OpenSSL for musl (ADR-0032). It is the same upstream
+# release as the builder's Alpine package (openssl-libs-static 3.5.9), whose
+# license text is in licenses/openssl/: change both together.
+# version  url-of-the-tarball  sha256-of-the-tarball
+# Checked on 2026-11-25 together with the official signature (url + ".asc"):
+# signing subkey C46ED3F2CBEFDA1FDAADA44264ED7B1DCCE71CB2 of OpenSSL's release
+# key B146647E45A7B33947AB226B2A2C87D161692D40 (keys/openssl-release.asc; the
+# fingerprint is the one openssl-library.org/source gives).
+3.5.9  https://github.com/openssl/openssl/releases/download/openssl-3.5.9/openssl-3.5.9.tar.gz  603f5602e2eef00d77fbd429d34dcd5822bb301757a1bc9cdb24c670f1eb859a
