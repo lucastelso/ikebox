@@ -2614,3 +2614,26 @@ distributions), `test:native` and `npm run check` pass.
     do, it failed. It now skips itself there, and the CLI-only test builds
     and tests as an unprivileged user.
 - The work went through pull requests into `next` (#15 to #18).
+
+### Step 66: phase 4, Ikebox 1.1.0
+
+- **Version 1.1.0** (`scripts/set-version.sh`), the CHANGELOG section, the
+  AppStream `<release>`, and the notes in English and Portuguese
+  ([v1.1.0](releases/v1.1.0.md)).
+- **The release gate, on the release commit:** `npm run check`, `test:engine`,
+  `test:docker`, `test:cli`, `test:native`, `test:systemd`, `test:modes`,
+  `test:packaging`, `test:compat` (seven distributions), `test:engine-host`
+  (Fedora, Ubuntu, Arch), `test:cli-only` and a development build of the
+  three packages: all green. Those packages, installed over the 1.0.0 ones
+  (downloaded and checked against the release key) with each distribution's
+  package manager, upgraded cleanly on the seven, with the network component
+  still managed by the package.
+- `next` reached `main` (#12) and the tag `v1.1.0` was pushed by name. CI
+  built, the maintainer approved the signature, and the draft was checked
+  here: no private data in the packages (`check-private.sh --artifacts`),
+  `SHA256SUMS` signed by the project's subkey, every file matching it,
+  `rpm -K` good, the four attestations valid, and the network component
+  identical to the local build's (its engine is the `c245c23a…` of step 64,
+  so the release engine did not move with the new build script). Published
+  on 2026-11-26 as the latest release; the public API answers `v1.1.0`.
+- The program to 1.1.0 is complete.
