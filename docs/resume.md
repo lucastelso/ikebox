@@ -15,11 +15,14 @@
 - **Programs behind us:** the post-0.2.0 program (phases 1 to 10) and the
   [program to 1.0.0](roadmap.md#program-to-100-decided-on-2026-11-18)
   (phases 0, A–I, steps 49 to 62).
-- **Next:** nothing is planned yet. Candidates are in
-  [roadmap → After 1.0](roadmap.md#after-10); a new program starts with the
-  maintainer's choice. A patch release follows [release.md](release.md):
-  `scripts/set-version.sh`, CHANGELOG, notes, tag, approval, local checks,
-  publish.
+- **Program to 1.1.0** ([roadmap](roadmap.md#program-to-110-decided-on-2026-11-25),
+  decided on 2026-11-25): phases 0 (second computer, CI green again) and 1
+  (README for FortiGate users moved off SSL-VPN, one-time codes, build and
+  contributor prerequisites apart) are done (step 63).
+- **Next: phase 2**, the engine built without Docker (ADR-0032), in a new
+  session. Its branches merge into a `next` branch, with a draft pull request
+  `next` → `main`; `main` gets them only with the 1.1.0 release. Every branch
+  goes through a pull request with green CI.
 - **Waiting for the maintainer:** P8 (`initiator_only`) is not concluded: it
   needs a session longer than the gateway's phase 1 lifetime (the
   [audit report](audits/v0.2.0.md) has the steps).
@@ -54,7 +57,8 @@ old helper refuses the new request, as it should.
 
 - No real VPN data in the repository (ADR-0010). The guard runs in the hooks.
 - One branch per roadmap item and Conventional Commits in English.
-- `--no-ff` merge with `npm run check` green; the branch is deleted after the
-  merge (the merge commit keeps its name).
+- Every branch is pushed with a pull request; `--no-ff` merge with
+  `npm run check` and the pull request's CI green; the branch is deleted after
+  the merge (the merge commit keeps its name).
 - On every relevant step, an entry in the development log. On every merge,
   update this file, the roadmap and the CHANGELOG.

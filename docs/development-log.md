@@ -2482,3 +2482,54 @@ distributions), `test:native` and `npm run check` pass.
   and the "latest release" API answers `v1.0.0`, so the optional update
   notice (phase F) finally has a real answer to read.
 - The program to 1.0.0 is complete.
+
+## 2026-11-25: program to 1.1.0
+
+### Step 63: the program, CI green again, and phase 1
+
+- **Second computer.** The maintainer set up a new machine: rustup with the
+  pinned 1.100.0, Node 22, cargo-deny, `npm ci` for the hooks. The private
+  pattern file had been dropped at the repository root, where git did not
+  ignore it; it was moved to `.git/info/private-patterns` (mode 600) before
+  any commit, without being read.
+- **The program** ([roadmap](roadmap.md#program-to-110-decided-on-2026-11-25)):
+  say who Ikebox is for now that FortiGate users are moved off SSL-VPN, say
+  plainly how one-time codes work, build the engine without Docker (static
+  musl only), a CLI-only target with an opt-in polkit rule for servers, and
+  pull requests before `main` (phases 2 and 3 meet in `next`).
+- **Facts checked against Fortinet's documentation** before they went into
+  the README: FortiOS 7.6.3 removed SSL-VPN tunnel mode on every model;
+  FortiClient's free Linux client has no IPsec, the full client needs EMS
+  and FortiClient 8.0 speaks IKEv2 only. One correction to what came in: the
+  end of engineering support of FortiOS 7.4 is **11 May 2027**, moved from
+  11 May 2026 by Fortinet's bulletin CSB-260330-1 (March 2026).
+- **FortiToken already works.** Fortinet's own advice for IKEv1 dial-up is
+  the password followed by the code, which is a profile with `"otp": true`
+  (phase 7). What stays deferred is FortiGate's email/SMS code, sent in a
+  second XAuth request (ADR-0025, dated note).
+- **CI had been red since 2026-11-23**, on `main`'s weekly run and on the
+  three Dependabot pull requests:
+  - cargo-deny: RUSTSEC-2026-0594 (`cookie`, nonces repeated after a
+    `fork`) and RUSTSEC-2026-0592 (`url`, stack overflow in `origin()` on
+    nested `blob:` URLs), both reached only through Tauri (and `url` through
+    the development Docker engine). No practical impact, so no 1.0.1:
+    `cargo update` to `cookie` 0.18.3 and `url` 2.5.9, then the Dependabot
+    pull requests were rebased and merged.
+  - openSUSE Tumbleweed, `test:systemd`, ADR-0019 attack scenario: "the
+    forced updown did not run". The attack was blocked; the route check ran
+    right after `swanctl --initiate` returned, before the forced updown had
+    added the route. Same race as the DNS checks of step 62. (The journal
+    line "ipsc0 exists and is not an XFRM interface" is the scenario just
+    before, which puts a bridge named ipsc0 on purpose.) It passed three
+    times in a row locally, and a rerun of the weekly job passed with no
+    change, so it was timing. The route checks now retry for up to 10 s.
+- **Phase 1:** the README (and its Portuguese copy) opens with the line for
+  people whose organization leaves FortiGate SSL-VPN for IPsec, explains the
+  2025 change with links, and says in bold how a FortiToken code is typed
+  and that it is never stored; the quick start and profiles.md say the
+  same. The app's one-time code hint, in the credentials dialog and the
+  profile editor, says it too. The prerequisites are split into "To build"
+  and "To contribute" (README, CONTRIBUTING, installation guide).
+- **Pull requests first.** Every branch went to GitHub with a pull request
+  and was merged into `main` only with its CI green (#4 to #9), Dependabot's
+  #1 to #3 included. Phases 2 and 3 will meet in a `next` branch.
