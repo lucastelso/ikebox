@@ -218,6 +218,8 @@ main() {
         "$repo/tests/engine/initiator.conf.in" \
         "$repo/crates/core/tests/fixtures/test-gateway.json" "$work/"
     install -m 0755 "$here/inside.sh" "$work/"
+    install -m 0644 "$repo/packaging/polkit/examples/50-ikebox-group.rules" \
+        "$repo/packaging/polkit/examples/50-ikebox-group.pkla" "$work/"
     install -d -m 0755 "$work/modes"
     install -m 0644 "$repo/tests/modes/make_profile.py" "$work/modes/"
     install -m 0755 "$repo/tests/modes/inside.sh" "$work/modes/"

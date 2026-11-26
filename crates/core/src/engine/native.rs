@@ -81,6 +81,10 @@ impl NativeEngine {
             Response::Error { message } if message.contains("unknown field") => {
                 Err(EngineError::HelperOutdated)
             }
+            // polkit refused (every helper since 0.2.0 says it this way).
+            Response::Error { message } if message.starts_with("not authorized") => {
+                Err(EngineError::NotAuthorized)
+            }
             Response::Error { message } => Err(EngineError::Helper(message)),
             other => Ok(other),
         }
@@ -185,6 +189,19 @@ mod tests {
         });
         let err = engine.stop().expect_err("erro");
         assert!(err.to_string().contains("não autorizado"), "{err}");
+
+        // polkit's refusal says what to do on a server (ADR-0033).
+        let (_d, engine) = fake_helper(Response::Error {
+            message:
+                "not authorized: only the user of the active local session can control the VPN"
+                    .into(),
+        });
+        let err = engine.stop().expect_err("refused");
+        assert!(matches!(err, EngineError::NotAuthorized), "{err:?}");
+        assert!(
+            err.to_string().contains("Servers and remote sessions"),
+            "{err}"
+        );
 
         let (_d, engine) = fake_helper(Response::Stopped { was_running: true });
         assert!(engine.status().is_err(), "resposta trocada é erro");

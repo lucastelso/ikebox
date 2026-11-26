@@ -87,6 +87,20 @@ pub enum EngineError {
     ))]
     HelperOutdated,
 
+    /// polkit refused this session: only the user of the active local session
+    /// may control the VPN by default, so an SSH or WSL session, or a server
+    /// without a desktop, is refused until an administrator allows a group
+    /// (ADR-0033).
+    #[error("{}", crate::tr!(
+        "not authorized: only the user of the active local session can control the VPN. \
+         On a server or over SSH, an administrator can allow a group: see docs/cli.md, \
+         \"Servers and remote sessions\"",
+        "não autorizado: só quem está na sessão local ativa pode controlar a VPN. \
+         Num servidor ou por SSH, um administrador pode liberar um grupo: veja docs/cli.md, \
+         \"Servers and remote sessions\""
+    ))]
+    NotAuthorized,
+
     /// Problem with the VICI socket directory.
     #[error("{}", crate::trf!("runtime directory: {}", "diretório de runtime: {}", .0))]
     RuntimeDir(String),
