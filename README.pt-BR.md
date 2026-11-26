@@ -14,13 +14,18 @@ agressivo, PSK de grupo + XAuth, grupos DH antigos. É o tipo de VPN corporativa
 que os clientes atuais do Linux já não conseguem conectar.
 
 Ele conecta em **IKEv1** (modo agressivo ou principal, PSK de grupo com
-XAuth, o seu certificado) e em **IKEv2** (PSK, usuário e senha com EAP, o seu
-certificado em arquivo ou num **smartcard ou token**), com o próprio
-strongSwan dentro: nada para configurar no sistema, sem Docker. Os perfis
-podem ser compartilhados com colegas (sem credenciais), criados no app a
-partir de modelos de fornecedor, ou importados de Cisco `.pcf`, vpnc,
-NetworkManager, `ipsec.conf` e FortiClient. Todos os modos são testados de
-ponta a ponta, e o motor, em sete distribuições.
+XAuth, com ou sem código do FortiToken, o seu certificado) e em **IKEv2**
+(PSK, usuário e senha com EAP, o seu certificado em arquivo ou num
+**smartcard ou token**), com o próprio strongSwan dentro: nada para
+configurar no sistema, sem Docker. Os perfis podem ser compartilhados com
+colegas (sem credenciais), criados no app a partir de modelos de fornecedor,
+ou importados de Cisco `.pcf`, vpnc, NetworkManager, `ipsec.conf` e
+FortiClient. Todos os modos são testados de ponta a ponta, e o motor, em sete
+distribuições.
+
+> **Para quando** a sua organização migra do SSL-VPN do FortiGate para IPsec
+> (ou ainda usa IKEv1 legado + XAuth) e o FortiClient para Linux deixa o
+> IPsec de fora ou o prende ao EMS.
 
 <p align="center">
   <img src="docs/screenshots/connected-pt-light.png" width="260" alt="Conectado: IP virtual, tempo, tráfego, redes e o log da conexão">
@@ -47,6 +52,17 @@ suporte foi abandonado. E as ferramentas nativas não ajudam:
 - o NetworkManager não cobre bem a combinação **PSK de grupo + XAuth em modo
   agressivo**.
 
+Desde 2025 isso atinge muito mais gente. Durante anos, quem usava Linux
+acessava VPNs FortiGate pelo SSL-VPN, com o openfortivpn ou o openconnect. O
+FortiOS 7.6.3 (abril de 2025) [removeu o modo túnel do SSL-VPN em todos os
+modelos de FortiGate](https://docs.fortinet.com/document/fortigate/7.6.3/fortios-release-notes/173430/ssl-vpn-tunnel-mode-no-longer-supported),
+e a Fortinet o substitui por IPsec dial-up. No Linux, o cliente gratuito só
+de VPN do FortiClient [não tem IPsec](https://docs.fortinet.com/document/forticlient/7.4.3/administration-guide/269779/standalone-vpn-client);
+o cliente completo exige licença do EMS, não cria túneis IPsec pessoais e,
+na versão 8.0, [só fala IKEv2](https://docs.fortinet.com/document/forticlient/8.0.0/administration-guide/494391/configuring-an-ipsec-vpn-connection).
+Quem continua no FortiOS 7.4 mantém o SSL-VPN por enquanto: o suporte de
+engenharia dele termina em [11 de maio de 2027](https://community.fortinet.com/fortigate-3/technical-tip-fortios-end-of-support-change-for-fortios-v7-4-and-v7-6-224876).
+
 O Ikebox resolve isso trazendo o **próprio strongSwan** (6.1.0,
 compilado a partir do código-fonte oficial). Ele mantém os algoritmos legados
 sem rebaixar nada no sistema. Para o usuário, é um app com perfis, credenciais
@@ -66,7 +82,7 @@ guardadas com segurança, diagnóstico e ícone na bandeja.
 
 | Caso | Use |
 |---|---|
-| VPN SSL do FortiGate (SSL-VPN) | [openfortivpn](https://github.com/adrienverge/openfortivpn) |
+| Modo túnel do SSL-VPN do FortiGate (FortiOS 7.6.2 e anteriores; o 7.6.3 o removeu) | [openfortivpn](https://github.com/adrienverge/openfortivpn) |
 | L2TP/IPsec, OpenVPN, WireGuard | Fora do escopo: há bons clientes nativos |
 | Windows / macOS | O cliente oficial do fabricante |
 
@@ -143,6 +159,14 @@ cada escolha está nos [ADRs](docs/adr/README.md).
   - o componente de rede, que roda como root, **nunca** as recebe: elas vão
     do app direto para o strongSwan;
   - "lembrar credenciais" usa o chaveiro do sistema (GNOME Keyring/KWallet).
+- **FortiToken e outros códigos de uso único: digite a senha seguida do
+  código** (`senha123456`), que é o próprio método da Fortinet para o IKEv1.
+  **Com "A senha é um código de uso único" ligado no perfil, ela é pedida a
+  cada conexão e nunca é guardada: nem em disco, nem no chaveiro.** Ainda sem
+  suporte: um código enviado por e-mail ou SMS numa segunda etapa (um
+  segundo pedido de XAuth). Se o seu gateway faz isso,
+  [abra uma issue](https://github.com/lucastelso/ikebox/issues/new/choose)
+  com o log anonimizado ([ADR-0025](docs/adr/0025-deferred-xauth-otp-l2tp.md)).
 - **Componente de rede:**
   - é instalado uma vez, com a senha de administrador, e o instalador confere
     os hashes de todos os arquivos;

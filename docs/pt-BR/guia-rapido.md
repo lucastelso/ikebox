@@ -57,6 +57,11 @@ O que ele pede depende da VPN. Se a sua usa **certificado** (um arquivo
 o arquivo** e digitar a senha dele: a chave vai para o chaveiro do sistema,
 e depois você pode apagar o arquivo.
 
+Com **FortiToken** (ou outro código de token ou de app no celular), digite a
+senha seguida do código no campo da senha, por exemplo `senha123456`. Se o
+perfil diz que a senha é um código de uso único, o app pede a cada conexão e
+nunca guarda; se não diz, deixe **Lembrar** desmarcado.
+
 Marque **Lembrar no chaveiro do sistema** para não digitar de novo. O topo da
 janela mostra o estado pela cor: âmbar enquanto conecta, **verde** com
 **Conectado** quando a VPN está ativa (abra o Remmina, ou o que você usa,

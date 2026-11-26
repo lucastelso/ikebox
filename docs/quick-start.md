@@ -58,6 +58,12 @@ or `.pfx` file from your company), the first time the app asks you to
 **choose the file** and type its password: the key goes to the system
 keyring, and you can delete the file afterwards.
 
+With a **FortiToken** (or another code from a token or a phone app), type
+your password followed by the code in the password field, for example
+`password123456`. If the profile says the password is a one-time code, the
+app asks for it at every connection and never stores it; if it does not,
+leave **Remember** unchecked.
+
 Check **Remember in the system keyring** so you do not have to type them
 again. The top of the window shows the state by its color: amber while
 connecting, **green** with **Connected** when the VPN is on (open Remmina, or
